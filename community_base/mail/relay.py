@@ -114,7 +114,8 @@ class RelayMailClient:
         if delivery.category:
             payload["category"] = delivery.category
         if delivery.sender_id:
-            payload["sender_id"] = delivery.sender_id
+            # Relay's existing API calls the approved sender identifier `from_email`.
+            payload["from_email"] = delivery.sender_id
         document = self._request(
             "POST",
             "/api/transactional/send",

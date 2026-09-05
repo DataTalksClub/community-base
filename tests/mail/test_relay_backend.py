@@ -47,7 +47,7 @@ def test_fake_relay_send_reaches_provider_accepted(relay_settings):
     assert payload["email"] == "person@example.com"
     assert payload["context"] == {"event_name": "Test event"}
     assert payload["template_version"] == 1
-    assert payload["sender_id"] == "courses"
+    assert payload["from_email"] == "courses"
 
 
 @pytest.mark.django_db(transaction=True)
