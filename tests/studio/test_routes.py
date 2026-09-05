@@ -33,6 +33,7 @@ def test_deep_routes_activate_each_package_destination():
         ("community_base_api_key_revoke", "api_keys", True),
         ("community_base_job_retry", "jobs", False),
         ("community_base_mail_delivery", "mail", False),
+        ("community_base_content_sync_history", "content_sync", False),
     )
 
     for route_name, destination, superuser in cases:

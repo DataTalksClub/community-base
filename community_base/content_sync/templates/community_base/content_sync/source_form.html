@@ -1,0 +1,8 @@
+{% extends "community_base/studio/base.html" %}
+{% block title %}Edit content source{% endblock %}
+{% block content %}
+<div class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Edit {{ source.slug }}</h1></header>
+  <form class="cb-form" method="post">{% csrf_token %}{{ form.as_p }}<button class="cb-button" type="submit">Save source</button></form>
+</div>
+{% endblock %}

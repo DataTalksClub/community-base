@@ -1,0 +1,9 @@
+{% extends "community_base/studio/base.html" %}
+{% block title %}Content sync history{% endblock %}
+{% block content %}
+<div class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Content sync history</h1></header>
+  <form class="cb-form" method="get"><label class="cb-field">Source <select name="source"><option value="">All</option>{% for source in sources %}<option value="{{ source.slug }}"{% if source.slug == selected_source %} selected{% endif %}>{{ source.repo_name }}</option>{% endfor %}</select></label><button class="cb-button" type="submit">Filter</button></form>
+  {% if logs %}<ul class="cb-list">{% for log in logs %}<li class="cb-card"><h2 class="cb-card-title">{{ log.source.repo_name }}</h2><p class="cb-card-meta"><span class="cb-badge">{{ log.status }}</span> {{ log.started_at }} · commit {{ log.commit_sha|default:"none" }}</p><p>Created {{ log.items_created }} · updated {{ log.items_updated }} · unchanged {{ log.items_unchanged }} · deleted {{ log.items_deleted }}</p>{% if log.errors %}<p>{{ log.errors|length }} parser error{{ log.errors|length|pluralize }} recorded.</p>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="cb-empty">No sync history.</p>{% endif %}
+</div>
+{% endblock %}

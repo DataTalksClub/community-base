@@ -1,0 +1,9 @@
+{% extends "community_base/studio/base.html" %}
+{% block title %}Content sync worker{% endblock %}
+{% block content %}
+<div class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Content sync worker</h1></header>
+  <section class="cb-card"><h2 class="cb-card-title">Job intents</h2><ul>{% for status, count in counts %}<li>{{ status }}: {{ count }}</li>{% endfor %}</ul></section>
+  <section><h2>Locked sources</h2>{% if locked_sources %}<ul class="cb-list">{% for source in locked_sources %}<li class="cb-card">{{ source.repo_name }} · locked {{ source.sync_locked_at }}</li>{% endfor %}</ul>{% else %}<p class="cb-empty">No sources are locked.</p>{% endif %}</section>
+</div>
+{% endblock %}

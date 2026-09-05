@@ -13,6 +13,7 @@ urlpatterns = [
     path("studio/", include("community_base.studio.urls")),
     path("studio/", include("community_base.jobs.studio_urls")),
     path("studio/", include("community_base.mail.studio_urls")),
+    path("studio/", include("community_base.content_sync.studio_urls")),
     path("studio/", include("community_base.api.urls")),
     path("studio/", include("community_base.config.urls")),
 ]
