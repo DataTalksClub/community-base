@@ -57,6 +57,9 @@ def configured(monkeypatch):
         "ZOOM_API_BASE_URL": "https://api.zoom.test/v2",
         "ZOOM_OAUTH_URL": "https://zoom.test/oauth/token",
         "ZOOM_HTTP_TIMEOUT": 7,
+        "ZOOM_AUTO_RECORDING": "cloud",
+        "ZOOM_JOIN_BEFORE_HOST": False,
+        "ZOOM_WAITING_ROOM": False,
     }
     monkeypatch.setattr(zoom, "get_config", values.get)
     return values
@@ -150,7 +153,7 @@ def test_zoom_rejects_unsafe_endpoints_and_unbounded_timeouts(configured):
         ZoomClient(session=Session()).create_meeting(request())
 
 
-def test_event_request_preserves_local_timezone_and_duration():
+def test_event_request_preserves_local_timezone_and_duration(monkeypatch):
     item = Event(
         title="Office hours",
         slug="office-hours",
@@ -159,8 +162,17 @@ def test_event_request_preserves_local_timezone_and_duration():
         timezone="Europe/Berlin",
     )
 
+    values = {
+        "ZOOM_AUTO_RECORDING": "local",
+        "ZOOM_JOIN_BEFORE_HOST": True,
+        "ZOOM_WAITING_ROOM": True,
+    }
+    monkeypatch.setattr(zoom, "get_config", values.get)
     result = meeting_request_for_event(item)
 
     assert result.start_time.hour == 18
     assert result.duration_minutes == 90
     assert result.timezone == "Europe/Berlin"
+    assert result.auto_recording == "local"
+    assert result.join_before_host is True
+    assert result.waiting_room is True

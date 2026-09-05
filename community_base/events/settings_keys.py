@@ -80,3 +80,27 @@ declare(
     value_type="int",
     default=10,
 )
+declare(
+    key="ZOOM_AUTO_RECORDING",
+    group="zoom",
+    label="Zoom auto recording",
+    description="Zoom recording mode: cloud, local or none.",
+    value_type="str",
+    default="cloud",
+)
+declare(
+    key="ZOOM_JOIN_BEFORE_HOST",
+    group="zoom",
+    label="Zoom join before host",
+    description="Allow participants to join before the host.",
+    value_type="bool",
+    default=False,
+)
+declare(
+    key="ZOOM_WAITING_ROOM",
+    group="zoom",
+    label="Zoom waiting room",
+    description="Require participants to enter the waiting room.",
+    value_type="bool",
+    default=False,
+)

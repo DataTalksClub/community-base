@@ -63,11 +63,17 @@ def meeting_request_for_event(event):
         local_start = event.start_datetime.astimezone(ZoneInfo(zone_name))
     except (ZoneInfoNotFoundError, ValueError) as error:
         raise ZoomConfigurationError("Event timezone is invalid.") from error
+    auto_recording = get_config("ZOOM_AUTO_RECORDING")
+    if auto_recording not in {"cloud", "local", "none"}:
+        raise ZoomConfigurationError("Zoom auto recording mode is invalid.")
     return ZoomMeetingRequest(
         topic=event.title,
         start_time=local_start,
         duration_minutes=duration,
         timezone=zone_name,
+        auto_recording=auto_recording,
+        join_before_host=get_config("ZOOM_JOIN_BEFORE_HOST"),
+        waiting_room=get_config("ZOOM_WAITING_ROOM"),
     )
 
 
