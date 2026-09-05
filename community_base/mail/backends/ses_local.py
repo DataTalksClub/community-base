@@ -208,19 +208,34 @@ def configured_client():
 
 
 def _raise_transport_error(delivery: EmailDelivery, error: Exception) -> None:
-    if isinstance(error, (PermanentJobError, ImproperlyConfigured)):
+    if isinstance(error, PermanentJobError):
+        _update_failure(delivery, EmailDelivery.State.DEAD, error.code)
+        raise error
+    if isinstance(error, ImproperlyConfigured):
         _update_failure(delivery, EmailDelivery.State.DEAD, "ses_configuration_error")
-        if isinstance(error, PermanentJobError):
-            raise error
         raise PermanentJobError("ses_configuration_error") from error
     try:
-        from botocore.exceptions import ClientError, ConnectTimeoutError, ReadTimeoutError
+        from botocore.exceptions import (
+            BotoCoreError,
+            ClientError,
+            ConnectionClosedError,
+            ConnectTimeoutError,
+            EndpointConnectionError,
+            NoCredentialsError,
+            PartialCredentialsError,
+            ReadTimeoutError,
+        )
     except ImportError:
-        ClientError = ConnectTimeoutError = ReadTimeoutError = ()
-    if isinstance(error, ReadTimeoutError):
+        BotoCoreError = ClientError = ()
+        ConnectionClosedError = ConnectTimeoutError = EndpointConnectionError = ()
+        NoCredentialsError = PartialCredentialsError = ReadTimeoutError = ()
+    if isinstance(error, (NoCredentialsError, PartialCredentialsError)):
+        _update_failure(delivery, EmailDelivery.State.DEAD, "ses_configuration_error")
+        raise PermanentJobError("ses_configuration_error") from error
+    if isinstance(error, (ReadTimeoutError, ConnectionClosedError)):
         _update_failure(delivery, EmailDelivery.State.AMBIGUOUS, "ses_ambiguous")
         raise PermanentJobError("ses_delivery_ambiguous") from error
-    if isinstance(error, ConnectTimeoutError):
+    if isinstance(error, (ConnectTimeoutError, EndpointConnectionError)):
         _update_failure(delivery, EmailDelivery.State.RETRYABLE, "ses_unavailable")
         raise RetryableJobError("ses_unavailable") from error
     if isinstance(error, ClientError):
@@ -233,6 +248,9 @@ def _raise_transport_error(delivery: EmailDelivery, error: Exception) -> None:
         if code in retryable_codes:
             _update_failure(delivery, EmailDelivery.State.RETRYABLE, "ses_unavailable")
             raise RetryableJobError("ses_unavailable") from error
+    if isinstance(error, BotoCoreError):
+        _update_failure(delivery, EmailDelivery.State.AMBIGUOUS, "ses_ambiguous")
+        raise PermanentJobError("ses_delivery_ambiguous") from error
     _update_failure(delivery, EmailDelivery.State.DEAD, "ses_rejected")
     raise PermanentJobError("ses_rejected") from error
 

@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import patch
 
 import pytest
@@ -11,6 +13,8 @@ from django.db import transaction
 
 from community_base.config.registry import definition
 from community_base.jobs.models import JobIntent
+from community_base.jobs.runner import PermanentJobError, RetryableJobError
+from community_base.mail.backends import ses_local
 from community_base.mail.backends.ses_local import render_delivery
 from community_base.mail.models import EmailDelivery
 from community_base.mail.service import MailError, send
@@ -69,6 +73,38 @@ PREVIEW_CONTEXTS = {
 }
 
 
+class FakeBotoCoreError(Exception):
+    pass
+
+
+class FakeClientError(Exception):
+    pass
+
+
+class FakeConnectionClosedError(FakeBotoCoreError):
+    pass
+
+
+class FakeConnectTimeoutError(FakeBotoCoreError):
+    pass
+
+
+class FakeEndpointConnectionError(FakeBotoCoreError):
+    pass
+
+
+class FakeNoCredentialsError(FakeBotoCoreError):
+    pass
+
+
+class FakePartialCredentialsError(FakeBotoCoreError):
+    pass
+
+
+class FakeReadTimeoutError(FakeBotoCoreError):
+    pass
+
+
 class StubSES:
     def __init__(self, response=None):
         self.response = response or {"MessageId": "ses-message-1"}
@@ -76,6 +112,8 @@ class StubSES:
 
     def send_email(self, **kwargs):
         self.calls.append(kwargs)
+        if isinstance(self.response, Exception):
+            raise self.response
         return self.response
 
 
@@ -89,6 +127,27 @@ def ses_settings(settings):
         "STUDIO_TITLE": "AI Shipping Labs Studio",
     }
     return settings
+
+
+@pytest.fixture
+def fake_botocore(monkeypatch):
+    package = ModuleType("botocore")
+    exceptions = ModuleType("botocore.exceptions")
+    classes = {
+        "BotoCoreError": FakeBotoCoreError,
+        "ClientError": FakeClientError,
+        "ConnectionClosedError": FakeConnectionClosedError,
+        "ConnectTimeoutError": FakeConnectTimeoutError,
+        "EndpointConnectionError": FakeEndpointConnectionError,
+        "NoCredentialsError": FakeNoCredentialsError,
+        "PartialCredentialsError": FakePartialCredentialsError,
+        "ReadTimeoutError": FakeReadTimeoutError,
+    }
+    for name, value in classes.items():
+        setattr(exceptions, name, value)
+    package.exceptions = exceptions
+    monkeypatch.setitem(sys.modules, "botocore", package)
+    monkeypatch.setitem(sys.modules, "botocore.exceptions", exceptions)
 
 
 @pytest.mark.parametrize("template_key", PREVIEW_CONTEXTS)
@@ -191,6 +250,63 @@ def test_malformed_ses_response_is_terminal(ses_settings):
     delivery.job.refresh_from_db()
     assert delivery.state == EmailDelivery.State.DEAD
     assert delivery.job.status == JobIntent.Status.DEAD
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("error", "expected_state", "expected_exception"),
+    [
+        (
+            FakeEndpointConnectionError("unavailable"),
+            EmailDelivery.State.RETRYABLE,
+            RetryableJobError,
+        ),
+        (
+            FakeReadTimeoutError("uncertain acknowledgement"),
+            EmailDelivery.State.AMBIGUOUS,
+            PermanentJobError,
+        ),
+    ],
+)
+def test_transport_failure_classification(
+    ses_settings, fake_botocore, error, expected_state, expected_exception
+):
+    delivery = EmailDelivery.objects.create(
+        idempotency_key=f"password-reset:{expected_state}",
+        template_key="password_reset",
+        purpose="password_reset",
+        recipient_email="ada@example.com",
+        context_hash="0" * 64,
+        sender_id="noreply@aishippinglabs.com",
+    )
+    with patch(
+        "community_base.mail.backends.ses_local.configured_client",
+        return_value=StubSES(error),
+    ):
+        with pytest.raises(expected_exception):
+            ses_local.deliver(delivery, PREVIEW_CONTEXTS["password_reset"])
+    delivery.refresh_from_db()
+    assert delivery.state == expected_state
+
+
+@pytest.mark.django_db
+def test_accepted_delivery_retries_recorder_without_resending(ses_settings):
+    delivery = EmailDelivery.objects.create(
+        idempotency_key="password-reset:accepted",
+        template_key="password_reset",
+        purpose="password_reset",
+        recipient_email="ada@example.com",
+        context_hash="0" * 64,
+        sender_id="noreply@aishippinglabs.com",
+        state=EmailDelivery.State.PROVIDER_ACCEPTED,
+        external_message_id="ses-message-existing",
+    )
+    recorded = []
+    ses_settings.COMMUNITY_BASE["MAIL_SEND_RECORDER"] = lambda *args: recorded.append(args)
+    with patch("community_base.mail.backends.ses_local.configured_client") as client:
+        ses_local.deliver(delivery, PREVIEW_CONTEXTS["password_reset"])
+    client.assert_not_called()
+    assert recorded[0][2].message_id == "ses-message-existing"
 
 
 @pytest.mark.django_db(transaction=True)

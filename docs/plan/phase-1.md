@@ -454,7 +454,8 @@ Steps
    `MAIL_TEMPLATE_DIR=BASE_DIR / "email_app" / "email_templates"`; implement hooks:
    `email_app/hooks.py` with `record_send` (writes `EmailLog` exactly as today),
    `template_override_loader` (reads `EmailTemplateOverride`), `preference_resolver` (port
-   `_delivery_decision`), `unsubscribe_url_builder` (ports `_build_unsubscribe_url`).
+   `_delivery_decision`), `unsubscribe_url_builder` (returns `None` for transactional mail and
+   otherwise ports `_build_unsubscribe_url`).
 2. Replace `EmailService().send(user, template, context, dedupe_key=...)` call sites with
    `community_base.mail.send(purpose=template, to=user.email, user=user, context=context,
    idempotency_key=dedupe_key or <derived>)`, one app per pull request. `cc`/`bcc` become

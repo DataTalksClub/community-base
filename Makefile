@@ -1,5 +1,7 @@
 .PHONY: install lint format check test migrate-fresh
 
+TEST_TARGETS := $(filter tests/%,$(MAKECMDGOALS))
+
 install:
 	uv sync --all-extras
 
@@ -17,7 +19,10 @@ check:
 	uv run python testproject/manage.py openapi --check --output community_base/api/openapi.json
 
 test:
-	uv run pytest
+	uv run pytest $(TEST_TARGETS)
+
+tests/%:
+	@:
 
 migrate-fresh:
 	rm -f testproject/db.sqlite3
