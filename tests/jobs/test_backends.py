@@ -13,9 +13,9 @@ def test_backend_loader_selects_sync(settings):
     assert get_backend().__name__.endswith(".sync")
 
 
-def test_backend_loader_rejects_unimplemented_relay(settings):
-    settings.COMMUNITY_BASE["JOBS_BACKEND"] = "relay"
-    with pytest.raises(ImproperlyConfigured, match="C1.1a"):
+def test_backend_loader_rejects_unknown_backend(settings):
+    settings.COMMUNITY_BASE["JOBS_BACKEND"] = "unknown"
+    with pytest.raises(ImproperlyConfigured, match="Unsupported"):
         get_backend()
 
 

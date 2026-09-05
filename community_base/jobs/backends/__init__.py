@@ -4,11 +4,11 @@ from django.core.exceptions import ImproperlyConfigured
 
 from community_base.kernel.conf import get
 
-LOCAL_BACKENDS = frozenset({"sync", "django_q"})
+BACKENDS = frozenset({"sync", "django_q", "relay"})
 
 
 def get_backend():
     name = get("JOBS_BACKEND")
-    if name not in LOCAL_BACKENDS:
-        raise ImproperlyConfigured(f"Unsupported jobs backend in C1.1a: {name}")
+    if name not in BACKENDS:
+        raise ImproperlyConfigured(f"Unsupported jobs backend: {name}")
     return import_module(f"community_base.jobs.backends.{name}")
