@@ -21,6 +21,8 @@ from community_base.comments.services import (
 from community_base.comments.signals import comment_created
 from community_base.content_sync.models import ContentSource
 from community_base.notifications.models import Notification
+from community_base.notifications.registry import NotificationDraft, register_notification_source
+from community_base.notifications.signals import notification_event
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -188,3 +190,37 @@ def test_created_signal_is_emitted_after_commit():
         comment_created.disconnect(receiver)
 
     assert received == [comment.pk]
+
+
+def test_created_signal_can_bridge_to_registered_notification_source():
+    author = account("author@example.com")
+    recipient = account("recipient@example.com")
+    register_notification_source(
+        "comments",
+        lambda **kwargs: [
+            NotificationDraft(
+                recipient_id=recipient.pk,
+                title="New comment",
+                source_id=str(kwargs["payload"]["comment_id"]),
+                dedupe_key=f"comment:{kwargs['payload']['comment_id']}",
+            )
+        ],
+    )
+
+    def bridge(sender, **kwargs):
+        notification_event.send(
+            sender=sender,
+            source="comments",
+            event="created",
+            payload={"comment_id": kwargs["comment"].pk},
+        )
+
+    comment_created.connect(bridge, weak=False)
+    try:
+        comment = create_comment(content_id=uuid.uuid4(), user=author, body="Question")
+    finally:
+        comment_created.disconnect(bridge)
+
+    notification = Notification.objects.get(user=recipient)
+    assert notification.source_key == "comments"
+    assert notification.source_id == str(comment.pk)

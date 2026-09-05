@@ -147,6 +147,9 @@ def test_comment_thread_template_uses_stable_endpoint_and_auth_state(rf):
     )
 
     assert reverse("comments_endpoint", args=(content_id,)) in rendered
+    assert reverse("comments_reply", args=(0,)) in rendered
+    assert reverse("comments_vote", args=(0,)) in rendered
+    assert "community_base/comments.js" in rendered
     assert "Sign in to comment" in rendered
 
     request.user = account("member@example.com")
