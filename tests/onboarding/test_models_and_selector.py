@@ -89,3 +89,16 @@ def test_steps_validate_kind_specific_configuration(kind, config, message):
 
     with pytest.raises(ValidationError, match=message):
         OnboardingStep(flow=flow, order=0, kind=kind, config=config).full_clean()
+
+
+def test_flow_cannot_mix_questionnaire_and_ai_chat_steps():
+    flow = OnboardingFlow.objects.create(slug="default", title="Default")
+    OnboardingStep.objects.create(
+        flow=flow,
+        order=0,
+        kind="questionnaire",
+        config={"questionnaire_slug": "welcome"},
+    )
+
+    with pytest.raises(ValidationError, match="either a questionnaire or AI chat"):
+        OnboardingStep(flow=flow, order=1, kind="ai_chat").full_clean()

@@ -69,6 +69,16 @@ class OnboardingStep(models.Model):
             )
         if self.kind == self.Kind.CUSTOM and not str(self.config.get("template", "")).strip():
             raise ValidationError({"config": "Custom steps need a template."})
+        alternative = {
+            self.Kind.QUESTIONNAIRE: self.Kind.AI_CHAT,
+            self.Kind.AI_CHAT: self.Kind.QUESTIONNAIRE,
+        }.get(self.kind)
+        if alternative and self.flow_id:
+            siblings = self.flow.steps.exclude(pk=self.pk) if self.pk else self.flow.steps.all()
+            if siblings.filter(kind=alternative).exists():
+                raise ValidationError(
+                    {"kind": "Use either a questionnaire or AI chat step in one flow, not both."}
+                )
 
 
 class FlowAssignment(models.Model):
