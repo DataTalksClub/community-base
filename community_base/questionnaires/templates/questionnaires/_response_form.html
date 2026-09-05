@@ -1,0 +1,19 @@
+{% for row in response_form_rows %}
+  <fieldset class="questionnaire-question">
+    <legend>{{ row.question.prompt }}{% if row.question.is_required %} <span aria-hidden="true">*</span>{% endif %}</legend>
+    {% if row.question.help_text %}<p>{{ row.question.help_text }}</p>{% endif %}
+    {% if row.error %}<p role="alert">{{ row.error }}</p>{% endif %}
+    {% if row.question.question_type == "long_text" %}
+      <textarea name="{{ row.field_name }}">{{ row.text_value }}</textarea>
+    {% elif row.question.question_type == "text" %}
+      <input type="text" name="{{ row.field_name }}" value="{{ row.text_value }}">
+    {% elif row.question.question_type == "scale" or row.question.question_type == "number" %}
+      <input type="number" name="{{ row.field_name }}" value="{{ row.number_value }}"{% if row.question.scale_min is not None %} min="{{ row.question.scale_min }}"{% endif %}{% if row.question.scale_max is not None %} max="{{ row.question.scale_max }}"{% endif %}>
+    {% else %}
+      {% for choice in row.options %}
+        <label><input type="{% if row.question.question_type == 'single_choice' %}radio{% else %}checkbox{% endif %}" name="{{ row.field_name }}" value="{{ choice.option.pk }}"{% if choice.selected %} checked{% endif %}> {{ choice.option.label }}</label>
+        {% if choice.option.allows_free_text %}<input type="text" name="{{ choice.free_text_name }}" value="{{ choice.free_text_value }}" aria-label="Describe {{ choice.option.label }}">{% endif %}
+      {% endfor %}
+    {% endif %}
+  </fieldset>
+{% endfor %}

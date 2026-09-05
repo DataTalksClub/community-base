@@ -1,0 +1,6 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Personas{% endblock %}
+{% block studio_content %}
+<h1>Personas</h1><a href="{% url 'questionnaires_studio_persona_create' %}">Create persona</a>
+<ul>{% for persona in personas %}<li>{{ persona.display_label }}{% if persona.default_questionnaire %} — {{ persona.default_questionnaire.title }}{% endif %} <a href="{% url 'questionnaires_studio_persona_edit' persona.pk %}">Edit</a></li>{% empty %}<li>No personas.</li>{% endfor %}</ul>
+{% endblock %}

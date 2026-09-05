@@ -1,0 +1,7 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ questionnaire.title }}{% endblock %}
+{% block studio_content %}
+<h1>{{ questionnaire.title }}</h1><p>{{ questionnaire.description }}</p>
+<nav><a href="{% url 'questionnaires_studio_edit' questionnaire.pk %}">Edit questionnaire</a> · <a href="{% url 'questionnaires_studio_question_create' questionnaire.pk %}">Add question</a> · <a href="{% url 'questionnaires_studio_responses' questionnaire.pk %}">View responses</a></nav>
+<ol>{% for question in questions %}<li>{{ question.prompt }} ({{ question.question_type }}) <a href="{% url 'questionnaires_studio_question_edit' questionnaire.pk question.pk %}">Edit</a><form method="post" action="{% url 'questionnaires_studio_question_delete' questionnaire.pk question.pk %}">{% csrf_token %}<button>Delete</button></form><ul>{% for option in question.options.all %}<li>{{ option.label }}</li>{% endfor %}</ul></li>{% empty %}<li>No questions.</li>{% endfor %}</ol>
+{% endblock %}

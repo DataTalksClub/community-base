@@ -1,0 +1,8 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Response {{ response.pk }}{% endblock %}
+{% block studio_content %}
+<h1>{{ response.questionnaire.title }} response</h1><p>{{ response.respondent }} — {{ response.review_label }}</p>
+{% if response.status == "submitted" %}<form method="post" action="{% url 'questionnaires_studio_response_review' response.questionnaire_id response.pk %}">{% csrf_token %}<input type="hidden" name="reviewed" value="{% if response.review_state == 'reviewed' %}0{% else %}1{% endif %}"><button>{% if response.review_state == 'reviewed' %}Reopen{% else %}Mark reviewed{% endif %}</button></form>{% endif %}
+<a href="{% url 'questionnaires_studio_response_question_create' response.questionnaire_id response.pk %}">Add custom question</a>
+<dl>{% for question, answer in answer_rows %}<dt>{{ question.prompt }} <a href="{% url 'questionnaires_studio_response_question_edit' response.questionnaire_id response.pk question.pk %}">Edit</a></dt><dd>{% if answer %}{{ answer.display_value }}{% else %}Not answered{% endif %}</dd>{% endfor %}</dl>
+{% endblock %}

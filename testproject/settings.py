@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.slack",
     "community_base.kernel",
     "community_base.accounts",
+    "community_base.questionnaires",
     "community_base.api",
     "community_base.config",
     "community_base.jobs",

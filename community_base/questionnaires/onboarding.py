@@ -1,0 +1,425 @@
+from community_base.kernel import conf
+from community_base.questionnaires.models import (
+    Answer,
+    AnswerOptionText,
+    Persona,
+    Questionnaire,
+    Response,
+)
+from community_base.questionnaires.services import build_response_questions
+
+GENERIC_ONBOARDING_SLUG = "onboarding-general"
+SELF_ID_NONE = "none"
+SELF_ID_MULTIPLE = "multiple"
+_CHOICE_TYPES = frozenset({"single_choice", "multiple_choice"})
+_TEXT_TYPES = frozenset({"text", "long_text"})
+_NUMBER_TYPES = frozenset({"scale", "number"})
+_MULTIPLE_CHOICE = "multiple_choice"
+_SINGLE_CHOICE = "single_choice"
+
+_PROMPT_ALIASES = {
+    "What is the one concrete outcome you want by the end of the next "
+    "6 to 8 weeks?": "What would you like to have achieved 6 to 8 weeks from now?",
+    "Which best describes that outcome?": "Which path best fits that goal?",
+    "How many hours per week can you realistically commit, consistently?": (
+        "How many hours per week can you realistically commit?"
+    ),
+    "Will your weekly time be steady, or drop sharply some weeks?": (
+        "What should we know about your availability?"
+    ),
+    "What usually makes it hard to stay consistent or finish?": (
+        "What tends to slow you down or make projects stall?"
+    ),
+    "What kind of accountability helps you most?": (
+        "What kind of accountability would help you make progress?"
+    ),
+    "Do you already have a project or idea, even if rough? Describe it.": (
+        "Do you already have a project, idea, or direction in mind?"
+    ),
+    "What stage is it at?": "What stage is your project or idea at?",
+    "What support from Alexey/community would be most useful now?": (
+        "What would you like us to help with while preparing your plan?"
+    ),
+}
+
+_OPTION_ALIASES = {
+    "Ship new project": "Ship a new project",
+    "Improve/finish existing": "Improve or finish an existing project",
+    "Strengthen eng skills": "Build stronger AI engineering skills",
+    "Build foundations/learn": "Learn foundations before choosing a project",
+    "Career/portfolio": "Strengthen career or portfolio",
+    "Steady": "Mostly steady",
+    "Drops some weeks": "Some weeks will be lighter",
+    "One high week then much less": "One intense week, then much less",
+    "Scoping": "Scope gets too broad",
+    "Getting started": "Hard to get started",
+    "Momentum": "Losing momentum",
+    "Finishing last 20%": "Finishing and polishing",
+    "Technical obstacles": "Technical blockers",
+    "FOMO": "Too many tools or options",
+    "Not enough time": "Limited time",
+    "No feedback": "Not enough feedback or accountability",
+    "Async Slack": "Async Slack feedback",
+    "Partner pairing": "Pair or partner work",
+    "Build-in-public": "Public progress updates",
+    "Reflections": "Reflection prompts",
+    "No idea": "No idea yet",
+    "Built not deployed": "Built locally but not deployed",
+    "Deployed needs hardening": "Deployed and needs hardening",
+    "Eval plan": "Evaluation plan",
+    "Portfolio/README": "Portfolio or README",
+    "Career advice": "Career positioning",
+    "Avoid overengineering": "Keeping scope practical",
+}
+
+
+def _clamped_int(name, default, minimum, maximum):
+    try:
+        value = int(conf.get(name))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+def onboarding_ai_deadline_seconds():
+    return _clamped_int("AI_ONBOARDING_DEADLINE_SECONDS", 25, 5, 28)
+
+
+def onboarding_ai_max_attempts():
+    return _clamped_int("AI_ONBOARDING_MAX_ATTEMPTS", 2, 1, 3)
+
+
+def get_onboarding_response(user):
+    return (
+        Response.objects.filter(respondent=user, questionnaire__purpose="onboarding")
+        .select_related("questionnaire")
+        .order_by("created_at")
+        .first()
+    )
+
+
+def get_generic_onboarding_questionnaire():
+    return Questionnaire.objects.filter(slug=GENERIC_ONBOARDING_SLUG, purpose="onboarding").first()
+
+
+def has_completed_onboarding(user):
+    return bool(
+        getattr(user, "is_authenticated", False)
+        and Response.objects.filter(
+            respondent=user, questionnaire__purpose="onboarding", status="submitted"
+        ).exists()
+    )
+
+
+def self_identification_options():
+    options = [
+        {"value": str(item.pk), "label": item.archetype, "help_text": item.description}
+        for item in Persona.objects.filter(
+            is_active=True, default_questionnaire__isnull=False
+        ).order_by("order", "name")
+    ]
+    options.extend(
+        (
+            {"value": SELF_ID_NONE, "label": "None of these / not sure", "help_text": ""},
+            {"value": SELF_ID_MULTIPLE, "label": "More than one / both", "help_text": ""},
+        )
+    )
+    return options
+
+
+def resolve_target_questionnaire(selection):
+    generic = get_generic_onboarding_questionnaire()
+    if selection in {SELF_ID_NONE, SELF_ID_MULTIPLE}:
+        return generic
+    if selection and selection.isdigit():
+        persona = (
+            Persona.objects.filter(pk=int(selection), is_active=True)
+            .select_related("default_questionnaire")
+            .first()
+        )
+        if persona is not None and persona.default_questionnaire is not None:
+            return persona.default_questionnaire
+    return generic
+
+
+def _snapshot_answers_by_prompt(response):
+    """Capture a draft response's current answers keyed by question prompt.
+
+    Returns a dict ``prompt -> {'type', 'text', 'number', 'labels'}`` so the
+    answer can be re-attached to a same-prompt question after the question
+    set is rebuilt for a different persona. Choice answers carry option
+    LABELS (not ids), because the new questionnaire snapshots fresh option
+    rows with new ids; matching by label re-selects the equivalent options.
+    """
+    snapshot = {}
+    answers = response.answers.select_related("question").prefetch_related(
+        "selected_options", "option_texts"
+    )
+    for answer in answers:
+        rq = answer.question
+        if rq.question_type in _CHOICE_TYPES:
+            labels = [opt.label for opt in answer.selected_options.all()]
+            # An empty choice answer carries no information to preserve.
+            if not labels:
+                continue
+            option_texts = {
+                item.selected_option.label: item.text_value
+                for item in answer.option_texts.select_related("selected_option")
+            }
+            saved = {
+                "type": rq.question_type,
+                "labels": labels,
+                "option_texts": option_texts,
+            }
+            _store_snapshot(snapshot, rq.prompt, saved)
+        elif answer.text_value:
+            _store_snapshot(
+                snapshot,
+                rq.prompt,
+                {
+                    "type": rq.question_type,
+                    "text": answer.text_value,
+                },
+            )
+        elif answer.number_value is not None:
+            _store_snapshot(
+                snapshot,
+                rq.prompt,
+                {
+                    "type": rq.question_type,
+                    "number": answer.number_value,
+                },
+            )
+    return snapshot
+
+
+def _canonical_prompt(prompt):
+    return _PROMPT_ALIASES.get(prompt, prompt)
+
+
+def _canonical_option_label(label):
+    return _OPTION_ALIASES.get(label, label)
+
+
+def _store_snapshot(snapshot, prompt, saved):
+    snapshot.setdefault(prompt, saved)
+    snapshot.setdefault(_canonical_prompt(prompt), saved)
+
+
+def _restore_answers_by_prompt(response, snapshot):
+    """Re-attach preserved answers to the response's new question set.
+
+    Only questions whose prompt is in ``snapshot`` get an answer; new delta
+    questions stay unanswered. Choice answers re-select the new option rows
+    whose label matches a preserved label; a label with no counterpart in
+    the new question is simply dropped (no orphan, no error).
+    """
+    for rq in response.response_questions.prefetch_related("options").all():
+        saved = snapshot.get(rq.prompt) or snapshot.get(_canonical_prompt(rq.prompt))
+        if saved is None:
+            continue
+        if rq.question_type in _CHOICE_TYPES:
+            # Only restore between matching choice types; a prompt that
+            # flipped type across questionnaires would not be a safe restore.
+            if saved.get("type") not in _CHOICE_TYPES:
+                continue
+            saved_labels = {_canonical_option_label(label) for label in saved["labels"]}
+            matching = [
+                opt
+                for opt in rq.options.all()
+                if _canonical_option_label(opt.label) in saved_labels
+            ]
+            if not matching:
+                continue
+            answer = Answer.objects.create(response=response, question=rq)
+            answer.selected_options.set(matching)
+            option_texts = saved.get("option_texts") or {}
+            for opt in matching:
+                text_value = (
+                    option_texts.get(opt.label)
+                    or option_texts.get(_canonical_option_label(opt.label))
+                    or ""
+                ).strip()
+                if text_value:
+                    AnswerOptionText.objects.create(
+                        answer=answer,
+                        selected_option=opt,
+                        text_value=text_value,
+                    )
+        elif "text" in saved:
+            Answer.objects.create(
+                response=response,
+                question=rq,
+                text_value=saved["text"],
+            )
+        elif "number" in saved:
+            Answer.objects.create(
+                response=response,
+                question=rq,
+                number_value=saved["number"],
+            )
+
+
+def reroute_onboarding_response(response, target):
+    """Repoint a DRAFT onboarding response to ``target`` questionnaire (#822).
+
+    A member who picked the wrong persona at self-identification may return
+    while their response is still a draft and choose a different one. The
+    question set differs per persona, so this:
+
+    1. Snapshots the member's current answers keyed by question prompt.
+    2. Deletes the old ``ResponseQuestion`` rows (cascading their answers).
+    3. Repoints the response at ``target`` and re-materializes its full
+       question set via :func:`build_response_questions`.
+    4. Restores answers to any question whose prompt is shared (the common
+       spine), matching choice options by label. Answers to delta questions
+       absent from ``target`` are dropped — never silently kept as orphans.
+
+    No-op when ``target`` is ``None`` or already the current questionnaire
+    (besides ensuring the question set is materialized). Returns ``response``.
+    """
+    if target is None:
+        return response
+    if response.questionnaire_id == target.pk:
+        # Same persona re-picked: just make sure questions are materialized.
+        build_response_questions(response)
+        return response
+
+    snapshot = _snapshot_answers_by_prompt(response)
+    response.response_questions.all().delete()
+    response.questionnaire = target
+    response.save(update_fields=["questionnaire", "updated_at"])
+    build_response_questions(response)
+    _restore_answers_by_prompt(response, snapshot)
+    return response
+
+
+def normalize_answer(response_question, answer):
+    """Normalize one ``ResponseQuestion`` + its ``Answer`` row by type.
+
+    The single source of answer-type branching shared by the read-only
+    onboarding API (``api/serializers/onboarding.serialize_response``) and
+    the Studio CRM detail page (``flatten_response_answers``). Reads the
+    SNAPSHOT layer only (the ``answer`` is an ``Answer`` row or ``None``;
+    choice labels come from ``Answer.selected_options`` /
+    ``ResponseQuestionOption.label``, never the base ``QuestionOption``).
+
+    Returns, by question type:
+
+    - ``text`` / ``long_text`` -> the text string, or ``None`` when blank.
+    - ``scale`` / ``number``   -> the integer, or ``None`` when unanswered.
+    - ``single_choice``        -> one label string, or ``None`` when none.
+    - ``multiple_choice``      -> an ordered list of labels, ``[]`` when none.
+
+    An unanswered question (no ``Answer`` row) yields the type's empty value
+    so unanswered questions are still represented.
+    """
+    qtype = response_question.question_type
+
+    if qtype in _TEXT_TYPES:
+        if answer is None:
+            return None
+        return (answer.text_value or "").strip() or None
+
+    if qtype in _NUMBER_TYPES:
+        if answer is None:
+            return None
+        return answer.number_value
+
+    if qtype == _MULTIPLE_CHOICE:
+        if answer is None:
+            return []
+        return [opt.label for opt in answer.selected_options.all()]
+
+    if qtype == _SINGLE_CHOICE:
+        if answer is None:
+            return None
+        labels = [opt.label for opt in answer.selected_options.all()]
+        return labels[0] if labels else None
+
+    # Unknown type (defensive -- the model enum is closed): fall back to the
+    # raw stored text so a question is never silently dropped.
+    if answer is None:
+        return None
+    return (answer.text_value or "").strip() or None
+
+
+def normalize_answer_options(response_question, answer):
+    """Return structured selected choice options with attached free text."""
+    if response_question.question_type not in _CHOICE_TYPES or answer is None:
+        return []
+
+    option_texts = {item.selected_option_id: item.text_value for item in answer.option_texts.all()}
+    return [
+        {
+            "label": opt.label,
+            "free_text": (option_texts.get(opt.pk) or "").strip() or None,
+        }
+        for opt in answer.selected_options.all()
+    ]
+
+
+def _display_value(normalized):
+    """Render a normalized answer as a human-readable string.
+
+    Mirrors ``Answer.display_value`` (joins multi-choice labels with
+    ``', '``) but works off the already-normalized value so it shares the
+    single answer-type branch in :func:`normalize_answer`. Returns ``''``
+    for an empty/unanswered value so callers can render an explicit blank.
+    """
+    if normalized is None:
+        return ""
+    if isinstance(normalized, list):
+        return ", ".join(normalized)
+    if isinstance(normalized, bool):
+        # Defensive: booleans aren't a question type, but ``str(True)`` is
+        # never what we want to show.
+        return ""
+    return str(normalized)
+
+
+def flatten_response_answers(response):
+    """Return an ordered flat Q&A list for a member's onboarding response.
+
+    One item per ``ResponseQuestion`` (ordered by the model's
+    ``order, id``) as a dict with:
+
+    - ``prompt``: the snapshot question prompt.
+    - ``question_type``: the snapshot question type.
+    - ``order``: the snapshot order.
+    - ``value``: the normalized answer (string / int / list / ``None``).
+    - ``display``: the human-readable string for the CRM template.
+    - ``answered``: ``True`` when the member supplied an answer.
+
+    Reuses :func:`normalize_answer` so the CRM page and the read-only API
+    share one answer-type branch. Reads the SNAPSHOT rows only.
+    """
+    answers_by_question = {
+        answer.question_id: answer
+        for answer in (
+            response.answers.prefetch_related(
+                "selected_options",
+                "option_texts",
+            ).all()
+        )
+    }
+
+    rows = []
+    for rq in response.response_questions.all():
+        answer = answers_by_question.get(rq.pk)
+        value = normalize_answer(rq, answer)
+        if answer is not None and rq.question_type in _CHOICE_TYPES:
+            display = answer.display_value
+        else:
+            display = _display_value(value)
+        rows.append(
+            {
+                "prompt": rq.prompt,
+                "question_type": rq.question_type,
+                "order": rq.order,
+                "value": value,
+                "display": display,
+                "answered": bool(display),
+            }
+        )
+    return rows

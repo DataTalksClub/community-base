@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<main>
+  <h1>Tell us what you want to build</h1>
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  <ol aria-label="Conversation">
+    {% for item in chat_messages %}<li><strong>{% if item.role == "user" %}You{% else %}Assistant{% endif %}:</strong> {{ item.content }}</li>{% endfor %}
+  </ol>
+  <form method="post" action="{% url 'questionnaires_ai_message' %}">
+    {% csrf_token %}<input type="hidden" name="request_id" value="{{ turn_request_id }}">
+    <label>Your message<textarea name="message" required>{{ draft_message }}</textarea></label>
+    <button type="submit">Send</button>
+  </form>
+</main>
+{% endblock %}

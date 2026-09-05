@@ -23,7 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 django_q = ["django-q2>=1.9,<2", "croniter>=6,<7"]
 ses_local = ["boto3>=1.42,<2"]
-ai = ["anthropic>=0.105"]
+ai = ["anthropic>=0.105", "pydantic>=2.11,<3"]
 zoom = []
 s3 = ["boto3>=1.42,<2"]
 
