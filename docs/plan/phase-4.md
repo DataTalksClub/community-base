@@ -99,7 +99,8 @@ Steps
 Verification
 - Package tests cover ICS output, Zoom boundaries, hooks, handler registration, idempotency,
   retries and redacted failures without network or credentials.
-- Installed-wheel checks find handlers, templates and optional integration modules.
+- Installed-wheel checks find handlers, schedules, configuration definitions and optional
+  integration modules. Event templates remain C4.1d work.
 
 ## C4.1d Event pages, Studio and APIs
 
