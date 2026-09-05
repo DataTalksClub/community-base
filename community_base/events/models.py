@@ -172,8 +172,8 @@ class Event(TimestampedModel):
         if not self.calendar_uid:
             self.calendar_uid = f"event-{uuid.uuid4()}@community-base"
         if self.pk:
-            original = type(self).objects.filter(pk=self.pk).values_list("public_id", flat=True)
-            if original.exists() and original.get() != self.public_id:
+            original = type(self).objects.filter(pk=self.pk).values("public_id").first()
+            if original is not None and original["public_id"] != self.public_id:
                 raise ValidationError("Event public_id is immutable.")
         super().save(*args, **kwargs)
 

@@ -54,6 +54,14 @@ def test_public_id_is_immutable_and_unique():
         reserve_public_id(second, 3)
 
 
+def test_public_id_cannot_be_assigned_by_saving_the_model():
+    item = event()
+    item.public_id = 3
+
+    with pytest.raises(ValidationError, match="immutable"):
+        item.save()
+
+
 def test_aliases_are_owned_and_restricted_to_clean_event_paths():
     item = event()
     alias = add_alias(item, "/events/legacy/path", source_repository="donor")
