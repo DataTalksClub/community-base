@@ -1,0 +1,24 @@
+# Decisions
+
+Taken by the owner on 2026-09-05. An executor does not re-open these. If a step in the plan
+appears to contradict one of them, the plan is wrong: stop and report.
+
+| # | Decision | Consequence for the plan |
+|---|---|---|
+| D1 | Separate repository and Python distribution named `community-base`, importable as `community_base`. Public, in the DataTalksClub organisation. No monorepo. | Sites pin a git tag in `uv.lock`; local development uses an editable path override. |
+| D2 | The two sites never communicate with each other and never share a database, deployment, cache or credentials. Each installs the same package and runs it independently. | Nothing in the package may assume another site exists. No cross-site identifiers. |
+| D3 | Background jobs move from django-q2 to Relay webhook tasks and Relay schedules. After migration a site runs no worker process. | `community_base.jobs` has two backends: `relay` (Relay client plus a signed ingress view) and `django_q` (thin wrapper, transitional). DTC uses `relay` from Phase 1; AISL uses `django_q` until D13 is satisfied. |
+| D4 | Email: Relay owns templates, rendering, transport, contacts, subscriptions, campaigns and provider events. A site keeps a delivery projection, preference semantics, and Studio pages that proxy Relay. Historical send logs (AISL `EmailLog`, SES events, campaign deliveries) migrate into Relay; no site keeps a local email archive. | `community_base.mail` exposes one `send()` and two backends: `relay` (the target) and `ses_local` (AISL's markdown renderer and SES client, transitional under D13). AISL's templates move into Relay's catalog and its `EmailLog` history is imported into Relay in Phase 6, before the local table is dropped. |
+| D5 | DataTalks.Club has no paid tiers. | Gating is a pluggable access policy. Shared models keep an integer `required_level`; DTC uses `0` (open) and `5` (registered) only. |
+| D6 | Onboarding flows are configured per site and may differ per member group. | `community_base.onboarding` has a flow model with a selector by site configuration and group. |
+| D7 | Events are authored in Studio and stored in the database on both sites, as AISL does today. DTC stops treating events as GitHub-owned content. | DTC imports its existing events once and removes events from its GitHub sync. |
+| D8 | Courses support both cohort-based and self-paced modes on both sites. Homework, leaderboards and certificates (the coursework stack) are available to AISL as well. | One `curriculum` app with a course mode, one optional `coursework` app. |
+| D9 | The package carries an admin API layer, starting with settings management, so both sites build on the same API. | `community_base.api` owns API keys, bearer auth, OpenAPI, and route registration. Shared apps ship their endpoints. |
+| D10 | Apps lifted from AISL keep their Django app label where no collision exists (`events`, `notifications`, `comments`, `voting`, `questionnaires`, `community`). | AISL production tables and migration history are reused through a squashed initial migration with `replaces`. See `docs/03-playbooks.md`, playbook P4. |
+| D11 | Every extraction that moves data models happens during a weekend freeze of the affected site. Preparation work (seam cutting) runs before the freeze with the site moving. | Each phase names its freeze. Freeze runbook is playbook P13. |
+| D13 | AISL does not integrate with Relay until Relay has served DTC in production and is proven. Proven means: DTC production traffic on Relay for at least four consecutive weeks with no P1 incident attributed to Relay, and the Relay status contract green over that period. | AISL's Relay cutover for mail, jobs, campaigns and email-log history is Phase 6, the last phase. Until then AISL runs `community_base.mail` with the `ses_local` backend and `community_base.jobs` with the `django_q` backend. |
+| D14 | Authentication and the user model are shared. The package ships a concrete `accounts.User` (label `accounts`, table `accounts_user`) plus login, registration, verification, password reset and social login. Site-specific member data lives in site extension models with a `OneToOneField` to the user. | AISL moves tier and Stripe fields from `User` to `payments.Membership` before adopting the shared model (Phase 3). DTC renames `CustomUser` to the shared `User` and moves course-platform fields to a `courses.LearnerProfile` extension. |
+| D12 | Studio styling: the shared Studio shell ships AISL's Tailwind design (tokens, build, Lucide icons). DTC staff pages adopt that look. Public pages keep each site's own design system. | DTC's `templates/studio/base.html` is deleted in Phase 2. DTC's inline-stylesheet test applies to public pages only. |
+
+D12 is the owner's default pending explicit confirmation. If the owner overrides it, Phase 2
+issue C2.1 changes to a markup-only shell with a per-site stylesheet; everything else stands.
