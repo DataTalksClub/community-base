@@ -68,7 +68,7 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `C3.1a` | community-base | Target accounts schema | C2.4 | no | done | https://github.com/DataTalksClub/community-base/pull/60 |
-| `C3.1b` | community-base | Authentication and public account entry points | C3.1a | no | todo |  |
+| `C3.1b` | community-base | Authentication and public account entry points | C3.1a | no | in-progress | https://github.com/DataTalksClub/community-base/pull/63 |
 | `C3.1c` | community-base | Account operations, self API and Studio | C3.1b | no | todo |  |
 | `C3.2` | community-base | Questionnaires | C3.1c | no | todo |  |
 | `C3.3` | community-base | Onboarding flows | C3.1c, C3.2 | no | todo |  |

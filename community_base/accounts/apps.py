@@ -6,3 +6,6 @@ class AccountsConfig(AppConfig):
     name = "community_base.accounts"
     label = "accounts"
     verbose_name = "Community Base Accounts"
+
+    def ready(self):
+        from community_base.accounts import signals  # noqa: F401

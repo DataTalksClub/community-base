@@ -2,9 +2,11 @@ import os
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from community_base.accounts.settings import allauth_settings
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "community-base-test-secret-key"
+SECRET_KEY = "community-base-test-secret-key-for-tests"
 DEBUG = True
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
@@ -20,6 +22,9 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.socialaccount.providers.github",
+    "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.slack",
     "community_base.kernel",
     "community_base.accounts",
     "community_base.api",
@@ -95,6 +100,11 @@ USE_TZ = True
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SITE_ID = 1
+
+globals().update(allauth_settings())
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
 
 COMMUNITY_BASE = {
     "SITE_KEY": "test",

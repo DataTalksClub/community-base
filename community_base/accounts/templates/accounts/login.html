@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load socialaccount %}
+{% block title %}Sign in{% endblock %}
+{% block meta_description %}Sign in to your community account.{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Sign in</h1></header>
+  {% if form.non_field_errors %}<div class="cb-alert">{{ form.non_field_errors }}</div>{% endif %}
+  <form class="cb-form" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% for field in form %}<div class="cb-field">{{ field.label_tag }} {{ field }} {{ field.errors }}</div>{% endfor %}
+    <button class="cb-button cb-button-primary" type="submit">Sign in</button>
+  </form>
+  {% if oauth_google_enabled %}<a class="cb-button" href="{% provider_login_url 'google' process='login' next=next %}">Sign in with Google</a>{% endif %}
+  {% if oauth_github_enabled %}<a class="cb-button" href="{% provider_login_url 'github' process='login' next=next %}">Sign in with GitHub</a>{% endif %}
+  {% if oauth_slack_enabled %}<a class="cb-button" href="{% provider_login_url 'slack' process='login' next=next %}">Sign in with Slack</a>{% endif %}
+  <p><a href="{% url 'account_password_reset_request' %}">Forgot your password?</a></p>
+  <p><a href="{% url 'account_register' %}">Create an account</a></p>
+</main>
+{% endblock %}

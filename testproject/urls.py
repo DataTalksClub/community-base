@@ -1,10 +1,13 @@
 from django.contrib import admin
 from django.urls import include, path
 
+from community_base.accounts.urls import api_urlpatterns as accounts_api_urlpatterns
 from community_base.api import fixture_views  # noqa: F401
 from community_base.api.registry import urlpatterns as api_urlpatterns
 
 urlpatterns = [
+    path("accounts/", include("community_base.accounts.urls")),
+    path("api/", include((accounts_api_urlpatterns, "accounts_api"))),
     path("", include("community_base.mail.urls")),
     path("content-sync/", include("community_base.content_sync.urls")),
     path("admin/", admin.site.urls),

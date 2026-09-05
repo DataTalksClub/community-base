@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load socialaccount %}
+{% block title %}Create an account{% endblock %}
+{% block meta_description %}Create your community account.{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Create an account</h1></header>
+  <form class="cb-form" method="post">
+    {% csrf_token %}
+    {{ form.next }}
+    {% for field in form.visible_fields %}<div class="cb-field">{{ field.label_tag }} {{ field }} {{ field.errors }}</div>{% endfor %}
+    <button class="cb-button cb-button-primary" type="submit">Create account</button>
+  </form>
+  {% if oauth_google_enabled %}<a class="cb-button" href="{% provider_login_url 'google' process='login' next=next %}">Continue with Google</a>{% endif %}
+  {% if oauth_github_enabled %}<a class="cb-button" href="{% provider_login_url 'github' process='login' next=next %}">Continue with GitHub</a>{% endif %}
+  {% if oauth_slack_enabled %}<a class="cb-button" href="{% provider_login_url 'slack' process='login' next=next %}">Continue with Slack</a>{% endif %}
+  <p><a href="{% url 'account_login' %}">Sign in</a></p>
+</main>
+{% endblock %}
