@@ -11,7 +11,14 @@ does not mean delivery. Callback transitions are monotonic and callback event ID
 `MAIL_BACKEND` defaults to `memory`. Its `outbox` is a process-local test surface and supports
 `outbox.clear()`. The `relay` backend submits the durable delivery to
 `POST /api/transactional/send`; connection failures retry, an uncertain acknowledgement becomes
-`ambiguous`, and Relay suppression is terminal. `ses_local` is transitional and is added by C1.3.
+`ambiguous`, and Relay suppression is terminal.
+
+`ses_local` is a transitional AISL migration backend. It renders frontmatter markdown from
+`MAIL_TEMPLATE_DIR`, sends through SES v2 and accepts `extra={"cc": ..., "bcc": ...}` on
+`send()`. A delivery-level `sender` wins over the `SES_FROM_EMAIL` runtime setting. The backend
+declares `AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `SES_FROM_EMAIL` in the
+runtime configuration registry. SES event ingress remains site-owned. Phase 6 removes this backend
+after AISL templates and delivery move to Relay.
 
 Mount `community_base.mail.urls` at the site root. It owns the exact recipient-link routes plus
 `POST /internal/mail/callback`. Relay callbacks use HMAC-SHA256 over
@@ -36,6 +43,12 @@ Hooks:
 - `MAIL_SEND_RECORDER`: optional callable `(delivery, rendered, result)` for transitional audit
   integration.
 - `MAIL_TEMPLATE_OVERRIDE_LOADER`: optional callable `(template_key) -> (subject, body) | None`.
+  Transitional sites may return `(subject, body, footer_note)` to preserve their existing footer.
+- `MAIL_UNSUBSCRIBE_URL_BUILDER`: optional callable `(delivery) -> str | None` used only by the
+  transitional `ses_local` backend. It returns `None` for mail that must not carry an unsubscribe
+  action.
+- `MAIL_VERIFY_EMAIL_URL_BUILDER`: optional callable `(delivery) -> str | None` used by
+  `ses_local` to resolve short-lived verification links in the worker instead of durable context.
 
 Delivery rows retain the JSON template context needed for durable execution and its canonical hash,
 but never rendered bodies. Callers must pass only retention-approved template inputs; secret-bearing

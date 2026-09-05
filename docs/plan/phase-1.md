@@ -315,12 +315,15 @@ Read first
 
 Steps
 1. Port `EmailService` into `community_base/mail/backends/ses_local.py`: markdown template lookup
-   in `COMMUNITY_BASE["MAIL_TEMPLATE_DIR"]`, HTML wrapper and footer, unsubscribe URL through the
-   hook, SES v2 client built from `community_base.config` keys `AWS_SES_REGION`,
+   in `COMMUNITY_BASE["MAIL_TEMPLATE_DIR"]`, HTML wrapper and footer, unsubscribe URL through
+   `MAIL_UNSUBSCRIBE_URL_BUILDER(delivery) -> str | None`, SES v2 client built from
+   `community_base.config` keys `AWS_SES_REGION`,
    `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (declared by the backend).
 2. Logging and overrides go through hooks so AISL keeps its `EmailLog` and
    `EmailTemplateOverride` tables until Phase 6: `MAIL_SEND_RECORDER(delivery, rendered, result)`
-   and `MAIL_TEMPLATE_OVERRIDE_LOADER(template_key) -> (subject, body) | None`.
+   and `MAIL_TEMPLATE_OVERRIDE_LOADER(template_key) -> (subject, body[, footer_note]) | None`.
+   Resolve the optional verification footer through
+   `MAIL_VERIFY_EMAIL_URL_BUILDER(delivery) -> str | None` so tokens are minted by the worker.
 3. The handler `cb_mail.deliver` under this backend renders, sends, and sets
    `provider_accepted` with the SES message id; SES event ingress stays in AISL for now.
 4. Tests with a stubbed SES client: render parity with AISL fixtures for three templates
@@ -453,7 +456,9 @@ Steps
    `MAIL_TEMPLATE_DIR=BASE_DIR / "email_app" / "email_templates"`; implement hooks:
    `email_app/hooks.py` with `record_send` (writes `EmailLog` exactly as today),
    `template_override_loader` (reads `EmailTemplateOverride`), `preference_resolver` (port
-   `_delivery_decision`).
+   `_delivery_decision`), `unsubscribe_url_builder` (returns `None` for transactional mail and
+   otherwise ports `_build_unsubscribe_url`), `verify_email_url_builder` (ports the existing
+   verification-footer decision and URL construction).
 2. Replace `EmailService().send(user, template, context, dedupe_key=...)` call sites with
    `community_base.mail.send(purpose=template, to=user.email, user=user, context=context,
    idempotency_key=dedupe_key or <derived>)`, one app per pull request. `cc`/`bcc` become

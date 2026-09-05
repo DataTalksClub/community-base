@@ -13,4 +13,8 @@ def get_backend():
         from community_base.mail.backends import relay
 
         return relay
+    if name == "ses_local":
+        from community_base.mail.backends import ses_local
+
+        return ses_local
     raise ValueError(f"unsupported mail backend: {name}")
