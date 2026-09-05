@@ -8,4 +8,7 @@ class ContentSyncConfig(AppConfig):
     verbose_name = "Community Base Content Sync"
 
     def ready(self) -> None:
-        from community_base.content_sync import jobs  # noqa: F401
+        from community_base.content_sync import (
+            api_views,  # noqa: F401
+            jobs,  # noqa: F401
+        )
