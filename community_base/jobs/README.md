@@ -50,7 +50,12 @@ stored.
 |---|---|---|
 | `sync` | Inline execution after commit, primarily for tests and local development | Base package |
 | `django_q` | Submit `run_intent(intent_id)` to a django-q2 cluster | `community-base[django_q]` |
-| `relay` | Relay task submission | Added by C1.1b |
+| `relay` | Signed Relay webhook tasks and Relay-owned retries | Base package |
+
+The Relay backend submits `POST /api/tasks` with a namespaced idempotency key, the package ingress
+URL and only the durable intent ID. A timeout leaves the intent pending; resubmission uses the same
+key so Relay returns the original task. Successful submission stores the Relay task ID in
+`external_id` before execution can be accepted.
 
 Sites using `django_q` also add `django_q` to `INSTALLED_APPS`, configure `Q_CLUSTER`, run its
 migrations and execute `sync_schedules`. The command creates or updates namespaced cron rows and
@@ -69,7 +74,11 @@ Mount `community_base.jobs.urls` at `/internal/jobs/`. Relay posts JSON containi
 The signature is `sha256=<hex digest>` for HMAC-SHA256 over `<timestamp>.<raw body>`. Timestamps
 outside five minutes, altered bodies, unsafe context IDs and replayed task IDs are rejected. The
 endpoint never logs the body or signing secret. A handler registered with `chunked=True` receives
-a `202` response containing `lease_seconds`; Relay completion transport is implemented in C1.1b.
+a `202` response containing `lease_seconds` and keeps its local lease. The continuation finishes
+through `complete_chunked_job(intent_id, lease_token)` or
+`fail_chunked_job(intent_id, lease_token, error_code=..., retryable=...)`. A stale or expired local
+lease is rejected before any completion request reaches Relay. Real completion endpoints require
+Relay issue R1.2.
 
 Run `python manage.py jobs_ingress_selftest` after configuring the site URL and webhook secret.
 It creates a no-op intent and round-trips an in-process signed request through the site's URL
@@ -80,11 +89,14 @@ configuration.
 - `jobs_run_due [--limit N]` submits due unleased intents to the configured local backend.
 - `jobs_sweep [--limit N]` recovers expired leases or marks exhausted jobs dead.
 - `sync_schedules [--dry-run]` reconciles registry schedules for django-q; it is a no-op for sync.
+- `sync_relay_schedules [--dry-run]` reconciles this site's namespaced Relay schedules and disables
+  stale package-owned rows.
 - `jobs_ingress_selftest` verifies ingress signing, routing, persistence and execution.
 
 Mount `community_base.jobs.studio_urls` under `/studio/` for the staff-only durable jobs page. It
 lists active and failed intents without rendering payloads, shows registered schedules and local
-last/next run data where available, and provides explicitly confirmed retry and discard actions.
+or Relay last/next run data, projects Relay readiness and task counts, and provides explicitly
+confirmed retry and discard actions.
 Discarding a running intent clears its lease so a stale worker cannot complete it.
 
 ## Settings
@@ -93,10 +105,10 @@ All keys live inside Django's `COMMUNITY_BASE` dictionary.
 
 | Key | Purpose | Default |
 |---|---|---|
-| `JOBS_BACKEND` | `sync`, `django_q`, or, from C1.1b, `relay` | `"sync"` |
+| `JOBS_BACKEND` | `sync`, `django_q`, or `relay` | `"sync"` |
 | `SITE_URL` | Public absolute site origin used for Relay callbacks and ingress self-test | `""` |
-| `RELAY_BASE_URL` | Relay API origin, used from C1.1b | `""` |
-| `RELAY_API_KEY` | Relay bearer credential, used from C1.1b | `""` |
+| `RELAY_BASE_URL` | Relay API origin | `""` |
+| `RELAY_API_KEY` | Relay bearer credential | `""` |
 | `RELAY_WEBHOOK_SECRET` | Secret that authenticates Relay webhook requests | `""` |
 
 Keep Relay credentials in environment-backed settings. Do not place them in job payloads,

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- C1.1a: Add durable jobs, local backends, signed ingress, schedules, commands and Studio.
+- C1.1b: Add Relay task, lease, schedule and health clients with FakeRelay contract coverage.
+
 ## 0.1.0 - 2026-09-05
 
 - C0.1: Create the package repository skeleton.

@@ -44,6 +44,7 @@ class JobClaim:
     handler: str
     payload: dict
     correlation_id: str | None
+    external_id: str | None
     attempt: int
     worker_id: str
     lease_token: uuid.UUID
@@ -105,6 +106,7 @@ def claim_job(
         handler=intent.handler,
         payload=intent.payload,
         correlation_id=intent.correlation_id or None,
+        external_id=intent.external_id or None,
         attempt=next_attempt,
         worker_id=worker_id,
         lease_token=lease_token,
@@ -305,7 +307,7 @@ def run_intent(
             extra={"job_intent_id": str(claim.job_id), "handler": claim.handler},
         )
         return _failure_result(claim.job_id, failed, using=using)
-    if definition.chunked:
+    if definition.chunked and claim.external_id:
         return "accepted"
     return (
         "succeeded" if complete_job(claim.job_id, claim.lease_token, using=using) else "lease_lost"

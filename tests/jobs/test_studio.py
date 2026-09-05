@@ -144,3 +144,38 @@ def test_jobs_studio_projects_relay_health_and_schedule_times(client, staff_user
     assert b"Relay worker health" in response.content
     assert b"queued 1" in response.content
     assert b"2026-09-05T12:00:00+00:00" in response.content
+
+
+@pytest.mark.django_db(transaction=True)
+def test_relay_operator_retry_creates_new_intent_and_preserves_old_audit(
+    client, staff_user, settings
+):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "JOBS_BACKEND": "relay",
+        "SITE_KEY": "test",
+        "SITE_URL": "https://community.example.com",
+        "RELAY_BASE_URL": "https://relay.example.com",
+        "RELAY_API_KEY": "relay-test-key",
+    }
+    old = make_intent(JobIntent.Status.DEAD)
+    old.external_id = str(uuid.uuid4())
+    old.save(update_fields=("external_id",))
+    transport = FakeRelayTransport()
+    relay_client = configured_client(transport=transport)
+    client.force_login(staff_user)
+
+    with patch("community_base.jobs.backends.relay.configured_client", return_value=relay_client):
+        response = client.post(
+            reverse("community_base_job_retry", args=(old.id,)),
+            {"confirmation": "retry"},
+        )
+
+    assert response.status_code == 302
+    old.refresh_from_db()
+    replacement = JobIntent.objects.exclude(id=old.id).get()
+    assert old.status == JobIntent.Status.DEAD
+    assert old.last_error == "retried_by_operator"
+    assert replacement.status == JobIntent.Status.SUBMITTED
+    assert replacement.external_id != old.external_id
+    assert len(transport.tasks) == 1

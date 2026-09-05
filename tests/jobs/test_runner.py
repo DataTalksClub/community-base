@@ -43,6 +43,11 @@ def crashes(context: JobContext, payload: JobPayload):
     raise RuntimeError("credential-canary")
 
 
+@register_handler("tests.runner.local_chunked", chunked=True)
+def local_chunked(context: JobContext, payload: JobPayload):
+    del context, payload
+
+
 @pytest.fixture(autouse=True)
 def clear_observed():
     OBSERVED.clear()
@@ -86,6 +91,14 @@ def test_successful_handler_runs_once_with_bound_context():
     assert audit_context.correlation_id == "correlation-456"
     assert audit_context.job_id == str(intent.id)
     assert payload == {"record_id": 1}
+
+
+@pytest.mark.django_db
+def test_chunked_handler_without_relay_task_completes_locally():
+    intent = make_intent("tests.runner.local_chunked")
+    assert run_intent(intent.id) == "succeeded"
+    intent.refresh_from_db()
+    assert intent.status == JobIntent.Status.SUCCEEDED
 
 
 @pytest.mark.django_db

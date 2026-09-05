@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from django.contrib import messages
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
@@ -9,6 +11,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from community_base.jobs.backends import get_backend
+from community_base.jobs.dispatch import hash_key
 from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import registered_schedules
 from community_base.jobs.relay import RelayError, configured_client
@@ -53,6 +56,24 @@ def retry_job(request, intent_id):
         intent = get_object_or_404(JobIntent.objects.select_for_update(), id=intent_id)
         if intent.status not in {JobIntent.Status.FAILED, JobIntent.Status.DEAD}:
             messages.error(request, "Only failed or dead jobs can be retried.")
+            return redirect("community_base_jobs")
+        if get("JOBS_BACKEND") == "relay" and intent.external_id:
+            replacement = JobIntent.objects.create(
+                handler=intent.handler,
+                key_hash=hash_key(f"operator-retry:{intent.id}:{uuid.uuid4()}"),
+                payload=intent.payload,
+                payload_hash=intent.payload_hash,
+                max_attempts=intent.max_attempts,
+                available_at=timezone.now(),
+                correlation_id=intent.correlation_id,
+            )
+            JobIntent.objects.filter(id=intent.id, status=intent.status).update(
+                status=JobIntent.Status.DEAD,
+                last_error="retried_by_operator",
+                updated_at=timezone.now(),
+            )
+            transaction.on_commit(lambda: get_backend().submit(replacement.id), robust=True)
+            messages.success(request, "Replacement durable job queued for retry.")
             return redirect("community_base_jobs")
         updated = JobIntent.objects.filter(id=intent.id, status=intent.status).update(
             status=JobIntent.Status.PENDING,
