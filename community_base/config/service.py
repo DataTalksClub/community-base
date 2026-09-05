@@ -83,6 +83,37 @@ def is_enabled(key: str) -> bool:
     return str(value).strip().casefold() in {"true", "1", "yes"}
 
 
+def resolved_source(key: str) -> str:
+    item = definition(key)
+    if Setting.objects.filter(key=key).exists():
+        return "db"
+    if item.env_var and item.env_var in os.environ:
+        return "environment"
+    if item.django_settings_fallback and hasattr(settings, item.django_settings_fallback):
+        return "django_settings"
+    return "default"
+
+
+def describe(key: str) -> dict[str, Any]:
+    item = definition(key)
+    source = resolved_source(key)
+    return {
+        "key": item.key,
+        "group": item.group,
+        "label": item.label,
+        "description": item.description,
+        "value_type": item.value_type,
+        "value": REDACTED if item.secret else runtime.value(key),
+        "configured": source != "default",
+        "source": source,
+        "secret": item.secret,
+        "multiline": item.multiline,
+        "optional": item.optional,
+        "is_email": item.is_email,
+        "docs_url": item.docs_url,
+    }
+
+
 def set(key: str, value, actor_ref: str, reason: str = "", *, source: str = "studio") -> Setting:
     item = definition(key)
     normalized = item.coerce(value)

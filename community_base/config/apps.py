@@ -17,3 +17,4 @@ class ConfigAppConfig(AppConfig):
             except ModuleNotFoundError as error:
                 if error.name != module_name:
                     raise
+        import_module("community_base.config.api_views")
