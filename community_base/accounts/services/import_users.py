@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
@@ -113,8 +115,10 @@ def _normalized_tags(*groups):
 
 def _apply_row(source, row, *, send_welcome, default_tags):
     email = normalize_email(row.email)
-    if not email or "@" not in email:
-        raise ValueError("A valid email is required")
+    try:
+        validate_email(email)
+    except ValidationError as error:
+        raise ValueError("A valid email is required") from error
     unknown = set(row.fields) - SAFE_EXTRA_FIELDS
     if unknown:
         raise ValueError(f"Unsupported imported field(s): {', '.join(sorted(unknown))}")

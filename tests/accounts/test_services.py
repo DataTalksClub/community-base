@@ -360,6 +360,23 @@ def test_merge_rejects_self_and_staff_without_force():
         merge_accounts(member, staff)
 
 
+def test_merge_calls_site_hook_inside_the_operation():
+    canonical = get_user_model().objects.create_user(email="canonical@example.com")
+    secondary = get_user_model().objects.create_user(email="secondary@example.com")
+    captured = {}
+
+    def hook(**kwargs):
+        captured.update(kwargs)
+
+    with override_settings(COMMUNITY_BASE={"ACCOUNT_MERGE_HOOK": hook}):
+        plan = merge_accounts(canonical, secondary)
+
+    assert captured["canonical"].pk == canonical.pk
+    assert captured["secondary"].pk == secondary.pk
+    assert captured["plan"] is plan
+    assert captured["dry_run"] is False
+
+
 def test_privacy_export_contains_portable_data_without_credentials():
     user = get_user_model().objects.create_user(
         email="member@example.com",
@@ -379,6 +396,17 @@ def test_privacy_export_contains_portable_data_without_credentials():
     assert exported["email_aliases"][0]["email"] == "old@example.com"
     assert log.normalized_email_hash != user.email
     assert "member@example.com" not in log.normalized_email_hash
+
+
+def test_privacy_export_includes_site_hook_data():
+    user = get_user_model().objects.create_user(email="member@example.com")
+
+    with override_settings(
+        COMMUNITY_BASE={"ACCOUNT_PRIVACY_EXPORT_HOOK": lambda **kwargs: {"courses": ["one"]}}
+    ):
+        exported = build_user_data_export(user)
+
+    assert exported["site_data"] == {"courses": ["one"]}
 
 
 def test_deletion_request_is_idempotent():
@@ -429,6 +457,19 @@ def test_privacy_delete_respects_site_blocker():
     assert result.deleted is False
     assert result.blocker_reason == "active_subscription"
     assert get_user_model().objects.filter(pk=user.pk).exists() is True
+
+
+def test_privacy_delete_includes_site_cleanup_summary():
+    user = get_user_model().objects.create_user(email="member@example.com")
+    configured = {
+        "ACCOUNT_BEFORE_DELETE_HOOK": lambda **kwargs: {"site_rows": 3},
+    }
+
+    with override_settings(COMMUNITY_BASE=configured):
+        result = delete_account_for_privacy(user)
+
+    assert result.deleted is True
+    assert result.row_count_summary["site_rows"] == 3
 
 
 def test_import_dry_run_writes_no_users_batches_or_mail():

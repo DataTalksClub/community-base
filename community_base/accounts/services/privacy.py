@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.models import Session
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.forms.models import model_to_dict
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
@@ -112,24 +112,30 @@ def write_export_log(user):
 
 
 def request_account_deletion(user):
-    existing = PrivacyRequestLog.objects.filter(
-        old_user_id=user.pk,
-        request_type=PrivacyRequestLog.RequestType.DELETION_REQUEST,
-        status__in=(PrivacyRequestLog.Status.REQUESTED, PrivacyRequestLog.Status.PENDING_DELIVERY),
-    ).first()
-    if existing is not None:
-        return existing, False
     digest, domain = _email_audit_values(user.email)
-    return (
-        PrivacyRequestLog.objects.create(
-            request_type=PrivacyRequestLog.RequestType.DELETION_REQUEST,
-            status=PrivacyRequestLog.Status.REQUESTED,
-            old_user_id=user.pk,
-            normalized_email_hash=digest,
-            email_domain=domain,
+    active = {
+        "old_user_id": user.pk,
+        "request_type": PrivacyRequestLog.RequestType.DELETION_REQUEST,
+        "status__in": (
+            PrivacyRequestLog.Status.REQUESTED,
+            PrivacyRequestLog.Status.PENDING_DELIVERY,
         ),
-        True,
-    )
+    }
+    try:
+        with transaction.atomic():
+            existing = PrivacyRequestLog.objects.filter(**active).first()
+            if existing is not None:
+                return existing, False
+            request = PrivacyRequestLog.objects.create(
+                request_type=PrivacyRequestLog.RequestType.DELETION_REQUEST,
+                status=PrivacyRequestLog.Status.REQUESTED,
+                old_user_id=user.pk,
+                normalized_email_hash=digest,
+                email_domain=domain,
+            )
+    except IntegrityError:
+        return PrivacyRequestLog.objects.get(**active), False
+    return request, True
 
 
 @dataclass(frozen=True, slots=True)
