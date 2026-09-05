@@ -35,11 +35,13 @@ issues that can start now.
 | `R1.3` | DataTalksClub/relay | Template catalog: versions, preview, test send, typed context |  | no | todo |  |
 | `R1.4` | DataTalksClub/relay | Client callbacks for delivery and engagement events | R1.2 | no | todo |  |
 | `R1.5` | DataTalksClub/relay | Preference categories and double opt-in |  | no | todo |  |
-| `C1.1` | community-base | Jobs app | C0.5 | no | todo |  |
-| `C1.2` | community-base | Mail app | C1.1 | no | todo |  |
-| `C1.3` | community-base | ses_local backend (transitional, for AISL) | C1.2 | no | todo |  |
-| `C1.4` | community-base | Test doubles exported for sites | C1.1, C1.2 | no | todo |  |
-| `C1.5` | community-base | Release 0.2.0 | C1.1, C1.2, C1.3, C1.4 | no | todo |  |
+| `C1.1a` | community-base | Durable jobs core and local backends | C0.5 | no | todo |  |
+| `C1.1b` | community-base | Relay jobs client and contract tests | C1.1a | no | todo |  |
+| `C1.2a` | community-base | Durable mail core, memory backend, and local surfaces | C1.1a | no | todo |  |
+| `C1.2b` | community-base | Relay mail, catalog, callback, and reconciliation clients | C1.1b, C1.2a | no | todo |  |
+| `C1.3` | community-base | ses_local backend (transitional, for AISL) | C1.2a | no | todo |  |
+| `C1.4` | community-base | Test doubles exported for sites | C1.1a, C1.1b, C1.2a, C1.2b | no | todo |  |
+| `C1.5` | community-base | Release 0.2.0 | C1.1a, C1.1b, C1.2a, C1.2b, C1.3, C1.4 | no | todo |  |
 | `D1.1` | DataTalksClub/website | Replace DTC jobs with the package jobs app (relay backend) | C1.5, R1.1, R1.2 | no | todo |  |
 | `D1.2` | DataTalksClub/website | Replace DTC email_app and the Datamailer outbox with the package mail app | D1.1, R1.3, R1.4, R1.5 | no | todo |  |
 | `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2 | yes | todo |  |

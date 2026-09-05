@@ -161,12 +161,12 @@ Verification
 Done when
 - [ ] `docs/api.md` updated
 
-## C1.1 Jobs app
+## C1.1a Durable jobs core and local backends
 
 Repository: community-base. Depends on: C0.5.
 
-Real Relay conformance needs R1.2 for the 202 lease mode; package capability uses FakeRelay.
-The synchronous mode works against the sandbox today.
+Goal: implement durable job behavior, signed ingress, and local execution without requiring a
+running Relay service.
 
 Read first
 - `~/git/dtc-website/jobs/` (all files): `dispatch_after_commit`, `DurableJob`, leases, registry,
@@ -184,48 +184,63 @@ Steps
    `schedule(handler, cron, payload, name=None)` collecting `ScheduleDefinition`s.
 3. `dispatch.py`: `dispatch_after_commit(handler, key, payload, max_attempts=5, available_at=None)`
    from DTC; on commit call `backend.submit(intent)`.
-4. Backends in `community_base/jobs/backends/`:
+4. Local backends in `community_base/jobs/backends/`:
    - `sync`: run the handler immediately after commit (tests).
    - `django_q`: `async_task("community_base.jobs.runner.run_intent", intent_id)`; schedules
      registered with `django_q.schedule` by the `sync_schedules` command; requires extra
      `community-base[django_q]`.
-   - `relay`: `POST /api/tasks` with `type=webhook`, `url=<SITE_URL>/internal/jobs/run`,
-     `idempotency_key=<SITE_KEY>:<key_hash>`, params `{"intent_id": ...}`; schedules registered by
-     `sync_relay_schedules` with `PUT` semantics keyed by name, deleting Relay schedules that the
-     registry no longer declares (dry-run flag prints the diff).
 5. `runner.py`: `run_intent(intent_id)` claims with a lease (DTC `claim_job`), runs the handler
    with a `JobContext`, completes or fails with backoff; `RetryableJobError` and
    `PermanentJobError` from DTC.
 6. `ingress.py`: `POST /internal/jobs/run` verifying `X-Relay-Signature` (HMAC-SHA256 over
    `<timestamp>.<raw body>` with `RELAY_WEBHOOK_SECRET`), timestamp within 5 minutes, task id
    deduplicated against `external_id`; runs `run_intent`; returns 200, or 202 with
-   `lease_seconds` when the handler declares `chunked=True`, then posts completion.
-7. Management commands: `sync_schedules` (backend-aware), `jobs_run_due` (django_q and sync:
+   `lease_seconds` when the handler declares `chunked=True`. Completion transport is C1.1b.
+7. Management commands: `sync_schedules` (local-backend aware), `jobs_run_due` (django_q and sync:
    run intents whose `available_at` passed, used by a django_q schedule every minute),
    `jobs_ingress_selftest` (signs a request to itself and expects 200),
    `jobs_sweep` (expired leases, from DTC `sweep_expired_jobs`).
 8. Studio page (standalone template until Phase 2): pending, running, failed, dead intents;
-   retry and discard actions; schedules with last and next run; for `relay` backend read the
-   Relay status contract for worker health.
+   retry and discard actions; schedules with last and next run.
 9. Tests: dispatch inside and outside a transaction, dedup conflict, lease fencing, backoff,
-   ingress signature and replay rejection, each backend with a fake, schedule diff.
+   ingress signature and replay rejection, local backends, schedule diff.
 
 Verification
 - `make check && make test` -> pass, `tests/jobs` has at least 25 tests.
 - `uv run python testproject/manage.py jobs_ingress_selftest` with a dummy secret -> `OK`.
-- Against the Relay sandbox with a public tunnel to `testproject`: `dispatch_after_commit("system.noop", ...)`
-  -> intent reaches `succeeded` and the Relay task shows `succeeded`.
 
 Done when
 - [ ] `community_base/jobs/README.md` documents the API, backends, settings keys
   (`JOBS_BACKEND`, `SITE_URL`, `RELAY_BASE_URL`, `RELAY_API_KEY`, `RELAY_WEBHOOK_SECRET`)
 
-## C1.2 Mail app
+## C1.1b Relay jobs client and contract tests
 
-Repository: community-base. Depends on: C1.1.
+Repository: community-base. Depends on: C1.1a.
 
-Real Relay conformance needs R1.3 and R1.4 for versions
-and callbacks; sends work against the existing sandbox `send` endpoint.
+Goal: add the Relay transport behind the durable jobs contract without making package acceptance
+depend on a live Relay deployment. Real conformance remains in R1.2 and site adoption.
+
+Steps
+1. Add the `relay` backend: `POST /api/tasks` with `type=webhook`,
+   `url=<SITE_URL>/internal/jobs/run`, `idempotency_key=<SITE_KEY>:<key_hash>`, and params
+   `{"intent_id": ...}`; persist the returned task id.
+2. Add completion/failure calls for chunked 202 leases and preserve lease fencing locally.
+3. Register schedules with Relay using idempotent PUT semantics keyed by name. Delete remote
+   schedules no longer declared; dry-run prints the exact diff.
+4. Add `sync_relay_schedules` and Relay worker-health projection for the standalone Studio page.
+5. Test submit, lease completion, retries, schedule create/update/delete, timeouts and malformed
+   responses against the package FakeRelay transport contract.
+
+Verification
+- `make check && make test` -> pass.
+- FakeRelay task lifecycle reaches `succeeded`; schedule reconciliation is idempotent.
+- Real Relay sandbox conformance is listed under `Not run here, needs: R1.2`.
+
+## C1.2a Durable mail core, memory backend, and local surfaces
+
+Repository: community-base. Depends on: C1.1a.
+
+Goal: implement the durable mail projection and all transport-independent behavior locally.
 
 Read first
 - `~/git/dtc-website/_docs/specs/05-events-registration-email.md` sections "Durable delivery model",
@@ -247,36 +262,51 @@ Steps
    `JobIntent` for handler `cb_mail.deliver` in the caller's transaction.
 3. Backends in `community_base/mail/backends/`:
    - `memory`: appends to `outbox` list (tests), exposes `outbox.clear()`.
-   - `relay`: handler `cb_mail.deliver` posts `POST /api/transactional/send` with
-     `idempotency_key`, `template_key`, `template_version`, `context`, `category`, `sender`;
-     stores `external_message_id`; callback view `POST /internal/mail/callbacks` verifies HMAC,
-     dedups `event_id`, applies monotonic transitions; `reconcile_deliveries` command uses
-     `GET /api/transactional/messages?since=`.
    - `ses_local`: see C1.3.
-4. Link bridge from DTC: `tracking_open`, `tracking_click`, `public_unsubscribe` views and
+4. Transport-independent callback state machine: deduplicate `event_id` and apply only monotonic
+   delivery transitions. C1.2b owns Relay signature and HTTP transport.
+5. Link bridge from DTC: `tracking_open`, `tracking_click`, `public_unsubscribe` views and
    `relay_links.py` with the same fail-closed rules; URL names kept.
-5. Studio pages (standalone until Phase 2): deliveries list with filters and state pills,
-   delivery detail with redacted context hash and callback history, template catalog proxied from
-   Relay (list, preview, publish, test send) for the `relay` backend.
-6. API endpoints: `GET /api/v1/mail/deliveries`, `GET /api/v1/mail/deliveries/{id}`,
+6. Studio pages (standalone until Phase 2): deliveries list with filters and state pills and
+   delivery detail with redacted context hash and callback history.
+7. API endpoints: `GET /api/v1/mail/deliveries`, `GET /api/v1/mail/deliveries/{id}`,
    `POST /api/v1/mail/deliveries/{id}/resend` (creates a new audited delivery related to the
    original, never a retry).
-7. Tests: send inside transaction only, dedup conflict, preference suppression, monotonic
+8. Tests: send inside transaction only, dedup conflict, preference suppression, monotonic
    projection with reordered callbacks, link bridge fail-closed cases moved from DTC, memory
    backend.
 
 Verification
 - `make check && make test` -> pass, DTC's link bridge tests pass unchanged in `tests/mail`.
-- Against the sandbox: `send("system.test", to=<owner mailbox>, ...)` with a published template
-  -> `EmailDelivery` reaches `provider_accepted` and, after callbacks, `delivered`.
 
 Done when
 - [ ] `community_base/mail/README.md` documents `send`, states, backends, hooks
   (`MAIL_PREFERENCE_RESOLVER`, `MAIL_SEND_RECORDER`, `MAIL_TEMPLATE_OVERRIDE_LOADER`)
 
+## C1.2b Relay mail, catalog, callback, and reconciliation clients
+
+Repository: community-base. Depends on: C1.1b, C1.2a.
+
+Goal: implement every Relay mail transport contract against FakeRelay before real conformance.
+
+Steps
+1. Add the Relay delivery backend for `POST /api/transactional/send`, persisting template version
+   and external message id without exposing recipient or context in logs.
+2. Add signed callback ingress, event deduplication, and the C1.2a monotonic state projection.
+3. Add `reconcile_deliveries` using `GET /api/transactional/messages?since=`.
+4. Add Relay template catalog list, preview, publish, and test-send clients and standalone Studio
+   pages.
+5. Cover success, suppression, retryable and malformed responses, reordered callbacks,
+   reconciliation and catalog operations with FakeRelay.
+
+Verification
+- `make check && make test` -> pass.
+- FakeRelay send reaches `provider_accepted` and reordered callbacks converge on `delivered`.
+- Real Relay checks are listed under `Not run here, needs: R1.3, R1.4`.
+
 ## C1.3 ses_local backend (transitional, for AISL)
 
-Repository: community-base. Depends on: C1.2.
+Repository: community-base. Depends on: C1.2a.
 
 Read first
 - `~/git/ai-shipping-labs/email_app/services/email_service.py` (whole file),
@@ -304,7 +334,7 @@ Done when
 
 ## C1.4 Test doubles exported for sites
 
-Repository: community-base. Depends on: C1.1, C1.2.
+Repository: community-base. Depends on: C1.1a, C1.1b, C1.2a, C1.2b.
 
 Steps
 1. `community_base/testing/__init__.py`: `sync_jobs()` context manager, `mail_outbox()` fixture
@@ -318,7 +348,7 @@ Verification
 
 ## C1.5 Release 0.2.0
 
-Repository: community-base. Depends on: C1.1, C1.2, C1.3, C1.4. Playbook P15.
+Repository: community-base. Depends on: C1.1a, C1.1b, C1.2a, C1.2b, C1.3, C1.4. Playbook P15.
 
 ## D1.1 Replace DTC jobs with the package jobs app (relay backend)
 
