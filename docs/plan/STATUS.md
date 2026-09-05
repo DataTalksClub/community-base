@@ -69,12 +69,14 @@ issues that can start now.
 |---|---|---|---|---|---|---|
 | `C3.1a` | community-base | Target accounts schema | C2.4 | no | done | https://github.com/DataTalksClub/community-base/pull/60 |
 | `C3.1b` | community-base | Authentication and public account entry points | C3.1a | no | done | https://github.com/DataTalksClub/community-base/pull/63 |
-| `C3.1c` | community-base | Account operations, self API and Studio | C3.1b | no | todo |  |
-| `C3.2` | community-base | Questionnaires | C3.1c | no | todo |  |
-| `C3.3` | community-base | Onboarding flows | C3.1c, C3.2 | no | todo |  |
-| `C3.4` | community-base | Community (Slack) | C3.1c | no | todo |  |
-| `C3.5` | community-base | Notifications, comments, voting | C3.1c | no | todo |  |
-| `C3.6` | community-base | Identity and community capability checkpoint | C3.1c, C3.2, C3.3, C3.4, C3.5 | no | todo |  |
+| `C3.1c` | community-base | Account domain services and mail preferences | C3.1b | no | todo |  |
+| `C3.1d` | community-base | Account pages and self API | C3.1c | no | todo |  |
+| `C3.1e` | community-base | Studio account operations and documentation | C3.1d | no | todo |  |
+| `C3.2` | community-base | Questionnaires | C3.1e | no | todo |  |
+| `C3.3` | community-base | Onboarding flows | C3.1e, C3.2 | no | todo |  |
+| `C3.4` | community-base | Community (Slack) | C3.1e | no | todo |  |
+| `C3.5` | community-base | Notifications, comments, voting | C3.1e | no | todo |  |
+| `C3.6` | community-base | Identity and community capability checkpoint | C3.1e, C3.2, C3.3, C3.4, C3.5 | no | todo |  |
 | `C3.7` | community-base | Identity donor compatibility checkpoint | C3.6, A3.2, D3.1 | no | todo |  |
 | `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2 | no | todo |  |
 | `A3.2` | AI-Shipping-Labs/website | Extension models for the remaining site-only user fields | A3.1 | no | todo |  |
