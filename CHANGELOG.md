@@ -4,6 +4,7 @@
 
 - C1.1a: Add durable jobs, local backends, signed ingress, schedules, commands and Studio.
 - C1.1b: Add Relay task, lease, schedule and health clients with FakeRelay contract coverage.
+- C1.2a: Add durable mail, memory delivery, callbacks, recipient links, Studio and scoped API.
 
 ## 0.1.0 - 2026-09-05
 
