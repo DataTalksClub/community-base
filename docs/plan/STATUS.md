@@ -93,7 +93,7 @@ issues that can start now.
 | `A4.1` | AI-Shipping-Labs/website | Cut the seams in AISL events | C5.2, A3.2 | no | todo |  |
 | `C4.1a` | community-base | Events models and domain services | C3.6 | no | done | https://github.com/DataTalksClub/community-base/pull/100 |
 | `C4.1b` | community-base | Registration, reminders and feedback | C4.1a | no | done | https://github.com/DataTalksClub/community-base/pull/103 |
-| `C4.1c` | community-base | Event integrations and job handlers | C4.1b | no | in-progress | https://github.com/DataTalksClub/community-base/pull/107 |
+| `C4.1c` | community-base | Event integrations and job handlers | C4.1b | no | done | https://github.com/DataTalksClub/community-base/pull/107 |
 | `C4.1d` | community-base | Event pages, Studio and APIs | C4.1c | no | todo |  |
 | `C4.2` | community-base | Events capability checkpoint | C4.1d | no | todo |  |
 | `C4.3` | community-base | Events donor compatibility checkpoint | C4.2, A4.1 | no | todo |  |
