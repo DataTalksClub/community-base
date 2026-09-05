@@ -95,10 +95,18 @@ class CallbackEvent(models.Model):
     event_id = models.CharField(max_length=128, unique=True)
     delivery = models.ForeignKey(
         EmailDelivery,
+        null=True,
+        blank=True,
         on_delete=models.CASCADE,
         related_name="callback_events",
     )
-    state = models.CharField(max_length=32, choices=EmailDelivery.State.choices)
+    event_type = models.CharField(max_length=64, default="delivery.updated")
+    state = models.CharField(
+        max_length=32,
+        choices=EmailDelivery.State.choices,
+        blank=True,
+        default="",
+    )
     reason_code = models.CharField(max_length=128, blank=True, default="")
     received_at = models.DateTimeField(auto_now_add=True)
 
