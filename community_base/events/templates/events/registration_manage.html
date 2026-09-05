@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Cancel event registration{% endblock %}
+{% block meta_description %}Cancel an event registration.{% endblock %}
+{% block content %}
+<main class="cb-page cb-event-registration-manage">
+  <header class="cb-page-header"><h1 class="cb-page-title">Cancel registration</h1></header>
+  <p>This stops event reminders for this registration.</p>
+  <form method="post">{% csrf_token %}<input type="hidden" name="token" value="{{ token }}"><button class="cb-button cb-button-primary" type="submit">Cancel registration</button></form>
+</main>
+{% endblock %}

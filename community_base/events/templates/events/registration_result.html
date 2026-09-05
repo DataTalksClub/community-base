@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Event registration{% endblock %}
+{% block meta_description %}Event registration result.{% endblock %}
+{% block content %}
+<main class="cb-page cb-event-registration-result">
+  <header class="cb-page-header"><h1 class="cb-page-title">Event registration</h1></header>
+  <p role="status">{{ message }}</p>
+  {% if event %}<p><a href="{{ event.get_absolute_url }}">Return to {{ event.title }}</a></p>{% endif %}
+</main>
+{% endblock %}

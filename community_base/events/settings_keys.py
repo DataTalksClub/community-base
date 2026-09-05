@@ -1,6 +1,14 @@
 from community_base.config.registry import declare
 
 declare(
+    key="EVENT_URL_STYLE",
+    group="events",
+    label="Event URL style",
+    description="Canonical event route style: slug or public_id.",
+    value_type="str",
+    default="slug",
+)
+declare(
     key="EVENT_ORGANIZER_EMAIL",
     group="events",
     label="Calendar organizer email",

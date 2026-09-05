@@ -50,6 +50,7 @@ DEFAULTS = {
     "ACCESS_POLICY": "community_base.kernel.access.OpenPolicy",
     "JOBS_BACKEND": "sync",
     "HOST_PROFILE_RESOLVER": None,
+    "EVENT_URL_STYLE": "slug",
     "EVENT_BANNER_GENERATOR": None,
     "EVENT_RECORDING_PROCESSOR": None,
     "EVENT_RECORDING_READY_HOOK": None,
