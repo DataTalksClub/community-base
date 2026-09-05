@@ -27,6 +27,7 @@ class Migration(migrations.Migration):
                 ('status', models.CharField(choices=[('pending_verification', 'Pending verification'), ('confirmed', 'Confirmed'), ('cancelled', 'Cancelled'), ('expired', 'Expired'), ('attended', 'Attended'), ('no_show', 'No show')], db_index=True, default='pending_verification', max_length=24)),
                 ('version', models.PositiveIntegerField(default=1)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('verification_expires_at', models.DateTimeField(blank=True, db_index=True, null=True)),
                 ('verified_at', models.DateTimeField(blank=True, null=True)),
                 ('cancelled_at', models.DateTimeField(blank=True, null=True)),
                 ('attended_at', models.DateTimeField(blank=True, null=True)),

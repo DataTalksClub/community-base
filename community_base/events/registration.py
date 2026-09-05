@@ -200,3 +200,40 @@ def enroll_series_registrants_in_event(event):
             _registration, changed = register_for_event(event, standing.user)
             counts["registered" if changed else "already_registered"] += 1
     return SeriesEnrollmentSummary(**counts, total_occurrences=1)
+
+
+@transaction.atomic
+def expire_pending_registrations(*, at=None):
+    at = at or timezone.now()
+    registrations = list(
+        EventRegistration.objects.select_for_update().filter(
+            status=EventRegistration.Status.PENDING_VERIFICATION,
+            verification_expires_at__lte=at,
+        )
+    )
+    for registration in registrations:
+        registration.status = EventRegistration.Status.EXPIRED
+        registration.version += 1
+        registration.save(update_fields=("status", "version", "updated_at"))
+    return len(registrations)
+
+
+@transaction.atomic
+def record_attendance(registration, *, attended, at=None):
+    registration = (
+        EventRegistration.objects.select_for_update()
+        .select_related("event", "user")
+        .get(pk=registration.pk)
+    )
+    transition_at = at or timezone.now()
+    if transition_at < registration.event.effective_end_datetime:
+        raise ValidationError("Attendance can be recorded only after the event ends.")
+    target = EventRegistration.Status.ATTENDED if attended else EventRegistration.Status.NO_SHOW
+    if registration.status == target:
+        return registration, False
+    if registration.status != EventRegistration.Status.CONFIRMED:
+        raise ValidationError("Only confirmed registrations can receive attendance state.")
+    registration.status = target
+    registration.attended_at = transition_at if attended else None
+    registration.save(update_fields=("status", "attended_at", "updated_at"))
+    return registration, True

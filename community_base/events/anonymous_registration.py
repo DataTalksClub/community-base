@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -76,6 +77,7 @@ def request_anonymous_registration(
             newsletter_consented_at=now if newsletter_consent is not None else None,
             acquisition_metadata=dict(acquisition_metadata or {}),
             abuse_metadata=dict(abuse_metadata or {}),
+            verification_expires_at=now + timedelta(hours=24),
         )
         changed = True
     elif registration.status in {
@@ -89,6 +91,7 @@ def request_anonymous_registration(
         registration.timezone = str(visitor_timezone).strip()[:100]
         registration.cancelled_at = None
         registration.verified_at = None
+        registration.verification_expires_at = now + timedelta(hours=24)
         registration.save(
             update_fields=(
                 "version",
@@ -98,6 +101,7 @@ def request_anonymous_registration(
                 "timezone",
                 "cancelled_at",
                 "verified_at",
+                "verification_expires_at",
                 "updated_at",
             )
         )
@@ -130,7 +134,10 @@ def confirm_anonymous_registration(token):
         raise RegistrationTokenError("invalid")
     registration.status = EventRegistration.Status.CONFIRMED
     registration.verified_at = timezone.now()
-    registration.save(update_fields=("status", "verified_at", "updated_at"))
+    registration.verification_expires_at = None
+    registration.save(
+        update_fields=("status", "verified_at", "verification_expires_at", "updated_at")
+    )
     send(
         "events.registration_confirmed",
         registration.normalized_email,

@@ -309,6 +309,7 @@ class EventRegistration(models.Model):
     )
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
+    verification_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
     verified_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     attended_at = models.DateTimeField(null=True, blank=True)
