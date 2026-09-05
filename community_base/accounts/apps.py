@@ -1,4 +1,4 @@
-from django.apps import AppConfig
+from django.apps import AppConfig, apps
 
 
 class AccountsConfig(AppConfig):
@@ -9,3 +9,8 @@ class AccountsConfig(AppConfig):
 
     def ready(self):
         from community_base.accounts import self_api, signals  # noqa: F401
+
+        if apps.is_installed("community_base.studio"):
+            from community_base.accounts.studio_registration import register_studio
+
+            register_studio()
