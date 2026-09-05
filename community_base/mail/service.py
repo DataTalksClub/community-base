@@ -34,6 +34,7 @@ def send(
     user=None,
     related=None,
     sender: str | None = None,
+    extra: Mapping[str, Any] | None = None,
     *,
     using: str = DEFAULT_DB_ALIAS,
 ) -> EmailDelivery:
@@ -48,6 +49,7 @@ def send(
         raise MailError("invalid mail idempotency key")
     category_value = category or ""
     sender_value = sender or ""
+    transport_options = _transport_options(extra)
     context_hash = _context_hash(context)
     related_type, related_id = _related_reference(related)
     immutable = {
@@ -58,6 +60,7 @@ def send(
         "recipient_email": to,
         "recipient_user_id": getattr(user, "pk", None),
         "context_hash": context_hash,
+        "transport_options": transport_options,
         "sender_id": sender_value,
         "related_object_type": related_type,
         "related_object_id": related_id,
@@ -117,6 +120,7 @@ def resend(
         user=original.recipient_user,
         related=original,
         sender=original.sender_id or None,
+        extra=original.transport_options,
         using=using,
     )
 
@@ -132,6 +136,32 @@ def _context_hash(context: Mapping[str, Any]) -> str:
     except (TypeError, ValueError) as error:
         raise MailError("mail context must contain JSON values") from error
     return hashlib.sha256(encoded.encode()).hexdigest()
+
+
+def _transport_options(extra: Mapping[str, Any] | None) -> dict[str, list[str]]:
+    if extra is None:
+        return {}
+    if not isinstance(extra, Mapping):
+        raise MailError("mail extra must be an object")
+    unknown = set(extra) - {"cc", "bcc"}
+    if unknown:
+        raise MailError("unsupported mail extra option")
+    result = {}
+    for name in ("cc", "bcc"):
+        raw = extra.get(name)
+        values = [raw] if isinstance(raw, str) else raw
+        if values is None:
+            continue
+        if not isinstance(values, (list, tuple)):
+            raise MailError(f"mail {name} must be an email or list of emails")
+        normalized = []
+        for value in values:
+            if not isinstance(value, str) or not value.strip() or "@" not in value:
+                raise MailError(f"invalid mail {name} recipient")
+            normalized.append(value.strip())
+        if normalized:
+            result[name] = normalized
+    return result
 
 
 def _related_reference(related) -> tuple[str, str]:

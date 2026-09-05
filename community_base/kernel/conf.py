@@ -8,6 +8,7 @@ DEFAULTS = {
     "MAIL_BACKEND": "memory",
     "MAIL_PREFERENCE_RESOLVER": "community_base.mail.preferences.allow_all",
     "MAIL_SEND_RECORDER": None,
+    "MAIL_TEMPLATE_DIR": None,
     "MAIL_TEMPLATE_OVERRIDE_LOADER": None,
     "MAIL_UNSUBSCRIBE_URL_BUILDER": None,
     "RELAY_API_KEY": "",
