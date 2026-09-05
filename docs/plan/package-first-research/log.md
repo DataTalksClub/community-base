@@ -19,3 +19,5 @@
 2026-09-05T21:07:57+02:00 | verify | passed C3.6 combined identity and community source, fresh-database, isolated-wheel, boundary, coverage-matrix, and full-suite capability gates without tagging provisional migrations | guideline
 2026-09-05T21:28:54+02:00 | build | implemented C4.1a event models, stable public identity, aliases, host and access seams, lifecycle transitions, and timezone-safe weekly occurrence generation | guideline
 2026-09-05T21:28:54+02:00 | verify | passed C4.1a source, fresh-and-reversed migration, isolated-wheel, boundary, focused and full-suite package gates without tagging the provisional events migration | guideline
+2026-09-05T21:51:35+02:00 | build | implemented C4.1b member and accountless registration, series fan-out and opt-outs, version-scoped delivery-time tokens, reminders, attendance, and feedback ownership | guideline
+2026-09-05T21:51:35+02:00 | verify | passed C4.1b source, fresh-and-reversed migration, isolated-wheel, boundary, focused and full-suite package gates without tagging provisional event migrations | guideline

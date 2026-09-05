@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from community_base.events.models import Event, EventAlias, EventPublicIdSequence, EventSeries
+from community_base.events.registration import enroll_series_registrants_in_event
 from community_base.events.signals import event_cancelled, event_published, event_rescheduled
 from community_base.kernel.access import can_access
 from community_base.kernel.conf import get
@@ -92,6 +93,7 @@ def publish_event(event):
     event.status = "upcoming"
     event.published_at = event.published_at or timezone.now()
     event.save(update_fields=("status", "published_at", "updated_at"))
+    enroll_series_registrants_in_event(event)
     _after_commit(event_published, event)
     return event
 

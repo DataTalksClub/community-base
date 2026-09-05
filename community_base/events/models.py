@@ -1,9 +1,12 @@
 import uuid
 from datetime import timedelta
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -278,3 +281,198 @@ class EventPublicIdSequence(models.Model):
 
     def __str__(self):
         return f"Next public event ID: {self.next_public_id}"
+
+
+class EventRegistration(models.Model):
+    class Status(models.TextChoices):
+        PENDING_VERIFICATION = "pending_verification", "Pending verification"
+        CONFIRMED = "confirmed", "Confirmed"
+        CANCELLED = "cancelled", "Cancelled"
+        EXPIRED = "expired", "Expired"
+        ATTENDED = "attended", "Attended"
+        NO_SHOW = "no_show", "No show"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(Event, on_delete=models.PROTECT, related_name="registrations")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="event_registrations",
+    )
+    original_email = models.EmailField()
+    normalized_email = models.EmailField()
+    display_name = models.CharField(max_length=200, blank=True, default="")
+    timezone = models.CharField(max_length=100, blank=True, default="")
+    status = models.CharField(
+        max_length=24, choices=Status.choices, default=Status.PENDING_VERIFICATION, db_index=True
+    )
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    verification_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    attended_at = models.DateTimeField(null=True, blank=True)
+    joined_at = models.DateTimeField(null=True, blank=True)
+    privacy_notice_version = models.CharField(max_length=40, blank=True, default="")
+    privacy_acknowledged_at = models.DateTimeField(null=True, blank=True)
+    newsletter_consent = models.BooleanField(null=True, blank=True)
+    newsletter_consent_version = models.CharField(max_length=40, blank=True, default="")
+    newsletter_consent_source = models.CharField(max_length=80, blank=True, default="")
+    newsletter_consented_at = models.DateTimeField(null=True, blank=True)
+    acquisition_metadata = models.JSONField(default=dict, blank=True)
+    abuse_metadata = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-created_at", "id")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "normalized_email"),
+                name="events_registration_event_email_unique",
+            ),
+            models.UniqueConstraint(
+                fields=("event", "user"),
+                condition=Q(user__isnull=False),
+                name="events_registration_event_user_unique",
+            ),
+            models.CheckConstraint(
+                condition=Q(version__gt=0), name="events_registration_version_positive"
+            ),
+            models.CheckConstraint(
+                condition=Q(normalized_email=Lower("normalized_email")),
+                name="events_registration_email_normalized",
+            ),
+        )
+
+    def __str__(self):
+        return f"{self.normalized_email} - {self.event}"
+
+    @property
+    def is_active(self):
+        return self.status in {self.Status.PENDING_VERIFICATION, self.Status.CONFIRMED}
+
+
+class SeriesRegistration(models.Model):
+    series = models.ForeignKey(
+        EventSeries, on_delete=models.CASCADE, related_name="series_registrations"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_series_registrations",
+    )
+    registered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-registered_at", "pk")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("series", "user"), name="events_series_registration_unique"
+            ),
+        )
+
+    def __str__(self):
+        return f"{self.user} - {self.series}"
+
+
+class SeriesOccurrenceOptOut(models.Model):
+    series = models.ForeignKey(
+        EventSeries, on_delete=models.CASCADE, related_name="occurrence_opt_outs"
+    )
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="series_opt_outs")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_series_occurrence_opt_outs",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "pk")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "user"), name="events_series_occurrence_opt_out_unique"
+            ),
+        )
+
+    def __str__(self):
+        return f"{self.user} - opted out of {self.event}"
+
+    def clean(self):
+        super().clean()
+        if self.event_id and self.series_id and self.event.event_series_id != self.series_id:
+            raise ValidationError("Opt-out event must belong to its series.")
+
+
+class EventReminder(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        CLAIMED = "claimed", "Claimed"
+        SENT = "sent", "Sent"
+        SKIPPED = "skipped", "Skipped"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    registration = models.ForeignKey(
+        EventRegistration, on_delete=models.PROTECT, related_name="reminders"
+    )
+    registration_version = models.PositiveIntegerField()
+    interval = models.CharField(max_length=32)
+    scheduled_for = models.DateTimeField(db_index=True)
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    reason = models.CharField(max_length=128, blank=True, default="")
+    delivery = models.ForeignKey(
+        "cb_mail.EmailDelivery",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="event_reminders",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("scheduled_for", "id")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("registration", "registration_version", "interval"),
+                name="events_reminder_registration_version_interval_unique",
+            ),
+        )
+
+    def __str__(self):
+        return f"{self.registration} ({self.interval})"
+
+
+class EventFeedback(TimestampedModel):
+    registration = models.OneToOneField(
+        EventRegistration, on_delete=models.PROTECT, related_name="feedback"
+    )
+    rating = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=(MinValueValidator(1), MaxValueValidator(5)),
+    )
+    comment = models.TextField(blank=True, default="")
+    would_change = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ("-created_at", "pk")
+
+    def __str__(self):
+        return f"{self.registration} ({self.rating or 'no rating'})"
+
+    def clean(self):
+        super().clean()
+        if not (
+            self.rating is not None
+            or (self.comment or "").strip()
+            or (self.would_change or "").strip()
+        ):
+            raise ValidationError("Please leave a rating or a comment.")
