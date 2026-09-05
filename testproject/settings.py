@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "community_base.config",
     "community_base.jobs",
     "community_base.mail",
+    "community_base.studio",
 ]
 
 MIDDLEWARE = [
@@ -102,4 +103,5 @@ COMMUNITY_BASE = {
     "RELAY_WEBHOOK_SECRET": "test-relay-webhook-secret",
     "SITE_URL": "http://testserver",
     "STUDIO_TITLE": "Community Base Studio",
+    "STUDIO_AUDIT_WRITER": "community_base.studio.audit.discard_audit_event",
 }

@@ -1,0 +1,10 @@
+{
+  "name": "community-base-studio-assets",
+  "private": true,
+  "scripts": {
+    "css:build": "tailwindcss -c tailwind.config.js -i tailwind.css -o ../static/community_base/studio.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

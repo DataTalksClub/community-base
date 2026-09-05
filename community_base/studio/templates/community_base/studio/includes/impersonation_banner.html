@@ -1,0 +1,11 @@
+{% if impersonator %}
+<div id="impersonation-banner" class="border-b border-amber-500/40 bg-amber-500/15 px-4 py-3 text-center text-sm">
+  You are impersonating user {{ request.user.pk }}.
+  <form method="post" action="{% url 'studio_stop_impersonate' %}" class="ml-2 inline">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="/">
+    <button type="submit" class="font-semibold underline">Return to your account</button>
+  </form>
+</div>
+{% endif %}
+

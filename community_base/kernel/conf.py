@@ -17,6 +17,7 @@ DEFAULTS = {
     "RELAY_WEBHOOK_SECRET": "",
     "SITE_URL": "",
     "STUDIO_TITLE": "Community Studio",
+    "STUDIO_AUDIT_WRITER": "community_base.studio.audit.discard_audit_event",
 }
 
 

@@ -1,4 +1,4 @@
-.PHONY: install lint format check test migrate-fresh
+.PHONY: install lint format check test migrate-fresh css-build
 
 TEST_TARGETS := $(filter tests/%,$(MAKECMDGOALS))
 
@@ -27,3 +27,7 @@ tests/%:
 migrate-fresh:
 	rm -f testproject/db.sqlite3
 	uv run python testproject/manage.py migrate
+
+css-build:
+	npm --prefix community_base/studio/assets ci
+	npm --prefix community_base/studio/assets run css:build
