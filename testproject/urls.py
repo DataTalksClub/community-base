@@ -25,6 +25,7 @@ urlpatterns = [
     path("studio/", include("community_base.questionnaires.studio_urls")),
     path("studio/", include("community_base.onboarding.studio_urls")),
     path("studio/", include("community_base.community.studio_urls")),
+    path("studio/", include("community_base.comments.studio_urls")),
     path("studio/", include("community_base.jobs.studio_urls")),
     path("studio/", include("community_base.mail.studio_urls")),
     path("studio/", include("community_base.content_sync.studio_urls")),
