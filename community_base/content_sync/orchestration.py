@@ -39,8 +39,17 @@ def acquire_source_lock(source):
     return True
 
 
-def release_source_lock(source):
-    ContentSource.objects.filter(pk=source.pk).update(sync_locked_at=None)
+def release_source_lock(source, *, follow_up_key=None):
+    with transaction.atomic():
+        locked = ContentSource.objects.select_for_update().get(pk=source.pk)
+        follow_up = locked.sync_requested
+        locked.sync_locked_at = None
+        locked.sync_requested = False
+        locked.save(update_fields=("sync_locked_at", "sync_requested", "updated_at"))
+        if follow_up and follow_up_key:
+            from community_base.content_sync.queue import queue_source_sync
+
+            queue_source_sync(locked, key=f"follow-up:{follow_up_key}")
 
 
 def _outcome(value):
@@ -148,4 +157,4 @@ def sync_content_source(source, *, repo_dir=None, batch_id=None, force=False):
         )
         return log
     finally:
-        release_source_lock(source)
+        release_source_lock(source, follow_up_key=log.pk)

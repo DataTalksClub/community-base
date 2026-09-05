@@ -8,4 +8,8 @@ def sync_source(context, payload):
 
     del context
     source = ContentSource.objects.get(pk=payload["source_id"])
-    sync_content_source(source, force=bool(payload.get("force", False)))
+    sync_content_source(
+        source,
+        batch_id=payload.get("batch_id"),
+        force=bool(payload.get("force", False)),
+    )

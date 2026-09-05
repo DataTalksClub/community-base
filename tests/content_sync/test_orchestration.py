@@ -1,10 +1,15 @@
 import hashlib
 import json
+from unittest.mock import Mock, patch
 
 import pytest
 
 from community_base.content_sync.models import ContentSource, SyncStatus
-from community_base.content_sync.orchestration import UpsertResult, sync_content_source
+from community_base.content_sync.orchestration import (
+    UpsertResult,
+    release_source_lock,
+    sync_content_source,
+)
 from community_base.content_sync.parsers import SourceItem, register_parser
 from testproject.models import FixtureContent
 
@@ -108,3 +113,18 @@ def test_active_source_lock_requests_follow_up(source):
     source.refresh_from_db()
     assert log.status == SyncStatus.SKIPPED
     assert source.sync_requested is True
+
+
+@pytest.mark.django_db(transaction=True)
+def test_lock_release_dispatches_requested_follow_up(source):
+    source.sync_requested = True
+    source.save(update_fields=("sync_requested",))
+    backend = Mock()
+
+    with patch("community_base.jobs.dispatch.get_backend", return_value=backend):
+        release_source_lock(source, follow_up_key="log-id")
+
+    source.refresh_from_db()
+    assert source.sync_locked_at is None
+    assert source.sync_requested is False
+    backend.submit.assert_called_once()
