@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Questionnaire onboarding{% endblock %}
+{% block content %}
+<h1>{{ progress.flow.title }}</h1>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if identify_options %}<form method="post" action="{% url 'community_base_onboarding_submit' %}">{% csrf_token %}{% for option in identify_options %}<label><input type="radio" name="self_id" value="{{ option.value }}" required> {{ option.label }}</label>{% endfor %}<button type="submit">Continue</button></form>{% elif response %}<form method="post" action="{% url 'community_base_onboarding_submit' %}">{% csrf_token %}{% include "questionnaires/_response_form.html" %}<button type="submit" name="action" value="save">Save</button><button type="submit">Continue</button>{% if not step.required %}<button type="submit" name="action" value="skip">Skip</button>{% endif %}</form>{% else %}<p role="alert">This questionnaire is unavailable.</p>{% endif %}
+{% endblock %}

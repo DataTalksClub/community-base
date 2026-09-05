@@ -16,7 +16,7 @@ class OnboardingUnavailable(Exception):
     """No active eligible onboarding flow is available."""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class ProgressState:
     progress: OnboardingProgress
     created: bool
