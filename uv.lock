@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-08-29T14:29:34.787455355Z"
+exclude-newer = "2026-08-29T16:43:38.463273048Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -320,6 +320,7 @@ dependencies = [
 [package.optional-dependencies]
 ai = [
     { name = "anthropic" },
+    { name = "pydantic" },
 ]
 django-q = [
     { name = "croniter" },
@@ -353,6 +354,7 @@ requires-dist = [
     { name = "django-q2", marker = "extra == 'django-q'", specifier = ">=1.9,<2" },
     { name = "markdown", specifier = ">=3.10,<4" },
     { name = "nh3", specifier = ">=0.3,<1" },
+    { name = "pydantic", marker = "extra == 'ai'", specifier = ">=2.11,<3" },
     { name = "pyjwt", specifier = ">=2.10,<3" },
     { name = "python-frontmatter", specifier = ">=1.1,<2" },
     { name = "pyyaml", specifier = ">=6,<7" },
