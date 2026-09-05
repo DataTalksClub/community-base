@@ -77,7 +77,7 @@ issues that can start now.
 | `C3.4` | community-base | Community (Slack) | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/83 |
 | `C3.5a` | community-base | Notifications | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/87 |
 | `C3.5b` | community-base | Comments | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/90 |
-| `C3.5c` | community-base | Voting | C3.1e | no | in-progress | https://github.com/DataTalksClub/community-base/issues/92 |
+| `C3.5c` | community-base | Voting | C3.1e | no | in-progress | https://github.com/DataTalksClub/community-base/pull/93 |
 | `C3.6` | community-base | Identity and community capability checkpoint | C3.1e, C3.2, C3.3, C3.4, C3.5a, C3.5b, C3.5c | no | todo |  |
 | `C3.7` | community-base | Identity donor compatibility checkpoint | C3.6, A3.2, D3.1 | no | todo |  |
 | `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2 | no | todo |  |
