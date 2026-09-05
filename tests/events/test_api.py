@@ -113,6 +113,18 @@ def test_staff_manages_events_and_guest_invitations(client):
         f"/api/v1/events/{item.pk}/guest-invitations",
         {"email": "guest@example.com"},
     )
+    zoom = request(
+        client,
+        "post",
+        f"/api/v1/events/{item.pk}/zoom-sync",
+        {"action": "create"},
+    )
+    recording = request(
+        client,
+        "post",
+        f"/api/v1/events/{item.pk}/recording-processing",
+        {"recording_reference": "zoom-recording-42"},
+    )
     listed = client.get(f"/api/v1/events/{item.pk}/registrations")
     updated = request(
         client,
@@ -124,6 +136,8 @@ def test_staff_manages_events_and_guest_invitations(client):
     assert created.status_code == 201
     assert created.json()["event"]["public_id"] is not None
     assert invited.status_code == 201
+    assert zoom.status_code == 201
+    assert recording.status_code == 201
     assert listed.json()["results"][0]["email"] == "guest@example.com"
     assert updated.status_code == 200
     assert updated.json()["event"]["title"] == "Updated over API"
@@ -164,5 +178,7 @@ def test_event_routes_are_published_in_openapi():
     assert document["paths"]["/api/v1/events"]["post"]["security"] == [{"cookieAuth": []}]
     assert "/api/v1/events/{event_id}/registration" in document["paths"]
     assert "/api/v1/events/{event_id}/guest-invitations" in document["paths"]
+    assert "/api/v1/events/{event_id}/zoom-sync" in document["paths"]
+    assert "/api/v1/events/{event_id}/recording-processing" in document["paths"]
     assert "/api/v1/event-series/{series_id}" in document["paths"]
     assert "/api/v1/event-hosts/{host_id}" in document["paths"]

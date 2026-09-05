@@ -1,4 +1,5 @@
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import ProtectedError
 from django.forms.models import model_to_dict
 from django.http import JsonResponse
@@ -8,6 +9,7 @@ from community_base.api.errors import APIError
 from community_base.api.safety import read_json_object
 from community_base.events.feedback import submit_feedback
 from community_base.events.guest_invitations import invite_guest
+from community_base.events.integration_jobs import enqueue_recording_processing, enqueue_zoom_sync
 from community_base.events.models import Event, EventRegistration, EventSeries, Host
 from community_base.events.registration import register_for_event, unregister_from_event
 from community_base.events.services import allocate_public_id
@@ -333,6 +335,54 @@ def guest_invitation_post(request, event_id):
         },
         status=201 if result.created else 200,
     )
+
+
+@route(
+    "POST",
+    "events/<int:event_id>/zoom-sync",
+    None,
+    "Queue Zoom synchronization for an event",
+    OBJECT,
+    OBJECT,
+    authentication="session",
+)
+def zoom_sync_post(request, event_id):
+    _staff(request)
+    values = read_json_object(request)
+    if set(values) != {"action"} or values["action"] not in {"create", "update", "delete"}:
+        raise APIError(400, "invalid_zoom_action", "Zoom action must be create, update or delete.")
+    item = _event(event_id)
+    with transaction.atomic():
+        job, created = enqueue_zoom_sync(item, values["action"])
+    return JsonResponse({"job_id": str(job.pk), "created": created}, status=201 if created else 200)
+
+
+@route(
+    "POST",
+    "events/<int:event_id>/recording-processing",
+    None,
+    "Queue recording processing for an event",
+    OBJECT,
+    OBJECT,
+    authentication="session",
+)
+def recording_processing_post(request, event_id):
+    _staff(request)
+    values = read_json_object(request)
+    if set(values) != {"recording_reference"}:
+        raise APIError(
+            400,
+            "invalid_recording_reference",
+            "Recording processing requires one opaque recording_reference.",
+        )
+    try:
+        with transaction.atomic():
+            job, created = enqueue_recording_processing(
+                _event(event_id), values["recording_reference"]
+            )
+    except (TypeError, ValueError) as error:
+        raise APIError(400, "invalid_recording_reference", str(error)) from error
+    return JsonResponse({"job_id": str(job.pk), "created": created}, status=201 if created else 200)
 
 
 @route(
