@@ -60,6 +60,15 @@ class OnboardingStep(models.Model):
         super().clean()
         if not isinstance(self.config, dict):
             raise ValidationError({"config": "Step config must be a JSON object."})
+        if self.kind == self.Kind.QUESTIONNAIRE and not (
+            self.config.get("persona_selection")
+            or str(self.config.get("questionnaire_slug", "")).strip()
+        ):
+            raise ValidationError(
+                {"config": "Questionnaire steps need questionnaire_slug or persona_selection."}
+            )
+        if self.kind == self.Kind.CUSTOM and not str(self.config.get("template", "")).strip():
+            raise ValidationError({"config": "Custom steps need a template."})
 
 
 class FlowAssignment(models.Model):

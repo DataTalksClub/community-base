@@ -75,3 +75,17 @@ def test_assignment_requires_a_group_or_level():
 
     with pytest.raises(ValidationError, match="Choose a group or minimum access level"):
         FlowAssignment(flow=flow).full_clean()
+
+
+@pytest.mark.parametrize(
+    ("kind", "config", "message"),
+    [
+        ("questionnaire", {}, "questionnaire_slug or persona_selection"),
+        ("custom", {}, "Custom steps need a template"),
+    ],
+)
+def test_steps_validate_kind_specific_configuration(kind, config, message):
+    flow = OnboardingFlow.objects.create(slug="default", title="Default")
+
+    with pytest.raises(ValidationError, match=message):
+        OnboardingStep(flow=flow, order=0, kind=kind, config=config).full_clean()

@@ -105,6 +105,32 @@ def _next_step(step):
     return step.flow.steps.filter(order__gt=step.order).first()
 
 
+def _send_completion(progress):
+    onboarding_completed.send(sender=OnboardingProgress, user=progress.user, flow=progress.flow)
+
+
+@transaction.atomic
+def ensure_current_step(progress):
+    """Repair an unset current step after an empty flow or step deletion."""
+    locked = (
+        OnboardingProgress.objects.select_for_update()
+        .select_related("flow", "user")
+        .get(pk=progress.pk)
+    )
+    if locked.current_step_id is not None or locked.completed_at is not None:
+        return locked
+    completed_ids = [
+        int(value) for value in locked.data.get("completed_steps", []) if str(value).isdigit()
+    ]
+    locked.current_step = locked.flow.steps.exclude(pk__in=completed_ids).first()
+    if locked.current_step is None:
+        locked.completed_at = timezone.now()
+    locked.save(update_fields=("current_step", "completed_at"))
+    if locked.completed_at is not None:
+        transaction.on_commit(lambda: _send_completion(locked))
+    return locked
+
+
 @transaction.atomic
 def advance(progress, *, step=None):
     """Mark the current step complete and move atomically to the next one."""
@@ -125,16 +151,13 @@ def advance(progress, *, step=None):
         locked.completed_at = timezone.now()
     locked.save(update_fields=("current_step", "completed_at", "data"))
     if locked.completed_at is not None:
-        transaction.on_commit(
-            lambda: onboarding_completed.send(
-                sender=OnboardingProgress, user=locked.user, flow=locked.flow
-            )
-        )
+        transaction.on_commit(lambda: _send_completion(locked))
     return locked
 
 
 def advance_completed(progress):
     """Skip domain steps whose underlying work was already completed."""
+    progress = ensure_current_step(progress)
     seen = set()
     while progress.current_step_id and progress.current_step_id not in seen:
         seen.add(progress.current_step_id)

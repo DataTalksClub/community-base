@@ -273,7 +273,7 @@ def dashboard_prompt(request):
     try:
         state = progress_for(request.user, create=False)
     except OnboardingUnavailable:
-        state = None
+        return HttpResponse("")
     if state is not None and state.progress.completed_at is not None:
         return HttpResponse("")
     return render(request, "community_base/onboarding/_dashboard_prompt.html", {"state": state})

@@ -88,3 +88,25 @@ def test_advance_rejects_a_stale_step_without_moving_progress():
     stale_result = advance(progress, step=steps[0])
 
     assert stale_result.current_step == steps[1]
+
+
+def test_empty_flow_completes_without_a_missing_step_failure():
+    user = get_user_model().objects.create_user(email="member@example.com")
+    flow = OnboardingFlow.objects.create(slug="default", title="Default", is_default=True)
+
+    progress = advance_completed(progress_for(user).progress)
+
+    assert progress.flow == flow
+    assert progress.current_step is None
+    assert progress.completed_at is not None
+
+
+def test_deleted_current_step_resumes_at_first_unfinished_step():
+    user = get_user_model().objects.create_user(email="member@example.com")
+    _flow, steps = build_flow("custom", "plan")
+    progress = progress_for(user).progress
+    steps[0].delete()
+
+    repaired = advance_completed(progress)
+
+    assert repaired.current_step == steps[1]

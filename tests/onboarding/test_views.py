@@ -162,3 +162,13 @@ def test_ineligible_member_gets_forbidden_and_no_progress(client, settings):
 
     assert result.status_code == 403
     assert not OnboardingProgress.objects.filter(user=user).exists()
+
+
+def test_dashboard_prompt_is_hidden_when_no_flow_is_available(client):
+    user = member()
+    client.force_login(user)
+
+    result = client.get(reverse("community_base_onboarding_prompt"))
+
+    assert result.status_code == 200
+    assert result.content == b""
