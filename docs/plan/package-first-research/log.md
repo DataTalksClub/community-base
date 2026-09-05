@@ -6,3 +6,4 @@
 2026-09-05T12:22:59+02:00 | state | researching -> distilled | Distilled repository evidence and Astra architecture review into an executable plan
 2026-09-05T12:22:59+02:00 | state | distilled -> critiqued | Reflected on acceptance coverage, risks, rejected alternatives, and approval decisions
 2026-09-05T12:31:30+02:00 | state | critiqued -> approved | Owner approved package-first execution, v0.6.0 adoption release, and permanent replaces markers
+2026-09-05T17:14:18+02:00 | build | split C3.1c into services, self API, and Studio slices after C3.1a and C3.1b merged | guideline

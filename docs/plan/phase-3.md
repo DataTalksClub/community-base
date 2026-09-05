@@ -83,7 +83,7 @@ Verification
 - `testproject`: register, verify with the memory outbox, log in, request a password reset and
   complete the reset.
 
-## C3.1c Account operations, self API and Studio
+## C3.1c Account domain services and mail preferences
 
 Repository: community-base. Depends on: C3.1b.
 
@@ -97,19 +97,56 @@ Steps
 1. Services: verification, email change, aliases and resolution, merge, privacy export and
    deletion, free welcome (mail purpose), timezone, import users (batches). Import from
    `~/git/ai-shipping-labs/accounts/services/`.
-2. Account page and self API (`/api/v1/me`, `/api/v1/me/profile` GET and PATCH with revision
-   check, email preferences, timezone, dismiss card, change password, data export request),
-   templates following the public template contract.
-3. Studio: user create, import (CSV, batches, dry run), merge, privacy requests, email change
-   review, registered into the `People` section; extend C2.2 registries.
-4. Mail preference resolver: implement `MAIL_PREFERENCE_RESOLVER` default reading
+2. Mail preference resolver: implement `MAIL_PREFERENCE_RESOLVER` default reading
    `User.email_preferences` and `unsubscribed` and `bounce_state`, replacing the Phase 1 default.
-5. Tests moved from AISL `accounts/tests/` (22k lines: move all that do not reference tier or
-   Stripe; list the excluded files in the pull request).
+3. Adapt service tests without tier, Stripe, Slack workspace or site email-template assumptions;
+   record the donor behavior matrix for later extraction.
+
+Verification
+- `make check && make test tests/accounts/test_services.py` -> pass.
+- `testproject`: preference resolver suppresses global unsubscribe and permanent bounce, and an
+  import dry run writes no users or batches.
+
+## C3.1d Account pages and self API
+
+Repository: community-base. Depends on: C3.1c.
+
+Read first
+- `~/git/ai-shipping-labs/accounts/views/account.py`, account forms, templates and API tests.
+- `~/git/dtc-website/_docs/specs/01-platform-architecture.md` member profile sections and profile
+  forms.
+
+Steps
+1. Add the account page and self API: `/api/v1/me`, `/api/v1/me/profile` GET and PATCH with
+   revision check, email preferences, timezone, dismiss card, change password and data export
+   request.
+2. Add account templates following the public template contract.
+3. Adapt member-owned permission, validation, stale-write and privacy-request tests.
+
+Verification
+- `make check && make test tests/accounts/test_self_api.py` -> pass.
+- `testproject`: complete profile through PATCH with `If-Match` -> 200; stale revision -> 409.
+
+## C3.1e Studio account operations and documentation
+
+Repository: community-base. Depends on: C3.1d.
+
+Read first
+- `~/git/ai-shipping-labs/accounts/` Studio account operations, import commands and tests.
+- `community_base/studio/README.md` and C2.2 user registries.
+
+Steps
+1. Add Studio user create, CSV import (batches and dry run), merge, privacy-request and email-change
+   review operations, registered into the `People` section; extend C2.2 registries.
+2. Classify AISL `accounts/tests/` (22k lines) as adapted or site-owned in the C3.1 coverage
+   matrix; copied-test count remains a C3.7 extraction gate.
+3. Document the accounts field table, allauth settings helper, hooks, routes and integration
+   assumptions.
 
 Verification
 - `make check && make test tests/accounts` -> pass.
-- `testproject`: complete profile through PATCH with `If-Match` -> 200; stale revision -> 409.
+- `testproject`: staff can create, dry-run import and review account operations; non-staff gets
+  403 or the standard Studio denial response.
 
 Done when
 - [ ] `community_base/accounts/README.md` lists the field table, the allauth settings helper and
@@ -117,7 +154,7 @@ Done when
 
 ## C3.2 Questionnaires
 
-Repository: community-base. Depends on: C3.1c. Playbook P4 for `questionnaires` (label kept).
+Repository: community-base. Depends on: C3.1e. Playbook P4 for `questionnaires` (label kept).
 
 Read first
 - `~/git/ai-shipping-labs/questionnaires/` (models, services, onboarding.py, views, templates).
@@ -133,7 +170,7 @@ Verification
 
 ## C3.3 Onboarding flows
 
-Repository: community-base. Depends on: C3.1c, C3.2.
+Repository: community-base. Depends on: C3.1e, C3.2.
 
 Read first
 - `~/git/ai-shipping-labs/accounts/views/onboarding.py`, `onboarding_ai.py`, `questionnaires/onboarding.py`,
@@ -161,7 +198,7 @@ Verification
 
 ## C3.4 Community (Slack)
 
-Repository: community-base. Depends on: C3.1c. Playbook P4 for `community` (label kept).
+Repository: community-base. Depends on: C3.1e. Playbook P4 for `community` (label kept).
 
 Read first
 - `~/git/ai-shipping-labs/community/` (Slack invite, identity import, staff notifications,
@@ -179,7 +216,7 @@ Verification
 
 ## C3.5 Notifications, comments, voting
 
-Repository: community-base. Depends on: C3.1c. Playbook P4 for each (labels kept).
+Repository: community-base. Depends on: C3.1e. Playbook P4 for each (labels kept).
 
 Steps
 1. Lift the three apps. Replace imports of `content`, `events`, `plans`, `bookclub` with signals
@@ -192,7 +229,7 @@ Verification
 
 ## C3.6 Identity and community capability checkpoint
 
-Repository: community-base. Depends on: C3.1c, C3.2, C3.3, C3.4, C3.5.
+Repository: community-base. Depends on: C3.1e, C3.2, C3.3, C3.4, C3.5.
 
 Goal: prove package-local identity and community behavior without tagging provisional kept-label
 migrations.

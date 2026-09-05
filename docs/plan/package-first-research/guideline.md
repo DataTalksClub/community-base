@@ -135,12 +135,14 @@ Build the final shared behavior locally without claiming donor compatibility:
 
 1. C3.1a: target User/MemberProfile schema and provisional initial migration.
 2. C3.1b: authentication, allauth adapter, account settings helper, and public templates.
-3. C3.1c: verification, aliases, email change, merge, privacy, timezone, import, mail preferences,
-   self API, and staff create/import/merge.
-4. C3.2a: questionnaires and optional AI behavior.
-5. C3.3: configurable onboarding flows and all step types.
-6. C3.4a: Slack/community behavior with optional Calendly boundary.
-7. C3.5a, C3.5b, C3.5c: notifications, comments, and voting separately, followed by a shared
+3. C3.1c: verification, aliases, email change, merge, privacy, timezone, import and mail
+   preferences.
+4. C3.1d: account pages and the revision-safe self API.
+5. C3.1e: staff create/import/merge and account operations, followed by the full accounts README.
+6. C3.2a: questionnaires and optional AI behavior.
+7. C3.3: configurable onboarding flows and all step types.
+8. C3.4a: Slack/community behavior with optional Calendly boundary.
+9. C3.5a, C3.5b, C3.5c: notifications, comments, and voting separately, followed by a shared
    integration check.
 
 Initial migrations for kept-label apps remain provisional and untagged. Every copied donor test is
