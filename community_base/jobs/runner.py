@@ -10,7 +10,7 @@ from django.db import DEFAULT_DB_ALIAS
 from django.utils import timezone
 
 from community_base.jobs.models import JobIntent
-from community_base.jobs.registry import JobContext, RegistryError, get_handler
+from community_base.jobs.registry import JobContext, RegistryError, handler_definition
 from community_base.kernel.context import context_scope
 
 logger = logging.getLogger(__name__)
@@ -28,13 +28,13 @@ class JobExecutionError(RuntimeError):
 
 class RetryableJobError(JobExecutionError):
     def __init__(self, code: str = "retryable_error"):
-        self.code = _validate_error(code)
+        self.code = validate_error_code(code)
         super().__init__(self.code)
 
 
 class PermanentJobError(JobExecutionError):
     def __init__(self, code: str = "permanent_error"):
-        self.code = _validate_error(code)
+        self.code = validate_error_code(code)
         super().__init__(self.code)
 
 
@@ -44,6 +44,7 @@ class JobClaim:
     handler: str
     payload: dict
     correlation_id: str | None
+    external_id: str | None
     attempt: int
     worker_id: str
     lease_token: uuid.UUID
@@ -105,6 +106,7 @@ def claim_job(
         handler=intent.handler,
         payload=intent.payload,
         correlation_id=intent.correlation_id or None,
+        external_id=intent.external_id or None,
         attempt=next_attempt,
         worker_id=worker_id,
         lease_token=lease_token,
@@ -162,7 +164,7 @@ def fail_job(
     retryable: bool,
     using: str = DEFAULT_DB_ALIAS,
 ) -> bool:
-    error_code = _validate_error(error_code)
+    error_code = validate_error_code(error_code)
     now = timezone.now()
     intent = (
         JobIntent.objects.using(using)
@@ -254,7 +256,7 @@ def run_intent(
     if claim is None:
         return "not_claimed"
     try:
-        callback = get_handler(claim.handler)
+        definition = handler_definition(claim.handler)
     except RegistryError:
         fail_job(
             claim.job_id,
@@ -273,7 +275,7 @@ def run_intent(
     )
     try:
         with context_scope(correlation_id=claim.correlation_id, job_id=str(claim.job_id)):
-            callback(context, claim.payload)
+            definition.callback(context, claim.payload)
     except PermanentJobError as error:
         fail_job(
             claim.job_id,
@@ -284,16 +286,16 @@ def run_intent(
         )
         return "dead"
     except RetryableJobError as error:
-        fail_job(
+        failed = fail_job(
             claim.job_id,
             claim.lease_token,
             error_code=error.code,
             retryable=True,
             using=using,
         )
-        return "failed"
+        return _failure_result(claim.job_id, failed, using=using)
     except Exception:
-        fail_job(
+        failed = fail_job(
             claim.job_id,
             claim.lease_token,
             error_code="handler_error",
@@ -304,7 +306,9 @@ def run_intent(
             "durable_job_handler_failed",
             extra={"job_intent_id": str(claim.job_id), "handler": claim.handler},
         )
-        return "failed"
+        return _failure_result(claim.job_id, failed, using=using)
+    if definition.chunked and claim.external_id:
+        return "accepted"
     return (
         "succeeded" if complete_job(claim.job_id, claim.lease_token, using=using) else "lease_lost"
     )
@@ -312,6 +316,15 @@ def run_intent(
 
 def retry_backoff(attempt: int) -> timedelta:
     return timedelta(seconds=min(MAX_BACKOFF_SECONDS, 5 * (2 ** max(0, attempt - 1))))
+
+
+def _failure_result(intent_id, updated: bool, *, using: str) -> str:
+    if not updated:
+        return "lease_lost"
+    status = (
+        JobIntent.objects.using(using).filter(id=intent_id).values_list("status", flat=True).get()
+    )
+    return "dead" if status == JobIntent.Status.DEAD else "failed"
 
 
 def _validate_worker(worker_id: str) -> str:
@@ -328,7 +341,7 @@ def _validate_lease_seconds(seconds: int) -> int:
     return seconds
 
 
-def _validate_error(code: str) -> str:
+def validate_error_code(code: str) -> str:
     if not isinstance(code, str) or not ERROR_PATTERN.fullmatch(code):
         raise JobExecutionError("invalid durable job error code")
     return code

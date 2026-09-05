@@ -19,4 +19,22 @@ def schedule(*args, **kwargs):
     return register_schedule(*args, **kwargs)
 
 
-__all__ = ["dispatch_after_commit", "register_handler", "schedule"]
+def complete_chunked_job(*args, **kwargs):
+    from community_base.jobs.chunked import complete_chunked_job as complete
+
+    return complete(*args, **kwargs)
+
+
+def fail_chunked_job(*args, **kwargs):
+    from community_base.jobs.chunked import fail_chunked_job as fail
+
+    return fail(*args, **kwargs)
+
+
+__all__ = [
+    "complete_chunked_job",
+    "dispatch_after_commit",
+    "fail_chunked_job",
+    "register_handler",
+    "schedule",
+]

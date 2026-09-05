@@ -10,8 +10,9 @@ from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
+from community_base.jobs.dispatch import hash_key, hash_payload
 from community_base.jobs.models import JobIntent
-from community_base.jobs.registry import RegistryError, handler_definition
+from community_base.jobs.registry import RegistryError, handler_definition, registered_schedules
 from community_base.jobs.runner import DEFAULT_LEASE_SECONDS, run_intent
 from community_base.kernel.conf import get
 from community_base.kernel.context import is_safe_external_context_id
@@ -34,40 +35,67 @@ def run_job(request: HttpRequest) -> JsonResponse:
 
     try:
         document = json.loads(body)
-        intent_id = uuid.UUID(document["intent_id"])
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+    except json.JSONDecodeError:
         return _error("invalid_payload", 400)
     if not isinstance(document, dict):
+        return _error("invalid_payload", 400)
+    intent_id = _intent_id(document.get("intent_id"))
+    schedule_name = document.get("schedule_name")
+    if (intent_id is None) == (not isinstance(schedule_name, str)):
         return _error("invalid_payload", 400)
 
     task_id = request.headers["X-Relay-Task-Id"]
     correlation_id = request.headers["X-Relay-Correlation-Id"]
     try:
         with transaction.atomic():
-            if JobIntent.objects.filter(external_id=task_id).exists():
-                return _error("replayed_task", 409)
-            intent = JobIntent.objects.select_for_update().filter(id=intent_id).first()
-            if intent is None:
-                return _error("unknown_intent", 404)
-            if intent.external_id:
-                return _error("intent_already_submitted", 409)
+            bound = JobIntent.objects.select_for_update().filter(external_id=task_id).first()
+            if bound is not None:
+                accepted_delivery = intent_id == bound.id and (
+                    (bound.status == JobIntent.Status.SUBMITTED and bound.attempts == 0)
+                    or bound.status == JobIntent.Status.FAILED
+                )
+                if not accepted_delivery:
+                    return _error("replayed_task", 409)
+                intent = bound
+                if not intent.correlation_id:
+                    JobIntent.objects.filter(id=intent.id, correlation_id="").update(
+                        correlation_id=correlation_id,
+                        updated_at=timezone.now(),
+                    )
+                    intent.correlation_id = correlation_id
+            elif intent_id is None:
+                intent = _create_scheduled_intent(schedule_name, task_id, correlation_id)
+                if intent is None:
+                    return _error("unknown_schedule", 404)
+                intent_id = intent.id
+            else:
+                intent = JobIntent.objects.select_for_update().filter(id=intent_id).first()
+                if intent is None:
+                    return _error("unknown_intent", 404)
+                if intent.external_id:
+                    return _error("intent_already_submitted", 409)
             try:
                 definition = handler_definition(intent.handler)
             except RegistryError:
                 return _error("unknown_handler", 409)
-            updates = {"external_id": task_id, "updated_at": timezone.now()}
-            if not intent.correlation_id:
-                updates["correlation_id"] = correlation_id
-            if intent.status == JobIntent.Status.PENDING:
-                updates["status"] = JobIntent.Status.SUBMITTED
-            JobIntent.objects.filter(id=intent.id, external_id="").update(**updates)
+            if not intent.external_id:
+                updates = {"external_id": task_id, "updated_at": timezone.now()}
+                if not intent.correlation_id:
+                    updates["correlation_id"] = correlation_id
+                if intent.status == JobIntent.Status.PENDING:
+                    updates["status"] = JobIntent.Status.SUBMITTED
+                JobIntent.objects.filter(id=intent.id, external_id="").update(**updates)
     except IntegrityError:
         return _error("replayed_task", 409)
 
     result = run_intent(intent_id, worker_id=f"relay:{task_id}")
+    if result in {"failed", "not_claimed"}:
+        return _error("job_retryable", 503)
+    if result in {"dead", "lease_lost"}:
+        return _error("job_failed", 422)
     if definition.chunked:
         return JsonResponse(
-            {"status": "accepted", "result": result, "lease_seconds": DEFAULT_LEASE_SECONDS},
+            {"status": "accepted", "lease_seconds": DEFAULT_LEASE_SECONDS},
             status=202,
         )
     return JsonResponse({"status": "ok", "result": result})
@@ -76,6 +104,34 @@ def run_job(request: HttpRequest) -> JsonResponse:
 def sign_body(body: bytes, timestamp: str, secret: str) -> str:
     digest = hmac.new(secret.encode(), timestamp.encode() + b"." + body, hashlib.sha256)
     return f"sha256={digest.hexdigest()}"
+
+
+def _intent_id(value) -> uuid.UUID | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        return None
+
+
+def _create_scheduled_intent(
+    schedule_name: str, task_id: str, correlation_id: str
+) -> JobIntent | None:
+    definitions = {item.name: item for item in registered_schedules()}
+    scheduled = definitions.get(schedule_name)
+    if scheduled is None:
+        return None
+    return JobIntent.objects.create(
+        handler=scheduled.handler,
+        key_hash=hash_key(f"relay-schedule:{task_id}"),
+        payload=scheduled.payload,
+        payload_hash=hash_payload(scheduled.payload),
+        status=JobIntent.Status.SUBMITTED,
+        available_at=timezone.now(),
+        correlation_id=correlation_id,
+        external_id=task_id,
+    )
 
 
 def _verify_request(request: HttpRequest, body: bytes) -> JsonResponse | None:

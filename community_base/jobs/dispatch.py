@@ -40,8 +40,8 @@ def dispatch_after_commit(
         raise DispatchError("durable dispatch requires an active transaction")
     get_handler(handler)
     normalized = validate_payload(payload)
-    key_hash = _hash_key(key)
-    payload_hash = _hash_payload(normalized)
+    key_hash = hash_key(key)
+    payload_hash = hash_payload(normalized)
     if not isinstance(max_attempts, int) or isinstance(max_attempts, bool):
         raise DispatchError("max attempts must be an integer")
     if not 1 <= max_attempts <= 100:
@@ -85,12 +85,12 @@ def _best_effort_submit(intent_id) -> bool:
     return True
 
 
-def _hash_key(raw_key: str) -> str:
+def hash_key(raw_key: str) -> str:
     if not isinstance(raw_key, str) or not KEY_PATTERN.fullmatch(raw_key):
         raise DispatchError("invalid durable job deduplication key")
     return hashlib.sha256(f"community-base-job-key-v1\0{raw_key}".encode()).hexdigest()
 
 
-def _hash_payload(payload) -> str:
+def hash_payload(payload) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
     return hashlib.sha256(encoded.encode()).hexdigest()

@@ -43,6 +43,11 @@ def crashes(context: JobContext, payload: JobPayload):
     raise RuntimeError("credential-canary")
 
 
+@register_handler("tests.runner.local_chunked", chunked=True)
+def local_chunked(context: JobContext, payload: JobPayload):
+    del context, payload
+
+
 @pytest.fixture(autouse=True)
 def clear_observed():
     OBSERVED.clear()
@@ -89,6 +94,14 @@ def test_successful_handler_runs_once_with_bound_context():
 
 
 @pytest.mark.django_db
+def test_chunked_handler_without_relay_task_completes_locally():
+    intent = make_intent("tests.runner.local_chunked")
+    assert run_intent(intent.id) == "succeeded"
+    intent.refresh_from_db()
+    assert intent.status == JobIntent.Status.SUCCEEDED
+
+
+@pytest.mark.django_db
 def test_retryable_failure_schedules_bounded_retry():
     intent = make_intent("tests.runner.retry")
     before = timezone.now()
@@ -97,6 +110,14 @@ def test_retryable_failure_schedules_bounded_retry():
     assert intent.status == JobIntent.Status.FAILED
     assert intent.last_error == "temporary_failure"
     assert intent.available_at > before
+
+
+@pytest.mark.django_db
+def test_retryable_failure_reports_dead_on_final_attempt():
+    intent = make_intent("tests.runner.retry", max_attempts=1)
+    assert run_intent(intent.id) == "dead"
+    intent.refresh_from_db()
+    assert intent.status == JobIntent.Status.DEAD
 
 
 @pytest.mark.django_db

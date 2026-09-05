@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import patch
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -6,13 +7,23 @@ from django.urls import reverse
 from django.utils import timezone
 
 from community_base.jobs.models import JobIntent
-from community_base.jobs.registry import JobContext, JobPayload, register_handler
+from community_base.jobs.registry import JobContext, JobPayload, register_handler, schedule
+from community_base.jobs.relay import configured_client
 from community_base.jobs.runner import claim_job, complete_job
+from tests.jobs.fake_relay import FakeRelayTransport
 
 
 @register_handler("tests.studio.complete")
 def complete_handler(context: JobContext, payload: JobPayload):
     del context, payload
+
+
+schedule(
+    "tests.studio.complete",
+    "17 * * * *",
+    {},
+    name="tests.studio.hourly",
+)
 
 
 @pytest.fixture
@@ -51,7 +62,7 @@ def test_jobs_studio_lists_work_without_rendering_payload(client, staff_user):
     response = client.get(reverse("community_base_jobs"))
     assert response.status_code == 200
     assert str(intent.id).encode() in response.content
-    assert b"tests.operations.hourly" in response.content
+    assert b"tests.studio.hourly" in response.content
     assert b"record_id" not in response.content
     assert "no-cache" in response.headers["Cache-Control"]
 
@@ -95,3 +106,76 @@ def test_studio_actions_reject_get(client, staff_user):
     client.force_login(staff_user)
     assert client.get(reverse("community_base_job_retry", args=(intent.id,))).status_code == 405
     assert client.get(reverse("community_base_job_discard", args=(intent.id,))).status_code == 405
+
+
+@pytest.mark.django_db
+def test_jobs_studio_projects_relay_health_and_schedule_times(client, staff_user, settings):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "JOBS_BACKEND": "relay",
+        "SITE_KEY": "test",
+        "SITE_URL": "https://community.example.com",
+        "RELAY_BASE_URL": "https://relay.example.com",
+        "RELAY_API_KEY": "relay-test-key",
+    }
+    transport = FakeRelayTransport()
+    relay_client = configured_client(transport=transport)
+    relay_client.upsert_schedule(
+        {
+            "name": "community-base:test:tests.studio.hourly",
+            "cron": "17 * * * *",
+            "type": "webhook",
+            "url": "https://community.example.com/internal/jobs/run",
+            "params": {"schedule_name": "tests.studio.hourly"},
+        }
+    )
+    transport._submit_task(
+        {
+            "type": "webhook",
+            "idempotency_key": "health-task",
+            "url": "https://community.example.com/internal/jobs/run",
+            "params": {"intent_id": str(uuid.uuid4())},
+        }
+    )
+    client.force_login(staff_user)
+    with patch("community_base.jobs.studio.configured_client", return_value=relay_client):
+        response = client.get(reverse("community_base_jobs"))
+    assert response.status_code == 200
+    assert b"Relay worker health" in response.content
+    assert b"queued 1" in response.content
+    assert b"2026-09-05T12:00:00+00:00" in response.content
+
+
+@pytest.mark.django_db(transaction=True)
+def test_relay_operator_retry_creates_new_intent_and_preserves_old_audit(
+    client, staff_user, settings
+):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "JOBS_BACKEND": "relay",
+        "SITE_KEY": "test",
+        "SITE_URL": "https://community.example.com",
+        "RELAY_BASE_URL": "https://relay.example.com",
+        "RELAY_API_KEY": "relay-test-key",
+    }
+    old = make_intent(JobIntent.Status.DEAD)
+    old.external_id = str(uuid.uuid4())
+    old.save(update_fields=("external_id",))
+    transport = FakeRelayTransport()
+    relay_client = configured_client(transport=transport)
+    client.force_login(staff_user)
+
+    with patch("community_base.jobs.backends.relay.configured_client", return_value=relay_client):
+        response = client.post(
+            reverse("community_base_job_retry", args=(old.id,)),
+            {"confirmation": "retry"},
+        )
+
+    assert response.status_code == 302
+    old.refresh_from_db()
+    replacement = JobIntent.objects.exclude(id=old.id).get()
+    assert old.status == JobIntent.Status.DEAD
+    assert old.last_error == "retried_by_operator"
+    assert replacement.status == JobIntent.Status.SUBMITTED
+    assert replacement.external_id != old.external_id
+    assert len(transport.tasks) == 1

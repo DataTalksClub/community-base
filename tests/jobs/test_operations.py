@@ -98,15 +98,14 @@ def test_schedule_diff_identifies_create_update_and_unchanged():
             "repeats": -1,
         },
     }
-    assert schedule_changes(existing) == (
-        ("unchanged", "community-base:jobs-run-due"),
-        ("update", "community-base:tests.operations.hourly"),
-        ("delete", "community-base:removed"),
-    )
-    assert schedule_changes({}) == (
-        ("create", "community-base:jobs-run-due"),
-        ("create", "community-base:tests.operations.hourly"),
-    )
+    changes = schedule_changes(existing)
+    assert ("unchanged", "community-base:jobs-run-due") in changes
+    assert ("update", "community-base:tests.operations.hourly") in changes
+    assert ("delete", "community-base:removed") in changes
+    new_changes = schedule_changes({})
+    assert ("create", "community-base:jobs-run-due") in new_changes
+    assert ("create", "community-base:tests.operations.hourly") in new_changes
+    assert all(action == "create" for action, _name in new_changes)
 
 
 def test_schedule_diff_parses_django_q_text_kwargs():
