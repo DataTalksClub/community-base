@@ -9,6 +9,7 @@ urlpatterns = [
     path("accounts/", include("community_base.accounts.urls")),
     path("questionnaires/", include("community_base.questionnaires.urls")),
     path("onboarding/", include("community_base.onboarding.urls")),
+    path("accounts/community/", include("community_base.community.urls")),
     path("api/", include((accounts_api_urlpatterns, "accounts_api"))),
     path("", include("community_base.mail.urls")),
     path("content-sync/", include("community_base.content_sync.urls")),

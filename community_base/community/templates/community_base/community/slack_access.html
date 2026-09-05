@@ -1,0 +1,3 @@
+{% extends "base.html" %}
+{% block title %}Slack community access{% endblock %}
+{% block content %}<h1>Slack community access</h1>{% if invite_url %}<p>Your access is ready.</p><a href="{{ invite_url }}" rel="noreferrer">Join the Slack community</a>{% else %}<p>Slack access is delayed. Please contact support if it remains unavailable.</p>{% endif %}{% endblock %}
