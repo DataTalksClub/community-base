@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "community_base.questionnaires",
     "community_base.onboarding",
     "community_base.community",
+    "community_base.notifications",
     "community_base.api",
     "community_base.config",
     "community_base.jobs",
