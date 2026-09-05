@@ -19,15 +19,15 @@ def audit_events(settings):
 @pytest.fixture
 def users(django_user_model):
     actor = django_user_model.objects.create_user(
-        username="studio-root", is_staff=True, is_superuser=True
+        email="studio-root@example.com", is_staff=True, is_superuser=True
     )
-    target = django_user_model.objects.create_user(username="studio-target")
+    target = django_user_model.objects.create_user(email="studio-target@example.com")
     return actor, target
 
 
 def test_only_superusers_can_start_impersonation(client, django_user_model, users):
     _, target = users
-    staff = django_user_model.objects.create_user(username="staff-only", is_staff=True)
+    staff = django_user_model.objects.create_user(email="staff-only@example.com", is_staff=True)
     client.force_login(staff)
 
     response = client.post(f"/studio/impersonate/{target.pk}/")
@@ -60,7 +60,7 @@ def test_start_and_stop_are_audited_and_restore_superuser(client, users, audit_e
 def test_superuser_target_is_refused(client, django_user_model, users, audit_events):
     actor, _ = users
     target = django_user_model.objects.create_user(
-        username="another-root", is_staff=True, is_superuser=True
+        email="another-root@example.com", is_staff=True, is_superuser=True
     )
     client.force_login(actor)
 

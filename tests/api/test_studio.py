@@ -8,7 +8,6 @@ from community_base.api.models import APIKey
 @pytest.fixture
 def superuser(db):
     return get_user_model().objects.create_superuser(
-        username="admin",
         email="admin@example.invalid",
         password="not-used",
     )
@@ -16,7 +15,7 @@ def superuser(db):
 
 @pytest.fixture
 def staff_user(db):
-    return get_user_model().objects.create_user(username="staff", is_staff=True)
+    return get_user_model().objects.create_user(email="staff@example.com", is_staff=True)
 
 
 def test_api_key_studio_requires_superuser(client, staff_user):

@@ -7,7 +7,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def staff_user(django_user_model):
-    return django_user_model.objects.create_user(username="studio-staff", is_staff=True)
+    return django_user_model.objects.create_user(email="studio-staff@example.com", is_staff=True)
 
 
 def test_staff_dashboard_renders_registered_shell(client, staff_user):
@@ -28,7 +28,7 @@ def test_staff_dashboard_renders_registered_shell(client, staff_user):
 
 
 def test_superuser_dashboard_shows_api_keys(client, django_user_model):
-    user = django_user_model.objects.create_superuser(username="studio-superuser")
+    user = django_user_model.objects.create_superuser(email="studio-superuser@example.com")
     client.force_login(user)
 
     response = client.get("/studio/")
@@ -38,7 +38,7 @@ def test_superuser_dashboard_shows_api_keys(client, django_user_model):
 
 
 def test_dashboard_rejects_non_staff(client, django_user_model):
-    user = django_user_model.objects.create_user(username="member")
+    user = django_user_model.objects.create_user(email="member@example.com")
     client.force_login(user)
 
     assert client.get("/studio/").status_code == 403

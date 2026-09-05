@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "community_base.kernel",
+    "community_base.accounts",
     "community_base.api",
     "community_base.config",
     "community_base.jobs",
@@ -86,6 +87,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 AUTH_PASSWORD_VALIDATORS = []
+AUTH_USER_MODEL = "accounts.User"
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True

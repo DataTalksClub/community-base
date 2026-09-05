@@ -37,7 +37,7 @@ def test_each_package_landing_page_renders_in_active_operations_shell(
     client, django_user_model, route_name, label, superuser
 ):
     user = django_user_model.objects.create_user(
-        username=f"operator-{route_name}",
+        email=f"operator-{route_name}@example.com",
         is_staff=True,
         is_superuser=superuser,
     )

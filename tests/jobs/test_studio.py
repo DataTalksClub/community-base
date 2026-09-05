@@ -28,7 +28,7 @@ schedule(
 
 @pytest.fixture
 def staff_user(db):
-    return get_user_model().objects.create_user(username="jobs-staff", is_staff=True)
+    return get_user_model().objects.create_user(email="jobs-staff@example.com", is_staff=True)
 
 
 def make_intent(status=JobIntent.Status.PENDING, *, handler="tests.studio.complete"):
@@ -50,7 +50,7 @@ def make_intent(status=JobIntent.Status.PENDING, *, handler="tests.studio.comple
 
 @pytest.mark.django_db
 def test_jobs_studio_requires_staff(client):
-    user = get_user_model().objects.create_user(username="jobs-member")
+    user = get_user_model().objects.create_user(email="jobs-member@example.com")
     client.force_login(user)
     assert client.get(reverse("community_base_jobs")).status_code == 403
 

@@ -8,7 +8,7 @@ from community_base.api.models import APIKey
 
 @pytest.mark.django_db
 def test_create_authenticate_and_revoke_key():
-    user = get_user_model().objects.create_user(username="operator", is_staff=True)
+    user = get_user_model().objects.create_user(email="operator@example.com", is_staff=True)
 
     api_key, plaintext = APIKey.create_for_user(
         user=user,
@@ -28,7 +28,7 @@ def test_create_authenticate_and_revoke_key():
 
 @pytest.mark.django_db
 def test_staff_key_rejects_non_staff_owner():
-    user = get_user_model().objects.create_user(username="member")
+    user = get_user_model().objects.create_user(email="member@example.com")
 
     with pytest.raises(ValidationError, match="Staff API keys require a staff user"):
         APIKey.create_for_user(
@@ -41,7 +41,7 @@ def test_staff_key_rejects_non_staff_owner():
 
 @pytest.mark.django_db
 def test_staff_key_stops_authenticating_when_owner_is_downgraded():
-    user = get_user_model().objects.create_user(username="operator", is_staff=True)
+    user = get_user_model().objects.create_user(email="operator@example.com", is_staff=True)
     _, plaintext = APIKey.create_for_user(
         user=user,
         name="Staff client",
@@ -57,7 +57,7 @@ def test_staff_key_stops_authenticating_when_owner_is_downgraded():
 
 @pytest.mark.django_db
 def test_mark_used_hashes_ip_address():
-    user = get_user_model().objects.create_user(username="member")
+    user = get_user_model().objects.create_user(email="member@example.com")
     api_key, _ = APIKey.create_for_user(
         user=user,
         name="Member client",
