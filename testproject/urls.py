@@ -11,7 +11,6 @@ urlpatterns = [
     path("", include("community_base.mail.urls")),
     path("content-sync/", include("community_base.content_sync.urls")),
     path("admin/", admin.site.urls),
-    path("api/v1/", include("community_base.accounts.self_urls")),
     path("api/v1/", include((api_urlpatterns(), "cb_api"))),
     path("internal/jobs/", include("community_base.jobs.urls")),
     path("studio/", include("community_base.studio.urls")),

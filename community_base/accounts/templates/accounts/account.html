@@ -73,6 +73,7 @@
 (() => {
   const status = document.querySelector("[data-cb-form-status]");
   const csrf = () => document.querySelector("[name=csrfmiddlewaretoken]").value;
+  const values = (form) => Object.fromEntries([...new FormData(form)].filter(([name]) => name !== "csrfmiddlewaretoken"));
   const submit = async (form, body, method = "PATCH", headers = {}) => {
     const response = await fetch(form.dataset.cbApiForm || form.dataset.cbPreferencesForm || form.dataset.cbPasswordForm || form.dataset.cbDeletionForm, {
       method,
@@ -86,7 +87,7 @@
   };
   document.querySelectorAll("[data-cb-api-form]").forEach((form) => form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const body = Object.fromEntries(new FormData(form));
+    const body = values(form);
     const revision = form.dataset.cbRevision;
     try {
       const {response} = await submit(form, body, "PATCH", revision === undefined ? {} : {"If-Match": `"rev-${revision}"`});
@@ -96,7 +97,7 @@
   const preferences = document.querySelector("[data-cb-preferences-form]");
   preferences.addEventListener("submit", async (event) => { event.preventDefault(); try { await submit(preferences, {email_preferences: {newsletter: preferences.newsletter.checked}}); } catch (error) { status.textContent = error.message; } });
   const password = document.querySelector("[data-cb-password-form]");
-  password.addEventListener("submit", async (event) => { event.preventDefault(); try { await submit(password, Object.fromEntries(new FormData(password)), "POST"); password.reset(); } catch (error) { status.textContent = error.message; } });
+  password.addEventListener("submit", async (event) => { event.preventDefault(); try { await submit(password, values(password), "POST"); password.reset(); } catch (error) { status.textContent = error.message; } });
   const deletion = document.querySelector("[data-cb-deletion-form]");
   deletion.addEventListener("submit", async (event) => { event.preventDefault(); try { await submit(deletion, {}, "POST"); } catch (error) { status.textContent = error.message; } });
 })();

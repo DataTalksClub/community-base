@@ -15,6 +15,24 @@ def test_openapi_contains_registered_route_and_security_scheme():
     assert document["components"]["securitySchemes"]["bearerAuth"]["scheme"] == "bearer"
 
 
+def test_openapi_contains_session_self_routes_and_concurrency_headers():
+    document = build_document()
+
+    get_operation = document["paths"]["/api/v1/me/profile"]["get"]
+    patch_operation = document["paths"]["/api/v1/me/profile"]["patch"]
+    parameters = {parameter["name"]: parameter for parameter in patch_operation["parameters"]}
+
+    assert get_operation["security"] == [{"cookieAuth": []}]
+    assert patch_operation["security"] == [{"cookieAuth": []}]
+    assert parameters["X-CSRFToken"]["required"] is True
+    assert parameters["If-Match"]["schema"]["pattern"] == '^"rev-[0-9]+"$'
+    assert document["components"]["securitySchemes"]["cookieAuth"] == {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sessionid",
+    }
+
+
 def test_openapi_check_detects_and_repairs_drift(tmp_path):
     output = tmp_path / "openapi.json"
 

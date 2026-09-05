@@ -1,10 +1,7 @@
-from functools import wraps
-
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
-from django.utils.cache import patch_cache_control, patch_vary_headers
 
 from community_base.accounts.services.account_settings import (
     AccountSettingsError,
@@ -21,33 +18,21 @@ from community_base.accounts.services.profile import (
     serialize_profile,
     update_profile,
 )
-from community_base.api.errors import APIError, error_response
+from community_base.api import route
+from community_base.api.errors import APIError
 from community_base.api.safety import read_json_object
 
-
-def _private(response):
-    patch_cache_control(response, private=True, no_cache=True, no_store=True, max_age=0)
-    patch_vary_headers(response, ("Cookie",))
-    return response
-
-
-def session_api(view):
-    @wraps(view)
-    def wrapped(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return _private(
-                error_response(
-                    request,
-                    APIError(401, "authentication_required", "Sign in to access this resource."),
-                )
-            )
-        try:
-            response = view(request, *args, **kwargs)
-        except APIError as error:
-            response = error_response(request, error)
-        return _private(response)
-
-    return wrapped
+OBJECT_SCHEMA = {"type": "object"}
+ACCOUNT_RESPONSE_SCHEMA = {
+    "type": "object",
+    "required": ["account"],
+    "properties": {"account": OBJECT_SCHEMA},
+}
+PROFILE_RESPONSE_SCHEMA = {
+    "type": "object",
+    "required": ["profile"],
+    "properties": {"profile": OBJECT_SCHEMA},
+}
 
 
 def _profile_etag(revision):
@@ -73,12 +58,28 @@ def _profile_response(user, data=None):
     return response
 
 
-@session_api
-def me(request):
-    if request.method == "GET":
-        return JsonResponse({"account": serialize_account(request.user)})
-    if request.method != "PATCH":
-        raise APIError(405, "method_not_allowed", "Method is not allowed.")
+@route(
+    "GET",
+    "me",
+    None,
+    "Read the signed-in member account",
+    ACCOUNT_RESPONSE_SCHEMA,
+    authentication="session",
+)
+def get_me(request):
+    return JsonResponse({"account": serialize_account(request.user)})
+
+
+@route(
+    "PATCH",
+    "me",
+    None,
+    "Update the signed-in member account",
+    ACCOUNT_RESPONSE_SCHEMA,
+    OBJECT_SCHEMA,
+    authentication="session",
+)
+def patch_me(request):
     try:
         account = update_account_settings(request.user, read_json_object(request))
     except AccountSettingsError as error:
@@ -86,12 +87,29 @@ def me(request):
     return JsonResponse({"account": account})
 
 
-@session_api
-def me_profile(request):
-    if request.method == "GET":
-        return _profile_response(request.user)
-    if request.method != "PATCH":
-        raise APIError(405, "method_not_allowed", "Method is not allowed.")
+@route(
+    "GET",
+    "me/profile",
+    None,
+    "Read the signed-in member profile",
+    PROFILE_RESPONSE_SCHEMA,
+    authentication="session",
+)
+def get_me_profile(request):
+    return _profile_response(request.user)
+
+
+@route(
+    "PATCH",
+    "me/profile",
+    None,
+    "Update the signed-in member profile",
+    PROFILE_RESPONSE_SCHEMA,
+    OBJECT_SCHEMA,
+    authentication="session",
+    requires_if_match=True,
+)
+def patch_me_profile(request):
     values = read_json_object(request)
     try:
         state = update_profile(
@@ -105,10 +123,16 @@ def me_profile(request):
     return _profile_response(request.user, state.data)
 
 
-@session_api
-def me_password(request):
-    if request.method != "POST":
-        raise APIError(405, "method_not_allowed", "Method is not allowed.")
+@route(
+    "POST",
+    "me/password",
+    None,
+    "Change the signed-in member password",
+    OBJECT_SCHEMA,
+    OBJECT_SCHEMA,
+    authentication="session",
+)
+def post_me_password(request):
     values = read_json_object(request)
     current_password = values.get("current_password", "")
     new_password = values.get("new_password", "")
@@ -135,10 +159,15 @@ def me_password(request):
     return JsonResponse({"status": "ok"})
 
 
-@session_api
-def me_data_export(request):
-    if request.method != "GET":
-        raise APIError(405, "method_not_allowed", "Method is not allowed.")
+@route(
+    "GET",
+    "me/data-export",
+    None,
+    "Export the signed-in member data",
+    OBJECT_SCHEMA,
+    authentication="session",
+)
+def get_me_data_export(request):
     payload = build_user_data_export(request.user)
     write_export_log(request.user)
     response = JsonResponse(payload, json_dumps_params={"indent": 2, "sort_keys": True})
@@ -146,10 +175,17 @@ def me_data_export(request):
     return response
 
 
-@session_api
-def me_deletion_request(request):
-    if request.method != "POST":
-        raise APIError(405, "method_not_allowed", "Method is not allowed.")
+@route(
+    "POST",
+    "me/deletion-request",
+    None,
+    "Request deletion of the signed-in member account",
+    OBJECT_SCHEMA,
+    OBJECT_SCHEMA,
+    authentication="session",
+)
+def post_me_deletion_request(request):
+    read_json_object(request)
     deletion_request, created = request_account_deletion(request.user)
     return JsonResponse(
         {

@@ -43,6 +43,14 @@ def authentication_required() -> APIError:
     )
 
 
+def session_authentication_required() -> APIError:
+    return APIError(
+        status=401,
+        code="authentication_required",
+        message="An authenticated session is required.",
+    )
+
+
 def permission_denied() -> APIError:
     return APIError(status=403, code="permission_denied", message="Permission is denied.")
 

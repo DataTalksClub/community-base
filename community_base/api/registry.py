@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from django.http import HttpRequest, JsonResponse
 from django.urls import path as django_path
 
-from community_base.api.auth import bearer_required
+from community_base.api.auth import bearer_required, session_required
 from community_base.api.errors import (
     APIError,
     error_response,
@@ -24,6 +24,8 @@ class Route:
     summary: str
     response: dict
     request: dict | None
+    authentication: str
+    requires_if_match: bool
     handler: Callable
 
 
@@ -37,6 +39,9 @@ def route(
     summary: str,
     response: dict,
     request: dict | None = None,
+    *,
+    authentication: str = "bearer",
+    requires_if_match: bool = False,
 ) -> Callable:
     normalized_method = method.upper()
     normalized_path = path.strip("/")
@@ -44,6 +49,10 @@ def route(
         raise ValueError(f"Unsupported API method: {method}")
     if not normalized_path:
         raise ValueError("API route path cannot be empty")
+    if authentication not in {"bearer", "session"}:
+        raise ValueError(f"Unsupported API authentication: {authentication}")
+    if authentication == "session" and scope is not None:
+        raise ValueError("Session API routes cannot declare bearer scopes")
 
     def decorator(handler: Callable) -> Callable:
         if any(
@@ -59,6 +68,8 @@ def route(
                 summary=summary,
                 response=response,
                 request=request,
+                authentication=authentication,
+                requires_if_match=requires_if_match,
                 handler=handler,
             )
         )
@@ -78,6 +89,9 @@ def clear() -> None:
 
 def _dispatcher(entries: tuple[Route, ...]) -> Callable:
     by_method = {entry.method: entry for entry in entries}
+    authentication = {entry.authentication for entry in entries}
+    if len(authentication) != 1:
+        raise ValueError("All methods on an API path must use the same authentication")
 
     def authenticated_dispatch(request: HttpRequest, *args, **kwargs):
         entry = by_method.get(request.method)
@@ -91,6 +105,8 @@ def _dispatcher(entries: tuple[Route, ...]) -> Callable:
         except APIError as error:
             return error_response(request, error)
 
+    if authentication == {"session"}:
+        return session_required(authenticated_dispatch)
     return bearer_required(scopes=())(authenticated_dispatch)
 
 
