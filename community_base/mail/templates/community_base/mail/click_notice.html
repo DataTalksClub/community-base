@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Check this link{% endblock %}
+{% block meta_description %}Confirm an email link destination.{% endblock %}
+{% block page_head_metadata %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Check this link</h1></header>
+  {% if unavailable %}<p class="cb-alert">We could not check this link right now.</p>{% endif %}
+  {% if destination %}<p><a class="cb-button cb-button-primary" href="{{ destination }}">Continue to {{ destination }}</a></p>{% else %}<p class="cb-alert">This link is not available.</p>{% endif %}
+</main>
+{% endblock %}

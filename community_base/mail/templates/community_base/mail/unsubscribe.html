@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Email preferences{% endblock %}
+{% block meta_description %}Update your email preferences.{% endblock %}
+{% block page_head_metadata %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Email preferences</h1></header>
+  {% if state == "unknown" %}<p class="cb-alert">This unsubscribe link is no longer valid.</p>
+  {% elif state == "confirmed" %}<p class="cb-alert">You have been unsubscribed.</p>
+  {% elif state == "accepted" %}<p class="cb-alert">Your unsubscribe request has been recorded.</p>
+  {% else %}
+    <h2>Choose which email to stop</h2>
+    {% if degraded %}<p class="cb-alert">We could not check this link, but you can still submit your choice.</p>{% endif %}
+    {% if invalid_scope %}<p class="cb-alert">Choose one option.</p>{% endif %}
+    <form class="cb-form" method="post">
+      {% for value, label in scope_choices %}<label class="cb-field"><input type="radio" name="scope" value="{{ value }}"> {{ label }}</label>{% endfor %}
+      <button class="cb-button cb-button-primary" type="submit">Unsubscribe</button>
+    </form>
+  {% endif %}
+</main>
+{% endblock %}

@@ -11,6 +11,9 @@ idempotency and service contracts used by all shared apps.
 | `ACCESS_POLICY` | dotted path or policy object | `"community_base.kernel.access.OpenPolicy"` |
 | `JOBS_BACKEND` | `str` | `"sync"` |
 | `MAIL_BACKEND` | `str` | `"memory"` |
+| `MAIL_PREFERENCE_RESOLVER` | dotted path or callable | `"community_base.mail.preferences.allow_all"` |
+| `MAIL_SEND_RECORDER` | dotted path, callable or `None` | `None` |
+| `MAIL_TEMPLATE_OVERRIDE_LOADER` | dotted path, callable or `None` | `None` |
 | `RELAY_API_KEY` | `str` | `""` |
 | `RELAY_BASE_URL` | `str` | `""` |
 | `RELAY_WEBHOOK_SECRET` | `str` | `""` |
