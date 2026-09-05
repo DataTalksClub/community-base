@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import json
 from datetime import timedelta
 
 import pytest
 from django.utils import timezone
 
-from community_base.jobs.ingress import sign_body
 from community_base.mail.models import CallbackEvent, EmailDelivery
+from community_base.testing import FakeRelay
 
 SECRET = "callback-test-secret"
 
@@ -32,17 +31,7 @@ def delivery(db):
 
 
 def signed_post(client, payload, *, timestamp=None, secret=SECRET):
-    body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    timestamp = timestamp or str(int(timezone.now().timestamp()))
-    return client.post(
-        "/internal/mail/callback",
-        data=body,
-        content_type="application/json",
-        headers={
-            "X-Relay-Timestamp": timestamp,
-            "X-Relay-Signature": sign_body(body, timestamp, secret),
-        },
-    )
+    return FakeRelay().post_callback(client, payload, secret, timestamp=timestamp)
 
 
 def payload(delivery, event_id, event_type, **extra):

@@ -10,7 +10,7 @@ from community_base.jobs.models import JobIntent
 from community_base.mail.models import EmailDelivery
 from community_base.mail.relay import RelayMailClient, RelayMailError
 from community_base.mail.service import send
-from tests.mail.fake_relay import FakeMailRelayTransport, FakeResponse
+from community_base.testing import FakeRelay, FakeResponse
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def relay_settings(settings):
 
 @pytest.mark.django_db(transaction=True)
 def test_fake_relay_send_reaches_provider_accepted(relay_settings):
-    transport = FakeMailRelayTransport()
+    transport = FakeRelay()
     client = RelayMailClient("https://relay.example.com", "relay-test-key", transport=transport)
     with patch("community_base.mail.backends.relay.configured_client", return_value=client):
         with transaction.atomic():
@@ -52,7 +52,7 @@ def test_fake_relay_send_reaches_provider_accepted(relay_settings):
 
 @pytest.mark.django_db(transaction=True)
 def test_relay_suppression_is_terminal_without_retry(relay_settings):
-    transport = FakeMailRelayTransport()
+    transport = FakeRelay()
     transport.suppress_next("hard_bounce")
     client = RelayMailClient("https://relay.example.com", "relay-test-key", transport=transport)
     with patch("community_base.mail.backends.relay.configured_client", return_value=client):
@@ -75,7 +75,7 @@ def test_relay_suppression_is_terminal_without_retry(relay_settings):
     ],
 )
 def test_transport_failure_classification(relay_settings, failure, state, job_status):
-    transport = FakeMailRelayTransport()
+    transport = FakeRelay()
     transport.next_response = failure
     client = RelayMailClient("https://relay.example.com", "relay-test-key", transport=transport)
     with patch("community_base.mail.backends.relay.configured_client", return_value=client):
@@ -89,7 +89,7 @@ def test_transport_failure_classification(relay_settings, failure, state, job_st
 
 
 def test_client_rejects_malformed_success_without_exposing_payload():
-    transport = FakeMailRelayTransport()
+    transport = FakeRelay()
     transport.next_response = FakeResponse(202, {"message": {"id": "bad"}})
     client = RelayMailClient("https://relay.example.com", "relay-test-key", transport=transport)
     delivery = EmailDelivery(

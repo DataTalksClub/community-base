@@ -9,7 +9,7 @@ from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import JobContext, JobPayload, register_handler
 from community_base.jobs.relay import RelayError, configured_client
 from community_base.jobs.runner import run_intent
-from tests.jobs.fake_relay import FakeRelayTransport, FakeResponse
+from community_base.testing import FakeRelay, FakeResponse
 
 
 @register_handler("tests.chunked.start", chunked=True)
@@ -36,7 +36,7 @@ def make_intent(handler="tests.chunked.start"):
 
 
 def relay_client_for(intent):
-    transport = FakeRelayTransport()
+    transport = FakeRelay()
     transport.tasks[intent.external_id] = {
         "id": intent.external_id,
         "type": "webhook",

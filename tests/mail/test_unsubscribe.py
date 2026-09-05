@@ -12,7 +12,7 @@ from community_base.mail import relay_links
 from community_base.mail.jobs import replay_unsubscribe
 from community_base.mail.models import PendingUnsubscribe
 from community_base.mail.unsubscribe import accept_unsubscribe_for_replay
-from tests.mail.support import FakeRelay, unreachable_relay
+from community_base.testing import FakeRelay, unreachable_relay
 
 RELAY = "http://relay.website.internal:8000"
 TOKEN = "kD3Yy8x-Ug2f_QwErTyUiOpAsDfGhJkLzXcVbNm1234"

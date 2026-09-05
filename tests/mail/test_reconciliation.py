@@ -8,7 +8,7 @@ from django.utils import timezone
 from community_base.mail.models import EmailDelivery
 from community_base.mail.reconciliation import reconcile_deliveries
 from community_base.mail.relay import RelayMailClient, RelayMailError
-from tests.mail.fake_relay import FakeMailRelayTransport
+from community_base.testing import FakeRelay
 
 
 def local_delivery(key="reconcile:one"):
@@ -22,7 +22,7 @@ def local_delivery(key="reconcile:one"):
 
 
 def client_and_transport():
-    transport = FakeMailRelayTransport()
+    transport = FakeRelay()
     client = RelayMailClient("https://relay.example.com", "relay-test-key", transport=transport)
     return client, transport
 

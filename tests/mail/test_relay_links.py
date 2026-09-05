@@ -6,7 +6,7 @@ import pytest
 
 from community_base.mail import relay_links
 from community_base.mail.relay_links import BridgeOutcome
-from tests.mail.support import FakeRelay, unreachable_relay
+from community_base.testing import FakeRelay, unreachable_relay
 
 RELAY = "http://relay.website.internal:8000"
 TOKEN = "kD3Yy8x-Ug2f_QwErTyUiOpAsDfGhJkLzXcVbNm1234"

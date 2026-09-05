@@ -10,6 +10,7 @@ from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import JobContext, JobPayload, register_handler
 from community_base.jobs.registry import schedule as register_schedule
 from community_base.jobs.runner import RetryableJobError
+from community_base.testing import signed_relay_request
 
 OBSERVED = []
 SECRET = "test-relay-webhook-secret"
@@ -59,6 +60,15 @@ def make_intent(handler="tests.ingress.complete", **overrides):
 def signed_request(client, intent_id, *, task_id=None, timestamp=None, body=None, signature=None):
     task_id = task_id or str(uuid.uuid4())
     timestamp = timestamp or str(int(timezone.now().timestamp()))
+    if body is None and signature is None:
+        signed = signed_relay_request(
+            {"intent_id": str(intent_id)},
+            SECRET,
+            timestamp=timestamp,
+            task_id=task_id,
+            correlation_id="relay-correlation-1",
+        )
+        return client.post("/internal/jobs/run", **signed.django_kwargs())
     body = (
         body
         or json.dumps({"intent_id": str(intent_id)}, sort_keys=True, separators=(",", ":")).encode()
@@ -79,21 +89,13 @@ def signed_request(client, intent_id, *, task_id=None, timestamp=None, body=None
 
 def signed_schedule_request(client, schedule_name, *, task_id=None):
     task_id = task_id or str(uuid.uuid4())
-    timestamp = str(int(timezone.now().timestamp()))
-    body = json.dumps(
-        {"schedule_name": schedule_name}, sort_keys=True, separators=(",", ":")
-    ).encode()
-    return client.post(
-        "/internal/jobs/run",
-        data=body,
-        content_type="application/json",
-        headers={
-            "X-Relay-Task-Id": task_id,
-            "X-Relay-Correlation-Id": "relay-schedule-correlation",
-            "X-Relay-Timestamp": timestamp,
-            "X-Relay-Signature": sign_body(body, timestamp, SECRET),
-        },
+    signed = signed_relay_request(
+        {"schedule_name": schedule_name},
+        SECRET,
+        task_id=task_id,
+        correlation_id="relay-schedule-correlation",
     )
+    return client.post("/internal/jobs/run", **signed.django_kwargs())
 
 
 @pytest.mark.django_db

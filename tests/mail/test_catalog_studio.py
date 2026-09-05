@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from community_base.mail.relay import RelayMailClient
-from tests.mail.fake_relay import FakeMailRelayTransport
+from community_base.testing import FakeRelay
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def staff_user(db):
 
 @pytest.fixture
 def relay_client():
-    transport = FakeMailRelayTransport()
+    transport = FakeRelay()
     client = RelayMailClient("https://relay.example.com", "relay-test-key", transport=transport)
     client.put_template("welcome", {"name": "Welcome"})
     return client
