@@ -6,6 +6,7 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
+from django.utils.text import slugify
 
 from community_base.accounts.models import (
     IMPORT_BATCH_SOURCE_CHOICES,
@@ -22,6 +23,7 @@ class ImportRow:
     last_name: str = ""
     email_verified: bool = False
     account_activated: bool = False
+    tags: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
     fields: dict[str, Any] = field(default_factory=dict)
 
@@ -43,7 +45,6 @@ SAFE_EXTRA_FIELDS = {
     "slack_member",
     "preferred_timezone",
     "theme_preference",
-    "tags",
 }
 
 
@@ -99,7 +100,18 @@ def _coerce_row(row):
     raise TypeError("Import rows must be ImportRow objects or dictionaries")
 
 
-def _apply_row(source, row, *, send_welcome):
+def _normalized_tags(*groups):
+    return list(
+        dict.fromkeys(
+            normalized
+            for group in groups
+            for tag in group or ()
+            if (normalized := slugify(str(tag)))
+        )
+    )
+
+
+def _apply_row(source, row, *, send_welcome, default_tags):
     email = normalize_email(row.email)
     if not email or "@" not in email:
         raise ValueError("A valid email is required")
@@ -116,6 +128,7 @@ def _apply_row(source, row, *, send_welcome):
             imported_at=timezone.now(),
         )
     changed = []
+    conflicts = []
     for name, value in (
         ("first_name", row.first_name.strip()),
         ("last_name", row.last_name.strip()),
@@ -124,7 +137,19 @@ def _apply_row(source, row, *, send_welcome):
             setattr(user, name, value[:150])
             changed.append(name)
     for name, value in row.fields.items():
-        if getattr(user, name) != value:
+        current = getattr(user, name)
+        if value in (None, "") or current == value:
+            continue
+        if current not in (None, "", False):
+            conflicts.append(
+                {
+                    "kind": "conflict",
+                    "field": name,
+                    "kept": str(current),
+                    "incoming": str(value),
+                }
+            )
+        else:
             setattr(user, name, value)
             changed.append(name)
     if row.email_verified and not user.email_verified:
@@ -133,23 +158,41 @@ def _apply_row(source, row, *, send_welcome):
     if row.account_activated and not user.account_activated:
         user.account_activated = True
         changed.append("account_activated")
-    metadata = {**(user.import_metadata or {}), **row.metadata}
+    metadata = dict(user.import_metadata or {})
+    source_metadata = dict(metadata.get(source, {}))
+    source_metadata.update(row.metadata)
+    if source_metadata:
+        metadata[source] = source_metadata
     if metadata != user.import_metadata:
         user.import_metadata = metadata
         changed.append("import_metadata")
+    tags = _normalized_tags(user.tags, default_tags, row.tags)
+    if tags != user.tags:
+        user.tags = tags
+        changed.append("tags")
     if not created:
-        if user.import_source != source:
+        if user.import_source == "manual":
             user.import_source = source
             changed.append("import_source")
-        user.imported_at = timezone.now()
-        changed.append("imported_at")
+        if user.imported_at is None:
+            user.imported_at = timezone.now()
+            changed.append("imported_at")
     if changed:
         user.save(update_fields=sorted(set(changed)))
     delivery = send_free_welcome(user) if created and send_welcome else None
-    return created, bool(changed), delivery is not None
+    return created, bool(changed), delivery is not None, conflicts
 
 
-def run_import_batch(source, rows, *, actor=None, dry_run=False, send_welcome=False, params=None):
+def run_import_batch(
+    source,
+    rows,
+    *,
+    actor=None,
+    dry_run=False,
+    send_welcome=False,
+    default_tags=(),
+    params=None,
+):
     if source not in dict(IMPORT_BATCH_SOURCE_CHOICES):
         raise ValueError(f"Unsupported import source: {source}")
     counts = {"created": 0, "updated": 0, "skipped": 0, "emails": 0}
@@ -164,15 +207,17 @@ def run_import_batch(source, rows, *, actor=None, dry_run=False, send_welcome=Fa
         )
         for number, raw_row in enumerate(rows, start=2):
             try:
-                created, updated, emailed = _apply_row(
+                created, updated, emailed, conflicts = _apply_row(
                     source,
                     _coerce_row(raw_row),
                     send_welcome=send_welcome,
+                    default_tags=default_tags,
                 )
             except (TypeError, ValueError) as error:
                 counts["skipped"] += 1
                 errors.append({"row": number, "error": str(error)})
                 continue
+            errors.extend({"row": number, **conflict} for conflict in conflicts)
             counts["created" if created else "updated" if updated else "skipped"] += 1
             counts["emails"] += int(emailed)
         batch.status = ImportBatch.Status.COMPLETED

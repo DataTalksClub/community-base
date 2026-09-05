@@ -15,6 +15,8 @@ from community_base.accounts.services.email_resolution import normalize_email
 from community_base.mail import send
 
 EMAIL_CHANGE_TOKEN_SALT = "community-base.accounts.email-change"
+EMAIL_CHANGE_EXPIRY_HOURS = 24
+EMAIL_CHANGE_REQUEST_THROTTLE_SECONDS = 60
 
 
 class EmailChangeError(ValueError):
@@ -31,6 +33,10 @@ class InvalidPassword(EmailChangeError):
 
 class EmailUnavailable(EmailChangeError):
     code = "email_unavailable"
+
+
+class EmailChangeThrottled(EmailChangeError):
+    code = "throttled"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +56,18 @@ def email_change_token(change):
         {"id": change.pk, "nonce": change.token_hash},
         salt=EMAIL_CHANGE_TOKEN_SALT,
         compress=True,
+    )
+
+
+def active_email_change_request(user):
+    return (
+        EmailChangeRequest.objects.filter(
+            user=user,
+            confirmed_at__isnull=True,
+            invalidated_at__isnull=True,
+        )
+        .order_by("-created_at")
+        .first()
     )
 
 
@@ -79,17 +97,27 @@ def request_email_change(user, new_email, current_password=None):
     normalized = _validate_email(user, new_email)
     now = timezone.now()
     with transaction.atomic():
+        locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
+        recently_sent = EmailChangeRequest.objects.filter(
+            user=locked_user,
+            new_email__iexact=normalized,
+            last_sent_at__gt=now - timedelta(seconds=EMAIL_CHANGE_REQUEST_THROTTLE_SECONDS),
+        ).exists()
+        if recently_sent:
+            raise EmailChangeThrottled(
+                "A confirmation link was just sent for that email address. Try again shortly."
+            )
         EmailChangeRequest.objects.filter(
-            user=user,
+            user=locked_user,
             confirmed_at__isnull=True,
             invalidated_at__isnull=True,
         ).update(invalidated_at=now)
         change = EmailChangeRequest.objects.create(
-            user=user,
-            old_email=normalize_email(user.email),
+            user=locked_user,
+            old_email=normalize_email(locked_user.email),
             new_email=normalized,
             token_hash=secrets.token_hex(32),
-            expires_at=now + timedelta(hours=24),
+            expires_at=now + timedelta(hours=EMAIL_CHANGE_EXPIRY_HOURS),
             last_sent_at=now,
         )
         send(
@@ -102,7 +130,7 @@ def request_email_change(user, new_email, current_password=None):
                 "expiry_hours": 24,
             },
             f"accounts:email-change-confirm:{change.pk}",
-            user=user,
+            user=locked_user,
             related=change,
         )
         token = email_change_token(change)

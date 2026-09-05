@@ -15,8 +15,10 @@ from community_base.accounts.services.aliases import (
     remove_email_alias,
 )
 from community_base.accounts.services.email_change import (
+    EmailChangeThrottled,
     EmailUnavailable,
     InvalidPassword,
+    active_email_change_request,
     confirm_email_change,
     request_email_change,
 )
@@ -245,6 +247,18 @@ def test_email_change_supersedes_then_confirms_atomically():
     ]
 
 
+def test_email_change_throttles_same_address_without_invalidating_request():
+    user = get_user_model().objects.create_user(email="member@example.com", password="password")
+    first, _token = request_email_change(user, "new@example.com", "password")
+
+    with pytest.raises(EmailChangeThrottled):
+        request_email_change(user, "NEW@example.com", "password")
+
+    assert active_email_change_request(user) == first
+    assert user.email_change_requests.count() == 1
+    assert len(outbox) == 1
+
+
 def test_email_change_rechecks_collision_at_confirmation():
     user = get_user_model().objects.create_user(email="member@example.com", password="password")
     _change, token = request_email_change(user, "later@example.com", "password")
@@ -443,12 +457,14 @@ def test_import_creates_updates_skips_and_records_batch():
                 email="new@example.com",
                 first_name="New",
                 email_verified=True,
+                tags=("AI Alumni", "ai-alumni"),
                 metadata={"cohort": "2026"},
             ),
             ImportRow(email="existing@example.com", last_name="Member"),
             ImportRow(email="invalid"),
         ],
         send_welcome=True,
+        default_tags=("Imported",),
         params={"filename": "members.csv"},
     )
 
@@ -461,7 +477,8 @@ def test_import_creates_updates_skips_and_records_batch():
     assert result.errors[0]["row"] == 4
     assert existing.last_name == "Member"
     assert created.email_verified is True
-    assert created.import_metadata == {"cohort": "2026"}
+    assert created.import_metadata == {"course_db": {"cohort": "2026"}}
+    assert created.tags == ["imported", "ai-alumni"]
     assert created.has_usable_password() is False
     assert len(outbox) == 1
 
@@ -486,3 +503,44 @@ def test_csv_rows_and_registered_adapter_are_portable():
     assert rows[0].metadata == {"cohort": "2026"}
     assert result.users_created == 1
     assert get_user_model().objects.get(email="slack@example.com").first_name == "Grace"
+
+
+def test_import_preserves_earliest_source_and_records_field_conflicts():
+    user = get_user_model().objects.create_user(
+        email="member@example.com",
+        import_source="stripe",
+        imported_at=timezone.now(),
+        slack_user_id="U-EXISTING",
+        import_metadata={"stripe": {"customer": "cus_existing"}},
+        tags=["existing"],
+    )
+
+    result = run_import_batch(
+        "slack",
+        [
+            ImportRow(
+                email="member@example.com",
+                fields={"slack_user_id": "U-INCOMING"},
+                metadata={"workspace": "community"},
+                tags=("New Tag",),
+            )
+        ],
+    )
+
+    user.refresh_from_db()
+    assert user.import_source == "stripe"
+    assert user.slack_user_id == "U-EXISTING"
+    assert user.import_metadata == {
+        "stripe": {"customer": "cus_existing"},
+        "slack": {"workspace": "community"},
+    }
+    assert user.tags == ["existing", "new-tag"]
+    assert result.errors == (
+        {
+            "row": 2,
+            "kind": "conflict",
+            "field": "slack_user_id",
+            "kept": "U-EXISTING",
+            "incoming": "U-INCOMING",
+        },
+    )
