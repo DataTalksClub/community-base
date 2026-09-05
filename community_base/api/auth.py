@@ -3,9 +3,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import wraps
 
+from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.views.decorators.csrf import csrf_exempt
 
-from community_base.api.errors import authentication_required, error_response, permission_denied
+from community_base.api.errors import (
+    authentication_required,
+    error_response,
+    permission_denied,
+    session_authentication_required,
+)
 from community_base.api.models import APIKey
 
 
@@ -37,3 +43,17 @@ def bearer_required(*, scopes: tuple[str, ...] = ()) -> Callable:
         return wrapper
 
     return decorator
+
+
+def session_required(view_func: Callable) -> Callable:
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            response = error_response(request, session_authentication_required())
+        else:
+            response = view_func(request, *args, **kwargs)
+        patch_cache_control(response, private=True, no_cache=True, no_store=True, max_age=0)
+        patch_vary_headers(response, ("Cookie",))
+        return response
+
+    return wrapper

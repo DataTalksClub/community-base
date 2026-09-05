@@ -23,9 +23,15 @@ def widget_detail(request, widget_id):
 ```
 
 Routes sharing a path are dispatched by method. Duplicate method/path registrations and
-unsupported methods fail at import time. The decorator authenticates `Authorization: Bearer`
-credentials, attaches `request.api_key` and `request.user`, and requires the declared scope. A key
-with the explicit `*` scope is unrestricted.
+unsupported methods fail at import time. The default decorator authentication uses
+`Authorization: Bearer`, attaches `request.api_key` and `request.user`, and requires the declared
+scope. A key with the explicit `*` scope is unrestricted.
+
+Member-owned browser APIs register with `authentication="session"` and `scope=None`. Session route
+groups require an authenticated Django session, retain Django CSRF protection for mutations and
+send private no-store cache headers. A path cannot mix bearer and session authentication. Set
+`requires_if_match=True` on a revision-guarded mutation so its strong `If-Match` contract appears
+in OpenAPI.
 
 ## Keys
 

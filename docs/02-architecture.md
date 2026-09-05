@@ -55,7 +55,9 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
      `@community_base.jobs.register_handler(name)`;
    - domain signals in `community_base.<app>.signals`;
    - Studio sections registered in `AppConfig.ready()` through `community_base.studio.registry`;
-   - API routes registered through `community_base.api.registry`;
+   - API routes registered through `community_base.api.registry`; administrative integrations use
+     scoped bearer authentication, while member-owned browser routes explicitly select session
+     authentication and retain CSRF protection;
    - template override by path (Django `DIRS` before `APP_DIRS`);
    - extension models: a site adds a `OneToOneField` model in its own app when it needs extra
      fields on a shared model. Shared models are never forked.

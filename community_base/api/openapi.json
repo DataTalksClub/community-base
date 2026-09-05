@@ -41,6 +41,11 @@
         "bearerFormat": "API key",
         "scheme": "bearer",
         "type": "http"
+      },
+      "cookieAuth": {
+        "in": "cookie",
+        "name": "sessionid",
+        "type": "apiKey"
       }
     }
   },
@@ -399,6 +404,325 @@
         ],
         "summary": "Resend as a new mail delivery",
         "x-required-scope": "mail.write"
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "account": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "account"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Read the signed-in member account"
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRFToken",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "account": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "account"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Update the signed-in member account"
+      }
+    },
+    "/api/v1/me/data-export": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Export the signed-in member data"
+      }
+    },
+    "/api/v1/me/deletion-request": {
+      "post": {
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRFToken",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Request deletion of the signed-in member account"
+      }
+    },
+    "/api/v1/me/password": {
+      "post": {
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRFToken",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Change the signed-in member password"
+      }
+    },
+    "/api/v1/me/profile": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "profile": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "profile"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Read the signed-in member profile"
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRFToken",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "pattern": "^\"rev-[0-9]+\"$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "profile": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "profile"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "409": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "428": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Update the signed-in member profile"
       }
     },
     "/api/v1/settings": {

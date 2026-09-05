@@ -8,4 +8,4 @@ class AccountsConfig(AppConfig):
     verbose_name = "Community Base Accounts"
 
     def ready(self):
-        from community_base.accounts import signals  # noqa: F401
+        from community_base.accounts import self_api, signals  # noqa: F401

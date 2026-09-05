@@ -46,12 +46,35 @@ def _operation(entry: Route, parameters: list[dict]) -> dict:
             "401": {"$ref": "#/components/responses/APIError"},
             "403": {"$ref": "#/components/responses/APIError"},
         },
-        "security": [{"bearerAuth": []}],
+        "security": [{"cookieAuth": []}]
+        if entry.authentication == "session"
+        else [{"bearerAuth": []}],
     }
     if entry.scope:
         operation["x-required-scope"] = entry.scope
-    if parameters:
-        operation["parameters"] = parameters
+    operation_parameters = list(parameters)
+    if entry.authentication == "session" and entry.method != "GET":
+        operation_parameters.append(
+            {
+                "name": "X-CSRFToken",
+                "in": "header",
+                "required": True,
+                "schema": {"type": "string"},
+            }
+        )
+    if entry.requires_if_match:
+        operation_parameters.append(
+            {
+                "name": "If-Match",
+                "in": "header",
+                "required": True,
+                "schema": {"type": "string", "pattern": '^"rev-[0-9]+"$'},
+            }
+        )
+        operation["responses"]["409"] = {"$ref": "#/components/responses/APIError"}
+        operation["responses"]["428"] = {"$ref": "#/components/responses/APIError"}
+    if operation_parameters:
+        operation["parameters"] = operation_parameters
     if entry.request is not None:
         operation["requestBody"] = {
             "required": True,
@@ -70,6 +93,10 @@ def build_document(*, registered_routes: tuple[Route, ...] | None = None) -> dic
     spec.components.security_scheme(
         "bearerAuth",
         {"type": "http", "scheme": "bearer", "bearerFormat": "API key"},
+    )
+    spec.components.security_scheme(
+        "cookieAuth",
+        {"type": "apiKey", "in": "cookie", "name": "sessionid"},
     )
     spec.components.response(
         "APIError",
