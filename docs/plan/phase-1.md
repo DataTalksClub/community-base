@@ -315,8 +315,9 @@ Read first
 
 Steps
 1. Port `EmailService` into `community_base/mail/backends/ses_local.py`: markdown template lookup
-   in `COMMUNITY_BASE["MAIL_TEMPLATE_DIR"]`, HTML wrapper and footer, unsubscribe URL through the
-   hook, SES v2 client built from `community_base.config` keys `AWS_SES_REGION`,
+   in `COMMUNITY_BASE["MAIL_TEMPLATE_DIR"]`, HTML wrapper and footer, unsubscribe URL through
+   `MAIL_UNSUBSCRIBE_URL_BUILDER(delivery) -> str | None`, SES v2 client built from
+   `community_base.config` keys `AWS_SES_REGION`,
    `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (declared by the backend).
 2. Logging and overrides go through hooks so AISL keeps its `EmailLog` and
    `EmailTemplateOverride` tables until Phase 6: `MAIL_SEND_RECORDER(delivery, rendered, result)`
@@ -453,7 +454,7 @@ Steps
    `MAIL_TEMPLATE_DIR=BASE_DIR / "email_app" / "email_templates"`; implement hooks:
    `email_app/hooks.py` with `record_send` (writes `EmailLog` exactly as today),
    `template_override_loader` (reads `EmailTemplateOverride`), `preference_resolver` (port
-   `_delivery_decision`).
+   `_delivery_decision`), `unsubscribe_url_builder` (ports `_build_unsubscribe_url`).
 2. Replace `EmailService().send(user, template, context, dedupe_key=...)` call sites with
    `community_base.mail.send(purpose=template, to=user.email, user=user, context=context,
    idempotency_key=dedupe_key or <derived>)`, one app per pull request. `cc`/`bcc` become

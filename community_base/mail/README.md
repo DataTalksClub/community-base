@@ -36,6 +36,8 @@ Hooks:
 - `MAIL_SEND_RECORDER`: optional callable `(delivery, rendered, result)` for transitional audit
   integration.
 - `MAIL_TEMPLATE_OVERRIDE_LOADER`: optional callable `(template_key) -> (subject, body) | None`.
+- `MAIL_UNSUBSCRIBE_URL_BUILDER`: optional callable `(delivery) -> str | None` used only by the
+  transitional `ses_local` backend.
 
 Delivery rows retain the JSON template context needed for durable execution and its canonical hash,
 but never rendered bodies. Callers must pass only retention-approved template inputs; secret-bearing

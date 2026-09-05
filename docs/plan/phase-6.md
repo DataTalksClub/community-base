@@ -78,7 +78,8 @@ Repository: community-base. Depends on: A6.4 merged and deployed.
 
 Steps
 1. Delete `community_base/mail/backends/ses_local.py`, `jobs/backends/django_q.py`, the
-   `MAIL_TEMPLATE_DIR`, `MAIL_SEND_RECORDER`, `MAIL_TEMPLATE_OVERRIDE_LOADER` hooks, the
+   `MAIL_TEMPLATE_DIR`, `MAIL_SEND_RECORDER`, `MAIL_TEMPLATE_OVERRIDE_LOADER`,
+   `MAIL_UNSUBSCRIBE_URL_BUILDER` hooks, the
    `django_q` and `ses_local` extras, the `jobs_run_due` command.
 2. Release `1.0.0`.
 

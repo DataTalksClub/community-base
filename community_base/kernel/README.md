@@ -14,6 +14,7 @@ idempotency and service contracts used by all shared apps.
 | `MAIL_PREFERENCE_RESOLVER` | dotted path or callable | `"community_base.mail.preferences.allow_all"` |
 | `MAIL_SEND_RECORDER` | dotted path, callable or `None` | `None` |
 | `MAIL_TEMPLATE_OVERRIDE_LOADER` | dotted path, callable or `None` | `None` |
+| `MAIL_UNSUBSCRIBE_URL_BUILDER` | dotted path, callable or `None` | `None` |
 | `RELAY_API_KEY` | `str` | `""` |
 | `RELAY_BASE_URL` | `str` | `""` |
 | `RELAY_WEBHOOK_SECRET` | `str` | `""` |
