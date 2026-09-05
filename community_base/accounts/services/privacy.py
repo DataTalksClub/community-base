@@ -58,6 +58,8 @@ def build_user_data_export(user):
         "notification_preferences": [],
         "comments": [],
         "comment_votes": [],
+        "poll_votes": [],
+        "poll_proposals": [],
     }
     profile = getattr(user, "member_profile", None)
     if profile is not None:
@@ -130,6 +132,18 @@ def build_user_data_export(user):
     if vote is not None:
         export["comment_votes"] = list(
             vote.objects.filter(user=user).values("comment_id", "created_at")
+        )
+    poll_vote = _optional_model("voting", "PollVote")
+    if poll_vote is not None:
+        export["poll_votes"] = list(
+            poll_vote.objects.filter(user=user).values("id", "poll_id", "option_id", "created_at")
+        )
+    proposal = _optional_model("voting", "PollOption")
+    if proposal is not None:
+        export["poll_proposals"] = list(
+            proposal.objects.filter(proposed_by=user).values(
+                "id", "poll_id", "title", "description", "created_at"
+            )
         )
     hook = get("ACCOUNT_PRIVACY_EXPORT_HOOK")
     if hook is not None:

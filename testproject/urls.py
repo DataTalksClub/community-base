@@ -12,6 +12,7 @@ urlpatterns = [
     path("onboarding/", include("community_base.onboarding.urls")),
     path("", include("community_base.notifications.urls")),
     path("", include("community_base.comments.urls")),
+    path("", include("community_base.voting.urls")),
     path("accounts/community/", include("community_base.community.urls")),
     path("api/", include((accounts_api_urlpatterns, "accounts_api"))),
     path("api/", include(notifications_api_urlpatterns)),
