@@ -25,6 +25,9 @@ class EventForm(forms.ModelForm):
             "materials",
         )
 
+    def clean_materials(self):
+        return self.cleaned_data.get("materials") or []
+
 
 class EventSeriesForm(forms.ModelForm):
     class Meta:

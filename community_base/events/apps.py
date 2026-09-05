@@ -8,7 +8,7 @@ class EventsConfig(AppConfig):
     verbose_name = "Events"
 
     def ready(self):
-        from community_base.events import jobs  # noqa: F401
+        from community_base.events import api_views, jobs  # noqa: F401
         from community_base.events.studio_registration import register_studio
         from community_base.mail.context import register_context_resolver
 
