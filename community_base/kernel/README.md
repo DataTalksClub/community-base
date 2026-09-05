@@ -14,6 +14,11 @@ idempotency and service contracts used by all shared apps.
 | `CONTENT_SYNC_GITHUB_PRIVATE_KEY` | PEM `str` | `""` |
 | `CONTENT_SYNC_HTTP_TIMEOUT` | positive seconds | `30` |
 | `CONTENT_SYNC_MAX_ARCHIVE_BYTES` | positive bytes | `100000000` |
+| `CONTENT_SYNC_MEDIA_BACKEND` | `"null"` or `"s3"` | `"null"` |
+| `CONTENT_SYNC_S3_BUCKET` | `str` | `""` |
+| `CONTENT_SYNC_S3_PREFIX` | object-key prefix | `"content-sync"` |
+| `CONTENT_SYNC_S3_PUBLIC_URL` | absolute URL or empty | `""` |
+| `CONTENT_SYNC_S3_REGION` | AWS region or empty | `""` |
 | `SITE_KEY` | `str` | `""` |
 | `ACCESS_POLICY` | dotted path or policy object | `"community_base.kernel.access.OpenPolicy"` |
 | `JOBS_BACKEND` | `str` | `"sync"` |
