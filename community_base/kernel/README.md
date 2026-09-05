@@ -7,6 +7,7 @@ idempotency and service contracts used by all shared apps.
 
 | Key | Type | Default |
 |---|---|---|
+| `ACCOUNT_MERGE_HOOK` | dotted path, callable or `None` | `None` |
 | `ACCOUNT_UNVERIFIED_TTL_DAYS` | positive integer days | `7` |
 | `CONTENT_SOURCES` | list of source dictionaries | `[]` |
 | `CONTENT_SYNC_GITHUB_API_URL` | absolute URL | `"https://api.github.com"` |

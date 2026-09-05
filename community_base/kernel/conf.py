@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 DEFAULTS = {
+    "ACCOUNT_MERGE_HOOK": None,
     "ACCOUNT_UNVERIFIED_TTL_DAYS": 7,
     "CONTENT_SOURCES": [],
     "CONTENT_SYNC_GITHUB_API_URL": "https://api.github.com",

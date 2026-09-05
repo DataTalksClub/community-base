@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.test import override_settings
 
-from community_base.accounts.models import EmailAlias
+from community_base.accounts.models import EmailAlias, MemberProfile
 from community_base.accounts.preferences import resolve_mail_preference
 from community_base.accounts.services.email_change import (
     EmailUnavailable,
@@ -18,12 +18,14 @@ from community_base.accounts.services.email_resolution import (
     resolve_user_by_email,
 )
 from community_base.accounts.services.free_welcome import send_free_welcome
+from community_base.accounts.services.merge import MergeError, merge_accounts
 from community_base.accounts.services.timezones import (
     build_timezone_options,
     format_user_datetime,
     is_valid_timezone,
 )
 from community_base.accounts.services.verification import unverified_user_ttl_days
+from community_base.api.models import APIKey
 from community_base.mail import send
 from community_base.mail.backends.memory import outbox
 from community_base.mail.models import EmailDelivery
@@ -169,3 +171,82 @@ def test_free_welcome_is_durable_and_idempotent():
 
     assert first.pk == second.pk
     assert len(outbox) == 1
+
+
+def test_merge_accounts_reconciles_shared_state_and_owned_rows():
+    canonical = get_user_model().objects.create_user(
+        email="canonical@example.com",
+        email_preferences={"events": True, "newsletter": False},
+        tags=["canonical"],
+    )
+    secondary = get_user_model().objects.create_user(
+        email="secondary@example.com",
+        email_verified=True,
+        unsubscribed=True,
+        email_preferences={"events": False, "courses": True},
+        tags=["secondary"],
+        bounce_state="permanent",
+        preferred_timezone="Europe/Berlin",
+    )
+    MemberProfile.objects.create(user=secondary, country="DE", about="Shared profile")
+    EmailAlias.objects.create(user=secondary, email="older@example.com", source="merge")
+    api_key, _plaintext = APIKey.create_for_user(
+        user=secondary,
+        name="member key",
+        scopes=["profile:read"],
+        kind=APIKey.Kind.MEMBER,
+    )
+
+    plan = merge_accounts(canonical, secondary)
+
+    canonical.refresh_from_db()
+    secondary.refresh_from_db()
+    assert plan.secondary_deactivated is True
+    assert secondary.is_active is False
+    assert secondary.email == f"merged+{secondary.pk}@merged.invalid"
+    assert canonical.email_verified is True
+    assert canonical.unsubscribed is True
+    assert canonical.bounce_state == "permanent"
+    assert canonical.preferred_timezone == "Europe/Berlin"
+    assert canonical.tags == ["canonical", "secondary"]
+    assert canonical.email_preferences == {
+        "events": False,
+        "courses": True,
+        "newsletter": False,
+    }
+    assert MemberProfile.objects.get(user=canonical).about == "Shared profile"
+    assert set(canonical.email_aliases.values_list("email", flat=True)) == {
+        "older@example.com",
+        "secondary@example.com",
+    }
+    api_key.refresh_from_db()
+    assert api_key.user == canonical
+    assert api_key.revoked_at is not None
+
+
+def test_merge_dry_run_rolls_back_every_mutation():
+    canonical = get_user_model().objects.create_user(email="canonical@example.com")
+    secondary = get_user_model().objects.create_user(
+        email="secondary@example.com",
+        email_verified=True,
+    )
+
+    plan = merge_accounts(canonical, secondary, dry_run=True)
+
+    canonical.refresh_from_db()
+    secondary.refresh_from_db()
+    assert plan.dry_run is True
+    assert plan.scalar_changes == ["email_verified"]
+    assert canonical.email_verified is False
+    assert secondary.is_active is True
+    assert EmailAlias.objects.count() == 0
+
+
+def test_merge_rejects_self_and_staff_without_force():
+    staff = get_user_model().objects.create_user(email="staff@example.com", is_staff=True)
+    member = get_user_model().objects.create_user(email="member@example.com")
+
+    with pytest.raises(MergeError, match="itself"):
+        merge_accounts(staff, staff)
+    with pytest.raises(MergeError, match="force"):
+        merge_accounts(member, staff)
