@@ -45,6 +45,19 @@ keeps the correct link active. Put section-owned routes without a link in
 `section_only_routes[route_name] = section_slug`. Add JSON or redirect routes that never render
 the shell to `routes_without_home`.
 
+Multiple apps may contribute to the same section when its slug, title, order and icon match. The
+registry merges their destinations and still rejects duplicate destination keys or route claims.
+The config, API, jobs and mail apps use this to populate the built-in Operations section.
+
+Run the route partition check after mounting Studio URLs:
+
+```console
+uv run python manage.py studio_routes --check
+```
+
+It exits unsuccessfully when a mounted route is unclaimed, claimed more than once, or when a
+registration refers to a route that is not mounted.
+
 Search providers accept `(request, query)` and return a mapping of group names to JSON-serializable
 result lists. Dashboard providers accept `request` and return one card dictionary, an iterable of
 cards, or `None`:

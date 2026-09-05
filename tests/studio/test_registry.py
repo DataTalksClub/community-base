@@ -35,8 +35,16 @@ def test_sections_are_sorted_with_their_destinations():
         )
     )
 
-    assert [section.slug for section in sections()] == ["home", "earlier", "later"]
+    assert [section.slug for section in sections()] == ["home", "earlier", "later", "operations"]
     assert sections()[1].destinations[0].key == "a"
+
+
+def test_matching_section_metadata_merges_app_destinations():
+    register(Section("shared", "Shared", 10, "box", (destination("first", ("first",)),)))
+    register(Section("shared", "Shared", 10, "box", (destination("second", ("second",)),)))
+
+    shared = next(section for section in sections() if section.slug == "shared")
+    assert [item.key for item in shared.destinations] == ["first", "second"]
 
 
 def test_duplicate_route_ownership_is_rejected():

@@ -12,3 +12,6 @@ class MailConfig(AppConfig):
             api_views,  # noqa: F401
             jobs,  # noqa: F401
         )
+        from community_base.mail.studio_registration import register_studio
+
+        register_studio()

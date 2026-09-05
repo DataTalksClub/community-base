@@ -9,3 +9,6 @@ class JobsConfig(AppConfig):
 
     def ready(self) -> None:
         from community_base.jobs import builtin  # noqa: F401
+        from community_base.jobs.studio_registration import register_studio
+
+        register_studio()

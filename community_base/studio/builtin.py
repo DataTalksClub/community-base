@@ -1,7 +1,16 @@
-from community_base.studio.registry import Destination, Section, register, sections
+from community_base.studio.registry import (
+    Destination,
+    Section,
+    register,
+    routes_without_home,
+    sections,
+)
 
 
 def register_builtin_section() -> None:
+    routes_without_home.update(
+        {"studio_global_search", "studio_impersonate", "studio_stop_impersonate"}
+    )
     if any(section.slug == "home" for section in sections()):
         return
     register(

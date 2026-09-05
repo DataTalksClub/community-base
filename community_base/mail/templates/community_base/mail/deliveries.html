@@ -1,7 +1,7 @@
-{% extends "base.html" %}
+{% extends "community_base/studio/base.html" %}
 {% block title %}Mail deliveries{% endblock %}
 {% block content %}
-<main class="cb-page">
+<div class="cb-page">
   <header class="cb-page-header"><h1 class="cb-page-title">Mail deliveries</h1></header>
   <form class="cb-form" method="get">
     <label class="cb-field">State <select name="state"><option value="">All</option>{% for value, label in states %}<option value="{{ value }}"{% if selected_state == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
@@ -9,5 +9,5 @@
     <button class="cb-button" type="submit">Filter</button>
   </form>
   {% if rows %}<ul class="cb-list">{% for delivery, recipient in rows %}<li class="cb-card"><h2 class="cb-card-title"><a href="{% url 'community_base_mail_delivery' delivery.id %}">{{ delivery.purpose }}</a></h2><p class="cb-card-meta"><span class="cb-badge">{{ delivery.state }}</span> {{ recipient }} · {{ delivery.created_at }}</p></li>{% endfor %}</ul>{% else %}<p class="cb-empty">No mail deliveries.</p>{% endif %}
-</main>
+</div>
 {% endblock %}

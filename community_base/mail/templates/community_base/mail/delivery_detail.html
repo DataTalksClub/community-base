@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "community_base/studio/base.html" %}
 {% block title %}Mail delivery{% endblock %}
 {% block content %}
-<main class="cb-page">
+<div class="cb-page">
   <header class="cb-page-header"><h1 class="cb-page-title">{{ delivery.purpose }}</h1></header>
   <section class="cb-card"><p><span class="cb-badge">{{ delivery.state }}</span></p><p class="cb-card-meta">Delivery {{ delivery.id }} · {{ recipient }}</p><p>Template: <code>{{ delivery.template_key }}:{{ delivery.template_version }}</code></p><p>Context: <code>{{ context_hash }}</code></p>{% if delivery.reason_code %}<p>Reason: <code>{{ delivery.reason_code }}</code></p>{% endif %}</section>
   <section><h2>Callback history</h2>{% if delivery.callback_events.all %}<ul class="cb-list">{% for event in delivery.callback_events.all %}<li class="cb-card"><span class="cb-badge">{{ event.state }}</span> <code>{{ event.event_id }}</code> · {{ event.received_at }}</li>{% endfor %}</ul>{% else %}<p class="cb-empty">No callbacks received.</p>{% endif %}</section>
-</main>
+</div>
 {% endblock %}

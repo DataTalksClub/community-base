@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "community_base/studio/base.html" %}
 
 {% block title %}Runtime settings{% endblock %}
 
 {% block content %}
-<main class="cb-page">
+<div class="cb-page">
   <header class="cb-page-header"><h1 class="cb-page-title">Runtime settings</h1></header>
 
   {% if messages %}
@@ -48,5 +48,5 @@
       <button class="cb-button" type="submit">Import JSON</button>
     </form>
   </section>
-</main>
+</div>
 {% endblock %}

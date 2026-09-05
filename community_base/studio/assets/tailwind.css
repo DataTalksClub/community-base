@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .cb-page { @apply space-y-6; }
+  .cb-page-header { @apply mb-8; }
+  .cb-page-title { @apply text-2xl font-semibold tracking-tight text-foreground; }
+  .cb-card { @apply rounded-lg border border-border bg-card p-5; }
+  .cb-card-title { @apply font-semibold text-foreground; }
+  .cb-card-meta { @apply mt-1 text-sm text-muted-foreground; }
+  .cb-list { @apply space-y-3; }
+  .cb-form { @apply space-y-4; }
+  .cb-field { @apply flex flex-col gap-1 text-sm text-foreground; }
+  .cb-field input, .cb-field select, .cb-field textarea {
+    @apply rounded-lg border border-border bg-secondary px-3 py-2 text-foreground;
+  }
+  .cb-button { @apply inline-flex items-center justify-center rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-muted; }
+  .cb-button-primary { @apply border-accent bg-accent text-accent-foreground hover:opacity-90; }
+  .cb-badge { @apply inline-flex rounded-full bg-secondary px-2 py-1 text-xs text-muted-foreground; }
+  .cb-alert { @apply rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground; }
+  .cb-empty { @apply rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground; }
+}
+
 /* Light theme (default) */
 :root {
   --background: 0 0% 100%;
