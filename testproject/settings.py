@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "community_base.community",
     "community_base.notifications",
     "community_base.comments",
+    "community_base.voting",
     "community_base.api",
     "community_base.config",
     "community_base.jobs",
@@ -123,4 +124,5 @@ COMMUNITY_BASE = {
     "STUDIO_TITLE": "Community Base Studio",
     "STUDIO_AUDIT_WRITER": "community_base.studio.audit.discard_audit_event",
     "USER_TAGS_ACCESSOR": "testproject.studio_tags.TestUserTagsAccessor",
+    "VOTING_POLL_LEVELS": {"topic": 5, "course": 5},
 }
