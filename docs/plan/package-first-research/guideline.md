@@ -1,6 +1,6 @@
 # Package-first implementation plan
 
-Status: approval requested.
+Status: approved by the owner on 2026-09-05.
 
 ## 1. Outcome
 
@@ -275,9 +275,5 @@ Approval means accepting:
    adoption-candidate release.
 6. Tagged `replaces` markers are not removed.
 
-After approval, the first implementation is the plan-correction PR in section 4. The first product
-implementation after that is C0.4 API, followed by C0.3 Config.
-
-Status: not distilled
-
-Research must be distilled here before approval.
+The first implementation is the plan-correction PR in section 4. The first product implementation
+after that is C0.4 API, followed by C0.3 Config.

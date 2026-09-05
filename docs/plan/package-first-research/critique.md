@@ -31,24 +31,23 @@
 - Put all site adoption into one release/freeze: rejected because it magnifies migration and
   rollback risk and violates the one-issue/one-PR process.
 
-## Approval questions
+## Approved decisions
 
-1. Accept the package-first execution policy and plan-correction PR as the next work.
-2. Accept one `v0.6.0` adoption-candidate domain release instead of publishing provisional
+1. The package-first execution policy and plan-correction PR are the next work.
+2. Use one `v0.6.0` adoption-candidate domain release instead of publishing provisional
    `v0.4.0` and `v0.5.0` tags.
-3. Accept preserving `replaces` markers after tagging, resolving P4 in favor of append-only
+3. Preserve `replaces` markers after tagging, resolving P4 in favor of append-only
    migrations.
 
-No other subjective choice blocks the plan correction or C0.4.
-
-## Reflection
-
-Not run.
+The owner explicitly approved these decisions on 2026-09-05.
 
 ## Human grilling
 
-Not run.
+The approval request isolated the three subjective tradeoffs above. The owner approved them
+without changes.
 
 ## Accepted risks
 
-None.
+- Package-first scheduling delays the start of D13's four-week production evidence window.
+- Domain work remains untagged while kept-label migrations are provisional.
+- Real Relay and donor compatibility may reveal changes after package-local behavior is complete.

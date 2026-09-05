@@ -2,7 +2,7 @@ schema_version: 1
 id: package-first-unification
 title: "Package-first community-base unification"
 mode: building
-status: critiqued
+status: approved
 created: 2026-09-05
 seed_sha256: d9cc674d2638cd091b1481ebe031347bb09ae793470e3d816b915e1d4f8fd4dd
 source_roots:
