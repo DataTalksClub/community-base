@@ -476,3 +476,24 @@ class EventFeedback(TimestampedModel):
             or (self.would_change or "").strip()
         ):
             raise ValidationError("Please leave a rating or a comment.")
+
+
+class EventIntegrationAttempt(TimestampedModel):
+    class Status(models.TextChoices):
+        STARTING = "starting", "Starting"
+        PROVIDER_REQUESTED = "provider_requested", "Provider requested"
+        SUCCEEDED = "succeeded", "Succeeded"
+        AMBIGUOUS = "ambiguous", "Ambiguous"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, editable=False)
+    event = models.ForeignKey(Event, on_delete=models.PROTECT, related_name="integration_attempts")
+    operation = models.CharField(max_length=64)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.STARTING)
+    result_reference = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        ordering = ("-created_at", "id")
+
+    def __str__(self):
+        return f"{self.operation}:{self.id} ({self.status})"

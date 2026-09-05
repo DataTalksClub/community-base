@@ -97,10 +97,11 @@ def complete_reminder(reminder_id, delivery):
         raise ValidationError("Only claimed reminders can be completed.")
     if delivery.recipient_email != reminder.registration.normalized_email:
         raise ValidationError("Reminder delivery recipient does not own the registration.")
-    reminder.status = EventReminder.Status.SENT
+    suppressed = delivery.state == "suppressed"
+    reminder.status = EventReminder.Status.SKIPPED if suppressed else EventReminder.Status.SENT
     reminder.delivery = delivery
     reminder.completed_at = timezone.now()
-    reminder.reason = ""
+    reminder.reason = delivery.reason_code if suppressed else ""
     reminder.save(update_fields=("status", "delivery", "completed_at", "reason", "updated_at"))
     return reminder, True
 

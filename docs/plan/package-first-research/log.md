@@ -21,3 +21,5 @@
 2026-09-05T21:28:54+02:00 | verify | passed C4.1a source, fresh-and-reversed migration, isolated-wheel, boundary, focused and full-suite package gates without tagging the provisional events migration | guideline
 2026-09-05T21:51:35+02:00 | build | implemented C4.1b member and accountless registration, series fan-out and opt-outs, version-scoped delivery-time tokens, reminders, attendance, and feedback ownership | guideline
 2026-09-05T21:51:35+02:00 | verify | passed C4.1b source, fresh-and-reversed migration, isolated-wheel, boundary, focused and full-suite package gates without tagging provisional event migrations | guideline
+2026-09-05T22:19:32+02:00 | build | implemented C4.1c calendar and Zoom integrations, event extension hooks, durable integration jobs, and an ambiguity-safe provider mutation fence | guideline
+2026-09-05T22:19:32+02:00 | verify | passed C4.1c source, fresh-and-reversed migration, isolated-wheel, boundary, focused and full-suite package gates without tagging provisional event migrations | guideline
