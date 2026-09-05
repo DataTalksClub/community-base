@@ -76,7 +76,12 @@ def test_resolution_order_is_database_environment_django_then_default(monkeypatc
 
 @pytest.mark.django_db
 def test_secrets_are_encrypted_and_redacted_from_export_and_audit():
-    service.set(SECRET_KEY, "test-secret-value", "test:actor", "Configure test")
+    service.set(
+        SECRET_KEY,
+        "test-secret-value",
+        "test:actor",
+        "Replace test-secret-value",
+    )
 
     row = Setting.objects.get(key=SECRET_KEY)
     change = SettingChange.objects.get(setting_key=SECRET_KEY)
@@ -86,6 +91,7 @@ def test_secrets_are_encrypted_and_redacted_from_export_and_audit():
     assert service.export()[SECRET_KEY] == REDACTED
     assert change.new_value == REDACTED
     assert change.new_value_redacted
+    assert "test-secret-value" not in change.reason
 
 
 @pytest.mark.django_db(transaction=True)

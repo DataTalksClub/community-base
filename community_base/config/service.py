@@ -9,19 +9,20 @@ from typing import Any
 from django.apps.registry import AppRegistryNotReady
 from django.conf import settings
 from django.core.cache import cache
+from django.core.cache.backends.base import InvalidCacheBackendError
 from django.core.exceptions import ImproperlyConfigured
 from django.db import DatabaseError, transaction
 
 from community_base.config.crypto import decrypt, encrypt
 from community_base.config.models import Setting, SettingChange
 from community_base.config.registry import Definition, definition, definitions
-from community_base.kernel.redaction import REDACTED
+from community_base.kernel.redaction import REDACTED, mask_sensitive_spans
 
 STAMP_KEY = "community_base.config.stamp"
 _DEFAULT_SENTINEL = object()
 logger = logging.getLogger(__name__)
 _RUNTIME_READ_ERRORS = (AppRegistryNotReady, DatabaseError)
-_STAMP_ERRORS = (ImproperlyConfigured, DatabaseError)
+_STAMP_ERRORS = (InvalidCacheBackendError, ImproperlyConfigured, DatabaseError)
 
 
 def running_in_worker_process() -> bool:
@@ -152,8 +153,11 @@ def set(key: str, value, actor_ref: str, reason: str = "", *, source: str = "stu
             old_value_redacted=redacted and previous is not None,
             new_value=REDACTED if redacted else normalized,
             new_value_redacted=redacted,
-            actor_ref=actor_ref,
-            reason=reason,
+            actor_ref=mask_sensitive_spans(str(actor_ref)),
+            reason=mask_sensitive_spans(
+                str(reason),
+                canaries=(str(normalized),) if item.secret else (),
+            ),
         )
         runtime.reset()
         transaction.on_commit(runtime.publish)
