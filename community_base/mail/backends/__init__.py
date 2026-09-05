@@ -9,4 +9,8 @@ def get_backend():
         from community_base.mail.backends import memory
 
         return memory
+    if name == "relay":
+        from community_base.mail.backends import relay
+
+        return relay
     raise ValueError(f"unsupported mail backend: {name}")
