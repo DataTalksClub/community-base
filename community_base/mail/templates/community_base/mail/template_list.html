@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "community_base/studio/base.html" %}
 {% block title %}Mail templates{% endblock %}
 {% block content %}
-<main class="cb-page">
+<div class="cb-page">
   <header class="cb-page-header"><h1 class="cb-page-title">Mail templates</h1></header>
   {% if error %}<p class="cb-alert">Relay catalog unavailable: <code>{{ error }}</code></p>{% endif %}
   {% if templates %}<ul class="cb-list">{% for template in templates %}<li class="cb-card"><h2 class="cb-card-title"><a href="{% url 'community_base_mail_template' template.key %}">{{ template.name|default:template.key }}</a></h2><p class="cb-card-meta"><code>{{ template.key }}</code> · latest version {{ template.latest_version|default:"none" }}</p></li>{% endfor %}</ul>{% else %}<p class="cb-empty">No Relay templates available.</p>{% endif %}
-</main>
+</div>
 {% endblock %}

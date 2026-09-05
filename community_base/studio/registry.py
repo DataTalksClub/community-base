@@ -36,8 +36,13 @@ routes_without_home: set[str] = set()
 def register(section: Section) -> Section:
     """Register one section, rejecting ambiguous navigation ownership."""
 
-    if section.slug in _sections:
-        raise ValueError(f"Studio section already registered: {section.slug}")
+    existing_section = _sections.get(section.slug)
+    if existing_section and (
+        existing_section.title,
+        existing_section.order,
+        existing_section.icon,
+    ) != (section.title, section.order, section.icon):
+        raise ValueError(f"Studio section metadata conflicts: {section.slug}")
 
     claimed_keys = {item.key for existing in _sections.values() for item in existing.destinations}
     claimed_routes = {
@@ -56,6 +61,14 @@ def register(section: Section) -> Section:
         claimed_keys.add(destination.key)
         claimed_routes.update(destination.route_names)
 
+    if existing_section:
+        section = Section(
+            slug=existing_section.slug,
+            title=existing_section.title,
+            order=existing_section.order,
+            icon=existing_section.icon,
+            destinations=existing_section.destinations + section.destinations,
+        )
     _sections[section.slug] = section
     return section
 

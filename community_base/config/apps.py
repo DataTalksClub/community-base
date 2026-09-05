@@ -18,3 +18,6 @@ class ConfigAppConfig(AppConfig):
                 if error.name != module_name:
                     raise
         import_module("community_base.config.api_views")
+        from community_base.config.studio_registration import register_studio
+
+        register_studio()

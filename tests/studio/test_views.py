@@ -21,6 +21,20 @@ def test_staff_dashboard_renders_registered_shell(client, staff_user):
     assert "Community Base Studio" in content
     assert "Queue" in content
     assert 'aria-current="page"' in content
+    assert "Operations" in content
+    assert "Settings" in content
+    assert "Jobs" in content
+    assert "Mail" in content
+
+
+def test_superuser_dashboard_shows_api_keys(client, django_user_model):
+    user = django_user_model.objects.create_superuser(username="studio-superuser")
+    client.force_login(user)
+
+    response = client.get("/studio/")
+
+    assert response.status_code == 200
+    assert "API keys" in response.content.decode()
 
 
 def test_dashboard_rejects_non_staff(client, django_user_model):
