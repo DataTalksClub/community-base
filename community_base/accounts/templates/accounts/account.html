@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Account{% endblock %}
+{% block meta_description %}Manage your community account and private member profile.{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Account</h1></header>
+
+  <section class="cb-section" id="account-details">
+    <h2 class="cb-section-title">Account details</h2>
+    <p class="cb-account-email">{{ request.user.email }}</p>
+    <form class="cb-form" data-cb-api-form="/api/v1/me">
+      {% csrf_token %}
+      <label class="cb-label">First name <input class="cb-input" name="first_name" value="{{ request.user.first_name }}"></label>
+      <label class="cb-label">Last name <input class="cb-input" name="last_name" value="{{ request.user.last_name }}"></label>
+      <label class="cb-label">Timezone
+        <select class="cb-select" name="preferred_timezone">
+          <option value="">UTC</option>
+          {% for option in timezone_options %}<option value="{{ option.value }}"{% if option.value == request.user.preferred_timezone %} selected{% endif %}>{{ option.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <button class="cb-button cb-button-primary" type="submit">Save account details</button>
+    </form>
+  </section>
+
+  <section class="cb-section" id="profile">
+    <h2 class="cb-section-title">Member profile</h2>
+    <form class="cb-form" data-cb-api-form="/api/v1/me/profile" data-cb-revision="{{ profile.revision }}">
+      {% csrf_token %}
+      <label class="cb-label">Country <input class="cb-input" name="country" maxlength="2" value="{{ profile.country }}"></label>
+      <label class="cb-label">Work status <select class="cb-select" name="work_status"><option value=""></option>{% for value, label in work_status_choices %}<option value="{{ value }}"{% if value == profile.work_status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="cb-label">Organization <input class="cb-input" name="organisation" maxlength="160" value="{{ profile.organisation }}"></label>
+      <label class="cb-label">Professional role <select class="cb-select" name="professional_role"><option value=""></option>{% for value, label in professional_role_choices %}<option value="{{ value }}"{% if value == profile.professional_role %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="cb-label">Seniority <select class="cb-select" name="seniority"><option value=""></option>{% for value, label in seniority_choices %}<option value="{{ value }}"{% if value == profile.seniority %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="cb-label">About <textarea class="cb-textarea" name="about" maxlength="1000">{{ profile.about }}</textarea></label>
+      <label class="cb-label">Ambitions <textarea class="cb-textarea" name="ambitions" maxlength="1000">{{ profile.ambitions }}</textarea></label>
+      <label class="cb-label">Why you joined <textarea class="cb-textarea" name="why_joined" maxlength="1000">{{ profile.why_joined }}</textarea></label>
+      <label class="cb-label">GitHub URL <input class="cb-input" name="github_url" type="url" value="{{ profile.github_url }}"></label>
+      <label class="cb-label">LinkedIn URL <input class="cb-input" name="linkedin_url" type="url" value="{{ profile.linkedin_url }}"></label>
+      <label class="cb-label">Website URL <input class="cb-input" name="website_url" type="url" value="{{ profile.website_url }}"></label>
+      <button class="cb-button cb-button-primary" type="submit">Save member profile</button>
+    </form>
+  </section>
+
+  <section class="cb-section" id="email-preferences">
+    <h2 class="cb-section-title">Email preferences</h2>
+    <form class="cb-form" data-cb-preferences-form="/api/v1/me">
+      {% csrf_token %}
+      <label class="cb-label"><input name="newsletter" type="checkbox"{% if not request.user.unsubscribed %} checked{% endif %}> Receive newsletter email</label>
+      <button class="cb-button" type="submit">Save email preferences</button>
+    </form>
+  </section>
+
+  <section class="cb-section" id="change-password">
+    <h2 class="cb-section-title">Change password</h2>
+    <form class="cb-form" data-cb-password-form="/api/v1/me/password">
+      {% csrf_token %}
+      {% if request.user.has_usable_password %}<label class="cb-label">Current password <input class="cb-input" name="current_password" type="password" autocomplete="current-password"></label>{% endif %}
+      <label class="cb-label">New password <input class="cb-input" name="new_password" type="password" autocomplete="new-password"></label>
+      <button class="cb-button" type="submit">Change password</button>
+    </form>
+  </section>
+
+  <section class="cb-section" id="privacy-data">
+    <h2 class="cb-section-title">Privacy and data</h2>
+    <p><a class="cb-button" href="/api/v1/me/data-export">Download my data</a></p>
+    <form class="cb-form" data-cb-deletion-form="/api/v1/me/deletion-request">{% csrf_token %}<button class="cb-button" type="submit">Request account deletion</button></form>
+  </section>
+  <p class="cb-form-status" aria-live="polite" data-cb-form-status></p>
+</main>
+{% endblock %}
+{% block extra_js %}
+<script>
+(() => {
+  const status = document.querySelector("[data-cb-form-status]");
+  const csrf = () => document.querySelector("[name=csrfmiddlewaretoken]").value;
+  const submit = async (form, body, method = "PATCH", headers = {}) => {
+    const response = await fetch(form.dataset.cbApiForm || form.dataset.cbPreferencesForm || form.dataset.cbPasswordForm || form.dataset.cbDeletionForm, {
+      method,
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrf(), ...headers},
+      body: JSON.stringify(body),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error?.message || "The update failed.");
+    status.textContent = "Saved.";
+    return {response, result};
+  };
+  document.querySelectorAll("[data-cb-api-form]").forEach((form) => form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const body = Object.fromEntries(new FormData(form));
+    const revision = form.dataset.cbRevision;
+    try {
+      const {response} = await submit(form, body, "PATCH", revision === undefined ? {} : {"If-Match": `"rev-${revision}"`});
+      if (revision !== undefined) form.dataset.cbRevision = response.headers.get("ETag").slice(5, -1);
+    } catch (error) { status.textContent = error.message; }
+  }));
+  const preferences = document.querySelector("[data-cb-preferences-form]");
+  preferences.addEventListener("submit", async (event) => { event.preventDefault(); try { await submit(preferences, {email_preferences: {newsletter: preferences.newsletter.checked}}); } catch (error) { status.textContent = error.message; } });
+  const password = document.querySelector("[data-cb-password-form]");
+  password.addEventListener("submit", async (event) => { event.preventDefault(); try { await submit(password, Object.fromEntries(new FormData(password)), "POST"); password.reset(); } catch (error) { status.textContent = error.message; } });
+  const deletion = document.querySelector("[data-cb-deletion-form]");
+  deletion.addEventListener("submit", async (event) => { event.preventDefault(); try { await submit(deletion, {}, "POST"); } catch (error) { status.textContent = error.message; } });
+})();
+</script>
+{% endblock %}

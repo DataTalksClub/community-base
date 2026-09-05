@@ -1,8 +1,10 @@
 from django.urls import include, path
 
 from community_base.accounts import views
+from community_base.accounts.account_page import account_view
 
 urlpatterns = [
+    path("account/", account_view, name="account"),
     path("login/", views.login_view, name="account_login"),
     path("logout/", views.logout_view, name="account_logout"),
     path("register/", views.register_view, name="account_register"),

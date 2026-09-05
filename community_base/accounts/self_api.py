@@ -1,8 +1,21 @@
 from functools import wraps
 
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.utils.cache import patch_cache_control, patch_vary_headers
 
+from community_base.accounts.services.account_settings import (
+    AccountSettingsError,
+    serialize_account,
+    update_account_settings,
+)
+from community_base.accounts.services.privacy import (
+    build_user_data_export,
+    request_account_deletion,
+    write_export_log,
+)
 from community_base.accounts.services.profile import (
     ProfileUpdateError,
     serialize_profile,
@@ -62,25 +75,15 @@ def _profile_response(user, data=None):
 
 @session_api
 def me(request):
-    if request.method != "GET":
+    if request.method == "GET":
+        return JsonResponse({"account": serialize_account(request.user)})
+    if request.method != "PATCH":
         raise APIError(405, "method_not_allowed", "Method is not allowed.")
-    user = request.user
-    return JsonResponse(
-        {
-            "account": {
-                "id": user.pk,
-                "email": user.email,
-                "email_verified": user.email_verified,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "email_preferences": user.email_preferences,
-                "unsubscribed": user.unsubscribed,
-                "preferred_timezone": user.preferred_timezone,
-                "theme_preference": user.theme_preference,
-                "dashboard_dismissals": user.dashboard_dismissals,
-            }
-        }
-    )
+    try:
+        account = update_account_settings(request.user, read_json_object(request))
+    except AccountSettingsError as error:
+        raise APIError(400, error.code, error.message, details=error.details) from error
+    return JsonResponse({"account": account})
 
 
 @session_api
@@ -100,3 +103,59 @@ def me_profile(request):
         status = 409 if error.code == "revision_conflict" else 400
         raise APIError(status, error.code, error.message, details=error.details) from error
     return _profile_response(request.user, state.data)
+
+
+@session_api
+def me_password(request):
+    if request.method != "POST":
+        raise APIError(405, "method_not_allowed", "Method is not allowed.")
+    values = read_json_object(request)
+    current_password = values.get("current_password", "")
+    new_password = values.get("new_password", "")
+    if not isinstance(current_password, str) or not isinstance(new_password, str):
+        raise APIError(400, "invalid_password_fields", "Password fields must be strings.")
+    user = request.user
+    if user.has_usable_password() and not user.check_password(current_password):
+        raise APIError(400, "invalid_current_password", "Current password is incorrect.")
+    if not new_password:
+        raise APIError(400, "new_password_required", "New password is required.")
+    try:
+        validate_password(new_password, user)
+    except ValidationError as error:
+        raise APIError(
+            400,
+            "invalid_new_password",
+            "New password does not meet the password policy.",
+            details={"messages": error.messages},
+        ) from error
+    user.set_password(new_password)
+    user.account_activated = True
+    user.save(update_fields=("password", "account_activated"))
+    update_session_auth_hash(request, user)
+    return JsonResponse({"status": "ok"})
+
+
+@session_api
+def me_data_export(request):
+    if request.method != "GET":
+        raise APIError(405, "method_not_allowed", "Method is not allowed.")
+    payload = build_user_data_export(request.user)
+    write_export_log(request.user)
+    response = JsonResponse(payload, json_dumps_params={"indent": 2, "sort_keys": True})
+    response["Content-Disposition"] = 'attachment; filename="community-account-data.json"'
+    return response
+
+
+@session_api
+def me_deletion_request(request):
+    if request.method != "POST":
+        raise APIError(405, "method_not_allowed", "Method is not allowed.")
+    deletion_request, created = request_account_deletion(request.user)
+    return JsonResponse(
+        {
+            "status": deletion_request.status,
+            "request_id": deletion_request.pk,
+            "created": created,
+        },
+        status=201 if created else 200,
+    )
