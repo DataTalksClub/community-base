@@ -18,5 +18,10 @@ class CommunityConfig(AppConfig):
 
             register_schedules()
 
+        if apps.is_installed("community_base.studio"):
+            from community_base.community.studio_registration import register_studio
+
+            register_studio()
+
         if apps.is_installed("community_base.onboarding"):
             from community_base.community import signals  # noqa: F401

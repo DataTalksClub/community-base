@@ -13,7 +13,7 @@ from community_base.community.access import (
     ensure_access_grant,
 )
 from community_base.community.calendly import process_webhook, verify_signature, webhook_max_bytes
-from community_base.community.models import SlackAccessGrant
+from community_base.community.models import BookedCall, CallHost, SlackAccessGrant
 from community_base.kernel import conf
 
 
@@ -45,6 +45,21 @@ def slack_access(request):
             "community_base/community/slack_access.html",
             {"grant": grant, "invite_url": invite_url},
         )
+    )
+
+
+@login_required
+def call_hosts(request):
+    if not conf.get("CALENDLY"):
+        raise Http404
+    hosts = CallHost.objects.filter(is_active=True).exclude(booking_url="")
+    booked_calls = BookedCall.objects.filter(member=request.user, status="booked").select_related(
+        "host"
+    )
+    return render(
+        request,
+        "community_base/community/call_hosts.html",
+        {"hosts": hosts, "booked_calls": booked_calls},
     )
 
 
