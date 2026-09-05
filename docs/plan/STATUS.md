@@ -16,7 +16,7 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `C0.1` | community-base | Create the package repository skeleton |  | no | done | https://github.com/DataTalksClub/community-base/pull/6 |
-| `C0.2` | community-base | Kernel: configuration dictionary, hooks, access policy, staff decorators | C0.1 | no | todo | https://github.com/DataTalksClub/community-base/issues/2 |
+| `C0.2` | community-base | Kernel: configuration dictionary, hooks, access policy, staff decorators | C0.1 | no | in-progress | https://github.com/DataTalksClub/community-base/pull/8 |
 | `C0.3` | community-base | Config app: registry, storage, cache, Studio page, import and export | C0.2 | no | todo | https://github.com/DataTalksClub/community-base/issues/3 |
 | `C0.4` | community-base | API app: keys with scopes, bearer auth, OpenAPI, route registry | C0.2 | no | todo | https://github.com/DataTalksClub/community-base/issues/4 |
 | `C0.5` | community-base | First release | C0.2, C0.3, C0.4 | no | todo | https://github.com/DataTalksClub/community-base/issues/5 |

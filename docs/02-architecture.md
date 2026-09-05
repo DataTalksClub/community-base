@@ -65,7 +65,9 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
 5. Migrations in the package are append-only after a tag. Never edit a migration that shipped in
    a tag; add a new one.
 6. Settings. The package reads one dictionary, `settings.COMMUNITY_BASE`, with documented keys and
-   defaults (`community_base/kernel/conf.py`). It never reads arbitrary `settings.X`.
+   defaults (`community_base/kernel/conf.py`). It never reads arbitrary `settings.X`. The Phase 0
+   kernel keys are exactly `SITE_KEY`, `ACCESS_POLICY`, `JOBS_BACKEND`, `MAIL_BACKEND` and
+   `STUDIO_TITLE`.
 7. Every network side effect (Relay call, GitHub call, Zoom call, S3 upload) happens in a job
    handler or in an explicit service method called after commit, never inside a model `save()`,
    a signal handler, or a request transaction.
