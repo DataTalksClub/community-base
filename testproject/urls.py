@@ -7,4 +7,5 @@ from community_base.api.registry import urlpatterns as api_urlpatterns
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include((api_urlpatterns(), "cb_api"))),
+    path("studio/", include("community_base.api.urls")),
 ]

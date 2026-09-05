@@ -14,6 +14,7 @@ check:
 	uv run ruff format --check .
 	uv run python testproject/manage.py check
 	uv run python testproject/manage.py makemigrations --check --dry-run
+	uv run python testproject/manage.py openapi --check --output community_base/api/openapi.json
 
 test:
 	uv run pytest

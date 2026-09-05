@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}API keys{% endblock %}
+
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">API keys</h1>
+  </header>
+
+  {% if messages %}
+    {% for message in messages %}<p class="cb-alert">{{ message }}</p>{% endfor %}
+  {% endif %}
+
+  {% if plaintext %}
+    <section class="cb-alert" aria-labelledby="created-key-title">
+      <h2 id="created-key-title">Copy this key now</h2>
+      <p>It will not be shown again.</p>
+      <code data-api-key-plaintext>{{ plaintext }}</code>
+    </section>
+  {% endif %}
+
+  <section aria-labelledby="create-key-title">
+    <h2 id="create-key-title">Create API key</h2>
+    <form class="cb-form" method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="cb-button cb-button-primary" type="submit">Create key</button>
+    </form>
+  </section>
+
+  <section aria-labelledby="existing-keys-title">
+    <h2 id="existing-keys-title">Existing keys</h2>
+    {% if api_keys %}
+      <ul class="cb-list">
+        {% for api_key in api_keys %}
+          <li class="cb-card">
+            <h3 class="cb-card-title">{{ api_key.name }}</h3>
+            <p class="cb-card-meta">
+              {{ api_key.kind }} · {{ api_key.masked_prefix }} · {{ api_key.scopes|join:", " }}
+            </p>
+            {% if api_key.is_revoked %}
+              <span class="cb-badge">Revoked</span>
+            {% else %}
+              <form class="cb-form" method="post" action="{% url 'community_base_api_key_revoke' api_key.id %}">
+                {% csrf_token %}
+                <label class="cb-field">Type revoke <input name="confirmation" autocomplete="off"></label>
+                <button class="cb-button" type="submit">Revoke</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="cb-empty">No API keys.</p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}
