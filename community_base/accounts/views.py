@@ -21,7 +21,11 @@ from community_base.accounts.forms import (
 from community_base.accounts.oauth import provider_context
 from community_base.accounts.return_urls import safe_return_path
 from community_base.accounts.services.email_resolution import resolve_user_by_email
-from community_base.accounts.services.verification import unverified_user_ttl_days
+from community_base.accounts.services.verification import (
+    claim_verification_resend,
+    release_verification_resend,
+    unverified_user_ttl_days,
+)
 from community_base.accounts.tokens import (
     ActionTokenError,
     load_password_reset_token,
@@ -146,9 +150,14 @@ def resend_verification_view(request):
     )
     if request.method == "POST" and form.is_valid():
         user = resolve_user_by_email(form.cleaned_data["email"])
-        if user is not None and not user.email_verified:
-            with transaction.atomic():
-                _queue_verification(user)
+        claim = claim_verification_resend(user.pk) if user is not None else None
+        if claim is not None:
+            try:
+                with transaction.atomic():
+                    _queue_verification(user)
+            except Exception:
+                release_verification_resend(user.pk, claim)
+                raise
         return redirect("account_verification_sent")
     return _private(render(request, "accounts/resend_verification.html", {"form": form}))
 
@@ -308,9 +317,14 @@ def resend_verification_api(request):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
     email = str(data.get("email", "")).strip().lower()
     user = resolve_user_by_email(email)
-    if user is not None and not user.email_verified:
-        with transaction.atomic():
-            _queue_verification(user, safe_return_path(data.get("next"), ""))
+    claim = claim_verification_resend(user.pk) if user is not None else None
+    if claim is not None:
+        try:
+            with transaction.atomic():
+                _queue_verification(user, safe_return_path(data.get("next"), ""))
+        except Exception:
+            release_verification_resend(user.pk, claim)
+            raise
     return JsonResponse({"status": "ok"})
 
 

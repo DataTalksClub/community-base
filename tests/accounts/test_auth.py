@@ -304,7 +304,7 @@ def test_api_registration_login_resend_and_reset(client):
     assert get_user_model().objects.get(email="api@example.com").check_password("changed-password")
 
 
-def test_resend_verification_creates_a_fresh_delivery(client):
+def test_resend_verification_suppresses_immediate_duplicate(client):
     user = get_user_model().objects.create_user(email="member@example.com", password="password")
 
     for _attempt in range(2):
@@ -315,8 +315,7 @@ def test_resend_verification_creates_a_fresh_delivery(client):
         )
         assert response.status_code == 200
 
-    assert len(outbox) == 2
-    assert outbox[0].context["verify_url"] != outbox[1].context["verify_url"]
+    assert len(outbox) == 1
 
 
 def test_public_resend_uses_stable_route_and_non_enumerating_result(client):

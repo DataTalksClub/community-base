@@ -1,12 +1,19 @@
 import datetime
+import uuid
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.test import override_settings
+from django.utils import timezone
 
 from community_base.accounts.models import EmailAlias, ImportBatch, MemberProfile
 from community_base.accounts.preferences import resolve_mail_preference
+from community_base.accounts.services.aliases import (
+    AliasError,
+    add_email_alias,
+    remove_email_alias,
+)
 from community_base.accounts.services.email_change import (
     EmailUnavailable,
     InvalidPassword,
@@ -37,7 +44,11 @@ from community_base.accounts.services.timezones import (
     format_user_datetime,
     is_valid_timezone,
 )
-from community_base.accounts.services.verification import unverified_user_ttl_days
+from community_base.accounts.services.verification import (
+    claim_verification_resend,
+    release_verification_resend,
+    unverified_user_ttl_days,
+)
 from community_base.api.models import APIKey
 from community_base.mail import send
 from community_base.mail.backends.memory import outbox
@@ -75,6 +86,69 @@ def test_verification_ttl_rejects_invalid_configuration(configured):
 def test_verification_ttl_accepts_positive_integer_string():
     with override_settings(COMMUNITY_BASE={"ACCOUNT_UNVERIFIED_TTL_DAYS": "14"}):
         assert unverified_user_ttl_days() == 14
+
+
+def test_verification_resend_claim_enforces_cooldown_and_can_expire():
+    user = get_user_model().objects.create_user(email="member@example.com")
+
+    first = claim_verification_resend(user.pk)
+    immediate = claim_verification_resend(user.pk)
+    get_user_model().objects.filter(pk=user.pk).update(
+        verification_resend_claimed_at=timezone.now() - datetime.timedelta(minutes=2)
+    )
+    after_cooldown = claim_verification_resend(user.pk)
+
+    assert isinstance(first, uuid.UUID)
+    assert immediate is None
+    assert isinstance(after_cooldown, uuid.UUID)
+    assert after_cooldown != first
+
+
+def test_verification_resend_release_is_token_safe_and_skips_verified_users():
+    user = get_user_model().objects.create_user(email="member@example.com")
+    first = claim_verification_resend(user.pk)
+    get_user_model().objects.filter(pk=user.pk).update(
+        verification_resend_claimed_at=timezone.now() - datetime.timedelta(minutes=2)
+    )
+    second = claim_verification_resend(user.pk)
+
+    assert release_verification_resend(user.pk, first) == 0
+    user.refresh_from_db()
+    assert user.verification_resend_claim_token == second
+
+    assert release_verification_resend(user.pk, second) == 1
+    user.refresh_from_db()
+    assert user.verification_resend_claimed_at is None
+    assert user.verification_resend_claim_token is None
+
+    user.email_verified = True
+    user.save(update_fields=["email_verified"])
+    assert claim_verification_resend(user.pk) is None
+
+
+def test_alias_service_normalizes_is_idempotent_and_removes():
+    user = get_user_model().objects.create_user(email="member@example.com")
+
+    alias, created = add_email_alias(user, " Old@EXAMPLE.com ", note=" Previous address ")
+    same_alias, created_again = add_email_alias(user, "old@example.com")
+
+    assert created is True
+    assert created_again is False
+    assert same_alias.pk == alias.pk
+    assert alias.email == "old@example.com"
+    assert alias.note == "Previous address"
+    assert remove_email_alias(user, "OLD@example.com") is True
+    assert remove_email_alias(user, "old@example.com") is False
+
+
+def test_alias_service_rejects_invalid_and_owned_addresses():
+    user = get_user_model().objects.create_user(email="member@example.com")
+    other = get_user_model().objects.create_user(email="other@example.com")
+    EmailAlias.objects.create(user=other, email="owned@example.com", source="merge")
+
+    for email in ("invalid", "MEMBER@example.com", "OTHER@example.com", "owned@example.com"):
+        with pytest.raises(AliasError):
+            add_email_alias(user, email)
 
 
 @pytest.mark.parametrize(
