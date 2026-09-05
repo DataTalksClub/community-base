@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from community_base.notifications.models import Notification, NotificationPreference
-from community_base.notifications.registry import NotificationDraft, notification_source
+from community_base.notifications.registry import SOURCE_KEY, NotificationDraft, notification_source
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,8 @@ def notifications_enabled(user, source_key):
 
 
 def set_notification_preference(user, source_key, enabled):
+    if source_key != "*" and not SOURCE_KEY.fullmatch(str(source_key)):
+        raise ValueError("invalid notification preference source")
     preference, _created = NotificationPreference.objects.update_or_create(
         user=user,
         source_key=source_key,

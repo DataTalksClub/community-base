@@ -2,6 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 
+from community_base.accounts.services.privacy import build_user_data_export
 from community_base.notifications.models import Notification, NotificationPreference
 from community_base.notifications.registry import (
     NotificationDraft,
@@ -107,6 +108,9 @@ def test_preferences_use_specific_override_then_global_default():
     assert notifications_enabled(user, "events") is True
     assert NotificationPreference.objects.count() == 2
 
+    with pytest.raises(ValueError, match="invalid"):
+        set_notification_preference(user, "Secret Source", False)
+
 
 def test_disabled_preference_and_inactive_recipient_skip_creation():
     disabled = account("disabled@example.com")
@@ -154,3 +158,21 @@ def test_safe_emit_does_not_log_exception_message(caplog):
     assert emit_notification_safely("events", "published", {"secret": "payload-canary"}) == ()
     assert "credential-canary" not in caplog.text
     assert "payload-canary" not in caplog.text
+
+
+def test_account_privacy_export_includes_owned_notifications_and_preferences():
+    user = account()
+    Notification.objects.create(
+        user=user,
+        title="Owned notification",
+        body="Member-owned body",
+        source_key="events",
+        source_id="event-one",
+    )
+    set_notification_preference(user, "events", False)
+
+    exported = build_user_data_export(user)
+
+    assert exported["notifications"][0]["title"] == "Owned notification"
+    assert exported["notifications"][0]["source_id"] == "event-one"
+    assert exported["notification_preferences"][0]["source_key"] == "events"

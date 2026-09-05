@@ -54,6 +54,8 @@ def build_user_data_export(user):
         "api_keys": [],
         "member_notes": [],
         "mail_deliveries": [],
+        "notifications": [],
+        "notification_preferences": [],
     }
     profile = getattr(user, "member_profile", None)
     if profile is not None:
@@ -82,6 +84,29 @@ def build_user_data_export(user):
         export["mail_deliveries"] = list(
             delivery.objects.filter(recipient_user=user).values(
                 "id", "purpose", "category", "state", "reason_code", "created_at", "updated_at"
+            )
+        )
+    notification = _optional_model("notifications", "Notification")
+    if notification is not None:
+        export["notifications"] = list(
+            notification.objects.filter(user=user).values(
+                "id",
+                "title",
+                "body",
+                "url",
+                "notification_type",
+                "source_key",
+                "source_id",
+                "read",
+                "read_at",
+                "created_at",
+            )
+        )
+    preference = _optional_model("notifications", "NotificationPreference")
+    if preference is not None:
+        export["notification_preferences"] = list(
+            preference.objects.filter(user=user).values(
+                "source_key", "enabled", "created_at", "updated_at"
             )
         )
     hook = get("ACCOUNT_PRIVACY_EXPORT_HOOK")
