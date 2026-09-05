@@ -10,7 +10,7 @@ from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import JobContext, JobPayload, register_handler, schedule
 from community_base.jobs.relay import configured_client
 from community_base.jobs.runner import claim_job, complete_job
-from tests.jobs.fake_relay import FakeRelayTransport
+from community_base.testing import FakeRelay
 
 
 @register_handler("tests.studio.complete")
@@ -118,7 +118,7 @@ def test_jobs_studio_projects_relay_health_and_schedule_times(client, staff_user
         "RELAY_BASE_URL": "https://relay.example.com",
         "RELAY_API_KEY": "relay-test-key",
     }
-    transport = FakeRelayTransport()
+    transport = FakeRelay()
     relay_client = configured_client(transport=transport)
     relay_client.upsert_schedule(
         {
@@ -161,7 +161,7 @@ def test_relay_operator_retry_creates_new_intent_and_preserves_old_audit(
     old = make_intent(JobIntent.Status.DEAD)
     old.external_id = str(uuid.uuid4())
     old.save(update_fields=("external_id",))
-    transport = FakeRelayTransport()
+    transport = FakeRelay()
     relay_client = configured_client(transport=transport)
     client.force_login(staff_user)
 

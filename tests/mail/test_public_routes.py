@@ -10,7 +10,7 @@ from community_base.jobs.models import JobIntent
 from community_base.mail import relay_links
 from community_base.mail.models import PendingUnsubscribe
 from community_base.mail.relay_links import TRANSPARENT_GIF
-from tests.mail.support import FakeRelay, timing_out_relay, unreachable_relay
+from community_base.testing import FakeRelay, timing_out_relay, unreachable_relay
 
 RELAY = "http://relay.website.internal:8000"
 TOKEN = "kD3Yy8x-Ug2f_QwErTyUiOpAsDfGhJkLzXcVbNm1234"

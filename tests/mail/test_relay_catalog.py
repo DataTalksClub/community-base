@@ -3,12 +3,12 @@ from __future__ import annotations
 import pytest
 
 from community_base.mail.relay import RelayMailClient, RelayMailError
-from tests.mail.fake_relay import FakeMailRelayTransport, FakeResponse
+from community_base.testing import FakeRelay, FakeResponse
 
 
 @pytest.fixture
 def catalog():
-    transport = FakeMailRelayTransport()
+    transport = FakeRelay()
     client = RelayMailClient("https://relay.example.com", "relay-test-key", transport=transport)
     client.put_template(
         "welcome",
@@ -55,7 +55,7 @@ def test_catalog_preview_and_allowlisted_test_send(catalog):
         ("publish", FakeResponse(201, {"version": {"version": 0}})),
     ],
 )
-def test_catalog_rejects_malformed_responses(catalog, method, response):
+def test_catalog_rejects_malformed_documents(catalog, method, response):
     client, transport = catalog
     transport.next_response = response
     with pytest.raises(RelayMailError):

@@ -7,13 +7,13 @@ from community_base.jobs.models import JobIntent
 from community_base.mail.backends.memory import outbox
 from community_base.mail.models import EmailDelivery
 from community_base.mail.service import MailConflict, MailError, send
+from community_base.testing import mail_outbox
 
 
 @pytest.fixture(autouse=True)
 def clear_outbox():
-    outbox.clear()
-    yield
-    outbox.clear()
+    with mail_outbox():
+        yield
 
 
 @pytest.mark.django_db(transaction=True)
