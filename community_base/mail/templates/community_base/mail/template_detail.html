@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Mail template {{ template_key }}{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">{{ template_key }}</h1></header>
+  {% if messages %}{% for message in messages %}<p class="cb-alert">{{ message }}</p>{% endfor %}{% endif %}
+  {% if error %}<p class="cb-alert">Relay operation failed: <code>{{ error }}</code></p>{% endif %}
+  <section class="cb-card"><h2 class="cb-card-title">Published versions</h2>{% if versions %}<ul class="cb-list">{% for version in versions %}<li><span class="cb-badge">v{{ version.version }}</span> {{ version.status }}</li>{% endfor %}</ul>{% else %}<p class="cb-empty">No published versions.</p>{% endif %}<form class="cb-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="publish"><button class="cb-button" type="submit">Publish current draft</button></form></section>
+  <section class="cb-card"><h2 class="cb-card-title">Preview or test</h2><form class="cb-form" method="post">{% csrf_token %}<label class="cb-field">Version <input name="version" inputmode="numeric"></label><label class="cb-field">Context JSON <textarea name="context">{}</textarea></label><label class="cb-field">Allowlisted test recipient <input name="recipient" type="email"></label><button class="cb-button" name="action" value="preview" type="submit">Preview</button><button class="cb-button" name="action" value="test-send" type="submit">Send test</button></form></section>
+  {% if rendered %}<section class="cb-card"><h2 class="cb-card-title">Rendered preview</h2><h3>{{ rendered.subject }}</h3><pre>{{ rendered.text_body }}</pre></section>{% endif %}
+</main>
+{% endblock %}
