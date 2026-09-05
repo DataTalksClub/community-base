@@ -15,17 +15,15 @@ Exit criteria:
 - DTC: a new member can register, verify email, complete the configured onboarding flow and see
   the Slack access page.
 
-## C3.1 Accounts app: user model, auth views, services, profile
+## C3.1a Target accounts schema
 
 Repository: community-base. Depends on: C2.4.
 
 Read first
-- `~/git/ai-shipping-labs/accounts/` (models, managers, views, services, forms, signals, urls,
-  templates under `templates/accounts/` and `templates/account/`), `website/settings.py` allauth
-  section.
-- `~/git/dtc-website/_docs/specs/01-platform-architecture.md` "Member profile version 1" and
-  "Member signup, profile, Slack, and course registration"; `accounts/models.py`,
-  `accounts/forms.py`, `course_platform_templates/account/`.
+- `~/git/ai-shipping-labs/accounts/models/` (including `UserManager` in `models/user.py`) and
+  model tests.
+- `~/git/dtc-website/_docs/specs/01-platform-architecture.md` "Member profile version 1";
+  `accounts/models.py`.
 
 Shared `User` field table (the only fields the shared model has):
 
@@ -50,31 +48,68 @@ Steps
    `EmailAlias`, `EmailChangeRequest`, `PrivacyRequestLog`, `ImportBatch` from AISL;
    `MemberProfile(user OneToOne)` with the DTC spec fields (country, work status, organisation,
    role, seniority, about, ambitions, why joined, links, completion version, revision).
-2. Squashed migration with `replaces` listing AISL's `accounts` migrations (playbook P4 step 6).
-   Because AISL's `User` today has the tier fields, this migration must be generated only after
-   A3.1 has landed in AISL `main`; C3.1's pull request stays open until then.
-3. Auth: views from `accounts/views/auth.py` (login, register, verify email, resend, password
+2. Generate a provisional initial migration without `replaces`. Keep it untagged. C3.7 records
+   donor inventories and finalizes the squash only after A3.1 and D3.1 prepare compatible schemas.
+3. Move or adapt model and manager tests. Record which donor model tests are package-owned,
+   site-owned or deferred to compatibility.
+
+Verification
+- `make check && make test tests/accounts/test_models.py` -> pass.
+- Fresh database migrate, reverse `accounts` to zero and reapply -> pass.
+- `User._meta.db_table` is `accounts_user`; the app label is `accounts`; no site import exists.
+
+## C3.1b Authentication and public account entry points
+
+Repository: community-base. Depends on: C3.1a.
+
+Read first
+- `~/git/ai-shipping-labs/accounts/` auth views, forms, signals, urls, templates under
+  `templates/accounts/` and `templates/account/`; `website/settings.py` allauth section.
+- `~/git/dtc-website/_docs/specs/01-platform-architecture.md` "Member signup, profile, Slack, and
+  course registration"; `accounts/forms.py`, `course_platform_templates/account/` and
+  `website/settings/base.py` allauth section.
+
+Steps
+1. Move views from `accounts/views/auth.py` (login, register, verify email, resend, password
    reset request and reset), allauth adapter and `ACCOUNT_*` and `SOCIALACCOUNT_*` settings
    helper `community_base.accounts.settings.allauth_settings()` returning the dictionary both
    sites use today (compare AISL `website/settings.py` and DTC `website/settings/base.py`; where
    they differ, choose the AISL value and list the differences in the pull request).
-4. Services: verification, email change, aliases and resolution, merge, privacy export and
+2. Move the public forms, signals, URLs and templates through the public template contract.
+3. Adapt authentication and verification tests without tier or Stripe assumptions.
+
+Verification
+- `make check && make test tests/accounts/test_auth.py` -> pass.
+- `testproject`: register, verify with the memory outbox, log in, request a password reset and
+  complete the reset.
+
+## C3.1c Account operations, self API and Studio
+
+Repository: community-base. Depends on: C3.1b.
+
+Read first
+- `~/git/ai-shipping-labs/accounts/services/`, account/settings views and forms, API integrations,
+  Studio account operations and tests.
+- `~/git/dtc-website/_docs/specs/01-platform-architecture.md` member profile sections and profile
+  forms.
+
+Steps
+1. Services: verification, email change, aliases and resolution, merge, privacy export and
    deletion, free welcome (mail purpose), timezone, import users (batches). Import from
    `~/git/ai-shipping-labs/accounts/services/`.
-5. Account page and self API (`/api/v1/me`, `/api/v1/me/profile` GET and PATCH with revision
+2. Account page and self API (`/api/v1/me`, `/api/v1/me/profile` GET and PATCH with revision
    check, email preferences, timezone, dismiss card, change password, data export request),
    templates following the public template contract.
-6. Studio: user create, import (CSV, batches, dry run), merge, privacy requests, email change
+3. Studio: user create, import (CSV, batches, dry run), merge, privacy requests, email change
    review, registered into the `People` section; extend C2.2 registries.
-7. Mail preference resolver: implement `MAIL_PREFERENCE_RESOLVER` default reading
+4. Mail preference resolver: implement `MAIL_PREFERENCE_RESOLVER` default reading
    `User.email_preferences` and `unsubscribed` and `bounce_state`, replacing the Phase 1 default.
-8. Tests moved from AISL `accounts/tests/` (22k lines: move all that do not reference tier or
+5. Tests moved from AISL `accounts/tests/` (22k lines: move all that do not reference tier or
    Stripe; list the excluded files in the pull request).
 
 Verification
 - `make check && make test tests/accounts` -> pass.
-- `testproject`: register, verify (memory mail outbox holds the verification message), log in,
-  complete profile through PATCH with `If-Match` -> 200; stale revision -> 409.
+- `testproject`: complete profile through PATCH with `If-Match` -> 200; stale revision -> 409.
 
 Done when
 - [ ] `community_base/accounts/README.md` lists the field table, the allauth settings helper and
@@ -82,7 +117,7 @@ Done when
 
 ## C3.2 Questionnaires
 
-Repository: community-base. Depends on: C3.1. Playbook P4 for `questionnaires` (label kept).
+Repository: community-base. Depends on: C3.1c. Playbook P4 for `questionnaires` (label kept).
 
 Read first
 - `~/git/ai-shipping-labs/questionnaires/` (models, services, onboarding.py, views, templates).
@@ -98,7 +133,7 @@ Verification
 
 ## C3.3 Onboarding flows
 
-Repository: community-base. Depends on: C3.1, C3.2.
+Repository: community-base. Depends on: C3.1c, C3.2.
 
 Read first
 - `~/git/ai-shipping-labs/accounts/views/onboarding.py`, `onboarding_ai.py`, `questionnaires/onboarding.py`,
@@ -126,7 +161,7 @@ Verification
 
 ## C3.4 Community (Slack)
 
-Repository: community-base. Depends on: C3.1. Playbook P4 for `community` (label kept).
+Repository: community-base. Depends on: C3.1c. Playbook P4 for `community` (label kept).
 
 Read first
 - `~/git/ai-shipping-labs/community/` (Slack invite, identity import, staff notifications,
@@ -144,7 +179,7 @@ Verification
 
 ## C3.5 Notifications, comments, voting
 
-Repository: community-base. Depends on: C3.1. Playbook P4 for each (labels kept).
+Repository: community-base. Depends on: C3.1c. Playbook P4 for each (labels kept).
 
 Steps
 1. Lift the three apps. Replace imports of `content`, `events`, `plans`, `bookclub` with signals
@@ -157,7 +192,7 @@ Verification
 
 ## C3.6 Identity and community capability checkpoint
 
-Repository: community-base. Depends on: C3.1, C3.2, C3.3, C3.4, C3.5.
+Repository: community-base. Depends on: C3.1c, C3.2, C3.3, C3.4, C3.5.
 
 Goal: prove package-local identity and community behavior without tagging provisional kept-label
 migrations.
