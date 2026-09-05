@@ -96,5 +96,6 @@ COMMUNITY_BASE = {
     "ACCESS_POLICY": "community_base.kernel.access.OpenPolicy",
     "JOBS_BACKEND": "sync",
     "MAIL_BACKEND": "memory",
+    "RELAY_WEBHOOK_SECRET": "test-relay-webhook-secret",
     "STUDIO_TITLE": "Community Base Studio",
 }

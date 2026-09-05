@@ -11,6 +11,7 @@ idempotency and service contracts used by all shared apps.
 | `ACCESS_POLICY` | dotted path or policy object | `"community_base.kernel.access.OpenPolicy"` |
 | `JOBS_BACKEND` | `str` | `"sync"` |
 | `MAIL_BACKEND` | `str` | `"memory"` |
+| `RELAY_WEBHOOK_SECRET` | `str` | `""` |
 | `STUDIO_TITLE` | `str` | `"Community Studio"` |
 
 Site settings override only the keys they need:
@@ -21,6 +22,7 @@ COMMUNITY_BASE = {
     "ACCESS_POLICY": "community_base.kernel.access.RegisteredOnlyPolicy",
     "JOBS_BACKEND": "relay",
     "MAIL_BACKEND": "relay",
+    "RELAY_WEBHOOK_SECRET": env("RELAY_WEBHOOK_SECRET"),
     "STUDIO_TITLE": "DataTalks.Club Studio",
 }
 ```

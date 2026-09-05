@@ -6,6 +6,7 @@ DEFAULTS = {
     "ACCESS_POLICY": "community_base.kernel.access.OpenPolicy",
     "JOBS_BACKEND": "sync",
     "MAIL_BACKEND": "memory",
+    "RELAY_WEBHOOK_SECRET": "",
     "STUDIO_TITLE": "Community Studio",
 }
 

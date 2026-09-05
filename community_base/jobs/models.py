@@ -61,6 +61,11 @@ class JobIntent(models.Model):
                 ),
                 name="cb_jobs_lease_state_consistent",
             ),
+            models.UniqueConstraint(
+                fields=("external_id",),
+                condition=~Q(external_id=""),
+                name="cb_jobs_external_id_unique",
+            ),
         ]
         indexes = [
             models.Index(fields=("status", "available_at"), name="cb_jobs_due"),
