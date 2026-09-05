@@ -15,7 +15,7 @@ issues that can start now.
 
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
-| `C0.1` | community-base | Create the package repository skeleton |  | no | todo | https://github.com/DataTalksClub/community-base/issues/1 |
+| `C0.1` | community-base | Create the package repository skeleton |  | no | in-progress | https://github.com/DataTalksClub/community-base/issues/1 |
 | `C0.2` | community-base | Kernel: configuration dictionary, hooks, access policy, staff decorators | C0.1 | no | todo | https://github.com/DataTalksClub/community-base/issues/2 |
 | `C0.3` | community-base | Config app: registry, storage, cache, Studio page, import and export | C0.2 | no | todo | https://github.com/DataTalksClub/community-base/issues/3 |
 | `C0.4` | community-base | API app: keys with scopes, bearer auth, OpenAPI, route registry | C0.2 | no | todo | https://github.com/DataTalksClub/community-base/issues/4 |
@@ -111,4 +111,3 @@ issues that can start now.
 | `A6.2` | AI-Shipping-Labs/website | Contacts and preferences into Relay | R6.3, R1.5 | no | todo |  |
 | `A6.3` | AI-Shipping-Labs/website | Switch backends, campaigns and SES events | A6.1, A6.2, R6.2 | no | todo |  |
 | `A6.4` | AI-Shipping-Labs/website | Freeze weekend: AISL production on Relay | A6.3 | yes | todo |  |
-

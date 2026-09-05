@@ -192,19 +192,29 @@ In the app's `apps.py`:
 ```python
 from django.apps import AppConfig
 
+
 class EventsConfig(AppConfig):
     name = "community_base.events"
     label = "events"
 
     def ready(self):
         from community_base.studio.registry import Section, Destination, register
-        register(Section(
-            slug="events", title="Events", order=10,
-            destinations=[
-                Destination(key="events", title="Events", url_name="studio_event_list",
-                            route_names=["studio_event_list", "studio_event_edit", ...]),
-            ],
-        ))
+
+        register(
+            Section(
+                slug="events",
+                title="Events",
+                order=10,
+                destinations=[
+                    Destination(
+                        key="events",
+                        title="Events",
+                        url_name="studio_event_list",
+                        route_names=["studio_event_list", "studio_event_edit", ...],
+                    ),
+                ],
+            )
+        )
 ```
 
 Verify: `uv run python manage.py studio_routes --check` (added in Phase 2) reports every Studio
@@ -216,9 +226,14 @@ route as owned by exactly one destination, section-only, or explicitly unlisted.
 from community_base.config.registry import declare
 
 declare(
-    key="ZOOM_CLIENT_ID", group="zoom", label="Zoom client id",
+    key="ZOOM_CLIENT_ID",
+    group="zoom",
+    label="Zoom client id",
     description="OAuth client id from the Zoom marketplace app. Without it, event creation cannot create meetings.",
-    value_type="str", default="", secret=False, env_var="ZOOM_CLIENT_ID",
+    value_type="str",
+    default="",
+    secret=False,
+    env_var="ZOOM_CLIENT_ID",
     docs_url="docs/integrations/zoom.md#zoom_client_id",
 )
 ```
@@ -231,9 +246,9 @@ settings page with a source badge and in `GET /api/v1/settings`.
 ```python
 from community_base.api.registry import route
 
+
 @route("GET", "/events", scope="events.read", summary="List events", response="EventList")
-def list_events(request):
-    ...
+def list_events(request): ...
 ```
 
 Verify: `uv run python manage.py openapi --check` reproduces the committed schema; a request with
@@ -244,9 +259,10 @@ a key lacking the scope returns 403 with the standard error body.
 ```python
 from community_base.jobs import register_handler, schedule
 
+
 @register_handler("events.send_reminders")
-def send_reminders(context, payload):
-    ...
+def send_reminders(context, payload): ...
+
 
 schedule("events.send_reminders", cron="*/15 * * * *", payload={})
 ```
