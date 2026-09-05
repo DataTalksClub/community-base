@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,9 +29,9 @@ REPO_BY_LETTER = {
 }
 STATUSES = ("todo", "in-progress", "blocked", "review", "done", "skipped")
 
-ISSUE_RE = re.compile(r"^## ([CADR]\d\.\d+) (.+)$")
-DEPENDS_RE = re.compile(r"Depends on: ([^.\n]*(?:\.\d+[^.\n]*)*)")
-ID_RE = re.compile(r"\b[CADR]\d\.\d+\b")
+ISSUE_RE = re.compile(r"^## ([CADR]\d+\.\d+[a-z]?) (.+)$")
+DEPENDS_RE = re.compile(r"Depends on:\s*([^\n]*)")
+ID_RE = re.compile(r"\b[CADR]\d+\.\d+[a-z]?\b")
 FREEZE_RE = re.compile(r"Freeze required: (yes|no)", re.IGNORECASE)
 
 
@@ -49,6 +50,7 @@ def load_issues() -> list[dict]:
                     "phase": phase,
                     "repo": REPO_BY_LETTER[m.group(1)[0]],
                     "depends": [],
+                    "dependency_metadata": False,
                     "freeze": "no",
                     "file": phase_file.name,
                 }
@@ -56,9 +58,15 @@ def load_issues() -> list[dict]:
                 continue
             if current is None:
                 continue
-            dm = DEPENDS_RE.search(line)
-            if dm and not current["depends"]:
-                current["depends"] = [i for i in ID_RE.findall(dm.group(1)) if i != current["id"]]
+            if line.startswith("Repository:") and not current["dependency_metadata"]:
+                current["dependency_metadata"] = True
+                dm = DEPENDS_RE.search(line)
+                if dm and not dm.group(1).strip().lower().startswith("nothing"):
+                    current["depends"] = [
+                        issue_id
+                        for issue_id in ID_RE.findall(dm.group(1))
+                        if issue_id != current["id"]
+                    ]
             fm = FREEZE_RE.search(line)
             if fm:
                 current["freeze"] = fm.group(1).lower()
@@ -125,6 +133,38 @@ def render(issues: list[dict], status: dict[str, dict]) -> str:
     return "\n".join(out).rstrip()
 
 
+def dependency_cycles(issues: list[dict]) -> list[list[str]]:
+    """Return deterministic dependency cycles, with each cycle reported once."""
+
+    graph = {issue["id"]: issue["depends"] for issue in issues}
+    visiting: list[str] = []
+    active: set[str] = set()
+    visited: set[str] = set()
+    cycles: set[tuple[str, ...]] = set()
+
+    def visit(issue_id: str) -> None:
+        if issue_id in visited:
+            return
+        if issue_id in active:
+            start = visiting.index(issue_id)
+            cycle = visiting[start:]
+            rotations = [tuple(cycle[index:] + cycle[:index]) for index in range(len(cycle))]
+            cycles.add(min(rotations))
+            return
+        active.add(issue_id)
+        visiting.append(issue_id)
+        for dependency in graph.get(issue_id, []):
+            if dependency in graph:
+                visit(dependency)
+        visiting.pop()
+        active.remove(issue_id)
+        visited.add(issue_id)
+
+    for issue_id in graph:
+        visit(issue_id)
+    return [list(cycle) for cycle in sorted(cycles)]
+
+
 def cmd_check() -> int:
     issues = load_issues()
     status = load_status()
@@ -133,8 +173,15 @@ def cmd_check() -> int:
     extra = sorted(set(status) - ids)
     bad = sorted(k for k, v in status.items() if v["status"] not in STATUSES)
     dangling = sorted({d for i in issues for d in i["depends"] if d not in ids})
+    duplicates = sorted(
+        issue_id for issue_id, count in Counter(i["id"] for i in issues).items() if count > 1
+    )
+    cycles = dependency_cycles(issues)
+    expected_status = render(issues, status) + "\n"
+    generated_drift = STATUS.read_text() != expected_status if STATUS.exists() else True
     problems = 0
     for label, items in (
+        ("duplicate issue ids", duplicates),
         ("issues without a STATUS row", missing),
         ("STATUS rows without an issue", extra),
         ("rows with an unknown status", bad),
@@ -143,6 +190,14 @@ def cmd_check() -> int:
         if items:
             problems += 1
             print(f"{label}: {', '.join(items)}")
+    if cycles:
+        problems += 1
+        print(
+            "dependency cycles: " + "; ".join(" -> ".join([*cycle, cycle[0]]) for cycle in cycles)
+        )
+    if generated_drift:
+        problems += 1
+        print("STATUS generated columns drift: run `python scripts/plan.py sync`")
     if not problems:
         print(f"OK: {len(issues)} issues, STATUS.md consistent")
     return 1 if problems else 0
@@ -181,7 +236,7 @@ def cmd_summary() -> int:
     return 0
 
 
-def cmd_next() -> int:
+def cmd_next(repo: str | None = None) -> int:
     issues = load_issues()
     status = load_status()
     done = {k for k, v in status.items() if v["status"] in ("done", "skipped")}
@@ -190,6 +245,7 @@ def cmd_next() -> int:
         for i in issues
         if status.get(i["id"], {"status": "todo"})["status"] == "todo"
         and all(d in done for d in i["depends"])
+        and (repo is None or i["repo"] == repo)
     ]
     if not ready:
         print("nothing ready: every todo issue has an unfinished dependency")
@@ -202,7 +258,14 @@ def cmd_next() -> int:
 
 
 def main(argv: list[str]) -> int:
-    commands = {"check": cmd_check, "sync": cmd_sync, "summary": cmd_summary, "next": cmd_next}
+    commands = {"check": cmd_check, "sync": cmd_sync, "summary": cmd_summary}
+    if len(argv) >= 2 and argv[1] == "next":
+        if len(argv) == 2:
+            return cmd_next()
+        if len(argv) == 4 and argv[2] == "--repo":
+            return cmd_next(argv[3])
+        print(__doc__)
+        return 2
     if len(argv) != 2 or argv[1] not in commands:
         print(__doc__)
         return 2
