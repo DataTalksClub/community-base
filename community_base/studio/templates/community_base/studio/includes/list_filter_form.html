@@ -1,0 +1,8 @@
+<div class="mb-6 flex flex-wrap items-center gap-3" data-component="studio-list-filter">
+  <form method="get" class="flex flex-wrap items-center gap-3">
+    <input type="text" name="q" value="{{ search }}" placeholder="{{ placeholder }}" class="w-full rounded-lg border border-border bg-secondary px-4 py-2 text-sm sm:w-64">
+    {% if status_options %}<select name="status"{% if auto_submit %} onchange="this.form.submit()"{% endif %} class="rounded-lg border border-border bg-secondary px-4 py-2 text-sm"><option value="">All statuses</option>{% for value, label in status_options %}<option value="{{ value }}"{% if status_filter == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% endif %}
+    <button type="submit" class="rounded-lg border border-border bg-secondary px-4 py-2 text-sm">Search</button>
+  </form>
+</div>
+

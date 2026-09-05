@@ -1,0 +1,80 @@
+{% load static studio_filters %}{% studio_title as studio_title %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% block studio_title %}Dashboard{% endblock %} | {{ studio_title }}{% endblock %}</title>
+  <script>
+    (function () {
+      var theme = localStorage.getItem('theme');
+      if (theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="{% static 'community_base/studio.css' %}">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-background text-foreground">
+{% studio_sidebar_state request as state %}
+{% studio_impersonation_banner %}
+<div class="flex min-h-screen">
+  <button id="studio-sidebar-toggle" type="button"
+          class="fixed left-3 top-3 z-50 flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card md:hidden"
+          aria-label="Open Studio sidebar" aria-controls="studio-sidebar" aria-expanded="false">
+    <span aria-hidden="true">☰</span>
+  </button>
+  <div id="studio-backdrop" class="fixed inset-0 z-30 hidden bg-black/50 md:hidden"></div>
+  <aside id="studio-sidebar"
+         class="fixed inset-y-0 left-0 z-40 hidden h-full w-[min(85vw,18rem)] flex-shrink-0 overflow-y-auto border-r border-border bg-card p-6 md:sticky md:top-0 md:block md:h-screen md:w-64">
+    <div class="mb-8 flex items-center justify-between gap-3">
+      <a href="{% url 'studio_dashboard' %}" class="flex min-w-0 items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded bg-accent text-accent-foreground">
+          <i data-lucide="layout-dashboard" class="h-4 w-4"></i>
+        </span>
+        <span class="truncate text-lg font-semibold">{{ studio_title }}</span>
+      </a>
+      <button id="studio-sidebar-close" type="button" class="h-11 w-11 md:hidden" aria-label="Close Studio sidebar">×</button>
+    </div>
+    <nav aria-label="Studio" data-studio-active-section="{{ state.active_section }}">
+      {% for item in state.sections %}
+        {% if item.section.title %}
+        <section class="mb-5" data-studio-section="{{ item.section.slug }}">
+          <h2 class="mb-2 flex items-center gap-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <i data-lucide="{{ item.section.icon }}" class="h-4 w-4"></i>{{ item.section.title }}
+          </h2>
+        {% endif %}
+          <ul class="space-y-1">
+          {% for row in item.destinations %}
+            {% if row.url %}
+            <li>
+              <a href="{{ row.url }}"
+                 class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors {% if row.active %}bg-secondary text-foreground{% else %}text-muted-foreground hover:bg-secondary hover:text-foreground{% endif %}"
+                 {% if row.active %}aria-current="page"{% endif %}>
+                <span>{{ row.destination.title }}</span>
+              </a>
+            </li>
+            {% endif %}
+          {% endfor %}
+          </ul>
+        {% if item.section.title %}</section>{% endif %}
+      {% endfor %}
+    </nav>
+  </aside>
+  <main class="min-w-0 flex-1 overflow-hidden">
+    <div class="p-4 pt-16 md:p-8">
+      {% if messages %}
+      <div class="mb-6 space-y-2" aria-live="polite">
+        {% for message in messages %}<p class="rounded-lg border border-border bg-card px-4 py-3 text-sm">{{ message }}</p>{% endfor %}
+      </div>
+      {% endif %}
+      {% block header_actions %}{% endblock %}
+      {% block content %}{% block studio_content %}{% endblock %}{% endblock %}
+    </div>
+  </main>
+</div>
+<script src="{% static 'community_base/studio.js' %}"></script>
+{% block extra_js %}{% block extra_scripts %}{% endblock %}{% endblock %}
+</body>
+</html>

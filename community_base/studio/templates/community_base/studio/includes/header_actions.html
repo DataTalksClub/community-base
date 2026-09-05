@@ -1,0 +1,10 @@
+<header class="mb-8 space-y-4" data-testid="{{ testid|default:'studio-header' }}">
+  {% if back_url %}<a href="{{ back_url }}" class="text-sm text-muted-foreground hover:text-foreground">&larr; {{ back_label }}</a>{% endif %}
+  <div>
+    {% if eyebrow %}<p class="text-xs font-medium uppercase tracking-widest text-muted-foreground">{{ eyebrow }}</p>{% endif %}
+    <h1 class="mt-1 break-all text-2xl font-semibold tracking-tight">{{ title }}</h1>
+    {% if subtitle %}<p class="mt-1 text-sm text-muted-foreground">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% if actions %}<div class="relative flex flex-wrap items-center gap-2">{{ actions }}</div>{% endif %}
+</header>
+

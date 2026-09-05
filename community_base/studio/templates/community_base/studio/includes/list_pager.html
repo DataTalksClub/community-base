@@ -1,0 +1,13 @@
+{% with testid=pager_testid_prefix|default:"studio-list-pager" %}
+<div class="flex flex-col justify-between gap-2 border-t border-border bg-secondary/40 px-4 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center" data-testid="{{ testid }}">
+  <div>Showing {{ page_start_index }}-{{ page_end_index }} of {{ filtered_total }}</div>
+  <div class="flex items-center gap-1">
+    {% if pager_first_url %}<a href="{{ pager_first_url }}">&laquo; first</a>{% endif %}
+    {% if pager_prev_url %}<a href="{{ pager_prev_url }}">&lsaquo; prev</a>{% endif %}
+    <span>page {{ page.number }} of {{ paginator.num_pages }}</span>
+    {% if pager_next_url %}<a href="{{ pager_next_url }}">next &rsaquo;</a>{% endif %}
+    {% if pager_last_url %}<a href="{{ pager_last_url }}">last &raquo;</a>{% endif %}
+  </div>
+</div>
+{% endwith %}
+
