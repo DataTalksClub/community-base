@@ -8,6 +8,7 @@ version = "0.0.1"
 description = "Shared Django apps for DataTalks.Club community sites"
 requires-python = ">=3.13"
 dependencies = [
+    "apispec>=6.8,<7",
     "django>=6.0,<6.1",
     "django-allauth>=65.10,<66",
     "requests>=2.32,<3",

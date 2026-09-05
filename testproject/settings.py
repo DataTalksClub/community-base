@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "community_base.kernel",
+    "community_base.api",
 ]
 
 MIDDLEWARE = [
@@ -92,4 +93,5 @@ COMMUNITY_BASE = {
     "ACCESS_POLICY": "community_base.kernel.access.OpenPolicy",
     "JOBS_BACKEND": "sync",
     "MAIL_BACKEND": "memory",
+    "STUDIO_TITLE": "Community Base Studio",
 }
