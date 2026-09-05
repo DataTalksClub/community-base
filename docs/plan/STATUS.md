@@ -41,7 +41,7 @@ issues that can start now.
 | `C1.2b` | community-base | Relay mail, catalog, callback, and reconciliation clients | C1.1b, C1.2a | no | done | https://github.com/DataTalksClub/community-base/pull/29 |
 | `C1.3` | community-base | ses_local backend (transitional, for AISL) | C1.2a | no | done | https://github.com/DataTalksClub/community-base/pull/32 |
 | `C1.4` | community-base | Test doubles exported for sites | C1.1a, C1.1b, C1.2a, C1.2b | no | done | https://github.com/DataTalksClub/community-base/pull/35 |
-| `C1.5` | community-base | Release 0.2.0 | C1.1a, C1.1b, C1.2a, C1.2b, C1.3, C1.4 | no | in-progress | https://github.com/DataTalksClub/community-base/issues/37 |
+| `C1.5` | community-base | Release 0.2.0 | C1.1a, C1.1b, C1.2a, C1.2b, C1.3, C1.4 | no | in-progress | https://github.com/DataTalksClub/community-base/pull/38 |
 | `D1.1` | DataTalksClub/website | Replace DTC jobs with the package jobs app (relay backend) | C1.5, R1.1, R1.2 | no | todo |  |
 | `D1.2` | DataTalksClub/website | Replace DTC email_app and the Datamailer outbox with the package mail app | D1.1, R1.3, R1.4, R1.5 | no | todo |  |
 | `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2 | yes | todo |  |
