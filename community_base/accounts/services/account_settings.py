@@ -16,6 +16,8 @@ ACCOUNT_FIELDS = {
     "theme_preference",
     "dismiss_card",
 }
+MAX_EMAIL_PREFERENCES = 100
+MAX_DASHBOARD_DISMISSALS = 100
 
 
 class AccountSettingsError(ValueError):
@@ -60,6 +62,11 @@ def _validated_preferences(value):
             "Email preference names must be safe keys with boolean values.",
             details={"fields": sorted(str(key) for key in invalid)},
         )
+    if len(value) > MAX_EMAIL_PREFERENCES:
+        raise AccountSettingsError(
+            "too_many_email_preferences",
+            f"At most {MAX_EMAIL_PREFERENCES} email preferences are allowed.",
+        )
     return value
 
 
@@ -95,6 +102,11 @@ def update_account_settings(user, values):
         if "email_preferences" in values:
             preferences = dict(locked.email_preferences or {})
             incoming = _validated_preferences(values["email_preferences"])
+            if len(set(preferences) | set(incoming)) > MAX_EMAIL_PREFERENCES:
+                raise AccountSettingsError(
+                    "too_many_email_preferences",
+                    f"At most {MAX_EMAIL_PREFERENCES} email preferences are allowed.",
+                )
             preferences.update(incoming)
             if preferences != locked.email_preferences:
                 locked.email_preferences = preferences
@@ -134,6 +146,11 @@ def update_account_settings(user, values):
                 )
             dismissals = list(locked.dashboard_dismissals or [])
             if card not in dismissals:
+                if len(dismissals) >= MAX_DASHBOARD_DISMISSALS:
+                    raise AccountSettingsError(
+                        "too_many_dismissals",
+                        f"At most {MAX_DASHBOARD_DISMISSALS} dashboard cards can be dismissed.",
+                    )
                 dismissals.append(card)
                 locked.dashboard_dismissals = dismissals
                 changed.add("dashboard_dismissals")

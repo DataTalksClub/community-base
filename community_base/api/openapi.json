@@ -709,6 +709,12 @@
           },
           "403": {
             "$ref": "#/components/responses/APIError"
+          },
+          "409": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "428": {
+            "$ref": "#/components/responses/APIError"
           }
         },
         "security": [

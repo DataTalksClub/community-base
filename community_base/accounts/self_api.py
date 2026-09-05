@@ -134,6 +134,14 @@ def patch_me_profile(request):
 )
 def post_me_password(request):
     values = read_json_object(request)
+    unknown = set(values) - {"current_password", "new_password"}
+    if unknown:
+        raise APIError(
+            400,
+            "unknown_fields",
+            "Request contains fields that cannot be changed.",
+            details={"fields": sorted(unknown)},
+        )
     current_password = values.get("current_password", "")
     new_password = values.get("new_password", "")
     if not isinstance(current_password, str) or not isinstance(new_password, str):

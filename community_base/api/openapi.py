@@ -71,6 +71,8 @@ def _operation(entry: Route, parameters: list[dict]) -> dict:
                 "schema": {"type": "string", "pattern": '^"rev-[0-9]+"$'},
             }
         )
+        operation["responses"]["409"] = {"$ref": "#/components/responses/APIError"}
+        operation["responses"]["428"] = {"$ref": "#/components/responses/APIError"}
     if operation_parameters:
         operation["parameters"] = operation_parameters
     if entry.request is not None:

@@ -286,6 +286,72 @@ def test_completed_profile_cannot_clear_a_required_value(client):
     assert profile.about == "I build data platforms."
 
 
+def test_unverified_profile_waits_for_verification_and_completion_is_preserved(client):
+    member = get_user_model().objects.create_user(email="member@example.com")
+    client.force_login(member)
+    first = client.patch(
+        "/api/v1/me/profile",
+        data=json.dumps(_profile_payload()),
+        content_type="application/json",
+        headers={"If-Match": '"rev-0"'},
+    )
+    profile = MemberProfile.objects.get(user=member)
+    assert first.status_code == 200
+    assert profile.completion_version == 0
+    assert profile.completed_at is None
+
+    member.email_verified = True
+    member.save(update_fields=["email_verified"])
+    completed = client.patch(
+        "/api/v1/me/profile",
+        data=json.dumps({"organisation": "Updated organization"}),
+        content_type="application/json",
+        headers={"If-Match": '"rev-1"'},
+    )
+    profile.refresh_from_db()
+    completed_at = profile.completed_at
+    assert completed.status_code == 200
+    assert profile.completion_version == 1
+    assert completed_at is not None
+
+    edited = client.patch(
+        "/api/v1/me/profile",
+        data=json.dumps({"about": "An ordinary valid edit."}),
+        content_type="application/json",
+        headers={"If-Match": '"rev-2"'},
+    )
+    profile.refresh_from_db()
+    assert edited.status_code == 200
+    assert profile.completion_version == 1
+    assert profile.completed_at == completed_at
+    assert profile.confirmed_revision == profile.revision == 3
+
+
+def test_member_setting_collections_are_bounded(client):
+    member = get_user_model().objects.create_user(
+        email="member@example.com",
+        email_preferences={f"preference_{index}": True for index in range(100)},
+        dashboard_dismissals=[f"card_{index}" for index in range(100)],
+    )
+    client.force_login(member)
+
+    preferences = client.patch(
+        "/api/v1/me",
+        data=json.dumps({"email_preferences": {"one_more": True}}),
+        content_type="application/json",
+    )
+    dismissal = client.patch(
+        "/api/v1/me",
+        data=json.dumps({"dismiss_card": "one_more"}),
+        content_type="application/json",
+    )
+
+    assert preferences.status_code == 400
+    assert preferences.json()["error"]["code"] == "too_many_email_preferences"
+    assert dismissal.status_code == 400
+    assert dismissal.json()["error"]["code"] == "too_many_dismissals"
+
+
 def test_profile_patch_is_csrf_protected():
     from django.test import Client
 
