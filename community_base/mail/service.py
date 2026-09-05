@@ -7,7 +7,7 @@ import uuid
 from collections.abc import Mapping
 from typing import Any
 
-from django.db import DEFAULT_DB_ALIAS, connections, transaction
+from django.db import DEFAULT_DB_ALIAS, connections
 
 from community_base.jobs.dispatch import DispatchConflict, dispatch_after_commit
 from community_base.kernel.conf import get
@@ -80,11 +80,6 @@ def send(
     delivery_id = uuid.uuid4()
     job = None
     if allowed:
-        frozen_context = dict(context)
-        transaction.on_commit(
-            lambda: _remember_context(delivery_id, frozen_context),
-            using=using,
-        )
         try:
             job, _ = dispatch_after_commit(
                 "cb_mail.deliver",
@@ -99,10 +94,31 @@ def send(
         idempotency_key=idempotency_key,
         state=EmailDelivery.State.PENDING if allowed else EmailDelivery.State.SUPPRESSED,
         reason_code="" if allowed else reason,
+        context_data=dict(context),
         job=job,
         **immutable,
     )
     return delivery
+
+
+def resend(
+    original: EmailDelivery,
+    *,
+    using: str = DEFAULT_DB_ALIAS,
+) -> EmailDelivery:
+    """Create a new audited logical delivery related to an earlier one."""
+
+    return send(
+        purpose=original.purpose,
+        to=original.recipient_email,
+        context=original.context_data,
+        idempotency_key=f"resend:{original.id}:{uuid.uuid4()}",
+        category=original.category or None,
+        user=original.recipient_user,
+        related=original,
+        sender=original.sender_id or None,
+        using=using,
+    )
 
 
 def _validate_identifier(name: str, value: object, limit: int) -> None:
@@ -136,14 +152,3 @@ def _preference_decision(decision) -> tuple[bool, str]:
     if isinstance(decision, str) and re.fullmatch(r"[a-z][a-z0-9_.:-]{0,127}", decision):
         return False, decision
     raise MailError("mail preference resolver returned an invalid decision")
-
-
-_pending_contexts: dict[uuid.UUID, dict[str, Any]] = {}
-
-
-def _remember_context(delivery_id: uuid.UUID, context: dict[str, Any]) -> None:
-    _pending_contexts[delivery_id] = context
-
-
-def take_context(delivery_id: uuid.UUID) -> dict[str, Any]:
-    return _pending_contexts.pop(delivery_id, {})

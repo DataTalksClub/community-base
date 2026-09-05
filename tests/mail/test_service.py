@@ -43,6 +43,7 @@ def test_commit_persists_delivery_and_job_then_runs_memory_backend():
     assert len(outbox) == 1
     assert outbox[0].delivery_id == delivery.id
     assert dict(outbox[0].context) == {"name": "Person"}
+    assert delivery.context_data == {"name": "Person"}
 
 
 @pytest.mark.django_db(transaction=True)

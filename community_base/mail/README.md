@@ -20,5 +20,7 @@ Hooks:
   integration.
 - `MAIL_TEMPLATE_OVERRIDE_LOADER`: optional callable `(template_key) -> (subject, body) | None`.
 
-Delivery rows retain the canonical context hash, not rendered bodies. Recipient addresses and raw
-unsubscribe tokens must never be logged or placed in job payloads.
+Delivery rows retain the JSON template context needed for durable execution and its canonical hash,
+but never rendered bodies. Callers must pass only retention-approved template inputs; secret-bearing
+values must be resolved by the worker at send time. Recipient addresses, stored context and raw
+unsubscribe tokens must never be logged, returned by APIs or placed in job payloads.

@@ -8,4 +8,7 @@ class MailConfig(AppConfig):
     verbose_name = "Community Base Mail"
 
     def ready(self) -> None:
-        from community_base.mail import jobs  # noqa: F401
+        from community_base.mail import (
+            api_views,  # noqa: F401
+            jobs,  # noqa: F401
+        )

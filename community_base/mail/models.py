@@ -35,6 +35,7 @@ class EmailDelivery(models.Model):
         related_name="community_base_email_deliveries",
     )
     context_hash = models.CharField(max_length=64)
+    context_data = models.JSONField(default=dict)
     sender_id = models.CharField(max_length=128, blank=True, default="")
     state = models.CharField(max_length=32, choices=State.choices, default=State.PENDING)
     external_message_id = models.CharField(max_length=128, blank=True, default="")
