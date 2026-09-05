@@ -1,5 +1,6 @@
 import json
 import uuid
+from urllib.parse import urlparse
 
 from django.core.management.base import BaseCommand, CommandError
 from django.test import Client
@@ -17,6 +18,9 @@ class Command(BaseCommand):
         secret = get("RELAY_WEBHOOK_SECRET")
         if not isinstance(secret, str) or not secret:
             raise CommandError("RELAY_WEBHOOK_SECRET must be configured")
+        site_url = urlparse(get("SITE_URL"))
+        if site_url.scheme not in {"http", "https"} or not site_url.netloc:
+            raise CommandError("SITE_URL must be an absolute HTTP URL")
         nonce = uuid.uuid4()
         intent = JobIntent.objects.create(
             handler="system.noop",
@@ -33,7 +37,9 @@ class Command(BaseCommand):
             "/internal/jobs/run",
             data=body,
             content_type="application/json",
+            secure=site_url.scheme == "https",
             headers={
+                "Host": site_url.netloc,
                 "X-Relay-Task-Id": str(uuid.uuid4()),
                 "X-Relay-Correlation-Id": str(uuid.uuid4()),
                 "X-Relay-Timestamp": timestamp,

@@ -32,9 +32,7 @@ def make_intent(status=JobIntent.Status.PENDING, *, handler="tests.studio.comple
         max_attempts=3,
         available_at=timezone.now(),
         last_error=(
-            "test_error"
-            if status in {JobIntent.Status.FAILED, JobIntent.Status.DEAD}
-            else ""
+            "test_error" if status in {JobIntent.Status.FAILED, JobIntent.Status.DEAD} else ""
         ),
     )
 

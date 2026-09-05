@@ -10,6 +10,7 @@ from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import JobContext, JobPayload, register_handler, schedule
 from community_base.jobs.scheduling import (
     desired_local_schedules,
+    dispatch_registered_schedule,
     parse_stored_kwargs,
     schedule_changes,
 )
@@ -108,6 +109,14 @@ def test_schedule_diff_parses_django_q_text_kwargs():
         "q_options": {"task_name": "hourly"},
     }
     assert parse_stored_kwargs("not valid Python") == {}
+
+
+@pytest.mark.django_db(transaction=True)
+def test_registered_schedule_dispatches_once_per_utc_minute():
+    first = dispatch_registered_schedule(schedule_name="tests.operations.hourly")
+    second = dispatch_registered_schedule(schedule_name="tests.operations.hourly")
+    assert first == second
+    assert JobIntent.objects.get(id=first).status == JobIntent.Status.SUCCEEDED
 
 
 def test_sync_schedules_is_a_noop_for_sync_backend(capsys, settings):

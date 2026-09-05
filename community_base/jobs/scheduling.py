@@ -72,7 +72,7 @@ def dispatch_registered_schedule(*, schedule_name: str) -> str:
     definition = definitions.get(schedule_name)
     if definition is None:
         raise ValueError("unknown registered job schedule")
-    minute = timezone.now().replace(second=0, microsecond=0).isoformat()
+    minute = timezone.now().strftime("%Y%m%dT%H%MZ")
     with transaction.atomic():
         intent, _ = dispatch_after_commit(
             definition.handler,

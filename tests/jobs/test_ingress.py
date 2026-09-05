@@ -43,9 +43,10 @@ def make_intent(handler="tests.ingress.complete", **overrides):
 def signed_request(client, intent_id, *, task_id=None, timestamp=None, body=None, signature=None):
     task_id = task_id or str(uuid.uuid4())
     timestamp = timestamp or str(int(timezone.now().timestamp()))
-    body = body or json.dumps(
-        {"intent_id": str(intent_id)}, sort_keys=True, separators=(",", ":")
-    ).encode()
+    body = (
+        body
+        or json.dumps({"intent_id": str(intent_id)}, sort_keys=True, separators=(",", ":")).encode()
+    )
     signature = signature or sign_body(body, timestamp, SECRET)
     return client.post(
         "/internal/jobs/run",
