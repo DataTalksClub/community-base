@@ -9,6 +9,22 @@ declare(
     default="slug",
 )
 declare(
+    key="EVENT_PRIVACY_NOTICE_VERSION",
+    group="events",
+    label="Event privacy notice version",
+    description="Version recorded when an accountless attendee accepts the privacy notice.",
+    value_type="str",
+    default="1",
+)
+declare(
+    key="EVENT_NEWSLETTER_CONSENT_VERSION",
+    group="events",
+    label="Event newsletter consent version",
+    description="Version recorded with an accountless attendee newsletter choice.",
+    value_type="str",
+    default="1",
+)
+declare(
     key="EVENT_ORGANIZER_EMAIL",
     group="events",
     label="Calendar organizer email",

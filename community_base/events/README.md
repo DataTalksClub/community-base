@@ -58,8 +58,9 @@ You can override `event_list.html`, `event_detail.html`, `registration_result.ht
 
 ## Configuration and hooks
 
-Configure `SITE_URL`, `ACCESS_POLICY` and `EVENT_URL_STYLE` for every site, then set
-`EVENT_ORGANIZER_EMAIL` and `EVENT_ORGANIZER_NAME` for calendar output.
+Configure `SITE_URL`, `ACCESS_POLICY` and `EVENT_URL_STYLE` for every site. Set
+`EVENT_PRIVACY_NOTICE_VERSION` and `EVENT_NEWSLETTER_CONSENT_VERSION` to the versions shown by the
+site registration form. Set `EVENT_ORGANIZER_EMAIL` and `EVENT_ORGANIZER_NAME` for calendar output.
 
 Set `ZOOM_ENABLED` only after providing the account ID, client ID and client secret. The Zoom
 client accepts HTTPS endpoints and a timeout from 1 to 60 seconds. It never stores an OAuth token

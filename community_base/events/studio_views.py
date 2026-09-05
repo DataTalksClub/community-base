@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 from community_base.events.guest_invitations import invite_guest
 from community_base.events.models import Event, EventRegistration, EventSeries, Host
 from community_base.events.registration import record_attendance
-from community_base.events.services import allocate_public_id
+from community_base.events.services import allocate_public_id, cancel_event, publish_event
 from community_base.events.studio_forms import (
     EventForm,
     EventSeriesForm,
@@ -31,12 +31,18 @@ def _audit(request, event, target, **metadata):
 
 
 def _save_form(request, form_class, *, instance=None):
+    previous_status = instance.status if isinstance(instance, Event) else None
     form = form_class(request.POST or None, instance=instance)
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             item = form.save()
-            if isinstance(item, Event) and item.status == "upcoming" and item.public_id is None:
-                item.public_id = allocate_public_id(item)
+            if isinstance(item, Event):
+                if item.status == "upcoming" and previous_status != "upcoming":
+                    item = publish_event(item)
+                elif item.status == "cancelled" and previous_status != "cancelled":
+                    item = cancel_event(item)
+                elif item.status == "upcoming" and item.public_id is None:
+                    item.public_id = allocate_public_id(item)
         return item
     return form
 

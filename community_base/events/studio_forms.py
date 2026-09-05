@@ -4,6 +4,14 @@ from community_base.events.models import Event, EventSeries, Host
 
 
 class EventForm(forms.ModelForm):
+    STATUS_TRANSITIONS = {
+        "draft": {"draft", "upcoming", "cancelled"},
+        "upcoming": {"upcoming", "completed", "cancelled"},
+        "completed": {"completed", "archived"},
+        "cancelled": {"cancelled", "archived"},
+        "archived": {"archived"},
+    }
+
     class Meta:
         model = Event
         fields = (
@@ -27,6 +35,14 @@ class EventForm(forms.ModelForm):
 
     def clean_materials(self):
         return self.cleaned_data.get("materials") or []
+
+    def clean_status(self):
+        status = self.cleaned_data["status"]
+        if self.instance.pk:
+            original = Event.objects.only("status").get(pk=self.instance.pk).status
+            if status not in self.STATUS_TRANSITIONS[original]:
+                raise forms.ValidationError(f"An event cannot move from {original} to {status}.")
+        return status
 
 
 class EventSeriesForm(forms.ModelForm):

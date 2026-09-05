@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.cache import patch_vary_headers
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from community_base.events.anonymous_registration import (
@@ -17,6 +18,7 @@ from community_base.events.registration import register_for_event, unregister_fr
 from community_base.events.routing import event_url
 from community_base.events.services import can_register_for_event
 from community_base.events.tokens import RegistrationTokenError
+from community_base.kernel.conf import get
 
 PUBLIC_STATUSES = ("upcoming", "completed")
 
@@ -25,6 +27,7 @@ def _private(response):
     response["Cache-Control"] = "private, no-store, max-age=0"
     response["Pragma"] = "no-cache"
     response["Referrer-Policy"] = "no-referrer"
+    patch_vary_headers(response, ("Cookie",))
     return response
 
 
@@ -63,13 +66,16 @@ def event_list(request):
     events = Event.objects.filter(status__in=PUBLIC_STATUSES).prefetch_related(
         "event_host_links__host"
     )
-    upcoming = [event for event in events if event.is_upcoming]
+    upcoming = sorted(
+        (event for event in events if event.is_upcoming), key=lambda item: item.start_datetime
+    )
     past = [event for event in events if event.is_past]
-    return render(
+    response = render(
         request,
         "events/event_list.html",
         {"upcoming_events": upcoming, "past_events": past, "event_url": event_url},
     )
+    return response
 
 
 @require_GET
@@ -79,7 +85,7 @@ def event_detail(request, slug, public_id=None):
         return canonical_redirect
     registration = _registration_for_user(event, request.user)
     feedback = getattr(registration, "feedback", None) if registration else None
-    return render(
+    response = render(
         request,
         "events/event_detail.html",
         {
@@ -97,6 +103,7 @@ def event_detail(request, slug, public_id=None):
             ),
         },
     )
+    return _private(response) if request.user.is_authenticated else response
 
 
 @require_POST
@@ -120,9 +127,9 @@ def event_register(request, slug, public_id=None):
                 event,
                 form.cleaned_data["email"],
                 display_name=form.cleaned_data["display_name"],
-                privacy_notice_version="web-1",
+                privacy_notice_version=get("EVENT_PRIVACY_NOTICE_VERSION"),
                 newsletter_consent=form.cleaned_data["newsletter_consent"],
-                newsletter_consent_version="web-1",
+                newsletter_consent_version=get("EVENT_NEWSLETTER_CONSENT_VERSION"),
                 newsletter_consent_source="event-registration",
             )
         except ValidationError as error:
@@ -140,18 +147,20 @@ def event_register(request, slug, public_id=None):
                     {"event": event, "success": True, "message": message},
                 )
             )
-    return render(
-        request,
-        "events/event_detail.html",
-        {
-            "event": event,
-            "registration": None,
-            "can_register": event.required_level == 0 and event.is_upcoming,
-            "anonymous_form": form,
-            "feedback": None,
-            "feedback_form": EventFeedbackForm(),
-        },
-        status=400,
+    return _private(
+        render(
+            request,
+            "events/event_detail.html",
+            {
+                "event": event,
+                "registration": None,
+                "can_register": event.required_level == 0 and event.is_upcoming,
+                "anonymous_form": form,
+                "feedback": None,
+                "feedback_form": EventFeedbackForm(),
+            },
+            status=400,
+        )
     )
 
 
@@ -254,18 +263,20 @@ def event_feedback(request, slug, public_id=None):
         else:
             messages.success(request, "Feedback saved.")
             return redirect(event_url(event))
-    return render(
-        request,
-        "events/event_detail.html",
-        {
-            "event": event,
-            "registration": registration,
-            "can_register": False,
-            "anonymous_form": AnonymousEventRegistrationForm(),
-            "feedback": getattr(registration, "feedback", None),
-            "feedback_form": form,
-        },
-        status=400,
+    return _private(
+        render(
+            request,
+            "events/event_detail.html",
+            {
+                "event": event,
+                "registration": registration,
+                "can_register": False,
+                "anonymous_form": AnonymousEventRegistrationForm(),
+                "feedback": getattr(registration, "feedback", None),
+                "feedback_form": form,
+            },
+            status=400,
+        )
     )
 
 
@@ -278,7 +289,7 @@ def event_calendar(request, slug, public_id=None):
         content_type="text/calendar; charset=utf-8",
     )
     response["Content-Disposition"] = f'attachment; filename="{event.slug}.ics"'
-    return response
+    return _private(response) if request.user.is_authenticated else response
 
 
 @require_GET

@@ -99,10 +99,13 @@ def test_member_can_register_and_unregister_from_detail(client):
     client.force_login(user)
 
     registered = client.post(reverse("event_register", kwargs={"slug": item.slug}))
+    detail = client.get(item.get_absolute_url())
     unregistered = client.post(reverse("event_unregister", kwargs={"slug": item.slug}))
 
     row = EventRegistration.objects.get(event=item, user=user)
     assert registered.status_code == 302
+    assert "no-store" in detail["Cache-Control"]
+    assert "Cookie" in detail["Vary"]
     assert unregistered.status_code == 302
     assert row.status == EventRegistration.Status.CANCELLED
 
@@ -128,6 +131,19 @@ def test_anonymous_registration_and_verification_pages_are_private(client):
     assert verified.status_code == 200
     assert "no-store" in verified["Cache-Control"]
     assert row.status == EventRegistration.Status.CONFIRMED
+
+
+def test_invalid_anonymous_registration_response_is_private(client):
+    item = event()
+
+    response = client.post(
+        reverse("event_register", kwargs={"slug": item.slug}),
+        {"email": "guest@example.com"},
+    )
+
+    assert response.status_code == 400
+    assert "no-store" in response["Cache-Control"]
+    assert "Cookie" in response["Vary"]
 
 
 def test_anonymous_management_token_cancels_once(client):

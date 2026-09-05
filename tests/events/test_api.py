@@ -172,6 +172,23 @@ def test_staff_manages_series_and_hosts(client):
     assert Host.objects.filter(slug="speaker").exists()
 
 
+def test_staff_api_rejects_closed_event_reactivation(client):
+    client.force_login(user("staff@example.com", is_staff=True))
+    item = event(status="completed")
+
+    response = request(
+        client,
+        "patch",
+        f"/api/v1/events/{item.pk}",
+        {"status": "upcoming"},
+    )
+
+    item.refresh_from_db()
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "validation_error"
+    assert item.status == "completed"
+
+
 def test_event_routes_are_published_in_openapi():
     document = build_document()
 

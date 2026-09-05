@@ -12,7 +12,7 @@ from community_base.events.guest_invitations import invite_guest
 from community_base.events.integration_jobs import enqueue_recording_processing, enqueue_zoom_sync
 from community_base.events.models import Event, EventRegistration, EventSeries, Host
 from community_base.events.registration import register_for_event, unregister_from_event
-from community_base.events.services import allocate_public_id
+from community_base.events.services import allocate_public_id, cancel_event, publish_event
 from community_base.events.studio_forms import EventForm, EventSeriesForm, HostForm
 
 OBJECT = {"type": "object"}
@@ -124,6 +124,7 @@ def _form_error(form):
 
 
 def _model_form(request, form_class, *, instance=None):
+    previous_status = instance.status if isinstance(instance, Event) else None
     values = read_json_object(request)
     allowed = set(form_class.Meta.fields)
     unknown = set(values) - allowed
@@ -142,9 +143,15 @@ def _model_form(request, form_class, *, instance=None):
     form = form_class(data, instance=instance)
     if not form.is_valid():
         raise _form_error(form)
-    item = form.save()
-    if isinstance(item, Event) and item.status == "upcoming" and item.public_id is None:
-        item.public_id = allocate_public_id(item)
+    with transaction.atomic():
+        item = form.save()
+        if isinstance(item, Event):
+            if item.status == "upcoming" and previous_status != "upcoming":
+                item = publish_event(item)
+            elif item.status == "cancelled" and previous_status != "cancelled":
+                item = cancel_event(item)
+            elif item.status == "upcoming" and item.public_id is None:
+                item.public_id = allocate_public_id(item)
     return item
 
 

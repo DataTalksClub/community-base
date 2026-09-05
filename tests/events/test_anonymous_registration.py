@@ -31,6 +31,10 @@ def token_from_delivery(delivery, key):
     return parse_qs(urlsplit(context[key]).query)["token"][0]
 
 
+def delivery_url(delivery, key):
+    return resolve_delivery_context(delivery=delivery, context=delivery.context_data)[key]
+
+
 def test_anonymous_request_is_idempotent_and_persists_no_bearer_token():
     occurrence = event()
 
@@ -52,11 +56,17 @@ def test_anonymous_request_is_idempotent_and_persists_no_bearer_token():
 def test_verification_confirms_once_and_management_token_cancels_once():
     requested = request_anonymous_registration(event(), "person@example.com")
     verification_token = token_from_delivery(requested.delivery, "verify_url")
+    assert urlsplit(delivery_url(requested.delivery, "verify_url")).path == (
+        "/events/registration/verify/"
+    )
 
     registration, changed = confirm_anonymous_registration(verification_token)
     replay, replayed = confirm_anonymous_registration(verification_token)
     confirmation = EmailDelivery.objects.get(purpose="events.registration_confirmed")
     management_token = token_from_delivery(confirmation, "manage_url")
+    assert urlsplit(delivery_url(confirmation, "manage_url")).path == (
+        "/events/registration/manage/"
+    )
     cancelled, did_cancel = cancel_anonymous_registration(management_token)
 
     assert changed is True
