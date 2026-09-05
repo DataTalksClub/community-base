@@ -114,6 +114,15 @@ def test_registration_identity_is_unique_by_email_and_member():
         )
 
 
+def test_registration_normalized_email_must_be_lowercase():
+    with pytest.raises(IntegrityError):
+        EventRegistration.objects.create(
+            event=event(),
+            original_email="Person@Example.com",
+            normalized_email="Person@example.com",
+        )
+
+
 def test_series_registration_and_occurrence_opt_out_are_distinct():
     user = User.objects.create_user(email="member@example.com")
     series = EventSeries.objects.create(name="Office hours", day_of_week=2, start_time=time(18))

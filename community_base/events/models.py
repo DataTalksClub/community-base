@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -338,6 +339,10 @@ class EventRegistration(models.Model):
             ),
             models.CheckConstraint(
                 condition=Q(version__gt=0), name="events_registration_version_positive"
+            ),
+            models.CheckConstraint(
+                condition=Q(normalized_email=Lower("normalized_email")),
+                name="events_registration_email_normalized",
             ),
         )
 

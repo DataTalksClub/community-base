@@ -5,6 +5,7 @@ import django.db.models.deletion
 import uuid
 from django.conf import settings
 from django.db import migrations, models
+from django.db.models.functions import text
 
 
 class Migration(migrations.Migration):
@@ -119,6 +120,10 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='eventregistration',
             constraint=models.CheckConstraint(condition=models.Q(('version__gt', 0)), name='events_registration_version_positive'),
+        ),
+        migrations.AddConstraint(
+            model_name='eventregistration',
+            constraint=models.CheckConstraint(condition=models.Q(('normalized_email', text.Lower('normalized_email'))), name='events_registration_email_normalized'),
         ),
         migrations.AddConstraint(
             model_name='eventreminder',
