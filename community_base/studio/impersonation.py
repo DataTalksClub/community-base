@@ -11,6 +11,13 @@ from community_base.studio.audit import hooks
 
 SESSION_KEY = "_community_base_impersonator_id"
 AUTH_BACKEND = "django.contrib.auth.backends.ModelBackend"
+SENSITIVE_RETURN_PREFIXES = (
+    "/account",
+    "/accounts",
+    "/studio",
+    "/admin",
+    "/notifications",
+)
 
 
 def _audit(event, *, actor_ref, target_ref, metadata=None):
@@ -24,13 +31,31 @@ def _audit(event, *, actor_ref, target_ref, metadata=None):
 
 def _safe_next(request, default="/"):
     candidate = request.POST.get("next", "")
-    if candidate and url_has_allowed_host_and_scheme(
-        candidate,
-        allowed_hosts={request.get_host()},
-        require_https=request.is_secure(),
+    if (
+        candidate
+        and candidate.startswith("/")
+        and not candidate.startswith("//")
+        and "\\" not in candidate
+        and not any(ord(character) < 32 for character in candidate)
+        and url_has_allowed_host_and_scheme(
+            candidate,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        )
     ):
         return candidate
     return default
+
+
+def _safe_public_next(request, default="/"):
+    candidate = _safe_next(request, default=default)
+    bare_path = candidate.split("?", 1)[0].split("#", 1)[0]
+    if any(
+        bare_path == prefix or bare_path.startswith(prefix + "/")
+        for prefix in SENSITIVE_RETURN_PREFIXES
+    ):
+        return default
+    return candidate
 
 
 @require_POST
@@ -46,14 +71,14 @@ def start(request, user_id):
     login(request, target, backend=AUTH_BACKEND)
     request.session[SESSION_KEY] = actor_id
     _audit("studio.impersonation.started", actor_ref=actor_id, target_ref=target.pk)
-    return redirect(_safe_next(request))
+    return redirect(_safe_public_next(request))
 
 
 @require_POST
 def stop(request):
     actor_id = request.session.get(SESSION_KEY)
     if not actor_id:
-        return redirect(_safe_next(request))
+        return redirect(_safe_public_next(request))
 
     target_id = getattr(request.user, "pk", "")
     actor = get_user_model().objects.filter(pk=actor_id, is_active=True, is_superuser=True).first()
@@ -65,4 +90,4 @@ def stop(request):
     login(request, actor, backend=AUTH_BACKEND)
     request.session.pop(SESSION_KEY, None)
     _audit("studio.impersonation.stopped", actor_ref=actor.pk, target_ref=target_id)
-    return redirect(_safe_next(request))
+    return redirect(_safe_public_next(request))

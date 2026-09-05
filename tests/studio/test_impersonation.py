@@ -79,3 +79,17 @@ def test_stop_rejects_external_next_url(client, users, audit_events):
     response = client.post("/studio/impersonate/stop/", {"next": "https://attacker.invalid/steal"})
 
     assert response["Location"] == "/"
+
+
+@pytest.mark.parametrize(
+    "unsafe_next",
+    ["//attacker.invalid/steal", "/foo\\bar", "/foo\nbar", "/studio/", "/admin/"],
+)
+def test_stop_rejects_malformed_and_sensitive_next_urls(client, users, audit_events, unsafe_next):
+    actor, target = users
+    client.force_login(actor)
+    client.post(f"/studio/impersonate/{target.pk}/")
+
+    response = client.post("/studio/impersonate/stop/", {"next": unsafe_next})
+
+    assert response["Location"] == "/"

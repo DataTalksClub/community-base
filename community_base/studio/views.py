@@ -40,5 +40,5 @@ def global_search(request):
     if query:
         pages = _navigation_results(request, query)
         if pages:
-            results = {"pages": pages, **results}
+            results = {**results, "pages": pages + results.get("pages", [])}
     return JsonResponse({"query": query, "results": results})

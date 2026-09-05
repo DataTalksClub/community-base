@@ -46,8 +46,15 @@ def test_global_search_merges_registered_providers(client, staff_user):
 
 
 def test_global_search_includes_registered_navigation(client, staff_user):
+    register_search_provider(
+        "extra-pages",
+        lambda request, query: {"pages": [{"label": "Dashboard help", "url": "/help/"}]},
+    )
     client.force_login(staff_user)
 
     response = client.get("/studio/search/", {"q": "dash"})
 
-    assert response.json()["results"]["pages"][0]["label"] == "Dashboard"
+    assert [item["label"] for item in response.json()["results"]["pages"]] == [
+        "Dashboard",
+        "Dashboard help",
+    ]
