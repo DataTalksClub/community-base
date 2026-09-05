@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "community_base.kernel",
     "community_base.api",
     "community_base.config",
+    "community_base.jobs",
 ]
 
 MIDDLEWARE = [
