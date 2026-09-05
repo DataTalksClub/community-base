@@ -13,3 +13,4 @@
 2026-09-05T19:02:59+02:00 | build | implemented C3.2 questionnaires, Studio authoring and review, optional AI transport, integration documentation, and complete AISL test classification | guideline
 2026-09-05T19:24:32+02:00 | build | implemented C3.3 configurable onboarding flows, resumable step adapters, eligibility and plan hooks, completion signal, Studio management, and AISL test classification | guideline
 2026-09-05T19:58:34+02:00 | build | implemented C3.4 Slack grants and operations, optional Calendly calls, member and Studio views, and AISL test classification | guideline
+2026-09-05T20:15:22+02:00 | build | implemented C3.5a registered notification sources, recipient preferences and read state, stable page and JSON routes, privacy export, and AISL test classification | guideline
