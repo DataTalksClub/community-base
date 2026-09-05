@@ -23,6 +23,7 @@ idempotency and service contracts used by all shared apps.
 | `SITE_URL` | absolute URL | `""` |
 | `STUDIO_TITLE` | `str` | `"Community Studio"` |
 | `STUDIO_AUDIT_WRITER` | dotted path or callable | `"community_base.studio.audit.discard_audit_event"` |
+| `USER_TAGS_ACCESSOR` | dotted path or accessor object | `"community_base.studio.user_tags.AttributeTagsAccessor"` |
 
 Site settings override only the keys they need:
 

@@ -104,4 +104,5 @@ COMMUNITY_BASE = {
     "SITE_URL": "http://testserver",
     "STUDIO_TITLE": "Community Base Studio",
     "STUDIO_AUDIT_WRITER": "community_base.studio.audit.discard_audit_event",
+    "USER_TAGS_ACCESSOR": "testproject.studio_tags.TestUserTagsAccessor",
 }

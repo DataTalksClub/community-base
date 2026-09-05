@@ -69,6 +69,36 @@ register_search_provider("members", search_members)
 register_card_provider("delivery-health", delivery_health_cards)
 ```
 
+## User management extensions
+
+The shared `/studio/users/` list works with `get_user_model()` and uses only standard Django auth
+fields. It supports search, active/staff/inactive status filters, normalized tag filtering, CSV
+export and 25-row pagination. Detail pages include tags and `MemberNote` CRUD. Internal notes are
+staff-only; code serving notes elsewhere must use `MemberNote.objects.visible_to(user)`.
+
+Sites add their own list and detail data without replacing these views:
+
+```python
+from community_base.studio.user_registry import (
+    register_user_badge,
+    register_user_column,
+    register_user_panel,
+)
+
+register_user_column("tier", "Tier", render_tier)
+register_user_badge(render_subscription_badge)
+register_user_panel("Enrollments", "studio/extensions/enrollments.html", enrollment_context)
+```
+
+Column and badge renderers receive the displayed user. Panel context providers receive
+`(request, user)` and return a context dictionary; the registered template also receives
+`detail_user`.
+
+Tags are read and written through `COMMUNITY_BASE["USER_TAGS_ACCESSOR"]`. The configured object
+implements `get(user) -> iterable[str]` and `set(user, tags)`. The default accessor uses a `tags`
+attribute when the user model provides one and otherwise returns an empty list; configure a site
+adapter before enabling tag edits on a user model without that attribute.
+
 ## Templates
 
 Shared Studio pages extend `community_base/studio/base.html`. The compatibility template
