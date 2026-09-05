@@ -1,0 +1,12 @@
+from __future__ import annotations
+
+from community_base.kernel.conf import get
+
+
+def get_backend():
+    name = get("MAIL_BACKEND")
+    if name == "memory":
+        from community_base.mail.backends import memory
+
+        return memory
+    raise ValueError(f"unsupported mail backend: {name}")

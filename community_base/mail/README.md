@@ -1,0 +1,24 @@
+# Mail
+
+`community_base.mail.send()` records one durable logical delivery and one job inside the caller's
+transaction. It requires `purpose`, recipient address, JSON context and an idempotency key. Exact
+replays return the original delivery; changed work under the same key raises `MailConflict`.
+
+The projection states are `pending`, `queued`, `leased`, `provider_accepted`, `delivered`,
+`retryable`, `ambiguous`, `suppressed`, `dead`, `hard_bounced` and `complained`. Provider acceptance
+does not mean delivery. Callback transitions are monotonic and callback event IDs are deduplicated.
+
+`MAIL_BACKEND` defaults to `memory`. Its `outbox` is a process-local test surface and supports
+`outbox.clear()`. Relay transport is added separately by C1.2b; `ses_local` is transitional and is
+added by C1.3.
+
+Hooks:
+
+- `MAIL_PREFERENCE_RESOLVER`: callable receiving `purpose`, `category`, `to`, and `user`; return
+  true/none to allow, false or a safe reason code to suppress. Default: allow.
+- `MAIL_SEND_RECORDER`: optional callable `(delivery, rendered, result)` for transitional audit
+  integration.
+- `MAIL_TEMPLATE_OVERRIDE_LOADER`: optional callable `(template_key) -> (subject, body) | None`.
+
+Delivery rows retain the canonical context hash, not rendered bodies. Recipient addresses and raw
+unsubscribe tokens must never be logged or placed in job payloads.
