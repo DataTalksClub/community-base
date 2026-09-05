@@ -30,39 +30,103 @@ Repository: AI-Shipping-Labs/website. Depends on: C5.2, A3.2. Playbook P3. One p
 
 Verification per pull request: playbook P3 step 4. Final: `grep -rn "^from \(content\|payments\|plans\|bookclub\|analytics\|integrations\)" events/ --include=*.py | grep -v tests` -> nothing.
 
-## C4.1 Lift events
+## C4.1a Events models and domain services
 
 Repository: community-base. Depends on: C3.6. Playbook P4 for `events` (label kept).
 
 Read first
-- `~/git/ai-shipping-labs/events/` after A4.1, `templates/events/`, `templates/studio/events/`,
-  `templates/studio/event_series/`, `api/views/events.py`, `event_series.py`, `hosts.py`,
-  `event_guest_invitations.py`, `specs/07-events.md`.
+- `~/git/ai-shipping-labs/events/models/`, `events/services/` and `specs/07-events.md`.
+- DTC `_docs/specs/05-events-registration-email.md` event fields and `_docs/compatibility/` URL
+  identity requirements.
 
 Steps
-1. Lift models, services, tasks (as job handlers), views, Studio views, API endpoints, ICS, Zoom.
-2. Add shared fields DTC needs in a second migration appended after the squash:
-   `Event.public_id` (nullable, unique) with an allocation sequence, and `EventAlias(event,
-   source_path unique, kind, reason)`. Public URL pattern becomes configurable:
-   `COMMUNITY_BASE["EVENT_URL_STYLE"]` in `slug` (AISL: `/events/<id>/<slug>`) or `public_id`
-   (DTC: `/events/<public_id>/<slug>`).
-3. Hosts: `Host.kind` and `external_ref`; hook `HOST_PROFILE_RESOLVER(host) -> url | None` (DTC
-   links to `/people/<short>.html`).
-4. Registration: keep AISL's authenticated registration and anonymous email signup on free
-   sessions; the anonymous path uses `community_base.mail.send` for verification and the DTC spec
-   05 lifecycle (`pending_verification`, `confirmed`, `cancelled`, `expired`, `attended`,
-   `no_show`) and constraints. Series registration semantics unchanged.
-5. Public templates rewritten to the template contract; Studio templates extend the shell.
-6. Tests moved from AISL `events/tests/` (25k lines) minus the ones the issue lists as AISL-only.
+1. Record the donor commit, model and test baseline. Build the target `Event`, `EventSeries`,
+   `Host`, host-assignment and alias models with a provisional kept-label migration.
+2. Add `Event.public_id` with concurrency-safe allocation and `EventAlias(event, source_path,
+   kind, reason)` for DTC compatibility.
+3. Add `Host.kind`, `Host.external_ref` and `HOST_PROFILE_RESOLVER(host) -> url | None`.
+4. Lift framework-independent event, series and host domain services. Replace tier checks with
+   `community_base.kernel.access.can_access` and cross-domain writes with events.
 
 Verification
-- squash equivalence per P4 step 7 in AISL; `make test tests/events` -> pass.
-- `testproject`: create a series with weekly cadence, register a user for the series, add an
-  occurrence -> the user is registered for it; unregister one occurrence -> opt-out row exists.
+- Package tests cover event status, public identity, alias uniqueness, series cadence, host roles,
+  access and domain transitions without importing a site app.
+- Fresh migrations, reversal, drift and boundary checks pass. Donor equivalence remains C4.3.
+
+## C4.1b Registration, reminders and feedback
+
+Repository: community-base. Depends on: C4.1a.
+
+Read first
+- `~/git/ai-shipping-labs/events/` registration, series registration, reminder and feedback
+  services and tests.
+- DTC `_docs/specs/05-events-registration-email.md` registration lifecycle.
+
+Steps
+1. Lift authenticated registration and series-registration behavior, including future-occurrence
+   enrollment and per-occurrence opt-outs.
+2. Add anonymous email signup for free events through the lifecycle `pending_verification`,
+   `confirmed`, `cancelled`, `expired`, `attended`, `no_show` and send verification through
+   `community_base.mail.send`.
+3. Lift reminder and feedback state as domain services with durable job inputs and explicit
+   recipient ownership.
+4. Emit `event_registered`, `event_unregistered`, `event_published`, `event_cancelled` and
+   `event_rescheduled` after successful transactions.
+
+Verification
+- `testproject`: register for a series, add an occurrence and observe the inherited registration;
+  unregister one occurrence and observe its opt-out row.
+- Tests cover anonymous verification, idempotency, lifecycle constraints, reminder selection,
+  feedback ownership and cross-domain events.
+
+## C4.1c Event integrations and job handlers
+
+Repository: community-base. Depends on: C4.1b.
+
+Read first
+- `~/git/ai-shipping-labs/events/` ICS, Zoom, reminder, recording and task code.
+- Package jobs, mail and configuration integration contracts.
+
+Steps
+1. Lift the ICS builder and Zoom client behind package configuration with bounded HTTP behavior,
+   stable request/response objects and no provider secrets in logs.
+2. Add `EVENT_BANNER_GENERATOR`, `EVENT_WRITEUP_RESOLVER` and recording hooks. Keep the banner
+   implementation site-owned.
+3. Register reminder, registration-verification and integration jobs with opaque scalar inputs,
+   idempotency and retry-safe state transitions.
+4. Add synthetic adapters for success, provider failure, timeout and disabled configurations.
+
+Verification
+- Package tests cover ICS output, Zoom boundaries, hooks, handler registration, idempotency,
+  retries and redacted failures without network or credentials.
+- Installed-wheel checks find handlers, templates and optional integration modules.
+
+## C4.1d Event pages, Studio and APIs
+
+Repository: community-base. Depends on: C4.1c.
+
+Read first
+- `~/git/ai-shipping-labs/templates/events/`, `templates/studio/events/`,
+  `templates/studio/event_series/`, `api/views/events.py`, `event_series.py`, `hosts.py` and
+  `event_guest_invitations.py`.
+
+Steps
+1. Lift public list, detail, registration, verification and feedback routes. Support
+   `COMMUNITY_BASE["EVENT_URL_STYLE"]` values `slug` and `public_id`.
+2. Rewrite public templates to the package contract and Studio templates to extend the shared
+   shell. Preserve stable URL names and documented override paths.
+3. Lift Studio event, series, host, registration and guest-invitation operations with audit hooks.
+4. Lift session-authenticated APIs, enforce recipient and staff ownership and publish OpenAPI.
+5. Complete the AISL event-test behavior matrix. Keep exact copied-test and migration-equivalence
+   claims for C4.3 after A4.1.
+
+Verification
+- Both URL styles, aliases, public templates, Studio routes and APIs pass package tests.
+- Full package, boundary, fresh-migration and installed-wheel checks pass.
 
 ## C4.2 Events capability checkpoint
 
-Repository: community-base. Depends on: C4.1.
+Repository: community-base. Depends on: C4.1d.
 
 Goal: prove package-local events behavior without tagging the provisional kept-label migration.
 
