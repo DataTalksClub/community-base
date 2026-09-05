@@ -9,5 +9,9 @@ class CommunityConfig(AppConfig):
     def ready(self):
         from django.apps import apps
 
+        from community_base.community.import_slack import register_slack_import_adapter
+
+        register_slack_import_adapter()
+
         if apps.is_installed("community_base.onboarding"):
             from community_base.community import signals  # noqa: F401
