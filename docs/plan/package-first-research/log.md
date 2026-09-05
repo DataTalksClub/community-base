@@ -16,3 +16,4 @@
 2026-09-05T20:15:22+02:00 | build | implemented C3.5a registered notification sources, recipient preferences and read state, stable page and JSON routes, privacy export, and AISL test classification | guideline
 2026-09-05T20:33:08+02:00 | build | implemented C3.5b registered generic comment targets, stable API and template controller, moderation, privacy export, notification bridge, and AISL test classification | guideline
 2026-09-05T20:58:08+02:00 | build | implemented C3.5c portable polls, registered access and recipient adapters, transactional vote transitions, stable pages and JSON routes, privacy export, and AISL test classification | guideline
+2026-09-05T21:07:57+02:00 | verify | passed C3.6 combined identity and community source, fresh-database, isolated-wheel, boundary, coverage-matrix, and full-suite capability gates without tagging provisional migrations | guideline
