@@ -1,6 +1,6 @@
 # community-base
 
-Shared Django apps for DataTalks.Club community sites. Two sites consume it today:
+Shared Django apps intended for two DataTalks.Club community sites:
 
 - DataTalks.Club website (`DataTalksClub/website`)
 - AI Shipping Labs website (`AI-Shipping-Labs/website`)

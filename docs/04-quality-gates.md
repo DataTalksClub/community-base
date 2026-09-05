@@ -3,6 +3,11 @@
 Every issue in `docs/plan/` assumes the gates in this file. An executor runs them without being
 told again. A pull request that does not pass them is not done.
 
+Apply each gate where its evidence can be produced truthfully. Package capability pull requests
+run package-local checks. Donor equivalence, development-copy rehearsals, real Relay conformance,
+site CI and deployed smoke checks belong to compatibility or adoption issues. Until then, preserve
+them as `Not run here, needs:` rather than weakening or claiming the check.
+
 ## 1. Gates for every pull request
 
 | Gate | Command | Expected |
@@ -81,6 +86,7 @@ Stop, do not work around, and report to the owner when:
 - a migration rehearsal on a development copy loses rows;
 - a step would change a decision in `docs/01-decisions.md`;
 - a squash `replaces` list does not match the migration names actually present in the donor;
+- a tag or release would include a provisional kept-label migration;
 - a Relay endpoint the issue relies on does not exist or returns a different shape than the
   issue describes;
 - the package version needed by a site issue has not been tagged;

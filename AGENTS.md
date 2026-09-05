@@ -7,8 +7,9 @@ entry point. Read it fully before doing anything else.
 
 `community-base` is the shared Django package extracted from two sites, AI Shipping Labs
 (`AI-Shipping-Labs/website`) and DataTalks.Club (`DataTalksClub/website`), with Relay
-(`DataTalksClub/relay`) as the email and jobs service. The package code does not exist yet; the
-plan in `docs/plan/` builds it and moves code out of the sites in seven phases. Work happens in
+(`DataTalksClub/relay`) as the email and jobs service. The package skeleton and kernel exist; the
+plan in `docs/plan/` builds the remaining capabilities and later moves code out of the sites in
+seven phases. Work happens in
 four repositories; progress for all of them is tracked here in `docs/plan/STATUS.md`.
 
 ## Read in this order, once
@@ -23,9 +24,10 @@ four repositories; progress for all of them is tracked here in `docs/plan/STATUS
 
 ## How to pick work
 
-1. `python scripts/plan.py next` lists issues whose dependencies are done. Take the first one in
-   the lowest phase unless the owner assigned you something else. Relay issues in Phase 1 are
-   the critical path and may be taken in parallel with Phase 0.
+1. During the package-first campaign, `uv run python scripts/plan.py next --repo community-base`
+   lists ready package issues. Take the first one unless the owner assigned something else. Use
+   `uv run python scripts/plan.py next` when scheduling all repositories after the adoption-ready
+   release. Relay issues remain an external critical path and may proceed independently.
 2. Open the issue's section in `docs/plan/phase-<n>.md`. It has: goal, "Read first", numbered
    steps, verification commands with expected results, "Done when" checkboxes, docs to update.
 3. Mark it `in-progress` in `docs/plan/STATUS.md` (see "Tracking" below) before starting.
@@ -64,6 +66,12 @@ production access, and the conflict is reported here as a plan fix.
 - If an issue turns out to be too large for one pull request, split it: add the sub-issues to the
   phase file (same numbering with a letter suffix, `C2.3a`), run `python scripts/plan.py sync`,
   and continue with the first part.
+- Package capability and adoption compatibility are separate milestones. Package issues may use
+  synthetic adapters, fixture contracts and fresh databases. Donor equivalence, development-copy
+  rehearsals, real Relay conformance and site deploys remain required by their later compatibility
+  or adoption issues and must be recorded as `Not run here, needs:` until then.
+- A kept-label migration is provisional until its donor inventory and equivalence checks pass. Do
+  not tag a release containing a provisional migration.
 
 ## Tracking
 

@@ -9,13 +9,19 @@ tracker, branching, role agents, review, commit rights, test selection and deplo
 steps below add the plan-specific parts (dependencies, verification, status tracking); they do
 not replace the site process.
 
+Package capability and adoption compatibility are tracked separately. During package-first work,
+package acceptance uses fresh databases, fixture contracts, synthetic site configurations and fake
+service adapters. Donor migration equivalence, development-copy rehearsals, real Relay conformance,
+site CI and deployments stay open for the later compatibility or adoption issue. List those checks
+under `Not run here, needs:`; never report them as passed from package-local evidence.
+
 ## 1. Prepare
 
 | Step | Check |
 |---|---|
 | Read the issue section in `docs/plan/phase-<n>.md` end to end. | You can say in one sentence what "done" is. |
 | Read every file in "Read first". | You can name the function or template each step will change. |
-| Confirm every id in "Depends on" is `done` in `docs/plan/STATUS.md`. | If not, stop; pick another issue or mark this one `blocked`. |
+| Confirm every id in the dedicated `Depends on:` metadata line is `done` in `docs/plan/STATUS.md`. | If not, stop; pick another issue or mark this one `blocked`. |
 | For a package version a site issue needs: `git ls-remote --tags https://github.com/DataTalksClub/community-base v<version>`. | Tag exists. |
 | Set the STATUS row to `in-progress`. | `python scripts/plan.py check` prints OK. |
 
@@ -28,6 +34,10 @@ not replace the site process.
 | Keep the diff to the issue. Unrelated cleanups go to a separate pull request. | `git diff --stat` shows only files the issue implies. |
 | Write or move tests as the issue says. | Quality gate section 3 counts recorded. |
 | Update the docs listed under "Docs". | Files changed. |
+
+For kept-label apps, a locally generated initial migration is provisional until the compatibility
+issue verifies the exact donor migration inventory and state. Provisional migrations may be edited
+while untagged. Once tagged, package migrations are append-only and their `replaces` markers stay.
 
 ## 3. Verify
 

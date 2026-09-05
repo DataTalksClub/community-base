@@ -163,8 +163,10 @@ Done when
 
 ## C1.1 Jobs app
 
-Repository: community-base. Depends on: C0.5. Relay backend needs R1.2 for the 202 lease mode
-only; the synchronous mode works against the sandbox today.
+Repository: community-base. Depends on: C0.5.
+
+Real Relay conformance needs R1.2 for the 202 lease mode; package capability uses FakeRelay.
+The synchronous mode works against the sandbox today.
 
 Read first
 - `~/git/dtc-website/jobs/` (all files): `dispatch_after_commit`, `DurableJob`, leases, registry,
@@ -220,7 +222,9 @@ Done when
 
 ## C1.2 Mail app
 
-Repository: community-base. Depends on: C1.1. Relay backend needs R1.3 and R1.4 for versions
+Repository: community-base. Depends on: C1.1.
+
+Real Relay conformance needs R1.3 and R1.4 for versions
 and callbacks; sends work against the existing sandbox `send` endpoint.
 
 Read first
