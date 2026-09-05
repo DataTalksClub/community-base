@@ -81,7 +81,7 @@ class ZoomClient:
     def __init__(self, *, session=None):
         self.session = session or requests.Session()
 
-    def create_meeting(self, request):
+    def create_meeting(self, request, *, before_mutation=None):
         token = self._access_token()
         payload = {
             "topic": request.topic,
@@ -96,6 +96,8 @@ class ZoomClient:
                 "waiting_room": request.waiting_room,
             },
         }
+        if before_mutation is not None:
+            before_mutation()
         response = self._provider_request(
             "post",
             urljoin(self._api_base_url(), "users/me/meetings"),
@@ -103,14 +105,14 @@ class ZoomClient:
             json=payload,
             ambiguous_on_transport=True,
         )
-        data = self._json_object(response)
+        data = self._json_object(response, ambiguous=True)
         meeting_id = data.get("id")
         join_url = data.get("join_url")
         if not isinstance(meeting_id, int | str) or not isinstance(join_url, str):
             raise ZoomAmbiguousError("Zoom returned an incomplete meeting result.")
         return ZoomMeetingResult(str(meeting_id), join_url)
 
-    def update_meeting(self, meeting_id, request):
+    def update_meeting(self, meeting_id, request, *, before_mutation=None):
         token = self._access_token()
         payload = {
             "topic": request.topic,
@@ -118,6 +120,8 @@ class ZoomClient:
             "duration": request.duration_minutes,
             "timezone": request.timezone,
         }
+        if before_mutation is not None:
+            before_mutation()
         self._provider_request(
             "patch",
             urljoin(self._api_base_url(), f"meetings/{meeting_id}"),
@@ -126,8 +130,10 @@ class ZoomClient:
             ambiguous_on_transport=True,
         )
 
-    def delete_meeting(self, meeting_id):
+    def delete_meeting(self, meeting_id, *, before_mutation=None):
         token = self._access_token()
+        if before_mutation is not None:
+            before_mutation()
         self._provider_request(
             "delete",
             urljoin(self._api_base_url(), f"meetings/{meeting_id}"),
@@ -173,13 +179,14 @@ class ZoomClient:
         raise ZoomRejected(message)
 
     @staticmethod
-    def _json_object(response):
+    def _json_object(response, *, ambiguous=False):
+        exception = ZoomAmbiguousError if ambiguous else ZoomTemporaryError
         try:
             data = response.json()
         except (TypeError, ValueError) as error:
-            raise ZoomTemporaryError("Zoom returned an invalid response.") from error
+            raise exception("Zoom returned an invalid response.") from error
         if not isinstance(data, dict):
-            raise ZoomTemporaryError("Zoom returned an invalid response.")
+            raise exception("Zoom returned an invalid response.")
         return data
 
     @staticmethod

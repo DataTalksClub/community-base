@@ -16,7 +16,12 @@ from community_base.events.integrations.zoom import (
     ZoomTemporaryError,
     meeting_request_for_event,
 )
-from community_base.events.models import Event, EventRegistration, EventReminder
+from community_base.events.models import (
+    Event,
+    EventIntegrationAttempt,
+    EventRegistration,
+    EventReminder,
+)
 from community_base.events.registration import expire_pending_registrations
 from community_base.events.reminders import (
     claim_due_reminders,
@@ -42,6 +47,48 @@ def _positive_id(value, code):
     if not isinstance(value, int) or isinstance(value, bool) or value < 1:
         raise PermanentJobError(code)
     return value
+
+
+def _begin_zoom_attempt(context, event, action):
+    operation = f"zoom.{action}"
+    terminal_error = None
+    with transaction.atomic():
+        attempt, _created = EventIntegrationAttempt.objects.select_for_update().get_or_create(
+            pk=context.job_id,
+            defaults={"event": event, "operation": operation},
+        )
+        if attempt.event_id != event.pk or attempt.operation != operation:
+            raise PermanentJobError("event_zoom_attempt_conflict")
+        if attempt.status == EventIntegrationAttempt.Status.SUCCEEDED:
+            return attempt, True
+        if attempt.status in {
+            EventIntegrationAttempt.Status.PROVIDER_REQUESTED,
+            EventIntegrationAttempt.Status.AMBIGUOUS,
+        }:
+            attempt.status = EventIntegrationAttempt.Status.AMBIGUOUS
+            attempt.save(update_fields=("status", "updated_at"))
+            terminal_error = "zoom_outcome_ambiguous"
+        elif attempt.status == EventIntegrationAttempt.Status.REJECTED:
+            terminal_error = "zoom_request_rejected"
+    if terminal_error:
+        raise PermanentJobError(terminal_error)
+    return attempt, False
+
+
+def _mark_zoom_provider_requested(attempt):
+    updated = EventIntegrationAttempt.objects.filter(
+        pk=attempt.pk, status=EventIntegrationAttempt.Status.STARTING
+    ).update(status=EventIntegrationAttempt.Status.PROVIDER_REQUESTED, updated_at=timezone.now())
+    if updated != 1:
+        raise PermanentJobError("zoom_outcome_ambiguous")
+
+
+def _finish_zoom_attempt(attempt, *, status, result_reference=""):
+    EventIntegrationAttempt.objects.filter(pk=attempt.pk).update(
+        status=status,
+        result_reference=str(result_reference)[:255],
+        updated_at=timezone.now(),
+    )
 
 
 @register_handler("events.plan_reminders")
@@ -111,7 +158,6 @@ def expire_registration_verifications_handler(context: JobContext, payload: JobP
 
 @register_handler("events.sync_zoom")
 def sync_zoom_handler(context: JobContext, payload: JobPayload):
-    del context
     event_id = _positive_id(payload.get("event_id"), "invalid_event_zoom_payload")
     action = payload.get("action")
     if action not in {"create", "update", "delete"}:
@@ -123,26 +169,59 @@ def sync_zoom_handler(context: JobContext, payload: JobPayload):
         return
     if action != "create" and not event.zoom_meeting_id:
         raise PermanentJobError("event_zoom_meeting_missing")
+    attempt, finished = _begin_zoom_attempt(context, event, action)
+    if finished:
+        return
     try:
         client = ZoomClient()
         if action == "create":
-            result = client.create_meeting(meeting_request_for_event(event))
+            result = client.create_meeting(
+                meeting_request_for_event(event),
+                before_mutation=lambda: _mark_zoom_provider_requested(attempt),
+            )
             with transaction.atomic():
                 locked = Event.objects.select_for_update().get(pk=event.pk)
                 if not locked.zoom_meeting_id:
                     locked.zoom_meeting_id = result.meeting_id
                     locked.zoom_join_url = result.join_url
                     locked.save(update_fields=("zoom_meeting_id", "zoom_join_url", "updated_at"))
+                _finish_zoom_attempt(
+                    attempt,
+                    status=EventIntegrationAttempt.Status.SUCCEEDED,
+                    result_reference=result.meeting_id,
+                )
         elif action == "update":
-            client.update_meeting(event.zoom_meeting_id, meeting_request_for_event(event))
-        else:
-            client.delete_meeting(event.zoom_meeting_id)
-            Event.objects.filter(pk=event.pk, zoom_meeting_id=event.zoom_meeting_id).update(
-                zoom_meeting_id="", zoom_join_url="", updated_at=timezone.now()
+            client.update_meeting(
+                event.zoom_meeting_id,
+                meeting_request_for_event(event),
+                before_mutation=lambda: _mark_zoom_provider_requested(attempt),
             )
+            _finish_zoom_attempt(
+                attempt,
+                status=EventIntegrationAttempt.Status.SUCCEEDED,
+                result_reference=event.zoom_meeting_id,
+            )
+        else:
+            client.delete_meeting(
+                event.zoom_meeting_id,
+                before_mutation=lambda: _mark_zoom_provider_requested(attempt),
+            )
+            with transaction.atomic():
+                Event.objects.filter(pk=event.pk, zoom_meeting_id=event.zoom_meeting_id).update(
+                    zoom_meeting_id="", zoom_join_url="", updated_at=timezone.now()
+                )
+                _finish_zoom_attempt(
+                    attempt,
+                    status=EventIntegrationAttempt.Status.SUCCEEDED,
+                    result_reference=event.zoom_meeting_id,
+                )
     except ZoomTemporaryError as error:
         raise RetryableJobError(error.code) from error
-    except (ZoomDisabled, ZoomConfigurationError, ZoomAmbiguousError, ZoomRejected) as error:
+    except ZoomAmbiguousError as error:
+        _finish_zoom_attempt(attempt, status=EventIntegrationAttempt.Status.AMBIGUOUS)
+        raise PermanentJobError(error.code) from error
+    except (ZoomDisabled, ZoomConfigurationError, ZoomRejected) as error:
+        _finish_zoom_attempt(attempt, status=EventIntegrationAttempt.Status.REJECTED)
         raise PermanentJobError(error.code) from error
 
 

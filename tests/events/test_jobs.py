@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 import pytest
@@ -11,10 +12,10 @@ from community_base.events.integrations.zoom import (
     ZoomMeetingResult,
     ZoomTemporaryError,
 )
-from community_base.events.models import Event, EventReminder
+from community_base.events.models import Event, EventIntegrationAttempt, EventReminder
 from community_base.events.registration import register_for_event
 from community_base.jobs.models import JobIntent
-from community_base.jobs.registry import registered_handler_names, registered_schedules
+from community_base.jobs.registry import JobContext, registered_handler_names, registered_schedules
 from community_base.jobs.runner import PermanentJobError, RetryableJobError
 from community_base.mail.models import EmailDelivery
 
@@ -33,6 +34,16 @@ def event(**values):
 def registration():
     user = get_user_model().objects.create_user(email="member@example.com")
     return register_for_event(event(), user)[0]
+
+
+def context(*, job_id=None, attempt=1):
+    return JobContext(
+        job_id=job_id or uuid.uuid4(),
+        correlation_id=None,
+        attempt=attempt,
+        worker_id="test-worker",
+        lease_token=uuid.uuid4(),
+    )
 
 
 def test_event_handlers_and_schedules_are_registered():
@@ -97,42 +108,71 @@ def test_zoom_create_job_persists_result_once(monkeypatch):
     calls = []
 
     class Client:
-        def create_meeting(self, request):
+        def create_meeting(self, request, *, before_mutation):
+            before_mutation()
             calls.append(request)
             return ZoomMeetingResult("123", "https://zoom.example.com/j/123")
 
     monkeypatch.setattr(jobs, "ZoomClient", Client)
     payload = {"event_id": item.pk, "action": "create"}
 
-    jobs.sync_zoom_handler(None, payload)
-    jobs.sync_zoom_handler(None, payload)
+    job_context = context()
+    jobs.sync_zoom_handler(job_context, payload)
+    jobs.sync_zoom_handler(job_context, payload)
 
     item.refresh_from_db()
     assert item.zoom_meeting_id == "123"
     assert item.zoom_join_url == "https://zoom.example.com/j/123"
     assert len(calls) == 1
+    assert EventIntegrationAttempt.objects.get(pk=job_context.job_id).status == "succeeded"
 
 
 def test_zoom_retry_and_ambiguous_states_map_to_job_outcomes(monkeypatch):
     item = event(required_level=0)
 
     class TemporaryClient:
-        def create_meeting(self, request):
+        def create_meeting(self, request, *, before_mutation):
             del request
+            del before_mutation
             raise ZoomTemporaryError("temporary")
 
     monkeypatch.setattr(jobs, "ZoomClient", TemporaryClient)
     with pytest.raises(RetryableJobError, match="zoom_temporarily_unavailable"):
-        jobs.sync_zoom_handler(None, {"event_id": item.pk, "action": "create"})
+        jobs.sync_zoom_handler(context(), {"event_id": item.pk, "action": "create"})
 
     class AmbiguousClient:
-        def create_meeting(self, request):
+        def create_meeting(self, request, *, before_mutation):
             del request
+            before_mutation()
             raise ZoomAmbiguousError("unknown result")
 
     monkeypatch.setattr(jobs, "ZoomClient", AmbiguousClient)
     with pytest.raises(PermanentJobError, match="zoom_outcome_ambiguous"):
-        jobs.sync_zoom_handler(None, {"event_id": item.pk, "action": "create"})
+        jobs.sync_zoom_handler(context(), {"event_id": item.pk, "action": "create"})
+
+
+def test_zoom_retry_after_worker_crash_does_not_repeat_provider_mutation(monkeypatch):
+    item = event(required_level=0)
+    mutation_count = 0
+
+    class CrashingClient:
+        def create_meeting(self, request, *, before_mutation):
+            nonlocal mutation_count
+            del request
+            before_mutation()
+            mutation_count += 1
+            raise RuntimeError("worker stopped after provider request")
+
+    monkeypatch.setattr(jobs, "ZoomClient", CrashingClient)
+    job_id = uuid.uuid4()
+    payload = {"event_id": item.pk, "action": "create"}
+    with pytest.raises(RuntimeError, match="worker stopped"):
+        jobs.sync_zoom_handler(context(job_id=job_id), payload)
+    with pytest.raises(PermanentJobError, match="zoom_outcome_ambiguous"):
+        jobs.sync_zoom_handler(context(job_id=job_id, attempt=2), payload)
+
+    assert mutation_count == 1
+    assert EventIntegrationAttempt.objects.get(pk=job_id).status == "ambiguous"
 
 
 def test_recording_job_uses_opaque_reference_and_maps_disabled_configuration(settings):
