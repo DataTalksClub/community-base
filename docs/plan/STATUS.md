@@ -19,7 +19,7 @@ issues that can start now.
 | `C0.2` | community-base | Kernel: configuration dictionary, hooks, access policy, staff decorators | C0.1 | no | done | https://github.com/DataTalksClub/community-base/pull/8 |
 | `C0.3` | community-base | Config app: registry, storage, cache, Studio page, import and export | C0.4 | no | done | https://github.com/DataTalksClub/community-base/pull/13 |
 | `C0.4` | community-base | API app: keys with scopes, bearer auth, OpenAPI, route registry | C0.2 | no | done | https://github.com/DataTalksClub/community-base/pull/11 |
-| `C0.5` | community-base | First release | C0.2, C0.3, C0.4 | no | in-progress | https://github.com/DataTalksClub/community-base/issues/5 |
+| `C0.5` | community-base | First release | C0.2, C0.3, C0.4 | no | in-progress | https://github.com/DataTalksClub/community-base/pull/15 |
 | `A0.1` | AI-Shipping-Labs/website | Add the package dependency and the local link targets | C0.5 | no | todo |  |
 | `A0.2` | AI-Shipping-Labs/website | Replace the settings framework with the package config app | A0.1 | no | todo |  |
 | `A0.3` | AI-Shipping-Labs/website | Access policy hook | A0.1 | no | todo |  |
