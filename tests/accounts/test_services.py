@@ -147,6 +147,13 @@ def test_email_change_supersedes_then_confirms_atomically():
     first.refresh_from_db()
 
     assert first.invalidated_at is not None
+    confirm_delivery = EmailDelivery.objects.get(
+        purpose="accounts.email_change_confirm",
+        related_object_id=str(second.pk),
+    )
+    assert confirm_delivery.context_data["change_request_id"] == second.pk
+    assert "token" not in str(confirm_delivery.context_data)
+    assert "token=" in outbox[1].context["confirm_url"]
     assert confirm_email_change(first_token).status == "superseded"
     result = confirm_email_change(second_token)
     user.refresh_from_db()

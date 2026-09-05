@@ -70,8 +70,10 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
    documented keys and defaults (`community_base/kernel/conf.py`). Shared code may also use the
    narrow Django framework settings that define integration contracts: `AUTH_USER_MODEL`,
    `LOGIN_URL`, `SECRET_KEY`, and a Django setting explicitly named as a declared config fallback.
-   It never reads other arbitrary `settings.X`. The declared kernel keys are `SITE_KEY`,
-   `SITE_URL`, `ACCESS_POLICY`, `JOBS_BACKEND`, `MAIL_BACKEND`, `MAIL_TEMPLATE_DIR`, `RELAY_BASE_URL`,
+   It never reads other arbitrary `settings.X`. The declared kernel keys include
+   `ACCOUNT_BEFORE_DELETE_HOOK`, `ACCOUNT_DELETION_BLOCKER`, `ACCOUNT_MERGE_HOOK`,
+   `ACCOUNT_PRIVACY_EXPORT_HOOK`, `ACCOUNT_UNVERIFIED_TTL_DAYS`, `SITE_KEY`, `SITE_URL`,
+   `ACCESS_POLICY`, `JOBS_BACKEND`, `MAIL_BACKEND`, `MAIL_TEMPLATE_DIR`, `RELAY_BASE_URL`,
    `CONTENT_SOURCES`, `CONTENT_SYNC_GITHUB_API_URL`, `CONTENT_SYNC_GITHUB_APP_ID`,
    `CONTENT_SYNC_GITHUB_INSTALLATION_ID`, `CONTENT_SYNC_GITHUB_PRIVATE_KEY`,
    `CONTENT_SYNC_HTTP_TIMEOUT`, `CONTENT_SYNC_MAX_ARCHIVE_BYTES`,
@@ -81,7 +83,8 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
    `USER_TAGS_ACCESSOR`.
    Mail also declares `MAIL_PREFERENCE_RESOLVER`, `MAIL_SEND_RECORDER`,
    `MAIL_TEMPLATE_OVERRIDE_LOADER`, `MAIL_UNSUBSCRIBE_URL_BUILDER` and
-   `MAIL_VERIFY_EMAIL_URL_BUILDER`; the latter four default to no hook.
+   `MAIL_VERIFY_EMAIL_URL_BUILDER`; `MAIL_CONTEXT_RESOLVER` enriches persisted non-secret context
+   inside the worker. The optional delivery hooks default to no hook.
 7. Every network side effect (Relay call, GitHub call, Zoom call, S3 upload) happens in a job
    handler or in an explicit service method called after commit, never inside a model `save()`,
    a signal handler, or a request transaction.

@@ -36,17 +36,29 @@ class PasswordStateTokenGenerator(PasswordResetTokenGenerator):
             for secret in (self.secret, *self.secret_fallbacks)
         )
 
+    def make_token_at(self, user, instant):
+        timestamp = self._num_seconds(instant.astimezone(datetime.UTC).replace(tzinfo=None))
+        return self._make_token_with_timestamp(user, timestamp, self.secret)
+
 
 _password_proof = PasswordStateTokenGenerator()
 
 
-def generate_verification_token(user, *, return_path="", expiry_hours=24):
+def generate_verification_token(
+    user,
+    *,
+    return_path="",
+    expiry_hours=24,
+    issued_at=None,
+    jti=None,
+):
+    issued_at = issued_at or datetime.datetime.now(datetime.UTC)
     payload = {
         "user_id": user.pk,
         "email": user.email,
         "action": "verify_email",
-        "jti": str(uuid.uuid4()),
-        "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=expiry_hours),
+        "jti": str(jti or uuid.uuid4()),
+        "exp": issued_at + datetime.timedelta(hours=expiry_hours),
     }
     if return_path:
         payload["return_path"] = return_path
@@ -60,14 +72,16 @@ def load_verification_token(token):
     return payload
 
 
-def generate_password_reset_token(user, *, expiry_hours=1):
+def generate_password_reset_token(user, *, expiry_hours=1, issued_at=None, jti=None):
+    issued_at = issued_at or datetime.datetime.now(datetime.UTC)
+    proof = _password_proof.make_token_at(user, issued_at)
     return jwt.encode(
         {
             "user_id": user.pk,
             "action": PASSWORD_RESET_ACTION,
-            "jti": str(uuid.uuid4()),
-            "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=expiry_hours),
-            PASSWORD_RESET_PROOF: _password_proof.make_token(user),
+            "jti": str(jti or uuid.uuid4()),
+            "exp": issued_at + datetime.timedelta(hours=expiry_hours),
+            PASSWORD_RESET_PROOF: proof,
         },
         settings.SECRET_KEY,
         algorithm=JWT_ALGORITHM,

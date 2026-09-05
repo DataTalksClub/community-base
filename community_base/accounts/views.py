@@ -1,6 +1,7 @@
 import datetime
 import hashlib
 import json
+import uuid
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model, login, logout
@@ -23,13 +24,10 @@ from community_base.accounts.services.email_resolution import resolve_user_by_em
 from community_base.accounts.services.verification import unverified_user_ttl_days
 from community_base.accounts.tokens import (
     ActionTokenError,
-    generate_password_reset_token,
-    generate_verification_token,
     load_password_reset_token,
     load_verification_token,
     password_reset_token_matches,
 )
-from community_base.kernel.conf import get
 from community_base.mail import send as send_mail
 
 AUTH_BACKEND = f"{ModelBackend.__module__}.{ModelBackend.__name__}"
@@ -43,37 +41,33 @@ def _private(response):
     return response
 
 
-def _site_url(path):
-    return f"{get('SITE_URL').rstrip('/')}{path}"
-
-
-def _mail_key(purpose, user, token):
-    fingerprint = hashlib.sha256(token.encode()).hexdigest()[:24]
+def _mail_key(purpose, user, nonce):
+    fingerprint = hashlib.sha256(str(nonce).encode()).hexdigest()[:24]
     return f"accounts:{purpose}:{user.pk}:{fingerprint}"
 
 
 def _queue_verification(user, return_path=""):
-    token = generate_verification_token(user, return_path=return_path)
+    nonce = uuid.uuid4()
     send_mail(
         "accounts.verify_email",
         user.email,
-        {"verify_url": _site_url(f"/api/verify-email?token={token}")},
-        _mail_key("verify", user, token),
+        {"return_path": return_path} if return_path else {},
+        _mail_key("verify", user, nonce),
         user=user,
     )
-    return token
+    return nonce
 
 
 def _queue_password_reset(user):
-    token = generate_password_reset_token(user)
+    nonce = uuid.uuid4()
     send_mail(
         "accounts.password_reset",
         user.email,
-        {"reset_url": _site_url(f"/api/password-reset?token={token}")},
-        _mail_key("password-reset", user, token),
+        {},
+        _mail_key("password-reset", user, nonce),
         user=user,
     )
-    return token
+    return nonce
 
 
 def _authenticate(email, password):

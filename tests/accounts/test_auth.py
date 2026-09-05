@@ -12,6 +12,7 @@ from django.contrib.sites.models import Site
 from django.urls import reverse
 
 from community_base.accounts.adapters import SocialAccountAdapter
+from community_base.accounts.mail_context import resolve_delivery_context
 from community_base.accounts.models import EmailAlias
 from community_base.accounts.settings import allauth_settings
 from community_base.accounts.signals import mark_social_account_added
@@ -20,6 +21,7 @@ from community_base.accounts.tokens import (
     generate_verification_token,
 )
 from community_base.mail.backends.memory import outbox
+from community_base.mail.models import EmailDelivery
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -124,6 +126,11 @@ def test_registration_queues_verification_logs_in_and_verifies(client):
     assert len(outbox) == 1
     assert outbox[0].purpose == "accounts.verify_email"
     assert outbox[0].context["verify_url"].startswith("http://testserver/api/verify-email?token=")
+    delivery = EmailDelivery.objects.get(pk=outbox[0].delivery_id)
+    assert delivery.context_data == {}
+    first_context = resolve_delivery_context(delivery=delivery, context=delivery.context_data)
+    second_context = resolve_delivery_context(delivery=delivery, context=delivery.context_data)
+    assert first_context["verify_url"] == second_context["verify_url"]
 
     token = _token_from_message(outbox[0], "verify_url")
     response = client.get(reverse("account_verify_email"), {"token": token})
@@ -181,9 +188,11 @@ def test_registration_preserves_safe_verification_return(client):
         },
     )
     token = _token_from_message(outbox[0], "verify_url")
+    delivery = EmailDelivery.objects.get(pk=outbox[0].delivery_id)
 
     response = client.get(reverse("account_verify_email"), {"token": token})
 
+    assert delivery.context_data == {"return_path": "/events/42/"}
     assert response.status_code == 302
     assert response.url == "/events/42/"
 
@@ -239,6 +248,7 @@ def test_password_reset_is_non_enumerating_and_completes(client):
     assert missing.content == existing.content
     assert len(outbox) == 1
     assert outbox[0].context["reset_url"].startswith("http://testserver/api/password-reset?token=")
+    assert EmailDelivery.objects.get(pk=outbox[0].delivery_id).context_data == {}
     token = _token_from_message(outbox[0], "reset_url")
 
     form = client.get(reverse("account_password_reset"), {"token": token})

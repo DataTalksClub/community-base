@@ -1,10 +1,10 @@
-import hashlib
 import secrets
 from dataclasses import dataclass
 from datetime import timedelta
 
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
+from django.core import signing
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
@@ -12,8 +12,9 @@ from django.utils import timezone
 
 from community_base.accounts.models import EmailAlias, EmailChangeRequest
 from community_base.accounts.services.email_resolution import normalize_email
-from community_base.kernel.conf import get
 from community_base.mail import send
+
+EMAIL_CHANGE_TOKEN_SALT = "community-base.accounts.email-change"
 
 
 class EmailChangeError(ValueError):
@@ -44,8 +45,12 @@ class ConfirmationResult:
         return self.status == "confirmed"
 
 
-def hash_token(token):
-    return hashlib.sha256(token.encode()).hexdigest()
+def email_change_token(change):
+    return signing.dumps(
+        {"id": change.pk, "nonce": change.token_hash},
+        salt=EMAIL_CHANGE_TOKEN_SALT,
+        compress=True,
+    )
 
 
 def _available(user, email):
@@ -72,7 +77,6 @@ def request_email_change(user, new_email, current_password=None):
     if user.has_usable_password() and not user.check_password(current_password or ""):
         raise InvalidPassword("Enter your current password.")
     normalized = _validate_email(user, new_email)
-    token = secrets.token_urlsafe(32)
     now = timezone.now()
     with transaction.atomic():
         EmailChangeRequest.objects.filter(
@@ -84,24 +88,24 @@ def request_email_change(user, new_email, current_password=None):
             user=user,
             old_email=normalize_email(user.email),
             new_email=normalized,
-            token_hash=hash_token(token),
+            token_hash=secrets.token_hex(32),
             expires_at=now + timedelta(hours=24),
             last_sent_at=now,
         )
-        confirm_url = f"{get('SITE_URL').rstrip('/')}/account/change-email/confirm?token={token}"
         send(
             "accounts.email_change_confirm",
             normalized,
             {
                 "old_email": change.old_email,
                 "new_email": normalized,
-                "confirm_url": confirm_url,
+                "change_request_id": change.pk,
                 "expiry_hours": 24,
             },
             f"accounts:email-change-confirm:{change.pk}",
             user=user,
             related=change,
         )
+        token = email_change_token(change)
     return change, token
 
 
@@ -127,13 +131,22 @@ def _sync_allauth(user, old_email, new_email):
 
 
 def confirm_email_change(token):
-    token_hash = hash_token((token or "").strip())
+    try:
+        payload = signing.loads(
+            (token or "").strip(),
+            salt=EMAIL_CHANGE_TOKEN_SALT,
+            max_age=24 * 60 * 60,
+        )
+        change_id = payload["id"]
+        nonce = payload["nonce"]
+    except (signing.BadSignature, KeyError, TypeError):
+        return ConfirmationResult("invalid")
     now = timezone.now()
     with transaction.atomic():
         change = (
             EmailChangeRequest.objects.select_for_update()
             .select_related("user")
-            .filter(token_hash=token_hash)
+            .filter(pk=change_id, token_hash=nonce)
             .first()
         )
         if change is None:

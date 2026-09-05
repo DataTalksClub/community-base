@@ -38,6 +38,10 @@ those issues merge.
 
 Hooks:
 
+- `MAIL_CONTEXT_RESOLVER`: callable receiving `delivery` and its persisted `context`; returns the
+  ephemeral context passed to the selected backend. The default accounts resolver creates signed
+  verification, password-reset and email-change links in the worker so bearer tokens are never
+  retained in `EmailDelivery.context_data`.
 - `MAIL_PREFERENCE_RESOLVER`: callable receiving `purpose`, `category`, `to`, and `user`; return
   true/none to allow, false or a safe reason code to suppress. The default accounts resolver
   suppresses globally unsubscribed users, permanent bounces and categories explicitly set false;
@@ -52,9 +56,10 @@ Hooks:
 - `MAIL_VERIFY_EMAIL_URL_BUILDER`: optional callable `(delivery) -> str | None` used by
   `ses_local` to resolve short-lived verification links in the worker instead of durable context.
 
-Delivery rows retain the JSON template context needed for durable execution and its canonical hash,
-but never rendered bodies. Callers must pass only retention-approved template inputs; secret-bearing
-values must be resolved by the worker at send time. Recipient addresses, stored context and raw
+Delivery rows retain the non-secret JSON template context needed for durable execution and its
+canonical hash, but never rendered bodies or bearer URLs. Callers must pass only retention-approved
+template inputs; secret-bearing values are resolved by the worker at send time. Recipient addresses,
+stored context and raw
 unsubscribe tokens must never be logged, returned by APIs or placed in job payloads.
 
 The DTC link-bridge contract tests were adapted for the package settings and URL configuration.
