@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 DEFAULTS = {
+    "CONTENT_SOURCES": [],
     "SITE_KEY": "",
     "ACCESS_POLICY": "community_base.kernel.access.OpenPolicy",
     "JOBS_BACKEND": "sync",
