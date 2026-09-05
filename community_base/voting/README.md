@@ -52,8 +52,8 @@ COMMUNITY_BASE = {
 }
 ```
 
-`Poll.save()` selects the configured level for its `poll_type`. Add a matching level when a site
-adds another poll type.
+`Poll.save()` selects the configured level for its `poll_type`. Keep both built-in types in the
+mapping when overriding their levels.
 
 ## Register site behavior
 
