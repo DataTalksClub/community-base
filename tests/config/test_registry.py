@@ -4,6 +4,10 @@ from django.core.exceptions import ImproperlyConfigured, ValidationError
 from community_base.config.registry import declare, definition, groups
 
 
+def test_installed_app_settings_keys_are_discovered():
+    assert definition("TEST_FEATURE_ENABLED").group == "testproject"
+
+
 def test_declare_preserves_all_metadata():
     declared = declare(
         key="TEST_REGISTRY_EMAIL",
