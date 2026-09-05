@@ -71,7 +71,7 @@ issues that can start now.
 | `C3.1b` | community-base | Authentication and public account entry points | C3.1a | no | done | https://github.com/DataTalksClub/community-base/pull/63 |
 | `C3.1c` | community-base | Account domain services and mail preferences | C3.1b | no | done | https://github.com/DataTalksClub/community-base/pull/68 |
 | `C3.1d` | community-base | Account pages and self API | C3.1c | no | done | https://github.com/DataTalksClub/community-base/pull/71 |
-| `C3.1e` | community-base | Studio account operations and documentation | C3.1d | no | todo |  |
+| `C3.1e` | community-base | Studio account operations and documentation | C3.1d | no | in-progress | https://github.com/DataTalksClub/community-base/issues/73 |
 | `C3.2` | community-base | Questionnaires | C3.1e | no | todo |  |
 | `C3.3` | community-base | Onboarding flows | C3.1e, C3.2 | no | todo |  |
 | `C3.4` | community-base | Community (Slack) | C3.1e | no | todo |  |
