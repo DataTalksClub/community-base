@@ -39,7 +39,9 @@ those issues merge.
 Hooks:
 
 - `MAIL_PREFERENCE_RESOLVER`: callable receiving `purpose`, `category`, `to`, and `user`; return
-  true/none to allow, false or a safe reason code to suppress. Default: allow.
+  true/none to allow, false or a safe reason code to suppress. The default accounts resolver
+  suppresses globally unsubscribed users, permanent bounces and categories explicitly set false;
+  users without shared preference fields remain allowed for composability.
 - `MAIL_SEND_RECORDER`: optional callable `(delivery, rendered, result)` for transitional audit
   integration.
 - `MAIL_TEMPLATE_OVERRIDE_LOADER`: optional callable `(template_key) -> (subject, body) | None`.

@@ -17,9 +17,10 @@ from community_base.accounts.forms import (
     PasswordResetRequestForm,
     RegistrationForm,
 )
-from community_base.accounts.models import EmailAlias
 from community_base.accounts.oauth import provider_context
 from community_base.accounts.return_urls import safe_return_path
+from community_base.accounts.services.email_resolution import resolve_user_by_email
+from community_base.accounts.services.verification import unverified_user_ttl_days
 from community_base.accounts.tokens import (
     ActionTokenError,
     generate_password_reset_token,
@@ -75,22 +76,9 @@ def _queue_password_reset(user):
     return token
 
 
-def _resolve_active_user(email):
-    User = get_user_model()
-    user = User.objects.filter(email__iexact=email, is_active=True).first()
-    if user is not None:
-        return user
-    alias = (
-        EmailAlias.objects.select_related("user")
-        .filter(email__iexact=email, user__is_active=True)
-        .first()
-    )
-    return alias.user if alias else None
-
-
 def _authenticate(email, password):
     User = get_user_model()
-    user = _resolve_active_user(email)
+    user = resolve_user_by_email(email)
     if user is not None and user.has_usable_password() and user.check_password(password):
         return user
     if user is None or not user.has_usable_password():
@@ -104,7 +92,8 @@ def _create_user(form):
             email=form.cleaned_data["email"],
             password=form.cleaned_data["password"],
             signup_source="signup",
-            verification_expires_at=timezone.now() + datetime.timedelta(days=7),
+            verification_expires_at=timezone.now()
+            + datetime.timedelta(days=unverified_user_ttl_days()),
         )
         token = _queue_verification(user, form.cleaned_data.get("next", ""))
     return user, token
@@ -162,7 +151,7 @@ def resend_verification_view(request):
         initial={"email": initial_email},
     )
     if request.method == "POST" and form.is_valid():
-        user = _resolve_active_user(form.cleaned_data["email"])
+        user = resolve_user_by_email(form.cleaned_data["email"])
         if user is not None and not user.email_verified:
             with transaction.atomic():
                 _queue_verification(user)
@@ -228,7 +217,7 @@ def password_reset_request_view(request):
         request.POST or None, initial={"email": request.GET.get("email", "")}
     )
     if request.method == "POST" and form.is_valid():
-        user = _resolve_active_user(form.cleaned_data["email"])
+        user = resolve_user_by_email(form.cleaned_data["email"])
         if user is not None:
             with transaction.atomic():
                 _queue_password_reset(user)
@@ -324,7 +313,7 @@ def resend_verification_api(request):
     if data is None:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
     email = str(data.get("email", "")).strip().lower()
-    user = _resolve_active_user(email)
+    user = resolve_user_by_email(email)
     if user is not None and not user.email_verified:
         with transaction.atomic():
             _queue_verification(user, safe_return_path(data.get("next"), ""))
@@ -339,7 +328,7 @@ def password_reset_request_api(request):
     form = PasswordResetRequestForm({"email": data.get("email", "")})
     if not form.is_valid():
         return JsonResponse({"error": "Email is required"}, status=400)
-    user = _resolve_active_user(form.cleaned_data["email"])
+    user = resolve_user_by_email(form.cleaned_data["email"])
     if user is not None:
         with transaction.atomic():
             _queue_password_reset(user)
