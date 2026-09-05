@@ -51,6 +51,11 @@ class SignedRelayRequest:
             "headers": self.headers,
         }
 
+    def post(self, client, path: str):
+        """Submit this request through a Django test client."""
+
+        return client.post(path, **self.django_kwargs())
+
 
 def signed_relay_request(
     payload: object,

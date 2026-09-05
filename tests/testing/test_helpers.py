@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import Mock
 
 from community_base.jobs.backends import get_backend as get_jobs_backend
 from community_base.mail.backends import get_backend as get_mail_backend
@@ -44,3 +45,6 @@ def test_signed_relay_request_uses_canonical_json_and_task_headers():
         "X-Relay-Correlation-Id": "relay-correlation-1",
     }
     assert json.loads(signed.django_kwargs()["data"]) == {"first": 1, "second": 2}
+    client = Mock()
+    signed.post(client, "/internal/jobs/run")
+    client.post.assert_called_once_with("/internal/jobs/run", **signed.django_kwargs())

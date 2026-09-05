@@ -72,7 +72,7 @@ signed = signed_relay_request(
     task_id="relay-task-1",
     correlation_id="relay-correlation-1",
 )
-response = client.post("/internal/jobs/run", **signed.django_kwargs())
+response = signed.post(client, "/internal/jobs/run")
 ```
 
 Use only test secrets and synthetic recipient data in fixtures and failure messages.
