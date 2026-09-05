@@ -11,8 +11,10 @@ def register_builtin_section() -> None:
     routes_without_home.update(
         {"studio_global_search", "studio_impersonate", "studio_stop_impersonate"}
     )
-    registered_slugs = {section.slug for section in sections()}
-    if "home" not in registered_slugs:
+    registered_destinations = {
+        destination.key for section in sections() for destination in section.destinations
+    }
+    if "dashboard" not in registered_destinations:
         register(
             Section(
                 slug="home",
@@ -30,7 +32,7 @@ def register_builtin_section() -> None:
                 ),
             )
         )
-    if "people" not in registered_slugs:
+    if "users" not in registered_destinations:
         register(
             Section(
                 slug="people",
