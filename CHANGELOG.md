@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-09-05
 
 - C1.1a: Add durable jobs, local backends, signed ingress, schedules, commands and Studio.
 - C1.1b: Add Relay task, lease, schedule and health clients with FakeRelay contract coverage.
 - C1.2a: Add durable mail, memory delivery, callbacks, recipient links, Studio and scoped API.
 - C1.2b: Add Relay mail send, signed callbacks, reconciliation and template catalog clients.
+- C1.3: Add the transitional SES-local backend with AISL rendering parity and lifecycle hooks.
+- C1.4: Export deterministic jobs, mail, Relay and signed-request testing helpers.
 
 ## 0.1.0 - 2026-09-05
 
