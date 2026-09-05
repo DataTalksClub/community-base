@@ -111,7 +111,7 @@ def user_export(request):
     response["Content-Disposition"] = 'attachment; filename="community-users.csv"'
     writer = csv.writer(response)
     columns = user_columns()
-    writer.writerow(["id", "username", "email", "status", "tags", *[c.key for c in columns]])
+    writer.writerow(["id", "login", "email", "status", "tags", *[c.key for c in columns]])
     for user in users:
         writer.writerow(
             [

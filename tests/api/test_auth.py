@@ -12,7 +12,7 @@ def api_client():
 
 @pytest.fixture
 def fixture_key(db):
-    user = get_user_model().objects.create_user(username="api-user", is_staff=True)
+    user = get_user_model().objects.create_user(email="api-user@example.com", is_staff=True)
     _, plaintext = APIKey.create_for_user(
         user=user,
         name="Fixture reader",
@@ -48,7 +48,7 @@ def test_registered_route_accepts_required_scope(api_client, fixture_key):
 
 @pytest.mark.django_db
 def test_registered_route_rejects_wrong_scope(api_client):
-    user = get_user_model().objects.create_user(username="wrong-scope", is_staff=True)
+    user = get_user_model().objects.create_user(email="wrong-scope@example.com", is_staff=True)
     _, plaintext = APIKey.create_for_user(
         user=user,
         name="Wrong scope",

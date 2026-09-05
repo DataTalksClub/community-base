@@ -8,7 +8,7 @@ from tests.config.test_service import SECRET_KEY, STRING_KEY
 
 @pytest.fixture
 def scoped_keys(db):
-    user = get_user_model().objects.create_user(username="config-api", is_staff=True)
+    user = get_user_model().objects.create_user(email="config-api@example.com", is_staff=True)
     _, read_key = APIKey.create_for_user(
         user=user,
         name="Config reader",

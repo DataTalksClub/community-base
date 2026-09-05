@@ -12,7 +12,7 @@ from community_base.testing import FakeRelay
 
 @pytest.fixture
 def staff_user(db):
-    return get_user_model().objects.create_user(username="catalog-staff", is_staff=True)
+    return get_user_model().objects.create_user(email="catalog-staff@example.com", is_staff=True)
 
 
 @pytest.fixture

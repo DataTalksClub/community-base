@@ -33,7 +33,7 @@ declare(
 
 @pytest.fixture
 def staff_user(db):
-    return get_user_model().objects.create_user(username="config-staff", is_staff=True)
+    return get_user_model().objects.create_user(email="config-staff@example.com", is_staff=True)
 
 
 @pytest.mark.django_db(transaction=True)
@@ -51,7 +51,7 @@ def test_settings_page_renders_groups_and_never_renders_secret(client, staff_use
 
 
 def test_settings_page_rejects_non_staff(client, db):
-    user = get_user_model().objects.create_user(username="config-member")
+    user = get_user_model().objects.create_user(email="config-member@example.com")
     client.force_login(user)
 
     response = client.get(reverse("community_base_settings"))

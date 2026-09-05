@@ -24,12 +24,12 @@ def delivery(db):
 
 @pytest.fixture
 def staff_user(db):
-    return get_user_model().objects.create_user(username="mail-staff", is_staff=True)
+    return get_user_model().objects.create_user(email="mail-staff@example.com", is_staff=True)
 
 
 @pytest.mark.django_db
 def test_mail_studio_requires_staff(client):
-    user = get_user_model().objects.create_user(username="mail-member")
+    user = get_user_model().objects.create_user(email="mail-member@example.com")
     client.force_login(user)
     assert client.get(reverse("community_base_mail_deliveries")).status_code == 403
 

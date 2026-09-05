@@ -10,7 +10,7 @@ from community_base.jobs.models import JobIntent
 
 @pytest.fixture
 def staff_client(client, db):
-    user = get_user_model().objects.create_user(username="operator", is_staff=True)
+    user = get_user_model().objects.create_user(email="operator@example.com", is_staff=True)
     client.force_login(user)
     return client
 
@@ -37,7 +37,7 @@ def test_staff_surfaces_render(staff_client, name):
 
 @pytest.mark.django_db
 def test_non_staff_cannot_access_sources(client):
-    user = get_user_model().objects.create_user(username="member")
+    user = get_user_model().objects.create_user(email="member@example.com")
     client.force_login(user)
 
     response = client.get(reverse("community_base_content_sources"))

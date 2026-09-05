@@ -17,12 +17,12 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def operator(django_user_model):
-    return django_user_model.objects.create_user(username="operator", is_staff=True)
+    return django_user_model.objects.create_user(email="operator@example.com", is_staff=True)
 
 
 def test_user_list_paginates_sixty_users_at_twenty_five(client, django_user_model, operator):
     django_user_model.objects.bulk_create(
-        [django_user_model(username=f"member-{index:02d}") for index in range(59)]
+        [django_user_model(email=f"member-{index:02d}@example.com") for index in range(59)]
     )
     client.force_login(operator)
 
@@ -35,8 +35,8 @@ def test_user_list_paginates_sixty_users_at_twenty_five(client, django_user_mode
 
 
 def test_user_list_combines_search_status_and_tag_filters(client, django_user_model, operator):
-    matching = django_user_model.objects.create_user(username="ada-active", email="ada@example.com")
-    django_user_model.objects.create_user(username="ada-disabled", is_active=False)
+    matching = django_user_model.objects.create_user(email="ada@example.com")
+    django_user_model.objects.create_user(email="ada-disabled@example.com", is_active=False)
     set_tags(matching, ["Early Adopter"])
     client.force_login(operator)
 
@@ -50,22 +50,22 @@ def test_user_list_combines_search_status_and_tag_filters(client, django_user_mo
 
 
 def test_csv_export_uses_filters_and_extension_columns(client, django_user_model, operator):
-    member = django_user_model.objects.create_user(username="export-me", email="export@example.com")
+    member = django_user_model.objects.create_user(email="export@example.com")
     set_tags(member, ["speaker"])
     register_user_column("identity", "Identity", lambda user: f"id-{user.pk}")
     client.force_login(operator)
 
-    response = client.get(reverse("studio_user_export"), {"q": "export-me"})
+    response = client.get(reverse("studio_user_export"), {"q": "export"})
     rows = list(csv.reader(StringIO(response.content.decode())))
 
     assert response["Content-Type"] == "text/csv"
     assert rows[0][-1] == "identity"
-    assert rows[1][1:5] == ["export-me", "export@example.com", "active", "speaker"]
+    assert rows[1][1:5] == ["export@example.com", "export@example.com", "active", "speaker"]
     assert rows[1][-1] == f"id-{member.pk}"
 
 
 def test_detail_aggregates_badges_and_registered_panels(client, django_user_model, operator):
-    member = django_user_model.objects.create_user(username="panel-user")
+    member = django_user_model.objects.create_user(email="panel-user@example.com")
     register_user_badge(lambda user: {"label": "Example badge", "classes": "example"})
     register_user_panel(
         "Example panel",
@@ -83,7 +83,7 @@ def test_detail_aggregates_badges_and_registered_panels(client, django_user_mode
 
 
 def test_tag_add_and_remove_use_configured_accessor(client, django_user_model, operator):
-    member = django_user_model.objects.create_user(username="tagged-user")
+    member = django_user_model.objects.create_user(email="tagged-user@example.com")
     client.force_login(operator)
 
     client.post(reverse("studio_user_tag_add", args=(member.pk,)), {"tag": "Early Adopter"})
@@ -94,7 +94,7 @@ def test_tag_add_and_remove_use_configured_accessor(client, django_user_model, o
 
 
 def test_member_note_create_edit_delete(client, django_user_model, operator):
-    member = django_user_model.objects.create_user(username="noted-user")
+    member = django_user_model.objects.create_user(email="noted-user@example.com")
     client.force_login(operator)
 
     created = client.post(
@@ -121,7 +121,7 @@ def test_member_note_create_edit_delete(client, django_user_model, operator):
 
 
 def test_note_create_normalizes_unknown_choices(client, django_user_model, operator):
-    member = django_user_model.objects.create_user(username="choice-user")
+    member = django_user_model.objects.create_user(email="choice-user@example.com")
     client.force_login(operator)
 
     client.post(
@@ -135,7 +135,7 @@ def test_note_create_normalizes_unknown_choices(client, django_user_model, opera
 
 
 def test_user_pages_require_staff(client, django_user_model):
-    member = django_user_model.objects.create_user(username="ordinary-user")
+    member = django_user_model.objects.create_user(email="ordinary-user@example.com")
     client.force_login(member)
 
     assert client.get(reverse("studio_user_list")).status_code == 403
@@ -145,8 +145,8 @@ def test_user_pages_require_staff(client, django_user_model):
 def test_note_visibility_manager_never_exposes_internal_notes_to_member(
     django_user_model, operator
 ):
-    member = django_user_model.objects.create_user(username="member-reader")
-    other = django_user_model.objects.create_user(username="other-reader")
+    member = django_user_model.objects.create_user(email="member-reader@example.com")
+    other = django_user_model.objects.create_user(email="other-reader@example.com")
     internal = MemberNote.objects.create(member=member, body="internal")
     external = MemberNote.objects.create(
         member=member, body="external", visibility=MemberNote.Visibility.EXTERNAL
