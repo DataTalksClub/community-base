@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Resend verification{% endblock %}
+{% block meta_description %}Request a new email verification link.{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Resend verification</h1></header>
+  <form class="cb-form" method="post">
+    {% csrf_token %}
+    {% for field in form %}<div class="cb-field">{{ field.label_tag }} {{ field }} {{ field.errors }}</div>{% endfor %}
+    <button class="cb-button cb-button-primary" type="submit">Send verification link</button>
+  </form>
+</main>
+{% endblock %}

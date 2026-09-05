@@ -5,6 +5,6 @@
 <main class="cb-page">
   <header class="cb-page-header"><h1 class="cb-page-title">Email verification</h1></header>
   <div class="cb-alert">{{ message }}</div>
-  {% if success %}<a class="cb-button cb-button-primary" href="{% url 'accounts:login' %}">Continue</a>{% endif %}
+  {% if success %}<a class="cb-button cb-button-primary" href="{% url 'account_login' %}">Continue</a>{% endif %}
 </main>
 {% endblock %}

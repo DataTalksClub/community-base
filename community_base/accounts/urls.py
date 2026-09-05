@@ -1,24 +1,36 @@
-from django.urls import path
+from django.urls import include, path
 
 from community_base.accounts import views
 
-app_name = "accounts"
-
 urlpatterns = [
-    path("login/", views.login_view, name="login"),
-    path("logout/", views.logout_view, name="logout"),
-    path("register/", views.register_view, name="register"),
-    path("verification-sent/", views.verification_sent_view, name="verification_sent"),
-    path("verify/", views.verify_email_view, name="verify_email"),
-    path("password-reset/", views.password_reset_view, name="password_reset"),
+    path("login/", views.login_view, name="account_login"),
+    path("logout/", views.logout_view, name="account_logout"),
+    path("register/", views.register_view, name="account_register"),
     path(
-        "password-reset/request/", views.password_reset_request_view, name="password_reset_request"
+        "verification-sent/",
+        views.verification_sent_view,
+        name="account_verification_sent",
     ),
+    path(
+        "resend-verification",
+        views.resend_verification_view,
+        name="account_resend_verification",
+    ),
+    path("verify/", views.verify_email_view, name="account_verify_email"),
+    path("verify-email", views.verify_email_view),
+    path("password-reset/", views.password_reset_view, name="account_password_reset"),
+    path(
+        "password-reset-request",
+        views.password_reset_request_view,
+        name="account_password_reset_request",
+    ),
+    path("password-reset", views.password_reset_view),
     path(
         "password-reset/complete/",
         views.password_reset_complete_view,
-        name="password_reset_complete",
+        name="account_password_reset_complete",
     ),
+    path("", include("allauth.urls")),
 ]
 
 api_urlpatterns = [

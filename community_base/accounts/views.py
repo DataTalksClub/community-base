@@ -17,6 +17,7 @@ from community_base.accounts.forms import (
     RegistrationForm,
 )
 from community_base.accounts.models import EmailAlias
+from community_base.accounts.oauth import provider_context
 from community_base.accounts.return_urls import safe_return_path
 from community_base.accounts.tokens import (
     ActionTokenError,
@@ -54,7 +55,7 @@ def _queue_verification(user, return_path=""):
     send_mail(
         "accounts.verify_email",
         user.email,
-        {"verify_url": _site_url(f"/accounts/verify/?token={token}")},
+        {"verify_url": _site_url(f"/api/verify-email?token={token}")},
         _mail_key("verify", user, token),
         user=user,
     )
@@ -66,7 +67,7 @@ def _queue_password_reset(user):
     send_mail(
         "accounts.password_reset",
         user.email,
-        {"reset_url": _site_url(f"/accounts/password-reset/?token={token}")},
+        {"reset_url": _site_url(f"/api/password-reset?token={token}")},
         _mail_key("password-reset", user, token),
         user=user,
     )
@@ -119,7 +120,8 @@ def login_view(request):
             login(request, user, backend=AUTH_BACKEND)
             return redirect(next_path)
         form.add_error(None, INVALID_LOGIN)
-    return render(request, "accounts/login.html", {"form": form, "next": next_path})
+    context = {"form": form, "next": next_path, **provider_context()}
+    return render(request, "accounts/login.html", context)
 
 
 def register_view(request):
@@ -130,8 +132,9 @@ def register_view(request):
     if request.method == "POST" and form.is_valid():
         user, _token = _create_user(form)
         login(request, user, backend=AUTH_BACKEND)
-        return redirect("accounts:verification_sent")
-    return render(request, "accounts/register.html", {"form": form, "next": next_path})
+        return redirect("account_verification_sent")
+    context = {"form": form, "next": next_path, **provider_context()}
+    return render(request, "accounts/register.html", context)
 
 
 def logout_view(request):
@@ -141,6 +144,21 @@ def logout_view(request):
 
 def verification_sent_view(request):
     return _private(render(request, "accounts/verification_sent.html"))
+
+
+def resend_verification_view(request):
+    initial_email = request.user.email if request.user.is_authenticated else ""
+    form = PasswordResetRequestForm(
+        request.POST or None,
+        initial={"email": initial_email},
+    )
+    if request.method == "POST" and form.is_valid():
+        user = _resolve_active_user(form.cleaned_data["email"])
+        if user is not None and not user.email_verified:
+            with transaction.atomic():
+                _queue_verification(user)
+        return redirect("account_verification_sent")
+    return _private(render(request, "accounts/resend_verification.html", {"form": form}))
 
 
 def verify_email_view(request):
@@ -233,7 +251,7 @@ def password_reset_view(request):
             user.save(update_fields=["password", "account_activated"])
         else:
             user.save(update_fields=["password"])
-        return redirect("accounts:password_reset_complete")
+        return redirect("account_password_reset_complete")
     return _private(
         render(
             request,

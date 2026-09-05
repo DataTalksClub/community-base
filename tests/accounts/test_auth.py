@@ -4,13 +4,19 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from allauth.account.models import EmailAddress
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth import get_user_model
+from django.contrib.sites.models import Site
 from django.urls import reverse
 
 from community_base.accounts.adapters import SocialAccountAdapter
 from community_base.accounts.models import EmailAlias
 from community_base.accounts.settings import allauth_settings
-from community_base.accounts.tokens import generate_verification_token
+from community_base.accounts.signals import mark_social_account_added
+from community_base.accounts.tokens import (
+    generate_password_reset_token,
+    generate_verification_token,
+)
 from community_base.mail.backends.memory import outbox
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -42,9 +48,9 @@ def test_allauth_settings_use_email_identity_and_package_adapter():
 
 def test_public_pages_render_from_package(client):
     for name, text in (
-        ("accounts:login", "Sign in"),
-        ("accounts:register", "Create an account"),
-        ("accounts:password_reset_request", "Reset password"),
+        ("account_login", "Sign in"),
+        ("account_register", "Create an account"),
+        ("account_password_reset_request", "Reset password"),
     ):
         response = client.get(reverse(name))
         assert response.status_code == 200
@@ -52,14 +58,32 @@ def test_public_pages_render_from_package(client):
         assert b'class="cb-page"' in response.content
 
 
+def test_login_lists_only_configured_oauth_providers(client):
+    provider = SocialApp.objects.create(
+        provider="google",
+        name="Google",
+        client_id="google-client",
+        secret="google-secret",
+    )
+    provider.sites.add(Site.objects.get_current())
+
+    response = client.get(reverse("account_login"))
+
+    assert response.status_code == 200
+    assert b"Sign in with Google" in response.content
+    assert b'href="/accounts/google/login/' in response.content
+    assert b"Sign in with GitHub" not in response.content
+    assert b"Sign in with Slack" not in response.content
+
+
 def test_registration_queues_verification_logs_in_and_verifies(client):
     response = client.post(
-        reverse("accounts:register"),
+        reverse("account_register"),
         {"email": "New@Example.com", "password": "strong-passphrase"},
     )
 
     assert response.status_code == 302
-    assert response.url == reverse("accounts:verification_sent")
+    assert response.url == reverse("account_verification_sent")
     user = get_user_model().objects.get(email="new@example.com")
     assert user.email_verified is False
     assert user.signup_source == "signup"
@@ -67,9 +91,10 @@ def test_registration_queues_verification_logs_in_and_verifies(client):
     assert str(user.pk) == client.session["_auth_user_id"]
     assert len(outbox) == 1
     assert outbox[0].purpose == "accounts.verify_email"
+    assert outbox[0].context["verify_url"].startswith("http://testserver/api/verify-email?token=")
 
     token = _token_from_message(outbox[0], "verify_url")
-    response = client.get(reverse("accounts:verify_email"), {"token": token})
+    response = client.get(reverse("account_verify_email"), {"token": token})
     user.refresh_from_db()
     assert response.status_code == 200
     assert user.email_verified is True
@@ -82,7 +107,7 @@ def test_registration_rejects_duplicate_email_case_insensitively(client):
     get_user_model().objects.create_user(email="member@example.com", password="password")
 
     response = client.post(
-        reverse("accounts:register"),
+        reverse("account_register"),
         {"email": "MEMBER@example.com", "password": "strong-passphrase"},
     )
 
@@ -96,15 +121,27 @@ def test_verification_does_not_redirect_to_external_return(client):
     user = get_user_model().objects.create_user(email="member@example.com", password="password")
     token = generate_verification_token(user, return_path="https://example.net/stolen")
 
-    response = client.get(reverse("accounts:verify_email"), {"token": token})
+    response = client.get(reverse("account_verify_email"), {"token": token})
 
     assert response.status_code == 200
     assert b"Your email address is verified" in response.content
 
 
+def test_verification_rejects_password_reset_token(client):
+    user = get_user_model().objects.create_user(email="member@example.com", password="password")
+
+    response = client.get(
+        reverse("account_verify_email"),
+        {"token": generate_password_reset_token(user)},
+    )
+
+    assert response.status_code == 400
+    assert b"verification link is invalid" in response.content
+
+
 def test_registration_preserves_safe_verification_return(client):
     client.post(
-        reverse("accounts:register"),
+        reverse("account_register"),
         {
             "email": "return@example.com",
             "password": "strong-passphrase",
@@ -113,7 +150,7 @@ def test_registration_preserves_safe_verification_return(client):
     )
     token = _token_from_message(outbox[0], "verify_url")
 
-    response = client.get(reverse("accounts:verify_email"), {"token": token})
+    response = client.get(reverse("account_verify_email"), {"token": token})
 
     assert response.status_code == 302
     assert response.url == "/events/42/"
@@ -123,7 +160,7 @@ def test_login_accepts_primary_email_and_safe_next(client):
     user = get_user_model().objects.create_user(email="member@example.com", password="password")
 
     response = client.post(
-        reverse("accounts:login") + "?next=/events/",
+        reverse("account_login") + "?next=/events/",
         {"email": "MEMBER@example.com", "password": "password", "next": "/events/"},
     )
 
@@ -142,12 +179,12 @@ def test_login_accepts_alias_but_never_inactive_primary(client):
     )
 
     alias_response = client.post(
-        reverse("accounts:login"),
+        reverse("account_login"),
         {"email": "old@example.com", "password": "password"},
     )
-    client.post(reverse("accounts:logout"))
+    client.post(reverse("account_logout"))
     disabled_response = client.post(
-        reverse("accounts:login"),
+        reverse("account_login"),
         {"email": "disabled@example.com", "password": "password"},
     )
 
@@ -160,28 +197,29 @@ def test_password_reset_is_non_enumerating_and_completes(client):
     user = get_user_model().objects.create_user(email="member@example.com", password="old-password")
 
     missing = client.post(
-        reverse("accounts:password_reset_request"), {"email": "absent@example.com"}
+        reverse("account_password_reset_request"), {"email": "absent@example.com"}
     )
     existing = client.post(
-        reverse("accounts:password_reset_request"), {"email": "member@example.com"}
+        reverse("account_password_reset_request"), {"email": "member@example.com"}
     )
 
     assert missing.status_code == existing.status_code == 200
     assert missing.content == existing.content
     assert len(outbox) == 1
+    assert outbox[0].context["reset_url"].startswith("http://testserver/api/password-reset?token=")
     token = _token_from_message(outbox[0], "reset_url")
 
-    form = client.get(reverse("accounts:password_reset"), {"token": token})
+    form = client.get(reverse("account_password_reset"), {"token": token})
     completed = client.post(
-        reverse("accounts:password_reset"),
+        reverse("account_password_reset"),
         {"token": token, "new_password": "new-strong-password"},
     )
     user.refresh_from_db()
-    replay = client.get(reverse("accounts:password_reset"), {"token": token})
+    replay = client.get(reverse("account_password_reset"), {"token": token})
 
     assert form.status_code == 200
     assert completed.status_code == 302
-    assert completed.url == reverse("accounts:password_reset_complete")
+    assert completed.url == reverse("account_password_reset_complete")
     assert user.check_password("new-strong-password")
     assert user.account_activated is True
     assert replay.status_code == 400
@@ -193,7 +231,7 @@ def test_api_registration_login_resend_and_reset(client):
         data=json.dumps({"email": "api@example.com", "password": "api-password"}),
         content_type="application/json",
     )
-    client.post(reverse("accounts:logout"))
+    client.post(reverse("account_logout"))
     login_response = client.post(
         "/api/login",
         data=json.dumps({"email": "api@example.com", "password": "api-password"}),
@@ -224,17 +262,46 @@ def test_api_registration_login_resend_and_reset(client):
     assert get_user_model().objects.get(email="api@example.com").check_password("changed-password")
 
 
+def test_resend_verification_creates_a_fresh_delivery(client):
+    user = get_user_model().objects.create_user(email="member@example.com", password="password")
+
+    for _attempt in range(2):
+        response = client.post(
+            "/api/resend-verification",
+            data=json.dumps({"email": user.email}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+
+    assert len(outbox) == 2
+    assert outbox[0].context["verify_url"] != outbox[1].context["verify_url"]
+
+
+def test_public_resend_uses_stable_route_and_non_enumerating_result(client):
+    get_user_model().objects.create_user(email="member@example.com", password="password")
+
+    response = client.post(
+        "/accounts/resend-verification",
+        {"email": "member@example.com"},
+    )
+
+    assert reverse("account_resend_verification") == "/accounts/resend-verification"
+    assert response.status_code == 302
+    assert response.url == reverse("account_verification_sent")
+    assert len(outbox) == 1
+
+
 def test_password_reset_request_does_not_send_to_alias_address(client):
     user = get_user_model().objects.create_user(email="primary@example.com", password="password")
     EmailAlias.objects.create(user=user, email="old@example.com", source="merge")
 
-    response = client.post(reverse("accounts:password_reset_request"), {"email": "old@example.com"})
+    response = client.post(reverse("account_password_reset_request"), {"email": "old@example.com"})
 
     assert response.status_code == 200
     assert outbox[0].recipient_email == "primary@example.com"
 
 
-def test_social_adapter_connects_only_single_verified_alias(monkeypatch):
+def test_social_adapter_connects_only_single_verified_alias():
     user = get_user_model().objects.create_user(email="primary@example.com")
     EmailAlias.objects.create(user=user, email="old@example.com", source="merge")
     connected = []
@@ -250,7 +317,7 @@ def test_social_adapter_connects_only_single_verified_alias(monkeypatch):
     assert connected == [user]
 
 
-def test_social_adapter_rejects_unmatched_slack_signup(monkeypatch):
+def test_social_adapter_rejects_unmatched_slack_signup():
     sociallogin = SimpleNamespace(
         is_existing=False,
         user=SimpleNamespace(pk=None),
@@ -258,3 +325,23 @@ def test_social_adapter_rejects_unmatched_slack_signup(monkeypatch):
     )
 
     assert SocialAccountAdapter().is_open_for_signup(None, sociallogin) is False
+
+
+def test_social_account_signal_marks_identity_and_populates_name():
+    user = get_user_model().objects.create_user(email="oauth@example.com")
+    sociallogin = SimpleNamespace(
+        user=user,
+        account=SimpleNamespace(
+            provider="github",
+            extra_data={"name": "Ada Lovelace"},
+        ),
+    )
+
+    mark_social_account_added(None, None, sociallogin)
+
+    user.refresh_from_db()
+    assert user.email_verified is True
+    assert user.account_activated is True
+    assert user.signup_source == "oauth"
+    assert user.first_name == "Ada"
+    assert user.last_name == "Lovelace"
