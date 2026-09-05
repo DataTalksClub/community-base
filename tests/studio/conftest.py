@@ -7,6 +7,7 @@ from testproject.studio_tags import clear as clear_test_tags
 def register_package_studio():
     from community_base.accounts.studio_registration import register_studio as register_accounts
     from community_base.api.studio_registration import register_studio as register_api
+    from community_base.community.studio_registration import register_studio as register_community
     from community_base.config.studio_registration import register_studio as register_config
     from community_base.content_sync.studio_registration import (
         register_studio as register_content_sync,
@@ -23,6 +24,7 @@ def register_package_studio():
     register_accounts()
     register_questionnaires()
     register_onboarding()
+    register_community()
     builtin.register_builtin_section()
     register_config()
     register_api()

@@ -1,0 +1,27 @@
+from django.apps import AppConfig
+
+
+class CommunityConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "community_base.community"
+    label = "community"
+
+    def ready(self):
+        from django.apps import apps
+
+        from community_base.community.import_slack import register_slack_import_adapter
+
+        register_slack_import_adapter()
+
+        if apps.is_installed("community_base.jobs"):
+            from community_base.community.jobs import register_schedules
+
+            register_schedules()
+
+        if apps.is_installed("community_base.studio"):
+            from community_base.community.studio_registration import register_studio
+
+            register_studio()
+
+        if apps.is_installed("community_base.onboarding"):
+            from community_base.community import signals  # noqa: F401
