@@ -10,7 +10,8 @@ def test_openapi_contains_registered_route_and_security_scheme():
     document = build_document()
 
     operation = document["paths"]["/api/v1/fixtures/ping"]["get"]
-    assert operation["security"] == [{"bearerAuth": ["fixtures.read"]}]
+    assert operation["security"] == [{"bearerAuth": []}]
+    assert operation["x-required-scope"] == "fixtures.read"
     assert document["components"]["securitySchemes"]["bearerAuth"]["scheme"] == "bearer"
 
 

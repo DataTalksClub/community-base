@@ -54,7 +54,8 @@ class APIKey(models.Model):
 
     def save(self, *args, **kwargs) -> None:
         self.name = self.name.strip()
-        self.scopes = sorted(set(self.scopes))
+        if isinstance(self.scopes, list) and all(isinstance(scope, str) for scope in self.scopes):
+            self.scopes = sorted(set(self.scopes))
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -106,7 +107,10 @@ class APIKey(models.Model):
             user__is_active=True,
         )
         for candidate in candidates:
-            if check_password(plaintext, candidate.key_hash):
+            owner_is_authorized = candidate.kind != cls.Kind.STAFF or getattr(
+                candidate.user, "is_staff", False
+            )
+            if owner_is_authorized and check_password(plaintext, candidate.key_hash):
                 return candidate
         return None
 
@@ -116,8 +120,11 @@ class APIKey(models.Model):
 
     def revoke(self) -> None:
         if self.revoked_at is None:
-            self.revoked_at = timezone.now()
-            self.save(update_fields=("revoked_at",))
+            revoked_at = timezone.now()
+            type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
+                revoked_at=revoked_at
+            )
+            self.revoked_at = revoked_at
 
     def mark_used(self, request) -> None:
         remote_addr = request.META.get("REMOTE_ADDR", "")

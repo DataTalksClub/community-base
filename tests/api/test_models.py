@@ -40,6 +40,22 @@ def test_staff_key_rejects_non_staff_owner():
 
 
 @pytest.mark.django_db
+def test_staff_key_stops_authenticating_when_owner_is_downgraded():
+    user = get_user_model().objects.create_user(username="operator", is_staff=True)
+    _, plaintext = APIKey.create_for_user(
+        user=user,
+        name="Staff client",
+        scopes=["fixtures.read"],
+        kind=APIKey.Kind.STAFF,
+    )
+
+    user.is_staff = False
+    user.save(update_fields=("is_staff",))
+
+    assert APIKey.authenticate(plaintext) is None
+
+
+@pytest.mark.django_db
 def test_mark_used_hashes_ip_address():
     user = get_user_model().objects.create_user(username="member")
     api_key, _ = APIKey.create_for_user(

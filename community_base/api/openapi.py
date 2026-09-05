@@ -46,8 +46,10 @@ def _operation(entry: Route, parameters: list[dict]) -> dict:
             "401": {"$ref": "#/components/responses/APIError"},
             "403": {"$ref": "#/components/responses/APIError"},
         },
-        "security": [{"bearerAuth": [entry.scope] if entry.scope else []}],
+        "security": [{"bearerAuth": []}],
     }
+    if entry.scope:
+        operation["x-required-scope"] = entry.scope
     if parameters:
         operation["parameters"] = parameters
     if entry.request is not None:

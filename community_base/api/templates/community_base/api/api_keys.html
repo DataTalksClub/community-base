@@ -37,7 +37,7 @@
           <li class="cb-card">
             <h3 class="cb-card-title">{{ api_key.name }}</h3>
             <p class="cb-card-meta">
-              {{ api_key.kind }} · {{ api_key.masked_prefix }} · {{ api_key.scopes|join:", " }}
+              {{ api_key.user }} · {{ api_key.kind }} · {{ api_key.masked_prefix }} · {{ api_key.scopes|join:", " }}
             </p>
             {% if api_key.is_revoked %}
               <span class="cb-badge">Revoked</span>
