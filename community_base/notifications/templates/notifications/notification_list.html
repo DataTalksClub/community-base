@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<h1>Notifications</h1>
+<p><a href="?filter=unread">Unread</a> <a href="{{ all_filter_url }}">All</a></p>
+<ul>{% for notification in notifications %}<li>{% if notification.url %}<a href="{{ notification.url }}">{{ notification.title }}</a>{% else %}{{ notification.title }}{% endif %}{% if notification.body %}<p>{{ notification.body }}</p>{% endif %}</li>{% empty %}<li>No notifications.</li>{% endfor %}</ul>
+{% if page_obj.has_previous %}<a href="?{{ pagination_filter_query }}page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}{% if page_obj.has_next %}<a href="?{{ pagination_filter_query }}page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+{% endblock %}

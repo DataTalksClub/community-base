@@ -4,13 +4,16 @@ from django.urls import include, path
 from community_base.accounts.urls import api_urlpatterns as accounts_api_urlpatterns
 from community_base.api import fixture_views  # noqa: F401
 from community_base.api.registry import urlpatterns as api_urlpatterns
+from community_base.notifications.urls import api_urlpatterns as notifications_api_urlpatterns
 
 urlpatterns = [
     path("accounts/", include("community_base.accounts.urls")),
     path("questionnaires/", include("community_base.questionnaires.urls")),
     path("onboarding/", include("community_base.onboarding.urls")),
+    path("", include("community_base.notifications.urls")),
     path("accounts/community/", include("community_base.community.urls")),
     path("api/", include((accounts_api_urlpatterns, "accounts_api"))),
+    path("api/", include(notifications_api_urlpatterns)),
     path("", include("community_base.mail.urls")),
     path("content-sync/", include("community_base.content_sync.urls")),
     path("admin/", admin.site.urls),
