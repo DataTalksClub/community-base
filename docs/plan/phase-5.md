@@ -90,7 +90,10 @@ Verification
 
 ## C5.3 Release 0.6.0
 
-Repository: community-base. Depends on: C5.1, C5.2. Playbook P15.
+Repository: community-base. Depends on: C3.7, C4.3, C5.2. Playbook P15.
+
+This is the single adoption-ready domain release. Do not publish provisional `v0.4.0` or
+`v0.5.0` releases containing kept-label migrations.
 
 ## A5.1 Map AISL courses to the shared apps
 

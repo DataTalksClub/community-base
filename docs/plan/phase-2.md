@@ -16,7 +16,7 @@ Exit criteria:
 
 ## C2.1 Studio shell
 
-Repository: community-base. Depends on: C0.5.
+Repository: community-base. Depends on: C1.5.
 
 Read first
 - `~/git/ai-shipping-labs/templates/studio/base.html` (1,288 lines), `studio/sidebar.py`,
@@ -91,7 +91,7 @@ Verification
 
 ## C2.3 Content sync engine
 
-Repository: community-base. Depends on: C1.5 (jobs).
+Repository: community-base. Depends on: C1.5, C2.1.
 
 Read first
 - `~/git/ai-shipping-labs/integrations/services/github_sync/` (all modules), `integrations/models/`

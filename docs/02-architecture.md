@@ -63,11 +63,15 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
    and class hooks listed in section 5. Shared Studio templates extend
    `"community_base/studio/base.html"` (the package's, decision D12).
 5. Migrations in the package are append-only after a tag. Never edit a migration that shipped in
-   a tag; add a new one.
-6. Settings. The package reads one dictionary, `settings.COMMUNITY_BASE`, with documented keys and
-   defaults (`community_base/kernel/conf.py`). It never reads arbitrary `settings.X`. The Phase 0
-   kernel keys are exactly `SITE_KEY`, `ACCESS_POLICY`, `JOBS_BACKEND`, `MAIL_BACKEND` and
-   `STUDIO_TITLE`.
+   a tag; add a new one. A kept-label initial migration is provisional and must remain untagged
+   until its compatibility issue verifies the exact donor migration inventory and state. Once
+   tagged, its `replaces` marker remains permanently.
+6. Settings. Package configuration reads one dictionary, `settings.COMMUNITY_BASE`, with
+   documented keys and defaults (`community_base/kernel/conf.py`). Shared code may also use the
+   narrow Django framework settings that define integration contracts: `AUTH_USER_MODEL`,
+   `LOGIN_URL`, `SECRET_KEY`, and a Django setting explicitly named as a declared config fallback.
+   It never reads other arbitrary `settings.X`. The Phase 0 kernel keys are exactly `SITE_KEY`,
+   `ACCESS_POLICY`, `JOBS_BACKEND`, `MAIL_BACKEND` and `STUDIO_TITLE`.
 7. Every network side effect (Relay call, GitHub call, Zoom call, S3 upload) happens in a job
    handler or in an explicit service method called after commit, never inside a model `save()`,
    a signal handler, or a request transaction.
@@ -101,7 +105,9 @@ Label rules:
 
 - A label kept from AISL (`accounts`, `events`, `notifications`, `comments`, `voting`,
   `questionnaires`, `community`) means AISL's existing tables and `django_migrations` rows are reused. The package
-  ships `0001_squashed.py` with `replaces` listing AISL's migration names (playbook P4).
+  ships `0001_squashed.py` with `replaces` listing AISL's migration names (playbook P4). During
+  package-first implementation this migration remains provisional and untagged until donor
+  compatibility is proven.
 - A `cb_` label means new tables. Data is copied from the old site tables by a site-side data
   migration written in the same pull request that installs the app (playbook P6).
 - A label that exists in DTC with different tables (`events`) is replaced during DTC's freeze by

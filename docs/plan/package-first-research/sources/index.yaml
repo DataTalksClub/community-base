@@ -1,0 +1,50 @@
+schema_version: 1
+sources:
+  - id: owner-decisions
+    title: Community-base owner decisions
+    type: architecture-decision-record
+    locator: /home/alexey/git/community-base/docs/01-decisions.md
+    captured: 2026-09-05
+    published: 2026-09-05
+    authority: primary
+    summary: Binding decisions D1-D14 governing repository boundaries, labels, Relay, auth, freezes, and Studio.
+    page: wiki/sources/owner-decisions.md
+    raw:
+    relevance: 1.00
+    status: selected
+  - id: target-architecture
+    title: Community-base target architecture
+    type: architecture
+    locator: /home/alexey/git/community-base/docs/02-architecture.md
+    captured: 2026-09-05
+    published: 2026-09-05
+    authority: primary
+    summary: Defines shared apps, extension points, app labels, migration policy, and package/site boundaries.
+    page: wiki/sources/target-architecture.md
+    raw:
+    relevance: 1.00
+    status: selected
+  - id: execution-plan
+    title: Seven-phase unification issue plan
+    type: implementation-plan
+    locator: /home/alexey/git/community-base/docs/plan/
+    captured: 2026-09-05
+    published: 2026-09-05
+    authority: primary
+    summary: Current issue definitions, dependencies, verification, releases, site adoption, and production gates.
+    page: wiki/sources/execution-plan.md
+    raw:
+    relevance: 1.00
+    status: selected
+  - id: quality-gates
+    title: Community-base quality gates
+    type: process
+    locator: /home/alexey/git/community-base/docs/04-quality-gates.md
+    captured: 2026-09-05
+    published: 2026-09-05
+    authority: primary
+    summary: Mandatory PR, migration, extraction, stop, and phase-completion checks.
+    page: wiki/sources/quality-gates.md
+    raw:
+    relevance: 0.98
+    status: selected

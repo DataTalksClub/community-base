@@ -61,12 +61,16 @@ A seam replaces an import of a site-specific app with a package extension point.
 5. Record the remaining imports in the extraction issue's checklist. Extraction (P4) starts only
    when the list is empty.
 
-## P4. Lift an app from AISL keeping its label
+## P4. Adapt and lift an app from AISL keeping its label
 
 Used for `accounts`, `events`, `notifications`, `comments`, `voting`, `questionnaires`,
-`community`. Requires the P3 checklist to be empty and a freeze (P13).
+`community`. Package-local adaptation may happen before donor preparation, using captured source
+behavior and a provisional initial migration. Donor replacement still requires the P3 checklist
+to be empty, exact migration inventory, compatibility proof and a freeze (P13).
 
-1. In AISL, record the migration names:
+1. For package-local adaptation, record the donor commit SHA and classify copied behavior as
+   moved, adapted or intentionally site-owned. Generate a provisional `0001_squashed.py`, but do
+   not tag it. Before compatibility work, refresh the donor SHA and record the migration names:
    `ls <app>/migrations/ | grep -E '^[0-9]{4}_' | sed 's/\.py$//' | sort > /tmp/<app>_migrations.txt`.
 2. Copy the app into the package: `cp -r ~/git/ai-shipping-labs/<app> ~/git/community-base/community_base/<app>`;
    remove `__pycache__`; remove `migrations/*` except `__init__.py`.
@@ -94,10 +98,10 @@ Used for `accounts`, `events`, `notifications`, `comments`, `voting`, `questionn
      migration.
 8. Rehearse on the development database copy (P14): `migrate` must be a no-op for `<app>` and
    `django_migrations` must gain one row `<app>.0001_squashed`.
-9. Tag the package (P15). Open the AISL pull request that deletes `<app>/`, `templates/<app>/`,
+9. After every kept-label compatibility check passes, tag the package (P15). Open the AISL pull request that deletes `<app>/`, `templates/<app>/`,
    and the app's tests, and bumps the pin. Merge during the freeze.
-10. After AISL production has run one deploy with the squashed migration, open a package pull
-    request that removes the `replaces` list. Never remove it earlier.
+10. Keep the tagged migration and its `replaces` list unchanged. Future schema changes use new
+    migrations.
 
 Checks that must be in the AISL pull request description: the migration count in
 `/tmp/<app>_migrations.txt`, the `migrate --plan` output, and the test count before and after
@@ -298,8 +302,7 @@ During the weekend:
 After the weekend:
 
 1. Remove the `freeze` label. Close the extraction issue with the checks pasted in.
-2. Open the follow-up that removes `replaces` (P4 step 10) with a "not before" date one deploy
-   later.
+2. Keep every tagged migration and its `replaces` marker unchanged.
 
 ## P14. Rehearse migrations on a development database copy
 

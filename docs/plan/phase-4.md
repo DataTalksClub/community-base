@@ -15,7 +15,7 @@ Exit criteria:
 
 ## A4.1 Cut the seams in AISL events
 
-Repository: AI-Shipping-Labs/website. Depends on: A3.3. Playbook P3. One pull request per row.
+Repository: AI-Shipping-Labs/website. Depends on: C5.2, A3.2. Playbook P3. One pull request per row.
 
 | Import in `events` | Replacement |
 |---|---|
@@ -32,7 +32,7 @@ Verification per pull request: playbook P3 step 4. Final: `grep -rn "^from \(con
 
 ## C4.1 Lift events
 
-Repository: community-base. Depends on: A4.1 merged, C3.6. Playbook P4 for `events` (label kept).
+Repository: community-base. Depends on: C3.6. Playbook P4 for `events` (label kept).
 
 Read first
 - `~/git/ai-shipping-labs/events/` after A4.1, `templates/events/`, `templates/studio/events/`,
@@ -60,13 +60,33 @@ Verification
 - `testproject`: create a series with weekly cadence, register a user for the series, add an
   occurrence -> the user is registered for it; unregister one occurrence -> opt-out row exists.
 
-## C4.2 Release 0.5.0
+## C4.2 Events capability checkpoint
 
-Repository: community-base. Depends on: C4.1. Playbook P15.
+Repository: community-base. Depends on: C4.1.
+
+Goal: prove package-local events behavior without tagging the provisional kept-label migration.
+
+Verification
+- Fresh-database migrations and package events tests pass.
+- Both URL styles, registration lifecycles and synthetic integration adapters pass.
+
+## C4.3 Events donor compatibility checkpoint
+
+Repository: community-base. Depends on: C4.2, A4.1.
+
+Goal: finalize the provisional events squash against the prepared AISL donor state.
+
+Steps
+1. Record the exact donor commit SHA, model state, migration names and test count.
+2. Finalize the squash, leaving new shared schema in appended migrations.
+3. Run equivalence, reversibility, synthetic PostgreSQL and development-copy rehearsals.
+
+Done when
+- [ ] the events migrations are adoption compatible and no longer provisional
 
 ## A4.2 Freeze weekend: adopt shared events
 
-Repository: AI-Shipping-Labs/website. Depends on: C4.2, A4.1. Freeze required: yes. Playbook P4 steps 9 and 10, P13.
+Repository: AI-Shipping-Labs/website. Depends on: C5.3, C4.3, A4.1. Freeze required: yes. Playbook P4 steps 9 and 10, P13.
 
 Production checks
 - events list and detail render; a registered member sees the join link within the window;
@@ -75,7 +95,7 @@ Production checks
 
 ## D4.1 Database-authored events in DTC
 
-Repository: DataTalksClub/website. Depends on: C4.2. Playbook P5 for `events`.
+Repository: DataTalksClub/website. Depends on: C5.3. Playbook P5 for `events`.
 
 Read first
 - `events/models.py`, `events/identity.py`, `events/importers.py`, `events/qna/`,

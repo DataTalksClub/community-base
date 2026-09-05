@@ -159,7 +159,7 @@ Docs
 
 ## C0.3 Config app: registry, storage, cache, Studio page, import and export
 
-Repository: community-base. Depends on: C0.2.
+Repository: community-base. Depends on: C0.4.
 
 Goal: one runtime configuration framework that replaces both sites' implementations.
 
@@ -225,15 +225,18 @@ Steps
    handlers; `urlpatterns()` building Django routes under a mount point; `openapi.py` building
    the document with apispec from the registry (port AISL's builder); management command
    `openapi --check` comparing with `api/openapi.json` committed in the site.
+   Add `apispec` as an explicit package dependency.
 4. `errors.py`: one JSON error envelope `{"error": {"code", "message", "details"}}` (take DTC's
    codes), `safety.py` (AISL: body size, pagination bounds, delete policy).
 5. Studio pages for API keys (create with one-time display, revoke), superuser only.
 6. Tests: key create and revoke, scope denial, prefix lookup, OpenAPI check command, envelope.
+   Register a package fixture endpoint that requires `fixtures.read`; C0.4 does not depend on
+   config routes.
 
 Verification
 - `make check && make test` -> pass.
-- `curl -H "Authorization: Bearer <key>" http://127.0.0.1:8000/api/v1/settings` against
-  `testproject` -> 200 JSON list; without header -> 401 envelope; wrong scope -> 403 envelope.
+- `curl -H "Authorization: Bearer <key>" http://127.0.0.1:8000/api/v1/fixtures/ping` against
+  `testproject` -> 200 JSON; without header -> 401 envelope; wrong scope -> 403 envelope.
 
 Done when
 - [ ] `docs/api.md` in the package describes auth, scopes, envelope, pagination and the check command

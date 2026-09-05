@@ -155,14 +155,34 @@ Steps
 Verification
 - squash equivalence in AISL for each app; `testproject` bell shows unread count after a signal.
 
-## C3.6 Release 0.4.0
+## C3.6 Identity and community capability checkpoint
 
-Repository: community-base. Depends on: C3.1, C3.2, C3.3, C3.4, C3.5. Playbook P15.
+Repository: community-base. Depends on: C3.1, C3.2, C3.3, C3.4, C3.5.
+
+Goal: prove package-local identity and community behavior without tagging provisional kept-label
+migrations.
+
+Verification
+- Fresh-database migrations and package tests pass with all identity/community apps installed.
+- Behavior coverage matrices classify copied donor tests as moved, adapted or site-owned.
+
+## C3.7 Identity donor compatibility checkpoint
+
+Repository: community-base. Depends on: C3.6, A3.2, D3.1.
+
+Goal: finalize provisional kept-label migrations against prepared donor schemas before release.
+
+Steps
+1. Record exact AISL and DTC donor commit SHAs, model state, migration names and test counts.
+2. Finalize each kept-label squash and append genuinely new shared schema in later migrations.
+3. Run donor equivalence, reversibility, synthetic PostgreSQL and development-copy rehearsals.
+
+Done when
+- [ ] every identity/community migration is adoption compatible and no longer provisional
 
 ## A3.1 Move tier and Stripe fields off the user model
 
-Repository: AI-Shipping-Labs/website. Depends on: nothing in the package; must land before C3.1
-generates its squash. Playbook P7, AISL part, step 1.
+Repository: AI-Shipping-Labs/website. Depends on: C5.2. Playbook P7, AISL part, step 1.
 
 Steps
 1. `payments.Membership(user OneToOne, tier FK, pending_tier FK, billing_period_end,
@@ -194,11 +214,11 @@ Verification
 
 ## A3.3 Freeze weekend: adopt shared accounts, questionnaires, community, notifications, comments, voting
 
-Repository: AI-Shipping-Labs/website. Depends on: C3.6, A3.2. Freeze required: yes. Playbook P4 for each app, P13.
+Repository: AI-Shipping-Labs/website. Depends on: C5.3, C3.7, A3.2. Freeze required: yes. Playbook P4 for each app, P13.
 
 Steps
 1. Delete local `accounts` (keep `accounts_ext` if created), `questionnaires`, `community`,
-   `notifications`, `comments`, `voting`; install the package apps; pin `v0.4.0`.
+   `notifications`, `comments`, `voting`; install the package apps; pin `v0.6.0`.
 2. Wire hooks: `ONBOARDING_ELIGIBILITY` (paid members), `ONBOARDING_PLAN_STEP` (sprint plans),
    `CALENDLY=True`, notification sources for plans, bookclub, workshops.
 3. Rehearse with P14: `migrate --plan` shows only `0001_squashed` marker rows for the six labels
@@ -210,11 +230,11 @@ Production checks
 - Studio users list renders with tier pills.
 
 Done when
-- [ ] checks pasted in the issue, freeze removed, follow-up to drop `replaces` opened
+- [ ] checks pasted in the issue, freeze removed, tagged `replaces` markers retained
 
 ## D3.1 Extension models and user model rename
 
-Repository: DataTalksClub/website. Depends on: D2.1 (may start earlier; nothing in the package is needed). Playbook P7, DTC part,
+Repository: DataTalksClub/website. Depends on: C5.2. Playbook P7, DTC part,
 steps 1 to 3.
 
 Steps
@@ -229,7 +249,7 @@ Verification
 
 ## D3.2 Freeze weekend: adopt shared accounts and onboarding
 
-Repository: DataTalksClub/website. Depends on: C3.6, D3.1. Freeze required: yes. Playbook P7 step 4, P13.
+Repository: DataTalksClub/website. Depends on: C5.3, C3.7, D3.1. Freeze required: yes. Playbook P7 step 4, P13.
 
 Steps
 1. Delete local `accounts` app code except `accounts_ext`; install `community_base.accounts`,
