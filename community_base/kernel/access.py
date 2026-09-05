@@ -48,7 +48,8 @@ class RegisteredOnlyPolicy(OpenPolicy):
 
 
 def _configured_policy() -> AccessPolicy:
-    policy = resolve(get("ACCESS_POLICY"))
+    configured = get("ACCESS_POLICY")
+    policy = resolve(configured) if isinstance(configured, str) else configured
     return policy() if isinstance(policy, type) else policy
 
 

@@ -1,0 +1,3 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Onboarding progress{% endblock %}
+{% block studio_content %}<h1>Onboarding progress</h1><ul>{% for progress in progress_records %}<li>{{ progress.user }} — {{ progress.flow }} — {% if progress.completed_at %}Complete{% elif progress.current_step %}{{ progress.current_step.get_kind_display }}{% else %}Not started{% endif %}</li>{% empty %}<li>No progress records.</li>{% endfor %}</ul>{% endblock %}

@@ -11,3 +11,4 @@
 2026-09-05T20:31:00+02:00 | build | implemented C3.1d session-authenticated account and profile surfaces with revision-safe writes | guideline
 2026-09-05T20:45:00+02:00 | build | implemented C3.1e Studio account operations, integration documentation, and complete AISL account-test classification | guideline
 2026-09-05T19:02:59+02:00 | build | implemented C3.2 questionnaires, Studio authoring and review, optional AI transport, integration documentation, and complete AISL test classification | guideline
+2026-09-05T19:24:32+02:00 | build | implemented C3.3 configurable onboarding flows, resumable step adapters, eligibility and plan hooks, completion signal, Studio management, and AISL test classification | guideline

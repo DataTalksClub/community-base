@@ -8,6 +8,7 @@ from community_base.api.registry import urlpatterns as api_urlpatterns
 urlpatterns = [
     path("accounts/", include("community_base.accounts.urls")),
     path("questionnaires/", include("community_base.questionnaires.urls")),
+    path("onboarding/", include("community_base.onboarding.urls")),
     path("api/", include((accounts_api_urlpatterns, "accounts_api"))),
     path("", include("community_base.mail.urls")),
     path("content-sync/", include("community_base.content_sync.urls")),
@@ -17,6 +18,7 @@ urlpatterns = [
     path("studio/", include("community_base.studio.urls")),
     path("studio/", include("community_base.accounts.studio_urls")),
     path("studio/", include("community_base.questionnaires.studio_urls")),
+    path("studio/", include("community_base.onboarding.studio_urls")),
     path("studio/", include("community_base.jobs.studio_urls")),
     path("studio/", include("community_base.mail.studio_urls")),
     path("studio/", include("community_base.content_sync.studio_urls")),

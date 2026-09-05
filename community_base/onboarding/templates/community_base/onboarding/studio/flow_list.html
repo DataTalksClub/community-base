@@ -1,0 +1,3 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Onboarding flows{% endblock %}
+{% block studio_content %}<h1>Onboarding flows</h1><a href="{% url 'onboarding_studio_flow_create' %}">Create flow</a><ul>{% for flow in flows %}<li><a href="{% url 'onboarding_studio_flow_detail' flow.pk %}">{{ flow.title }}</a> — {{ flow.step_count }} steps, {{ flow.assignment_count }} assignments, {{ flow.progress_count }} progress records</li>{% empty %}<li>No flows.</li>{% endfor %}</ul><a href="{% url 'onboarding_studio_progress_list' %}">View progress</a>{% endblock %}
