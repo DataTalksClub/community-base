@@ -16,7 +16,7 @@ from community_base.events.models import Event, EventIntegrationAttempt, EventRe
 from community_base.events.registration import register_for_event
 from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import JobContext, registered_handler_names, registered_schedules
-from community_base.jobs.runner import PermanentJobError, RetryableJobError
+from community_base.jobs.runner import PermanentJobError, RetryableJobError, run_intent
 from community_base.mail.models import EmailDelivery
 
 pytestmark = pytest.mark.django_db
@@ -43,6 +43,16 @@ def context(*, job_id=None, attempt=1):
         attempt=attempt,
         worker_id="test-worker",
         lease_token=uuid.uuid4(),
+    )
+
+
+def zoom_intent(item):
+    return JobIntent.objects.create(
+        handler="events.sync_zoom",
+        key_hash=uuid.uuid4().hex + uuid.uuid4().hex,
+        payload={"event_id": item.pk, "action": "create"},
+        payload_hash=uuid.uuid4().hex + uuid.uuid4().hex,
+        available_at=timezone.now(),
     )
 
 
@@ -175,6 +185,36 @@ def test_zoom_retry_after_worker_crash_does_not_repeat_provider_mutation(monkeyp
     assert EventIntegrationAttempt.objects.get(pk=job_id).status == "ambiguous"
 
 
+def test_zoom_oauth_failure_retries_same_intent_then_succeeds(monkeypatch):
+    item = event(required_level=0)
+    intent = zoom_intent(item)
+
+    class TemporaryClient:
+        def create_meeting(self, request, *, before_mutation):
+            del request, before_mutation
+            raise ZoomTemporaryError("temporary")
+
+    monkeypatch.setattr(jobs, "ZoomClient", TemporaryClient)
+    assert run_intent(intent.pk) == "failed"
+    intent.refresh_from_db()
+    assert intent.last_error == "zoom_temporarily_unavailable"
+    assert EventIntegrationAttempt.objects.get(pk=intent.pk).status == "starting"
+
+    class SuccessfulClient:
+        def create_meeting(self, request, *, before_mutation):
+            del request
+            before_mutation()
+            return ZoomMeetingResult("456", "https://zoom.example.com/j/456")
+
+    monkeypatch.setattr(jobs, "ZoomClient", SuccessfulClient)
+    JobIntent.objects.filter(pk=intent.pk).update(available_at=timezone.now())
+    assert run_intent(intent.pk) == "succeeded"
+    item.refresh_from_db()
+    intent.refresh_from_db()
+    assert item.zoom_meeting_id == "456"
+    assert intent.attempts == 2
+
+
 def test_recording_job_uses_opaque_reference_and_maps_disabled_configuration(settings):
     item = event(required_level=0)
     with pytest.raises(PermanentJobError, match="event_recording_not_configured"):
@@ -183,17 +223,26 @@ def test_recording_job_uses_opaque_reference_and_maps_disabled_configuration(set
             {"event_id": item.pk, "recording_reference": "recording-42"},
         )
 
+    calls = []
+
+    def processor(_event, reference):
+        calls.append(reference)
+        return {"recording_url": "https://recordings.example.com/event.mp4"}
+
     configured = dict(settings.COMMUNITY_BASE)
-    configured["EVENT_RECORDING_PROCESSOR"] = lambda _event, _reference: {
-        "recording_url": "https://recordings.example.com/event.mp4"
-    }
+    configured["EVENT_RECORDING_PROCESSOR"] = processor
     settings.COMMUNITY_BASE = configured
+    jobs.process_recording_handler(
+        None,
+        {"event_id": item.pk, "recording_reference": "recording-42"},
+    )
     jobs.process_recording_handler(
         None,
         {"event_id": item.pk, "recording_reference": "recording-42"},
     )
     item.refresh_from_db()
     assert item.recording_url == "https://recordings.example.com/event.mp4"
+    assert calls == ["recording-42"]
 
     with pytest.raises(PermanentJobError, match="invalid_event_recording_payload"):
         jobs.process_recording_handler(

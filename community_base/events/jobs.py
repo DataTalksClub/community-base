@@ -240,6 +240,8 @@ def process_recording_handler(context: JobContext, payload: JobPayload):
     event = Event.objects.filter(pk=event_id).first()
     if event is None:
         raise PermanentJobError("event_not_found")
+    if event.recording_url or event.recording_embed_url or event.recording_s3_url:
+        return
     try:
         process_recording(event, reference)
     except (requests.Timeout, requests.ConnectionError) as error:
