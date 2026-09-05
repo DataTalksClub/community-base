@@ -122,7 +122,7 @@ def render(issues: list[dict], status: dict[str, dict]) -> str:
                 f"{issue['freeze']} | {row['status']} | {row['link']} |"
             )
         out.append("")
-    return "\n".join(out)
+    return "\n".join(out).rstrip()
 
 
 def cmd_check() -> int:
