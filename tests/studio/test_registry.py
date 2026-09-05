@@ -40,6 +40,7 @@ def test_sections_are_sorted_with_their_destinations():
         "earlier",
         "later",
         "people",
+        "onboarding",
         "operations",
     ]
     assert sections()[1].destinations[0].key == "a"
