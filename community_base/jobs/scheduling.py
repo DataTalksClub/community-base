@@ -47,11 +47,14 @@ def desired_local_schedules() -> tuple[LocalScheduleSpec, ...]:
 
 def schedule_changes(existing: dict[str, dict]) -> tuple[tuple[str, str], ...]:
     changes = []
+    desired_names = set()
     for spec in desired_local_schedules():
+        desired_names.add(spec.name)
         current = existing.get(spec.name)
         expected = {"func": spec.func, "cron": spec.cron, "kwargs": spec.kwargs, "repeats": -1}
         action = "create" if current is None else "unchanged" if current == expected else "update"
         changes.append((action, spec.name))
+    changes.extend(("delete", name) for name in sorted(existing.keys() - desired_names))
     return tuple(changes)
 
 

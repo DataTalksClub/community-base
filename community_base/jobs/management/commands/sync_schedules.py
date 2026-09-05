@@ -28,7 +28,6 @@ class Command(BaseCommand):
                 "The django_q jobs backend requires community-base[django_q]."
             ) from error
 
-        names = [spec.name for spec in desired_local_schedules()]
         existing = {
             row.name: {
                 "func": row.func,
@@ -36,15 +35,21 @@ class Command(BaseCommand):
                 "kwargs": parse_stored_kwargs(row.kwargs),
                 "repeats": row.repeats,
             }
-            for row in Schedule.objects.filter(name__in=names)
+            for row in Schedule.objects.filter(name__startswith="community-base:")
         }
         changes = schedule_changes(existing)
         for action, name in changes:
             self.stdout.write(f"{action}: {name}")
         if options["dry_run"]:
             return
+        for action, name in changes:
+            if action == "delete":
+                Schedule.objects.filter(name=name).delete()
+        actions = {name: action for action, name in changes}
         for spec in desired_local_schedules():
-            Schedule.objects.update_or_create(
+            if actions[spec.name] == "unchanged":
+                continue
+            row, created = Schedule.objects.update_or_create(
                 name=spec.name,
                 defaults={
                     "func": spec.func,
@@ -54,3 +59,6 @@ class Command(BaseCommand):
                     "kwargs": spec.kwargs,
                 },
             )
+            if not created:
+                row.next_run = row.calculate_next_run()
+                row.save(update_fields=("next_run",))

@@ -91,10 +91,17 @@ def test_schedule_diff_identifies_create_update_and_unchanged():
             "kwargs": hourly.kwargs,
             "repeats": -1,
         },
+        "community-base:removed": {
+            "func": "removed.handler",
+            "cron": "0 0 * * *",
+            "kwargs": {},
+            "repeats": -1,
+        },
     }
     assert schedule_changes(existing) == (
         ("unchanged", "community-base:jobs-run-due"),
         ("update", "community-base:tests.operations.hourly"),
+        ("delete", "community-base:removed"),
     )
     assert schedule_changes({}) == (
         ("create", "community-base:jobs-run-due"),
