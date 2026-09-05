@@ -170,6 +170,9 @@ def test_account_page_uses_package_template_contract(client):
 
     assert anonymous.status_code == 302
     assert response.status_code == 200
+    assert {"private", "no-cache", "no-store", "max-age=0"} == set(
+        response["Cache-Control"].split(", ")
+    )
     assert b'<main class="cb-page">' in response.content
     assert b'data-cb-api-form="/api/v1/me/profile"' in response.content
     assert b'id="email-preferences"' in response.content

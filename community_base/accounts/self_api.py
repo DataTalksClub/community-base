@@ -146,6 +146,12 @@ def post_me_password(request):
     new_password = values.get("new_password", "")
     if not isinstance(current_password, str) or not isinstance(new_password, str):
         raise APIError(400, "invalid_password_fields", "Password fields must be strings.")
+    if len(current_password) > 4096 or len(new_password) > 4096:
+        raise APIError(
+            400,
+            "invalid_password_fields",
+            "Password fields must be at most 4096 characters.",
+        )
     user = request.user
     if user.has_usable_password() and not user.check_password(current_password):
         raise APIError(400, "invalid_current_password", "Current password is incorrect.")
@@ -193,7 +199,14 @@ def get_me_data_export(request):
     authentication="session",
 )
 def post_me_deletion_request(request):
-    read_json_object(request)
+    values = read_json_object(request)
+    if values:
+        raise APIError(
+            400,
+            "unknown_fields",
+            "Deletion requests do not accept additional fields.",
+            details={"fields": sorted(values)},
+        )
     deletion_request, created = request_account_deletion(request.user)
     return JsonResponse(
         {
