@@ -74,8 +74,8 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
    `SITE_URL`, `ACCESS_POLICY`, `JOBS_BACKEND`, `MAIL_BACKEND`, `MAIL_TEMPLATE_DIR`, `RELAY_BASE_URL`,
    `RELAY_API_KEY`, `RELAY_WEBHOOK_SECRET` and `STUDIO_TITLE`.
    Mail also declares `MAIL_PREFERENCE_RESOLVER`, `MAIL_SEND_RECORDER`,
-   `MAIL_TEMPLATE_OVERRIDE_LOADER` and `MAIL_UNSUBSCRIBE_URL_BUILDER`; the latter three default
-   to no hook.
+   `MAIL_TEMPLATE_OVERRIDE_LOADER`, `MAIL_UNSUBSCRIBE_URL_BUILDER` and
+   `MAIL_VERIFY_EMAIL_URL_BUILDER`; the latter four default to no hook.
 7. Every network side effect (Relay call, GitHub call, Zoom call, S3 upload) happens in a job
    handler or in an explicit service method called after commit, never inside a model `save()`,
    a signal handler, or a request transaction.
@@ -184,6 +184,7 @@ COMMUNITY_BASE = {
     "MAIL_BACKEND": "relay",                  # AISL: "ses_local" until decision D13 is satisfied
     "MAIL_TEMPLATE_DIR": None,                # ses_local only: directory of markdown templates
     "MAIL_UNSUBSCRIBE_URL_BUILDER": "email_app.hooks.build_unsubscribe_url",
+    "MAIL_VERIFY_EMAIL_URL_BUILDER": "email_app.hooks.build_verify_email_url",
     "RELAY_BASE_URL": env("RELAY_BASE_URL"),
     "RELAY_API_KEY": env("RELAY_API_KEY"),
     "RELAY_WEBHOOK_SECRET": env("RELAY_WEBHOOK_SECRET"),

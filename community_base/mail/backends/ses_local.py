@@ -31,6 +31,7 @@ class RenderedEmail:
     body_html: str
     html: str
     unsubscribe_url: str | None
+    verify_email_url: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +120,7 @@ def render_delivery(delivery: EmailDelivery, context: Mapping) -> RenderedEmail:
         ],
     )
     unsubscribe_url = _unsubscribe_url(delivery)
+    verify_email_url = _optional_url("MAIL_VERIFY_EMAIL_URL_BUILDER", delivery)
     html = render_to_string(
         "community_base/mail/email.html",
         {
@@ -126,6 +128,7 @@ def render_delivery(delivery: EmailDelivery, context: Mapping) -> RenderedEmail:
             "body_html": body_html,
             "site_name": site_name,
             "unsubscribe_url": unsubscribe_url,
+            "verify_email_url": verify_email_url,
             "footer_note": footer_note,
         },
     )
@@ -134,6 +137,7 @@ def render_delivery(delivery: EmailDelivery, context: Mapping) -> RenderedEmail:
         body_html=body_html,
         html=html,
         unsubscribe_url=unsubscribe_url,
+        verify_email_url=verify_email_url,
     )
 
 
@@ -143,9 +147,10 @@ def _load_template_source(template_key: str) -> tuple[str, str, str]:
     loader = _hook("MAIL_TEMPLATE_OVERRIDE_LOADER")
     override = loader(template_key) if loader else None
     if override is not None:
-        if not isinstance(override, (tuple, list)) or len(override) != 2:
+        if not isinstance(override, (tuple, list)) or len(override) not in {2, 3}:
             raise PermanentJobError("invalid_mail_template_override")
-        return str(override[0]), str(override[1]), ""
+        footer_note = str(override[2]) if len(override) == 3 else ""
+        return str(override[0]), str(override[1]), footer_note
 
     root = get("MAIL_TEMPLATE_DIR")
     if not root:
@@ -266,14 +271,18 @@ def _record(delivery: EmailDelivery, rendered: RenderedEmail, result: SESResult)
 
 
 def _unsubscribe_url(delivery: EmailDelivery) -> str | None:
-    builder = _hook("MAIL_UNSUBSCRIBE_URL_BUILDER")
+    return _optional_url("MAIL_UNSUBSCRIBE_URL_BUILDER", delivery)
+
+
+def _optional_url(hook_name: str, delivery: EmailDelivery) -> str | None:
+    builder = _hook(hook_name)
     if not builder:
         return None
     value = builder(delivery)
     if value is None:
         return None
     if not isinstance(value, str) or urlparse(value).scheme not in {"http", "https"}:
-        raise PermanentJobError("invalid_unsubscribe_url")
+        raise PermanentJobError("invalid_mail_action_url")
     return value
 
 

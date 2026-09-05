@@ -217,7 +217,12 @@ def test_override_hook_wins_over_filesystem(settings):
         **settings.COMMUNITY_BASE,
         "MAIL_TEMPLATE_DIR": FIXTURES,
         "MAIL_TEMPLATE_OVERRIDE_LOADER": lambda key: (
-            ("Overridden {{ value }}", "Body **{{ value }}**") if key == "password_reset" else None
+            ("Overridden {{ value }}", "Body **{{ value }}**", "Custom footer")
+            if key == "password_reset"
+            else None
+        ),
+        "MAIL_VERIFY_EMAIL_URL_BUILDER": (
+            lambda delivery: "https://aishippinglabs.com/api/verify-email?token=test-token"
         ),
     }
     delivery = EmailDelivery(
@@ -229,6 +234,9 @@ def test_override_hook_wins_over_filesystem(settings):
     rendered = render_delivery(delivery, {"value": "content"})
     assert rendered.subject == "Overridden content"
     assert rendered.body_html == "<p>Body <strong>content</strong></p>"
+    assert "Custom footer" in rendered.html
+    assert "Your email is not verified" in rendered.html
+    assert rendered.verify_email_url.endswith("token=test-token")
 
 
 @pytest.mark.django_db(transaction=True)
