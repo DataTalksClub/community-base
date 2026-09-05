@@ -9,8 +9,25 @@ The projection states are `pending`, `queued`, `leased`, `provider_accepted`, `d
 does not mean delivery. Callback transitions are monotonic and callback event IDs are deduplicated.
 
 `MAIL_BACKEND` defaults to `memory`. Its `outbox` is a process-local test surface and supports
-`outbox.clear()`. Relay transport is added separately by C1.2b; `ses_local` is transitional and is
-added by C1.3.
+`outbox.clear()`. The `relay` backend submits the durable delivery to
+`POST /api/transactional/send`; connection failures retry, an uncertain acknowledgement becomes
+`ambiguous`, and Relay suppression is terminal. `ses_local` is transitional and is added by C1.3.
+
+Mount `community_base.mail.urls` at the site root. It owns the exact recipient-link routes plus
+`POST /internal/mail/callback`. Relay callbacks use HMAC-SHA256 over
+`<X-Relay-Timestamp>.<raw body>` with `RELAY_WEBHOOK_SECRET`, accept at most five minutes of clock
+skew, deduplicate `event_id`, and monotonically project delivery state. Bodies and signatures are
+never logged.
+
+`reconcile_deliveries(since)` reads `GET /api/transactional/messages?since=`, matches
+`client_reference` to the local idempotency key and applies the same projection. The Relay client
+also provides draft upsert, catalog/version listing, publish, preview and allowlisted test-send
+operations. Mount `community_base.mail.studio_urls` under `/studio/` for delivery and template
+operations.
+
+The catalog, versioned send, callback and reconciliation endpoints are package-pinned contracts for
+Relay issues R1.3 and R1.4. FakeRelay proves them locally; real conformance is not claimed until
+those issues merge.
 
 Hooks:
 

@@ -73,6 +73,7 @@ def serialize(delivery: EmailDelivery, *, detail: bool = False) -> dict:
                 "callbacks": [
                     {
                         "event_id": event.event_id,
+                        "event_type": event.event_type,
                         "state": event.state,
                         "reason_code": event.reason_code or None,
                         "received_at": event.received_at.isoformat(),
