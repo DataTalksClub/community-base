@@ -19,6 +19,12 @@ from community_base.accounts.services.email_resolution import (
 )
 from community_base.accounts.services.free_welcome import send_free_welcome
 from community_base.accounts.services.merge import MergeError, merge_accounts
+from community_base.accounts.services.privacy import (
+    build_user_data_export,
+    delete_account_for_privacy,
+    request_account_deletion,
+    write_export_log,
+)
 from community_base.accounts.services.timezones import (
     build_timezone_options,
     format_user_datetime,
@@ -250,3 +256,74 @@ def test_merge_rejects_self_and_staff_without_force():
         merge_accounts(staff, staff)
     with pytest.raises(MergeError, match="force"):
         merge_accounts(member, staff)
+
+
+def test_privacy_export_contains_portable_data_without_credentials():
+    user = get_user_model().objects.create_user(
+        email="member@example.com",
+        password="secret-password",
+        tags=["member"],
+    )
+    MemberProfile.objects.create(user=user, country="DE", about="About me")
+    EmailAlias.objects.create(user=user, email="old@example.com", source="merge")
+
+    exported = build_user_data_export(user)
+    log = write_export_log(user)
+
+    assert exported["account"]["email"] == "member@example.com"
+    assert exported["account"]["tags"] == ["member"]
+    assert "password" not in exported["account"]
+    assert exported["member_profile"]["about"] == "About me"
+    assert exported["email_aliases"][0]["email"] == "old@example.com"
+    assert log.normalized_email_hash != user.email
+    assert "member@example.com" not in log.normalized_email_hash
+
+
+def test_deletion_request_is_idempotent():
+    user = get_user_model().objects.create_user(email="member@example.com")
+
+    first, created = request_account_deletion(user)
+    second, created_again = request_account_deletion(user)
+
+    assert created is True
+    assert created_again is False
+    assert first.pk == second.pk
+
+
+def test_privacy_delete_anonymizes_retained_delivery_and_deletes_user():
+    user = get_user_model().objects.create_user(email="member@example.com")
+    with transaction.atomic():
+        delivery = send(
+            "accounts.private_notice",
+            user.email,
+            {"private": "value"},
+            "accounts:test:privacy-delete",
+            user=user,
+        )
+    request, _created = request_account_deletion(user)
+    user_id = user.pk
+
+    result = delete_account_for_privacy(user)
+
+    delivery.refresh_from_db()
+    request.refresh_from_db()
+    assert result.deleted is True
+    assert get_user_model().objects.filter(pk=user_id).exists() is False
+    assert delivery.recipient_user is None
+    assert delivery.recipient_email.endswith("@deleted.invalid")
+    assert delivery.context_data == {}
+    assert request.status == "completed"
+
+
+def test_privacy_delete_respects_site_blocker():
+    user = get_user_model().objects.create_user(email="member@example.com")
+    configured = {
+        "ACCOUNT_DELETION_BLOCKER": lambda **kwargs: "active_subscription",
+    }
+
+    with override_settings(COMMUNITY_BASE=configured):
+        result = delete_account_for_privacy(user)
+
+    assert result.deleted is False
+    assert result.blocker_reason == "active_subscription"
+    assert get_user_model().objects.filter(pk=user.pk).exists() is True
