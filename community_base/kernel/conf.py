@@ -18,6 +18,7 @@ DEFAULTS = {
     "SITE_URL": "",
     "STUDIO_TITLE": "Community Studio",
     "STUDIO_AUDIT_WRITER": "community_base.studio.audit.discard_audit_event",
+    "USER_TAGS_ACCESSOR": "community_base.studio.user_tags.AttributeTagsAccessor",
 }
 
 

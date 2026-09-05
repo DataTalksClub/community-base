@@ -35,7 +35,13 @@ def test_sections_are_sorted_with_their_destinations():
         )
     )
 
-    assert [section.slug for section in sections()] == ["home", "earlier", "later", "operations"]
+    assert [section.slug for section in sections()] == [
+        "home",
+        "earlier",
+        "later",
+        "people",
+        "operations",
+    ]
     assert sections()[1].destinations[0].key == "a"
 
 

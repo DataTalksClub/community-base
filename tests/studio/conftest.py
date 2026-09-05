@@ -1,6 +1,7 @@
 import pytest
 
-from community_base.studio import builtin, providers, registry
+from community_base.studio import builtin, providers, registry, user_registry
+from testproject.studio_tags import clear as clear_test_tags
 
 
 def register_package_studio():
@@ -20,8 +21,12 @@ def register_package_studio():
 def isolated_studio_registries():
     registry._clear()
     providers._clear()
+    user_registry._clear()
+    clear_test_tags()
     register_package_studio()
     yield
     registry._clear()
     providers._clear()
+    user_registry._clear()
+    clear_test_tags()
     register_package_studio()

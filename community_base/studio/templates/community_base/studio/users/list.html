@@ -1,0 +1,16 @@
+{% extends "community_base/studio/base.html" %}{% load studio_filters %}
+{% block title %}Users | {{ studio_title }}{% endblock %}
+{% block content %}
+<div class="cb-page">
+  <header class="flex flex-wrap items-center justify-between gap-3"><div><h1 class="cb-page-title">Users</h1><p class="cb-card-meta">{{ filtered_total }} matching account{{ filtered_total|pluralize }}</p></div><a class="cb-button" href="{% url 'studio_user_export' %}{% if export_query %}?{{ export_query }}{% endif %}">Export CSV</a></header>
+  <form method="get" class="flex flex-wrap gap-3 rounded-lg border border-border bg-card p-4">
+    <input class="rounded-lg border border-border bg-secondary px-3 py-2" name="q" value="{{ query }}" placeholder="Search users">
+    <select class="rounded-lg border border-border bg-secondary px-3 py-2" name="status"><option value="">All statuses</option><option value="active"{% if status == 'active' %} selected{% endif %}>Active</option><option value="staff"{% if status == 'staff' %} selected{% endif %}>Staff</option><option value="inactive"{% if status == 'inactive' %} selected{% endif %}>Inactive</option></select>
+    <input class="rounded-lg border border-border bg-secondary px-3 py-2" name="tag" value="{{ tag }}" list="known-user-tags" placeholder="Tag"><datalist id="known-user-tags">{% for item in known_tags %}<option value="{{ item }}">{% endfor %}</datalist>
+    <button class="cb-button" type="submit">Filter</button>
+  </form>
+  <div class="studio-responsive-table overflow-x-auto rounded-lg border border-border bg-card"><table class="w-full"><thead class="bg-secondary"><tr><th class="px-4 py-3 text-left">User</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Tags</th>{% for column in columns %}<th class="px-4 py-3 text-left">{{ column.label }}</th>{% endfor %}<th class="px-4 py-3"></th></tr></thead><tbody class="divide-y divide-border">
+    {% for row in rows %}<tr><td class="px-4 py-3" data-label="User"><a class="font-medium hover:underline" href="{% url 'studio_user_detail' row.user.pk %}">{{ row.display_name }}</a><div class="text-xs text-muted-foreground">{{ row.user.email }}</div></td><td class="px-4 py-3" data-label="Status">{% studio_status_badge row.status %}</td><td class="px-4 py-3" data-label="Tags">{{ row.tags|join:", "|default:"—" }}</td>{% for extra in row.columns %}<td class="px-4 py-3" data-label="{{ extra.definition.label }}">{{ extra.value }}</td>{% endfor %}<td class="studio-actions-cell px-4 py-3"><a class="cb-button" href="{% url 'studio_user_detail' row.user.pk %}">View</a></td></tr>{% empty %}{% studio_empty_state 'filter' 'user' 'users' colspan=5 %}{% endfor %}
+  </tbody></table>{% if show_pager %}{% include "community_base/studio/includes/list_pager.html" %}{% endif %}</div>
+</div>
+{% endblock %}
