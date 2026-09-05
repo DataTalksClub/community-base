@@ -14,7 +14,7 @@ Exit criteria:
 - Both sites sync content through `community_base.content_sync`; AISL's
   `integrations/services/github_sync/` and DTC's `content_sync/` directories are gone.
 
-## C2.1 Studio shell
+## C2.1a Studio shell, registry and security
 
 Repository: community-base. Depends on: C1.5.
 
@@ -41,36 +41,50 @@ Steps
    route_names, order, superuser_only=False)`, `register(section)`, `sections()`,
    `active_state(request)` (port of `sidebar.py` logic), `section_only_routes`,
    `routes_without_home`.
-4. Management command `studio_routes --check`: every URL name under the Studio mount must be in
-   exactly one destination, in `section_only_routes`, or in `routes_without_home`; prints the
-   offenders and exits 1.
-5. Templatetags from `studio_filters.py` that are generic: `studio_list_filter`,
+4. Templatetags from `studio_filters.py` that are generic: `studio_list_filter`,
    `studio_empty_state`, `studio_status_badge`, `studio_list_action`, `studio_header_actions`,
    `studio_overflow_menu`, pager, `operator_date*`, `studio_list_class`, `studio_action_class`,
    `model_name`, `dict_get`. AISL-specific tags (tier pills, SES explain, UTM presets) stay in
    AISL.
-6. Global search: registry of providers `register_search_provider(name, callable)`; the view
+5. Global search: registry of providers `register_search_provider(name, callable)`; the view
    merges results. Dashboard: registry of card providers.
-7. Impersonation: port AISL `impersonate.py` (start, stop, banner) guarded by `superuser_required`
+6. Impersonation: port AISL `impersonate.py` (start, stop, banner) guarded by `superuser_required`
    and audited through a hook `STUDIO_AUDIT_WRITER`.
-8. Re-home the standalone Studio pages from Phase 0 and 1 (config, API keys, jobs, mail) onto
-   the shell and register their sections (`Operations`).
-9. Tests: registry partition check, active state for a deep route, templatetags, impersonation
-   guard, base renders in `testproject`.
+7. Tests: registry primitives, active state for a deep route, templatetags, impersonation guard,
+   search and dashboard provider aggregation, and the base rendering in `testproject`.
 
 Verification
 - `make css-build && git status --porcelain community_base/studio/static` -> only intended changes.
 - `make check && make test` -> pass.
-- `uv run python testproject/manage.py studio_routes --check` -> `OK`.
-- `testproject` `/studio/` with a staff session -> 200, sidebar shows `Operations` with Settings,
-  API keys, Jobs, Mail.
+- `testproject` `/studio/` with a staff session -> 200 and the registered shell renders.
 
 Done when
 - [ ] `community_base/studio/README.md` documents registration, blocks, templatetags, the CSS build
 
+## C2.1b Integrate existing package Studio screens
+
+Repository: community-base. Depends on: C2.1a.
+
+Steps
+1. Re-home the standalone Studio pages from Phase 0 and 1 (config, API keys, jobs, mail) onto the
+   shell and register their destinations in the `Operations` section.
+2. Add `studio_routes --check`: every URL name under the Studio mount must be in exactly one
+   destination, in `section_only_routes`, or in `routes_without_home`; print offenders and exit 1.
+3. Generalise AISL's route partition test and cover a deep active destination for each mounted
+   package app.
+
+Verification
+- `make check && make test` -> pass.
+- `uv run python testproject/manage.py studio_routes --check` -> `OK`.
+- `testproject` `/studio/` with a staff session -> 200, sidebar shows `Operations` with Settings,
+  API keys, Jobs and Mail.
+
+Done when
+- [ ] every Phase 0 and 1 Studio page extends the shared shell and owns one registered destination
+
 ## C2.2 Users management in Studio
 
-Repository: community-base. Depends on: C2.1.
+Repository: community-base. Depends on: C2.1b.
 
 Read first
 - `~/git/ai-shipping-labs/studio/views/users.py`, `member_notes.py`, `tags.py`, `templates/studio/users/`,
@@ -91,7 +105,7 @@ Verification
 
 ## C2.3 Content sync engine
 
-Repository: community-base. Depends on: C1.5, C2.1.
+Repository: community-base. Depends on: C1.5, C2.1a.
 
 Read first
 - `~/git/ai-shipping-labs/integrations/services/github_sync/` (all modules), `integrations/models/`
@@ -124,7 +138,7 @@ Verification
 
 ## C2.4 Release 0.3.0
 
-Repository: community-base. Depends on: C2.1, C2.2, C2.3. Playbook P15.
+Repository: community-base. Depends on: C2.1b, C2.2, C2.3. Playbook P15.
 
 ## A2.1 Adopt the Studio shell
 
