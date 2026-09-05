@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "community_base.jobs",
     "community_base.mail",
     "community_base.studio",
+    "community_base.content_sync",
 ]
 
 MIDDLEWARE = [

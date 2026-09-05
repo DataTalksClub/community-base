@@ -7,6 +7,9 @@ from testproject.studio_tags import clear as clear_test_tags
 def register_package_studio():
     from community_base.api.studio_registration import register_studio as register_api
     from community_base.config.studio_registration import register_studio as register_config
+    from community_base.content_sync.studio_registration import (
+        register_studio as register_content_sync,
+    )
     from community_base.jobs.studio_registration import register_studio as register_jobs
     from community_base.mail.studio_registration import register_studio as register_mail
 
@@ -15,6 +18,7 @@ def register_package_studio():
     register_api()
     register_jobs()
     register_mail()
+    register_content_sync()
 
 
 @pytest.fixture(autouse=True)

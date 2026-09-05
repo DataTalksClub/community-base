@@ -1,0 +1,17 @@
+{% extends "community_base/studio/base.html" %}
+{% block title %}Content sources{% endblock %}
+{% block content %}
+<div class="cb-page">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Content sources</h1>
+    <p><a href="{% url 'community_base_content_sync_history' %}">History</a> · <a href="{% url 'community_base_content_sync_worker' %}">Worker status</a></p>
+  </header>
+  {% if sources %}<ul class="cb-list">
+    {% for source in sources %}<li class="cb-card">
+      <h2 class="cb-card-title"><a href="{% url 'community_base_content_source_edit' source.id %}">{{ source.repo_name }}</a></h2>
+      <p class="cb-card-meta"><span class="cb-badge">{{ source.last_sync_status|default:"never synced" }}</span> {% if source.is_enabled %}enabled{% else %}disabled{% endif %} · commit {{ source.short_synced_commit|default:"none" }}</p>
+      <form method="post" action="{% url 'community_base_content_source_sync' source.id %}">{% csrf_token %}<button class="cb-button" type="submit">Sync now</button>{% if not source.is_enabled %}<label><input type="checkbox" name="force" value="1"> Force disabled source</label>{% endif %}</form>
+    </li>{% endfor %}
+  </ul>{% else %}<p class="cb-empty">No content sources. Seed them with the management command.</p>{% endif %}
+</div>
+{% endblock %}
