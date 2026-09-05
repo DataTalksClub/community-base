@@ -37,7 +37,7 @@ issues that can start now.
 | `R1.5` | DataTalksClub/relay | Preference categories and double opt-in |  | no | todo |  |
 | `C1.1a` | community-base | Durable jobs core and local backends | C0.5 | no | done | https://github.com/DataTalksClub/community-base/pull/19 |
 | `C1.1b` | community-base | Relay jobs client and contract tests | C1.1a | no | done | https://github.com/DataTalksClub/community-base/pull/22 |
-| `C1.2a` | community-base | Durable mail core, memory backend, and local surfaces | C1.1a | no | in-progress | https://github.com/DataTalksClub/community-base/issues/25 |
+| `C1.2a` | community-base | Durable mail core, memory backend, and local surfaces | C1.1a | no | in-progress | https://github.com/DataTalksClub/community-base/pull/26 |
 | `C1.2b` | community-base | Relay mail, catalog, callback, and reconciliation clients | C1.1b, C1.2a | no | todo |  |
 | `C1.3` | community-base | ses_local backend (transitional, for AISL) | C1.2a | no | todo |  |
 | `C1.4` | community-base | Test doubles exported for sites | C1.1a, C1.1b, C1.2a, C1.2b | no | todo |  |
