@@ -70,8 +70,9 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
    documented keys and defaults (`community_base/kernel/conf.py`). Shared code may also use the
    narrow Django framework settings that define integration contracts: `AUTH_USER_MODEL`,
    `LOGIN_URL`, `SECRET_KEY`, and a Django setting explicitly named as a declared config fallback.
-   It never reads other arbitrary `settings.X`. The Phase 0 kernel keys are exactly `SITE_KEY`,
-   `ACCESS_POLICY`, `JOBS_BACKEND`, `MAIL_BACKEND` and `STUDIO_TITLE`.
+   It never reads other arbitrary `settings.X`. The declared kernel keys are `SITE_KEY`,
+   `SITE_URL`, `ACCESS_POLICY`, `JOBS_BACKEND`, `MAIL_BACKEND`, `RELAY_BASE_URL`,
+   `RELAY_API_KEY`, `RELAY_WEBHOOK_SECRET` and `STUDIO_TITLE`.
 7. Every network side effect (Relay call, GitHub call, Zoom call, S3 upload) happens in a job
    handler or in an explicit service method called after commit, never inside a model `save()`,
    a signal handler, or a request transaction.

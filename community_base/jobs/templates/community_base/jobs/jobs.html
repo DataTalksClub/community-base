@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Durable jobs{% endblock %}
+
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Durable jobs</h1></header>
+
+  {% if messages %}
+    {% for message in messages %}<p class="cb-alert">{{ message }}</p>{% endfor %}
+  {% endif %}
+
+  <section aria-labelledby="job-intents-title">
+    <h2 id="job-intents-title">Active and failed intents</h2>
+    {% if intents %}
+      <ul class="cb-list">
+        {% for intent in intents %}
+          <li class="cb-card" data-job-intent="{{ intent.id }}">
+            <h3 class="cb-card-title">{{ intent.handler }}</h3>
+            <p class="cb-card-meta">
+              <span class="cb-badge">{{ intent.status }}</span>
+              Intent {{ intent.id }} · attempts {{ intent.attempts }}/{{ intent.max_attempts }} · available {{ intent.available_at }}
+            </p>
+            {% if intent.last_error %}<p>Error code: <code>{{ intent.last_error }}</code></p>{% endif %}
+            {% if intent.status == "failed" or intent.status == "dead" %}
+              <form class="cb-form" method="post" action="{% url 'community_base_job_retry' intent.id %}">
+                {% csrf_token %}
+                <label class="cb-field">Type retry <input name="confirmation" autocomplete="off"></label>
+                <button class="cb-button" type="submit">Retry</button>
+              </form>
+            {% endif %}
+            {% if intent.status != "dead" %}
+              <form class="cb-form" method="post" action="{% url 'community_base_job_discard' intent.id %}">
+                {% csrf_token %}
+                <label class="cb-field">Type discard <input name="confirmation" autocomplete="off"></label>
+                <button class="cb-button" type="submit">Discard</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="cb-empty">No active or failed durable jobs.</p>
+    {% endif %}
+  </section>
+
+  <section aria-labelledby="job-schedules-title">
+    <h2 id="job-schedules-title">Schedules</h2>
+    {% if schedules %}
+      <ul class="cb-list">
+        {% for schedule in schedules %}
+          <li class="cb-card">
+            <h3 class="cb-card-title">{{ schedule.definition.name }}</h3>
+            <p class="cb-card-meta">{{ schedule.definition.handler }} · <code>{{ schedule.definition.cron }}</code></p>
+            <p>Last run: {{ schedule.last_run|default:"Not available" }} · Next run: {{ schedule.next_run|default:"Not available" }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="cb-empty">No durable job schedules are registered.</p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}
