@@ -20,7 +20,7 @@ Exit criteria:
 
 ## R6.1 AISL tenant and SES identity in Relay production
 
-Repository: DataTalksClub/relay, aws-infra by pull request. Depends on: D13 gate.
+Repository: DataTalksClub/relay, aws-infra by pull request. Depends on: D1.3, D5.2 (and the D13 gate: four clean weeks of DTC production on Relay).
 
 Steps
 1. Record the gate evidence in the issue: DTC production start date, incident log, status
@@ -144,7 +144,7 @@ Verification
 
 ## A6.4 Freeze weekend: AISL production on Relay
 
-Playbook P13.
+Repository: AI-Shipping-Labs/website. Depends on: A6.3. Freeze required: yes. Playbook P13.
 
 Production checks
 - `jobs_ingress_selftest` -> `OK`; the 15-minute health schedule fires from Relay;

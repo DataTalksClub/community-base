@@ -1,0 +1,21 @@
+name: plan-check
+on:
+  push:
+  pull_request:
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: STATUS.md matches the phase files
+        run: python scripts/plan.py check
+      - name: STATUS.md is regenerated
+        run: |
+          python scripts/plan.py sync
+          git diff --exit-code -- docs/plan/STATUS.md
+      - name: No bold formatting in docs
+        run: |
+          if grep -rn '\*\*[^*`]' README.md AGENTS.md docs/ | grep -v '`[^`]*\*\*[^`]*`'; then echo "bold found"; exit 1; fi

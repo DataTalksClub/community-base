@@ -157,7 +157,7 @@ Verification
 
 ## C3.6 Release 0.4.0
 
-Playbook P15.
+Repository: community-base. Depends on: C3.1, C3.2, C3.3, C3.4, C3.5. Playbook P15.
 
 ## A3.1 Move tier and Stripe fields off the user model
 
@@ -194,7 +194,7 @@ Verification
 
 ## A3.3 Freeze weekend: adopt shared accounts, questionnaires, community, notifications, comments, voting
 
-Repository: AI-Shipping-Labs/website. Depends on: C3.6, A3.2. Playbook P4 for each app, P13.
+Repository: AI-Shipping-Labs/website. Depends on: C3.6, A3.2. Freeze required: yes. Playbook P4 for each app, P13.
 
 Steps
 1. Delete local `accounts` (keep `accounts_ext` if created), `questionnaires`, `community`,
@@ -214,7 +214,7 @@ Done when
 
 ## D3.1 Extension models and user model rename
 
-Repository: DataTalksClub/website. Depends on: nothing in the package. Playbook P7, DTC part,
+Repository: DataTalksClub/website. Depends on: D2.1 (may start earlier; nothing in the package is needed). Playbook P7, DTC part,
 steps 1 to 3.
 
 Steps
@@ -229,7 +229,7 @@ Verification
 
 ## D3.2 Freeze weekend: adopt shared accounts and onboarding
 
-Repository: DataTalksClub/website. Depends on: C3.6, D3.1. Playbook P7 step 4, P13.
+Repository: DataTalksClub/website. Depends on: C3.6, D3.1. Freeze required: yes. Playbook P7 step 4, P13.
 
 Steps
 1. Delete local `accounts` app code except `accounts_ext`; install `community_base.accounts`,

@@ -62,11 +62,11 @@ Verification
 
 ## C4.2 Release 0.5.0
 
-Playbook P15.
+Repository: community-base. Depends on: C4.1. Playbook P15.
 
 ## A4.2 Freeze weekend: adopt shared events
 
-Repository: AI-Shipping-Labs/website. Depends on: C4.2. Playbook P4 steps 9 and 10, P13.
+Repository: AI-Shipping-Labs/website. Depends on: C4.2, A4.1. Freeze required: yes. Playbook P4 steps 9 and 10, P13.
 
 Production checks
 - events list and detail render; a registered member sees the join link within the window;
@@ -104,7 +104,7 @@ Verification
 
 ## D4.2 Freeze weekend: DTC events cutover
 
-Repository: DataTalksClub/website. Depends on: D4.1. Playbook P13 on the development environment
+Repository: DataTalksClub/website. Depends on: D4.1. Freeze required: yes. Playbook P13 on the development environment
 (and production if DTC is live by then).
 
 Checks

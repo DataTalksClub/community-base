@@ -90,7 +90,7 @@ Verification
 
 ## C5.3 Release 0.6.0
 
-Playbook P15.
+Repository: community-base. Depends on: C5.1, C5.2. Playbook P15.
 
 ## A5.1 Map AISL courses to the shared apps
 
@@ -114,7 +114,7 @@ Verification
 
 ## A5.2 Freeze weekend: AISL courses cutover
 
-Playbook P13. Production checks: course catalog, one gated unit for a Basic member (allowed) and
+Repository: AI-Shipping-Labs/website. Depends on: A5.1. Freeze required: yes. Playbook P13. Production checks: course catalog, one gated unit for a Basic member (allowed) and
 a Free member (paywall), progress toggle persists, purchase flow grants access.
 
 ## D5.1 Map DTC course platform data to the shared apps
@@ -137,7 +137,7 @@ Verification
 
 ## D5.2 Freeze weekend: DTC courses cutover and self-paced mode
 
-Playbook P13 on the development environment. Checks: cohort page, homework submission, leaderboard,
+Repository: DataTalksClub/website. Depends on: D5.1. Freeze required: yes. Playbook P13 on the development environment. Checks: cohort page, homework submission, leaderboard,
 project peer review, certificate download, one self-paced course created in Studio with a unit
 visible to a registered member.
 

@@ -124,7 +124,7 @@ Verification
 
 ## C2.4 Release 0.3.0
 
-Playbook P15.
+Repository: community-base. Depends on: C2.1, C2.2, C2.3. Playbook P15.
 
 ## A2.1 Adopt the Studio shell
 

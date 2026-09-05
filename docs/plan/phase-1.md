@@ -314,7 +314,7 @@ Verification
 
 ## C1.5 Release 0.2.0
 
-Repository: community-base. Depends on: C1.1 to C1.4. Playbook P15.
+Repository: community-base. Depends on: C1.1, C1.2, C1.3, C1.4. Playbook P15.
 
 ## D1.1 Replace DTC jobs with the package jobs app (relay backend)
 
@@ -380,7 +380,7 @@ Done when
 
 ## D1.3 Freeze weekend: DTC on Relay in production
 
-Repository: DataTalksClub/website. Depends on: D1.1, D1.2. Playbook P13.
+Repository: DataTalksClub/website. Depends on: D1.1, D1.2. Freeze required: yes. Playbook P13.
 
 Production checks after deploy:
 - `jobs_ingress_selftest` in the production container -> `OK`.
