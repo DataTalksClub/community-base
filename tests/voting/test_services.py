@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
 
 from community_base.accounts.models import User
@@ -11,6 +12,7 @@ from community_base.voting.services import (
     VoteLimitReached,
     VotingAccessDenied,
     available_polls,
+    can_vote_in_poll,
     emit_poll_opened,
     poll_options,
     propose,
@@ -45,6 +47,15 @@ def test_registered_target_controls_visibility_and_recipients():
     assert available_polls(owner) == ()
     assert target.recipient_ids(item, event="voted", actor=voter) == (owner.pk,)
     assert emit_poll_opened(item, actor=voter) == (owner.pk,)
+
+
+def test_registered_target_cannot_authorize_anonymous_vote():
+    item = poll()
+    register_voting_target(
+        "topic", can_view=lambda _poll, _user: True, can_vote=lambda _poll, _user: True
+    )
+
+    assert can_vote_in_poll(item, AnonymousUser()) is False
 
 
 def test_vote_toggle_creates_and_removes_only_the_request_users_vote():

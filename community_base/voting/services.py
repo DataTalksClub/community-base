@@ -37,7 +37,9 @@ def can_view_poll(poll, user):
 
 
 def can_vote_in_poll(poll, user):
-    return bool(voting_target_for(poll).can_vote(poll, user))
+    return bool(getattr(user, "is_authenticated", False)) and bool(
+        voting_target_for(poll).can_vote(poll, user)
+    )
 
 
 def available_polls(user):

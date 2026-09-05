@@ -1,5 +1,6 @@
 import json
 
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.cache import never_cache
@@ -96,7 +97,7 @@ def vote_toggle(request, poll_id):
         if not option_id:
             raise VotingError("option_id is required")
         transition = toggle_vote_service(poll=poll, option_id=option_id, user=request.user)
-    except PollOption.DoesNotExist:
+    except (PollOption.DoesNotExist, ValidationError):
         return _private(JsonResponse({"error": "Option not found"}, status=404))
     except (PollClosed, VotingAccessDenied) as error:
         return _private(JsonResponse({"error": str(error)}, status=403))

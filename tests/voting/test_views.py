@@ -158,6 +158,16 @@ def test_vote_endpoint_rejects_invalid_bodies(client, body):
     assert response.headers["Cache-Control"] == "private, no-store, max-age=0"
 
 
+def test_vote_endpoint_returns_not_found_for_malformed_option_id(client):
+    member = user()
+    item = poll()
+    client.force_login(member)
+
+    response = post_json(client, f"/api/vote/{item.pk}/vote", {"option_id": "not-a-uuid"})
+
+    assert response.status_code == 404
+
+
 def test_vote_endpoint_rejects_wrong_option_limit_closed_and_expired(client):
     member = user()
     item = poll(max_votes_per_user=1)
