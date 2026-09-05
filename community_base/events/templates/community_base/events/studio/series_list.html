@@ -1,0 +1,6 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Event series{% endblock %}
+{% block studio_content %}
+<h1>Event series</h1><p><a href="{% url 'events_studio_series_create' %}">Create series</a></p>
+<ul>{% for series in series_list %}<li><a href="{% url 'events_studio_series_edit' series.pk %}">{{ series.name }}</a> · {{ series.cadence }} <form method="post" action="{% url 'events_studio_series_delete' series.pk %}">{% csrf_token %}<button type="submit">Delete</button></form></li>{% empty %}<li>No event series.</li>{% endfor %}</ul>
+{% endblock %}

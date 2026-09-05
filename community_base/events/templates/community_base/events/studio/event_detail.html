@@ -1,0 +1,15 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ event.title }}{% endblock %}
+{% block studio_content %}
+<h1>{{ event.title }}</h1>
+<p>{{ event.start_datetime }} · {{ event.status }} · public ID {{ event.public_id|default:"not allocated" }}</p>
+<nav><a href="{% url 'events_studio_edit' event.pk %}">Edit event</a> · <a href="{{ event.get_absolute_url }}">Public page</a></nav>
+
+<section><h2>Invite a guest</h2><form method="post" action="{% url 'events_studio_invite_guest' event.pk %}">{% csrf_token %}{{ guest_form.as_p }}<button type="submit">Queue invitation</button></form></section>
+
+<section><h2>Registrations</h2><table><thead><tr><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody>
+{% for registration in registrations %}<tr><td>{{ registration.normalized_email }}</td><td>{{ registration.status }}</td><td><form method="post" action="{% url 'events_studio_registration_state' event.pk registration.pk %}">{% csrf_token %}{{ state_form.state }}<button type="submit">Update</button></form></td></tr>{% empty %}<tr><td colspan="3">No registrations.</td></tr>{% endfor %}
+</tbody></table></section>
+
+<form method="post" action="{% url 'events_studio_delete' event.pk %}">{% csrf_token %}<button type="submit">Delete event</button></form>
+{% endblock %}

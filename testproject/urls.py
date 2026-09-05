@@ -24,6 +24,7 @@ urlpatterns = [
     path("internal/jobs/", include("community_base.jobs.urls")),
     path("studio/", include("community_base.studio.urls")),
     path("studio/", include("community_base.accounts.studio_urls")),
+    path("studio/", include("community_base.events.studio_urls")),
     path("studio/", include("community_base.questionnaires.studio_urls")),
     path("studio/", include("community_base.onboarding.studio_urls")),
     path("studio/", include("community_base.community.studio_urls")),
