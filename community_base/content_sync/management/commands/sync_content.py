@@ -13,7 +13,11 @@ class Command(BaseCommand):
         parser.add_argument("--force", action="store_true")
 
     def handle(self, *args, **options):
-        sources = ContentSource.objects.filter(is_enabled=True)
+        sources = (
+            ContentSource.objects.all()
+            if options["force"]
+            else ContentSource.objects.filter(is_enabled=True)
+        )
         if options["source_slug"]:
             sources = sources.filter(slug=options["source_slug"])
         sources = list(sources)

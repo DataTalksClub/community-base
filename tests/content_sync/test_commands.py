@@ -2,7 +2,7 @@ import json
 
 import pytest
 from django.core.exceptions import ValidationError
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 
 from community_base.content_sync.models import ContentSource
 from community_base.content_sync.orchestration import UpsertResult
@@ -104,3 +104,26 @@ def test_seed_validation_rolls_back_all_sources(settings):
         call_command("seed_content_sources")
 
     assert not ContentSource.objects.exists()
+
+
+def test_force_allows_disabled_source_from_disk(tmp_path, capsys):
+    source = ContentSource.objects.create(
+        slug="disabled",
+        repo_name="example/disabled",
+        webhook_secret="secret",
+        is_enabled=False,
+    )
+    (tmp_path / "one.json").write_text('{"title": "One"}')
+    register_parser("fixture", CommandParser())
+
+    with pytest.raises(CommandError, match="No matching enabled"):
+        call_command("sync_content", source_slug=source.slug, from_disk=str(tmp_path))
+    call_command(
+        "sync_content",
+        source_slug=source.slug,
+        from_disk=str(tmp_path),
+        force=True,
+    )
+
+    assert FixtureContent.objects.get().title == "One"
+    assert "disabled: success created=1" in capsys.readouterr().out
