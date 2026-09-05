@@ -4,6 +4,8 @@ import uuid
 
 from community_base.jobs.registry import JobContext, JobPayload, register_handler
 from community_base.jobs.runner import PermanentJobError
+from community_base.kernel.conf import get
+from community_base.kernel.hooks import resolve
 from community_base.mail.backends import get_backend
 from community_base.mail.models import EmailDelivery
 from community_base.mail.unsubscribe import (
@@ -26,8 +28,17 @@ def deliver(context: JobContext, payload: JobPayload) -> None:
         delivery = EmailDelivery.objects.get(pk=delivery_id)
     except EmailDelivery.DoesNotExist as error:
         raise PermanentJobError("mail_delivery_not_found") from error
+    context_data = dict(delivery.context_data)
+    context_resolver = get("MAIL_CONTEXT_RESOLVER")
+    if context_resolver is not None:
+        resolver = (
+            resolve(context_resolver) if isinstance(context_resolver, str) else context_resolver
+        )
+        context_data = resolver(delivery=delivery, context=context_data)
+        if not isinstance(context_data, dict):
+            raise PermanentJobError("invalid_mail_context")
     backend = get_backend()
-    backend.deliver(delivery, delivery.context_data)
+    backend.deliver(delivery, context_data)
     EmailDelivery.objects.filter(pk=delivery.id, state=EmailDelivery.State.PENDING).update(
         state=EmailDelivery.State.PROVIDER_ACCEPTED
     )

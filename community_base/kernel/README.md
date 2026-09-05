@@ -7,6 +7,11 @@ idempotency and service contracts used by all shared apps.
 
 | Key | Type | Default |
 |---|---|---|
+| `ACCOUNT_BEFORE_DELETE_HOOK` | dotted path, callable or `None` | `None` |
+| `ACCOUNT_DELETION_BLOCKER` | dotted path, callable or `None` | `None` |
+| `ACCOUNT_MERGE_HOOK` | dotted path, callable or `None` | `None` |
+| `ACCOUNT_PRIVACY_EXPORT_HOOK` | dotted path, callable or `None` | `None` |
+| `ACCOUNT_UNVERIFIED_TTL_DAYS` | positive integer days | `7` |
 | `CONTENT_SOURCES` | list of source dictionaries | `[]` |
 | `CONTENT_SYNC_GITHUB_API_URL` | absolute URL | `"https://api.github.com"` |
 | `CONTENT_SYNC_GITHUB_APP_ID` | `str` | `""` |
@@ -23,7 +28,8 @@ idempotency and service contracts used by all shared apps.
 | `ACCESS_POLICY` | dotted path or policy object | `"community_base.kernel.access.OpenPolicy"` |
 | `JOBS_BACKEND` | `str` | `"sync"` |
 | `MAIL_BACKEND` | `str` | `"memory"` |
-| `MAIL_PREFERENCE_RESOLVER` | dotted path or callable | `"community_base.mail.preferences.allow_all"` |
+| `MAIL_CONTEXT_RESOLVER` | dotted path, callable or `None` | `"community_base.accounts.mail_context.resolve_delivery_context"` |
+| `MAIL_PREFERENCE_RESOLVER` | dotted path or callable | `"community_base.accounts.preferences.resolve_mail_preference"` |
 | `MAIL_SEND_RECORDER` | dotted path, callable or `None` | `None` |
 | `MAIL_TEMPLATE_DIR` | path or `None` | `None` |
 | `MAIL_TEMPLATE_OVERRIDE_LOADER` | dotted path, callable or `None` | `None` |

@@ -2,6 +2,11 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 DEFAULTS = {
+    "ACCOUNT_BEFORE_DELETE_HOOK": None,
+    "ACCOUNT_DELETION_BLOCKER": None,
+    "ACCOUNT_MERGE_HOOK": None,
+    "ACCOUNT_PRIVACY_EXPORT_HOOK": None,
+    "ACCOUNT_UNVERIFIED_TTL_DAYS": 7,
     "CONTENT_SOURCES": [],
     "CONTENT_SYNC_GITHUB_API_URL": "https://api.github.com",
     "CONTENT_SYNC_GITHUB_APP_ID": "",
@@ -18,7 +23,8 @@ DEFAULTS = {
     "ACCESS_POLICY": "community_base.kernel.access.OpenPolicy",
     "JOBS_BACKEND": "sync",
     "MAIL_BACKEND": "memory",
-    "MAIL_PREFERENCE_RESOLVER": "community_base.mail.preferences.allow_all",
+    "MAIL_CONTEXT_RESOLVER": "community_base.accounts.mail_context.resolve_delivery_context",
+    "MAIL_PREFERENCE_RESOLVER": "community_base.accounts.preferences.resolve_mail_preference",
     "MAIL_SEND_RECORDER": None,
     "MAIL_TEMPLATE_DIR": None,
     "MAIL_TEMPLATE_OVERRIDE_LOADER": None,

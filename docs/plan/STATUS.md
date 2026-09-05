@@ -69,7 +69,7 @@ issues that can start now.
 |---|---|---|---|---|---|---|
 | `C3.1a` | community-base | Target accounts schema | C2.4 | no | done | https://github.com/DataTalksClub/community-base/pull/60 |
 | `C3.1b` | community-base | Authentication and public account entry points | C3.1a | no | done | https://github.com/DataTalksClub/community-base/pull/63 |
-| `C3.1c` | community-base | Account domain services and mail preferences | C3.1b | no | todo |  |
+| `C3.1c` | community-base | Account domain services and mail preferences | C3.1b | no | in-progress | https://github.com/DataTalksClub/community-base/pull/68 |
 | `C3.1d` | community-base | Account pages and self API | C3.1c | no | todo |  |
 | `C3.1e` | community-base | Studio account operations and documentation | C3.1d | no | todo |  |
 | `C3.2` | community-base | Questionnaires | C3.1e | no | todo |  |

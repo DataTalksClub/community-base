@@ -1,6 +1,7 @@
 import datetime
 import hashlib
 import json
+import uuid
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model, login, logout
@@ -17,18 +18,20 @@ from community_base.accounts.forms import (
     PasswordResetRequestForm,
     RegistrationForm,
 )
-from community_base.accounts.models import EmailAlias
 from community_base.accounts.oauth import provider_context
 from community_base.accounts.return_urls import safe_return_path
+from community_base.accounts.services.email_resolution import resolve_user_by_email
+from community_base.accounts.services.verification import (
+    claim_verification_resend,
+    release_verification_resend,
+    unverified_user_ttl_days,
+)
 from community_base.accounts.tokens import (
     ActionTokenError,
-    generate_password_reset_token,
-    generate_verification_token,
     load_password_reset_token,
     load_verification_token,
     password_reset_token_matches,
 )
-from community_base.kernel.conf import get
 from community_base.mail import send as send_mail
 
 AUTH_BACKEND = f"{ModelBackend.__module__}.{ModelBackend.__name__}"
@@ -42,55 +45,38 @@ def _private(response):
     return response
 
 
-def _site_url(path):
-    return f"{get('SITE_URL').rstrip('/')}{path}"
-
-
-def _mail_key(purpose, user, token):
-    fingerprint = hashlib.sha256(token.encode()).hexdigest()[:24]
+def _mail_key(purpose, user, nonce):
+    fingerprint = hashlib.sha256(str(nonce).encode()).hexdigest()[:24]
     return f"accounts:{purpose}:{user.pk}:{fingerprint}"
 
 
 def _queue_verification(user, return_path=""):
-    token = generate_verification_token(user, return_path=return_path)
+    nonce = uuid.uuid4()
     send_mail(
         "accounts.verify_email",
         user.email,
-        {"verify_url": _site_url(f"/api/verify-email?token={token}")},
-        _mail_key("verify", user, token),
+        {"return_path": return_path} if return_path else {},
+        _mail_key("verify", user, nonce),
         user=user,
     )
-    return token
+    return nonce
 
 
 def _queue_password_reset(user):
-    token = generate_password_reset_token(user)
+    nonce = uuid.uuid4()
     send_mail(
         "accounts.password_reset",
         user.email,
-        {"reset_url": _site_url(f"/api/password-reset?token={token}")},
-        _mail_key("password-reset", user, token),
+        {},
+        _mail_key("password-reset", user, nonce),
         user=user,
     )
-    return token
-
-
-def _resolve_active_user(email):
-    User = get_user_model()
-    user = User.objects.filter(email__iexact=email, is_active=True).first()
-    if user is not None:
-        return user
-    alias = (
-        EmailAlias.objects.select_related("user")
-        .filter(email__iexact=email, user__is_active=True)
-        .first()
-    )
-    return alias.user if alias else None
+    return nonce
 
 
 def _authenticate(email, password):
     User = get_user_model()
-    user = _resolve_active_user(email)
+    user = resolve_user_by_email(email)
     if user is not None and user.has_usable_password() and user.check_password(password):
         return user
     if user is None or not user.has_usable_password():
@@ -104,7 +90,8 @@ def _create_user(form):
             email=form.cleaned_data["email"],
             password=form.cleaned_data["password"],
             signup_source="signup",
-            verification_expires_at=timezone.now() + datetime.timedelta(days=7),
+            verification_expires_at=timezone.now()
+            + datetime.timedelta(days=unverified_user_ttl_days()),
         )
         token = _queue_verification(user, form.cleaned_data.get("next", ""))
     return user, token
@@ -162,10 +149,15 @@ def resend_verification_view(request):
         initial={"email": initial_email},
     )
     if request.method == "POST" and form.is_valid():
-        user = _resolve_active_user(form.cleaned_data["email"])
-        if user is not None and not user.email_verified:
-            with transaction.atomic():
-                _queue_verification(user)
+        user = resolve_user_by_email(form.cleaned_data["email"])
+        claim = claim_verification_resend(user.pk) if user is not None else None
+        if claim is not None:
+            try:
+                with transaction.atomic():
+                    _queue_verification(user)
+            except Exception:
+                release_verification_resend(user.pk, claim)
+                raise
         return redirect("account_verification_sent")
     return _private(render(request, "accounts/resend_verification.html", {"form": form}))
 
@@ -228,7 +220,7 @@ def password_reset_request_view(request):
         request.POST or None, initial={"email": request.GET.get("email", "")}
     )
     if request.method == "POST" and form.is_valid():
-        user = _resolve_active_user(form.cleaned_data["email"])
+        user = resolve_user_by_email(form.cleaned_data["email"])
         if user is not None:
             with transaction.atomic():
                 _queue_password_reset(user)
@@ -324,10 +316,15 @@ def resend_verification_api(request):
     if data is None:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
     email = str(data.get("email", "")).strip().lower()
-    user = _resolve_active_user(email)
-    if user is not None and not user.email_verified:
-        with transaction.atomic():
-            _queue_verification(user, safe_return_path(data.get("next"), ""))
+    user = resolve_user_by_email(email)
+    claim = claim_verification_resend(user.pk) if user is not None else None
+    if claim is not None:
+        try:
+            with transaction.atomic():
+                _queue_verification(user, safe_return_path(data.get("next"), ""))
+        except Exception:
+            release_verification_resend(user.pk, claim)
+            raise
     return JsonResponse({"status": "ok"})
 
 
@@ -339,7 +336,7 @@ def password_reset_request_api(request):
     form = PasswordResetRequestForm({"email": data.get("email", "")})
     if not form.is_valid():
         return JsonResponse({"error": "Email is required"}, status=400)
-    user = _resolve_active_user(form.cleaned_data["email"])
+    user = resolve_user_by_email(form.cleaned_data["email"])
     if user is not None:
         with transaction.atomic():
             _queue_password_reset(user)
