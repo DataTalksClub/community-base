@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-08-29T10:45:55.154875586Z"
+exclude-newer = "2026-08-29T11:11:41.708201946Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -302,7 +302,7 @@ wheels = [
 
 [[package]]
 name = "community-base"
-version = "0.0.1"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "apispec" },
