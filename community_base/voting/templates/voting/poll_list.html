@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Vote{% endblock %}
+{% block meta_description %}Vote on community topics and courses.{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Vote</h1>
+    <p>Choose the topics the community should work on next.</p>
+  </header>
+  {% if polls %}
+  <div class="cb-list">
+    {% for item in polls %}
+    <article class="cb-card">
+      <h2 class="cb-card-title"><a href="{% url 'poll_detail' item.poll.id %}">{{ item.poll.title }}</a></h2>
+      {% if item.poll.description %}<p>{{ item.poll.description }}</p>{% endif %}
+      <p class="cb-card-meta">{{ item.options_count }} option{{ item.options_count|pluralize }} · {{ item.total_votes }} vote{{ item.total_votes|pluralize }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="cb-empty">
+    <p>No active polls right now.</p>
+    {% if not user.is_authenticated %}<p><a class="cb-button" href="{% url 'account_login' %}">Sign in</a></p>{% endif %}
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

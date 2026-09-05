@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ poll.title }} | Vote{% endblock %}
+{% block meta_description %}{{ poll.description|default:"Vote in this community poll." }}{% endblock %}
+{% block content %}
+<main class="cb-page" data-voting-root data-vote-url="{% url 'vote_toggle' poll.id %}" data-propose-url="{% url 'propose_option' poll.id %}">
+  <p><a href="{% url 'poll_list' %}">Back to polls</a></p>
+  <header class="cb-page-header">
+    <p class="cb-badge">{{ poll.get_poll_type_display }}{% if is_closed %} · Closed{% endif %}</p>
+    <h1 class="cb-page-title">{{ poll.title }}</h1>
+    {% if poll.description %}<p>{{ poll.description }}</p>{% endif %}
+  </header>
+  {% if is_gated %}
+  <div class="cb-alert" role="status">You need {{ required_level_label }} access to vote in this poll.</div>
+  {% else %}
+    {% if can_vote %}<p class="cb-card-meta">You can vote for up to {{ max_votes }} options. <span data-votes-remaining>{{ votes_remaining }}</span> remaining.</p>{% endif %}
+    <div class="cb-list" data-options-list>
+      {% for item in options %}
+      <article class="cb-card" data-option-id="{{ item.option.id }}">
+        <h2 class="cb-card-title">{{ item.option.title }}</h2>
+        {% if item.option.description %}<p>{{ item.option.description }}</p>{% endif %}
+        <p class="cb-card-meta"><span data-vote-count>{{ item.vote_count }}</span> vote{{ item.vote_count|pluralize }}{% if item.option.proposed_by_id %} · Member proposal{% endif %}</p>
+        {% if can_vote %}<button class="cb-button{% if item.user_voted %} cb-button-primary{% endif %}" type="button" data-vote-button data-voted="{{ item.user_voted|yesno:'true,false' }}">{% if item.user_voted %}Voted{% else %}Vote{% endif %}</button>{% endif %}
+      </article>
+      {% empty %}<div class="cb-empty">No options yet.</div>{% endfor %}
+    </div>
+    {% if allow_proposals and user.is_authenticated %}
+    <form class="cb-form" data-proposal-form>
+      <h2>Propose an option</h2>
+      <label class="cb-field">Title <input name="title" maxlength="300" required></label>
+      <label class="cb-field">Description <textarea name="description"></textarea></label>
+      <button class="cb-button cb-button-primary" type="submit">Submit proposal</button>
+      <p class="cb-alert" data-proposal-message hidden></p>
+    </form>
+    {% elif not user.is_authenticated and not is_closed %}
+    <p><a class="cb-button" href="{% url 'account_login' %}">Sign in to vote</a></p>
+    {% endif %}
+  {% endif %}
+</main>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'community_base/voting.js' %}" defer></script>{% endblock %}
