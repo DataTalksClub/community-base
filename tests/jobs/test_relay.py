@@ -4,12 +4,28 @@ from unittest.mock import patch
 import pytest
 import requests
 from django.core.exceptions import ImproperlyConfigured
+from django.core.management import call_command
 from django.utils import timezone
 
 from community_base.jobs.backends import get_backend
 from community_base.jobs.models import JobIntent
+from community_base.jobs.registry import JobContext, JobPayload, register_handler, schedule
 from community_base.jobs.relay import RelayError, configured_client
+from community_base.jobs.relay_scheduling import sync_relay_schedules
 from tests.jobs.fake_relay import FakeRelayTransport, FakeResponse
+
+
+@register_handler("tests.relay.scheduled")
+def scheduled_handler(context: JobContext, payload: JobPayload):
+    del context, payload
+
+
+schedule(
+    "tests.relay.scheduled",
+    "23 * * * *",
+    {"record_id": 23},
+    name="tests.relay.hourly",
+)
 
 
 @pytest.fixture
@@ -120,3 +136,99 @@ def test_relay_client_requires_explicit_configuration(settings):
     }
     with pytest.raises(ImproperlyConfigured):
         configured_client()
+
+
+def test_relay_schedule_sync_creates_updates_deletes_and_is_idempotent(relay_settings):
+    transport = FakeRelayTransport()
+    client = configured_client(transport=transport)
+    unmanaged = client.upsert_schedule(
+        {
+            "name": "owned-by-another-integration",
+            "cron": "0 0 * * *",
+            "type": "webhook",
+            "url": "https://community.example.com/other",
+            "params": {},
+        }
+    )
+    stale = client.upsert_schedule(
+        {
+            "name": "community-base:test-site:removed",
+            "cron": "0 0 * * *",
+            "type": "webhook",
+            "url": "https://community.example.com/internal/jobs/run",
+            "params": {"schedule_name": "removed"},
+        }
+    )
+
+    first = sync_relay_schedules(client)
+
+    assert ("create", "community-base:test-site:tests.relay.hourly", None) in first
+    assert ("delete", stale.name, stale.id) in first
+    assert transport.schedules[stale.id]["enabled"] is False
+    assert transport.schedules[unmanaged.id]["enabled"] is True
+
+    managed = next(
+        row
+        for row in transport.schedules.values()
+        if row["name"] == "community-base:test-site:tests.relay.hourly"
+    )
+    managed["cron"] = "0 0 * * *"
+    second = sync_relay_schedules(client)
+    assert (
+        "update",
+        "community-base:test-site:tests.relay.hourly",
+        managed["id"],
+    ) in second
+    assert all(action in {"unchanged", "update"} for action, _name, _id in second)
+
+    mutation_count = len([call for call in transport.calls if call[0] in {"POST", "DELETE"}])
+    third = sync_relay_schedules(client)
+    assert (
+        "unchanged",
+        "community-base:test-site:tests.relay.hourly",
+        managed["id"],
+    ) in third
+    assert all(action == "unchanged" for action, _name, _id in third)
+    final_mutation_count = len([call for call in transport.calls if call[0] in {"POST", "DELETE"}])
+    assert final_mutation_count == mutation_count
+
+
+def test_relay_schedule_dry_run_makes_no_changes(relay_settings):
+    transport = FakeRelayTransport()
+    client = configured_client(transport=transport)
+    changes = sync_relay_schedules(client, dry_run=True)
+    assert ("create", "community-base:test-site:tests.relay.hourly", None) in changes
+    assert all(action == "create" for action, _name, _id in changes)
+    assert transport.schedules == {}
+
+
+def test_sync_relay_schedules_command_reports_dry_run(relay_settings, capsys):
+    transport = FakeRelayTransport()
+    client = configured_client(transport=transport)
+    with patch(
+        "community_base.jobs.management.commands.sync_relay_schedules.configured_client",
+        return_value=client,
+    ):
+        call_command("sync_relay_schedules", "--dry-run")
+    assert "create: community-base:test-site:tests.relay.hourly" in capsys.readouterr().out
+    assert transport.schedules == {}
+
+
+@pytest.mark.django_db
+def test_fake_relay_webhook_lifecycle_reaches_succeeded(relay_settings, client, settings):
+    intent = make_intent()
+    transport = FakeRelayTransport()
+    relay_client = configured_client(transport=transport)
+    with patch("community_base.jobs.backends.relay.configured_client", return_value=relay_client):
+        task_id = get_backend().submit(intent.id)
+
+    assert transport.tasks[task_id]["status"] == "queued"
+    response = transport.deliver(
+        task_id,
+        client,
+        settings.COMMUNITY_BASE["RELAY_WEBHOOK_SECRET"],
+    )
+    intent.refresh_from_db()
+    assert response.status_code == 200
+    assert intent.status == JobIntent.Status.SUCCEEDED
+    assert transport.tasks[task_id]["status"] == "succeeded"

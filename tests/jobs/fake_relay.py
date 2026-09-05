@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import copy
+import json
 import uuid
 from dataclasses import dataclass
 from urllib.parse import urlsplit
+
+from django.utils import timezone
 
 
 @dataclass
@@ -116,3 +119,29 @@ class FakeRelayTransport:
             return FakeResponse(404, {})
         row["enabled"] = False
         return FakeResponse(200, row)
+
+    def deliver(self, task_id, django_client, webhook_secret):
+        from community_base.jobs.ingress import sign_body
+
+        task = self.tasks[task_id]
+        body = json.dumps(task["request"]["params"], sort_keys=True, separators=(",", ":")).encode()
+        timestamp = str(int(timezone.now().timestamp()))
+        response = django_client.post(
+            urlsplit(task["request"]["url"]).path,
+            data=body,
+            content_type="application/json",
+            headers={
+                "X-Relay-Task-Id": task_id,
+                "X-Relay-Correlation-Id": task["request"].get("correlation_id", str(uuid.uuid4())),
+                "X-Relay-Timestamp": timestamp,
+                "X-Relay-Signature": sign_body(body, timestamp, webhook_secret),
+            },
+        )
+        if response.status_code == 200:
+            task["status"] = "succeeded"
+        elif response.status_code == 202:
+            task["status"] = "running"
+            task["lease_seconds"] = response.json()["lease_seconds"]
+        else:
+            task["status"] = "failed"
+        return response
