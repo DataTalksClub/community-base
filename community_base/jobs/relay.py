@@ -100,18 +100,36 @@ class RelayClient:
             raise RelayError("malformed_task_response")
         return document
 
+    def tasks(self) -> tuple[dict, ...]:
+        document = self._request("GET", "/api/tasks", expected={200})
+        rows = document.get("tasks")
+        if not isinstance(rows, list):
+            raise RelayError("malformed_task_response")
+        result = []
+        for row in rows:
+            if not isinstance(row, dict):
+                raise RelayError("malformed_task_response")
+            _validate_remote_id(row.get("id"))
+            if row.get("status") not in TASK_STATUSES:
+                raise RelayError("malformed_task_response")
+            result.append(row)
+        return tuple(result)
+
     def complete_task(self, task_id: str) -> dict:
         _validate_remote_id(task_id)
-        return self._request("POST", f"/api/tasks/{task_id}/complete", {}, expected={200, 202})
+        document = self._request("POST", f"/api/tasks/{task_id}/complete", {}, expected={200, 202})
+        return _validate_task_transition(document, task_id, {"succeeded"})
 
-    def fail_task(self, task_id: str, error_code: str) -> dict:
+    def fail_task(self, task_id: str, error_code: str, *, retryable: bool) -> dict:
         _validate_remote_id(task_id)
-        return self._request(
+        document = self._request(
             "POST",
             f"/api/tasks/{task_id}/fail",
-            {"error": error_code},
+            {"error": error_code, "retryable": retryable},
             expected={200, 202},
         )
+        expected = {"retrying"} if retryable else {"failed"}
+        return _validate_task_transition(document, task_id, expected)
 
     def schedules(self) -> tuple[RelaySchedule, ...]:
         document = self._request("GET", "/api/schedules", expected={200})
@@ -217,6 +235,12 @@ def _validate_remote_id(value: str) -> str:
     return value
 
 
+def _validate_task_transition(document: dict, task_id: str, statuses: set[str]) -> dict:
+    if document.get("id") != task_id or document.get("status") not in statuses:
+        raise RelayError("malformed_task_response")
+    return document
+
+
 def _absolute_http_url(value, setting_name: str) -> str:
     if not isinstance(value, str):
         raise ImproperlyConfigured(f"{setting_name} must be an absolute HTTP URL")
@@ -224,6 +248,9 @@ def _absolute_http_url(value, setting_name: str) -> str:
     if (
         parsed.scheme not in {"http", "https"}
         or not parsed.netloc
+        or parsed.username
+        or parsed.password
+        or parsed.path not in {"", "/"}
         or parsed.query
         or parsed.fragment
     ):

@@ -9,6 +9,7 @@ from community_base.jobs.ingress import sign_body
 from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import JobContext, JobPayload, register_handler
 from community_base.jobs.registry import schedule as register_schedule
+from community_base.jobs.runner import RetryableJobError
 
 OBSERVED = []
 SECRET = "test-relay-webhook-secret"
@@ -22,6 +23,12 @@ def complete_handler(context: JobContext, payload: JobPayload):
 @register_handler("tests.ingress.chunked", chunked=True)
 def chunked_handler(context: JobContext, payload: JobPayload):
     OBSERVED.append((context.correlation_id, payload))
+
+
+@register_handler("tests.ingress.retry")
+def retry_handler(context: JobContext, payload: JobPayload):
+    del context, payload
+    raise RetryableJobError("try_again")
 
 
 register_schedule(
@@ -171,9 +178,11 @@ def test_chunked_handler_returns_lease_duration(client):
     assert response.status_code == 202
     assert response.json() == {
         "status": "accepted",
-        "result": "succeeded",
         "lease_seconds": 300,
     }
+    intent.refresh_from_db()
+    assert intent.status == JobIntent.Status.RUNNING
+    assert intent.lease_token is not None
 
 
 @pytest.mark.django_db
@@ -201,3 +210,22 @@ def test_unknown_signed_schedule_is_rejected(client):
     response = signed_schedule_request(client, "not.registered")
     assert response.status_code == 404
     assert response.json() == {"error": "unknown_schedule"}
+
+
+@pytest.mark.django_db
+def test_retryable_handler_returns_retryable_status_then_stops_at_attempt_limit(client):
+    intent = make_intent("tests.ingress.retry", max_attempts=2)
+    task_id = str(uuid.uuid4())
+
+    first = signed_request(client, intent.id, task_id=task_id)
+    intent.refresh_from_db()
+    assert first.status_code == 503
+    assert intent.status == JobIntent.Status.FAILED
+    assert intent.attempts == 1
+
+    JobIntent.objects.filter(id=intent.id).update(available_at=timezone.now())
+    second = signed_request(client, intent.id, task_id=task_id)
+    intent.refresh_from_db()
+    assert second.status_code == 422
+    assert intent.status == JobIntent.Status.DEAD
+    assert intent.attempts == 2

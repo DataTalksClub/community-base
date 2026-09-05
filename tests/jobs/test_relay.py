@@ -138,6 +138,24 @@ def test_relay_client_requires_explicit_configuration(settings):
         configured_client()
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://user:password@relay.example.com",
+        "https://relay.example.com/api",
+        "https://relay.example.com?credential=value",
+    ],
+)
+def test_relay_base_url_rejects_credentials_paths_and_queries(settings, url):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "RELAY_BASE_URL": url,
+        "RELAY_API_KEY": "relay-test-key",
+    }
+    with pytest.raises(ImproperlyConfigured, match="absolute HTTP URL"):
+        configured_client()
+
+
 def test_relay_schedule_sync_creates_updates_deletes_and_is_idempotent(relay_settings):
     transport = FakeRelayTransport()
     client = configured_client(transport=transport)

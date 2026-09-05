@@ -10,6 +10,20 @@
     {% for message in messages %}<p class="cb-alert">{{ message }}</p>{% endfor %}
   {% endif %}
 
+  {% if relay_health %}
+    <section class="cb-card" aria-labelledby="relay-health-title">
+      <h2 class="cb-card-title" id="relay-health-title">Relay worker health</h2>
+      <p><span class="cb-badge">{{ relay_health.status }}</span></p>
+      {% if relay_health.error %}
+        <p>Health check: <code>{{ relay_health.error }}</code></p>
+      {% else %}
+        <p class="cb-card-meta">
+          queued {{ relay_health.counts.queued }} · running {{ relay_health.counts.running }} · retrying {{ relay_health.counts.retrying }} · failed {{ relay_health.counts.failed }}
+        </p>
+      {% endif %}
+    </section>
+  {% endif %}
+
   <section aria-labelledby="job-intents-title">
     <h2 id="job-intents-title">Active and failed intents</h2>
     {% if intents %}

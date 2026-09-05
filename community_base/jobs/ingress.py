@@ -50,12 +50,11 @@ def run_job(request: HttpRequest) -> JsonResponse:
         with transaction.atomic():
             bound = JobIntent.objects.select_for_update().filter(external_id=task_id).first()
             if bound is not None:
-                first_delivery = (
-                    intent_id == bound.id
-                    and bound.status == JobIntent.Status.SUBMITTED
-                    and bound.attempts == 0
+                accepted_delivery = intent_id == bound.id and (
+                    (bound.status == JobIntent.Status.SUBMITTED and bound.attempts == 0)
+                    or bound.status == JobIntent.Status.FAILED
                 )
-                if not first_delivery:
+                if not accepted_delivery:
                     return _error("replayed_task", 409)
                 intent = bound
                 if not intent.correlation_id:
@@ -90,9 +89,13 @@ def run_job(request: HttpRequest) -> JsonResponse:
         return _error("replayed_task", 409)
 
     result = run_intent(intent_id, worker_id=f"relay:{task_id}")
+    if result in {"failed", "not_claimed"}:
+        return _error("job_retryable", 503)
+    if result in {"dead", "lease_lost"}:
+        return _error("job_failed", 422)
     if definition.chunked:
         return JsonResponse(
-            {"status": "accepted", "result": result, "lease_seconds": DEFAULT_LEASE_SECONDS},
+            {"status": "accepted", "lease_seconds": DEFAULT_LEASE_SECONDS},
             status=202,
         )
     return JsonResponse({"status": "ok", "result": result})

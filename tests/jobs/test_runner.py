@@ -100,6 +100,14 @@ def test_retryable_failure_schedules_bounded_retry():
 
 
 @pytest.mark.django_db
+def test_retryable_failure_reports_dead_on_final_attempt():
+    intent = make_intent("tests.runner.retry", max_attempts=1)
+    assert run_intent(intent.id) == "dead"
+    intent.refresh_from_db()
+    assert intent.status == JobIntent.Status.DEAD
+
+
+@pytest.mark.django_db
 def test_permanent_failure_is_dead_immediately():
     intent = make_intent("tests.runner.permanent")
     assert run_intent(intent.id) == "dead"

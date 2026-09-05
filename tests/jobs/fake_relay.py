@@ -43,6 +43,8 @@ class FakeRelayTransport:
         payload = kwargs.get("json")
         if method == "POST" and path == "/api/tasks":
             return self._submit_task(payload)
+        if method == "GET" and path == "/api/tasks":
+            return FakeResponse(200, {"tasks": list(self.tasks.values())})
         if method == "GET" and path.startswith("/api/tasks/"):
             task_id = path.rsplit("/", 1)[-1]
             task = self.tasks.get(task_id)
@@ -50,7 +52,7 @@ class FakeRelayTransport:
         if method == "POST" and path.endswith("/complete"):
             return self._finish_task(path, "succeeded")
         if method == "POST" and path.endswith("/fail"):
-            return self._finish_task(path, "failed")
+            return self._finish_task(path, "retrying" if payload["retryable"] else "failed")
         if method == "GET" and path == "/api/schedules":
             return FakeResponse(200, {"schedules": list(self.schedules.values())})
         if method == "POST" and path == "/api/schedules":

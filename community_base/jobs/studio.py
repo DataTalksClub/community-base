@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
@@ -10,6 +11,7 @@ from django.views.decorators.cache import never_cache
 from community_base.jobs.backends import get_backend
 from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import registered_schedules
+from community_base.jobs.relay import RelayError, configured_client
 from community_base.kernel.conf import get
 from community_base.kernel.decorators import staff_required
 
@@ -32,10 +34,11 @@ def jobs_list(request):
         for definition in registered_schedules()
     ]
     _add_django_q_schedule_times(schedules)
+    relay_health = _add_relay_projection(schedules)
     return render(
         request,
         "community_base/jobs/jobs.html",
-        {"intents": intents, "schedules": schedules},
+        {"intents": intents, "schedules": schedules, "relay_health": relay_health},
     )
 
 
@@ -84,6 +87,30 @@ def _add_django_q_schedule_times(schedules: list[dict]) -> None:
             item["last_run"] = (
                 Task.objects.filter(id=row.task).values_list("stopped", flat=True).first()
             )
+
+
+def _add_relay_projection(schedules: list[dict]) -> dict | None:
+    if get("JOBS_BACKEND") != "relay":
+        return None
+    try:
+        client = configured_client()
+        health = client.health()
+        tasks = client.tasks()
+        remote_schedules = {item.name: item for item in client.schedules()}
+    except (ImproperlyConfigured, RelayError) as error:
+        code = error.code if isinstance(error, RelayError) else "relay_not_configured"
+        return {"status": "unavailable", "error": code, "counts": {}}
+    counts = {status: 0 for status in ("queued", "running", "retrying", "failed")}
+    for task in tasks:
+        if task["status"] in counts:
+            counts[task["status"]] += 1
+    prefix = f"community-base:{get('SITE_KEY')}:"
+    for item in schedules:
+        row = remote_schedules.get(f"{prefix}{item['definition'].name}")
+        if row is not None:
+            item["last_run"] = row.last_run_at
+            item["next_run"] = row.next_run_at
+    return {"status": health["status"], "error": "", "counts": counts}
 
 
 @staff_required
