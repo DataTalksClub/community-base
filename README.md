@@ -10,8 +10,8 @@ site-specific apps. They install this package and mount the apps they need. Emai
 campaigns, background jobs and schedules are delegated to Relay (`DataTalksClub/relay`), a separate
 service that each site talks to over HTTPS.
 
-Status: planning. The Python package does not exist yet. The plan in `docs/plan/` creates it and
-moves code out of the two sites phase by phase.
+Status: Phase 0 in progress. The package skeleton and first shared primitives are being built;
+the plan in `docs/plan/` moves code out of the two sites phase by phase.
 
 ## Start here
 

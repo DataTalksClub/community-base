@@ -62,7 +62,11 @@ def load_issues() -> list[dict]:
             fm = FREEZE_RE.search(line)
             if fm:
                 current["freeze"] = fm.group(1).lower()
-            if "Freeze weekend" in current["title"] or line.startswith("Playbook P13") or "P13" in line:
+            if (
+                "Freeze weekend" in current["title"]
+                or line.startswith("Playbook P13")
+                or "P13" in line
+            ):
                 current["freeze"] = "yes"
     return issues
 
@@ -88,12 +92,14 @@ def render(issues: list[dict], status: dict[str, dict]) -> str:
     out = [
         "# Plan status",
         "",
-        "Single source of truth for progress across all four repositories. Generated rows come from",
+        "Single source of truth for progress across all four repositories. Generated rows come from",  # noqa: E501
         "`docs/plan/phase-*.md`; the `Status` and `Link` columns are edited by hand (or with",
-        "`python scripts/plan.py`). Allowed statuses: " + ", ".join(f"`{s}`" for s in STATUSES) + ".",
+        "`python scripts/plan.py`). Allowed statuses: "
+        + ", ".join(f"`{s}`" for s in STATUSES)
+        + ".",
         "",
-        "Update the row for an issue in the same pull request that starts it (`in-progress`, with the",
-        "pull request link) and in the pull request that closes it (`done`). When the issue lives in",
+        "Update the row for an issue in the same pull request that starts it (`in-progress`, with the",  # noqa: E501
+        "pull request link) and in the pull request that closes it (`done`). When the issue lives in",  # noqa: E501
         "another repository, open a small pull request here that only changes this file.",
         "",
         "Run `python scripts/plan.py summary` for totals and `python scripts/plan.py next` for the",
@@ -116,7 +122,7 @@ def render(issues: list[dict], status: dict[str, dict]) -> str:
                 f"{issue['freeze']} | {row['status']} | {row['link']} |"
             )
         out.append("")
-    return "\n".join(out)
+    return "\n".join(out).rstrip()
 
 
 def cmd_check() -> int:
@@ -156,7 +162,9 @@ def cmd_summary() -> int:
     print("phase  total  done  in-progress  blocked  todo")
     by_phase: dict[str, list[str]] = {}
     for i in issues:
-        by_phase.setdefault(i["phase"], []).append(status.get(i["id"], {"status": "todo"})["status"])
+        by_phase.setdefault(i["phase"], []).append(
+            status.get(i["id"], {"status": "todo"})["status"]
+        )
     for phase in sorted(by_phase):
         s = by_phase[phase]
         print(
@@ -178,7 +186,8 @@ def cmd_next() -> int:
     status = load_status()
     done = {k for k, v in status.items() if v["status"] in ("done", "skipped")}
     ready = [
-        i for i in issues
+        i
+        for i in issues
         if status.get(i["id"], {"status": "todo"})["status"] == "todo"
         and all(d in done for d in i["depends"])
     ]
