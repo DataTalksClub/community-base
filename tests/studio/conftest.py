@@ -13,8 +13,12 @@ def register_package_studio():
     )
     from community_base.jobs.studio_registration import register_studio as register_jobs
     from community_base.mail.studio_registration import register_studio as register_mail
+    from community_base.questionnaires.studio_registration import (
+        register_studio as register_questionnaires,
+    )
 
     register_accounts()
+    register_questionnaires()
     builtin.register_builtin_section()
     register_config()
     register_api()

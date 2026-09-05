@@ -1,0 +1,6 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Questionnaire responses{% endblock %}
+{% block studio_content %}
+<h1>Questionnaire responses</h1>
+<ul>{% for response in responses %}<li><a href="{% url 'questionnaires_studio_response_detail' response.questionnaire_id response.pk %}">{{ response.respondent }}</a> — {{ response.questionnaire.title }} — {{ response.review_label }}</li>{% empty %}<li>No responses.</li>{% endfor %}</ul>
+{% endblock %}

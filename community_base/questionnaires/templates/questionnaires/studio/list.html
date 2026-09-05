@@ -1,0 +1,8 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Questionnaires{% endblock %}
+{% block studio_content %}
+<h1>Questionnaires</h1>
+<nav><a href="{% url 'questionnaires_studio_create' %}">Create questionnaire</a> · <a href="{% url 'questionnaires_studio_persona_list' %}">Personas</a> · <a href="{% url 'questionnaires_studio_response_queue' %}">Response queue</a></nav>
+<form method="get"><label>Search <input name="q" value="{{ q }}"></label><button>Search</button></form>
+<ul>{% for item in questionnaires %}<li><a href="{% url 'questionnaires_studio_detail' item.pk %}">{{ item.title }}</a> — {{ item.purpose }} — {{ item.questions_total }} questions — {{ item.responses_total }} responses</li>{% empty %}<li>No questionnaires.</li>{% endfor %}</ul>
+{% endblock %}
