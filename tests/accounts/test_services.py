@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.test import override_settings
 
-from community_base.accounts.models import EmailAlias, MemberProfile
+from community_base.accounts.models import EmailAlias, ImportBatch, MemberProfile
 from community_base.accounts.preferences import resolve_mail_preference
 from community_base.accounts.services.email_change import (
     EmailUnavailable,
@@ -18,6 +18,13 @@ from community_base.accounts.services.email_resolution import (
     resolve_user_by_email,
 )
 from community_base.accounts.services.free_welcome import send_free_welcome
+from community_base.accounts.services.import_users import (
+    ImportRow,
+    register_import_adapter,
+    rows_from_csv,
+    run_import_batch,
+    run_registered_import,
+)
 from community_base.accounts.services.merge import MergeError, merge_accounts
 from community_base.accounts.services.privacy import (
     build_user_data_export,
@@ -327,3 +334,74 @@ def test_privacy_delete_respects_site_blocker():
     assert result.deleted is False
     assert result.blocker_reason == "active_subscription"
     assert get_user_model().objects.filter(pk=user.pk).exists() is True
+
+
+def test_import_dry_run_writes_no_users_batches_or_mail():
+    result = run_import_batch(
+        "course_db",
+        [ImportRow(email="new@example.com", first_name="New")],
+        dry_run=True,
+        send_welcome=True,
+    )
+
+    assert result.dry_run is True
+    assert result.users_created == 1
+    assert result.emails_queued == 1
+    assert result.batch is None
+    assert get_user_model().objects.count() == 0
+    assert ImportBatch.objects.count() == 0
+    assert outbox == []
+
+
+def test_import_creates_updates_skips_and_records_batch():
+    existing = get_user_model().objects.create_user(email="existing@example.com")
+    result = run_import_batch(
+        "course_db",
+        [
+            ImportRow(
+                email="new@example.com",
+                first_name="New",
+                email_verified=True,
+                metadata={"cohort": "2026"},
+            ),
+            ImportRow(email="existing@example.com", last_name="Member"),
+            ImportRow(email="invalid"),
+        ],
+        send_welcome=True,
+        params={"filename": "members.csv"},
+    )
+
+    existing.refresh_from_db()
+    created = get_user_model().objects.get(email="new@example.com")
+    assert (result.users_created, result.users_updated, result.users_skipped) == (1, 1, 1)
+    assert result.emails_queued == 1
+    assert result.batch.status == "completed"
+    assert result.batch.params == {"filename": "members.csv"}
+    assert result.errors[0]["row"] == 4
+    assert existing.last_name == "Member"
+    assert created.email_verified is True
+    assert created.import_metadata == {"cohort": "2026"}
+    assert created.has_usable_password() is False
+    assert len(outbox) == 1
+
+
+def test_csv_rows_and_registered_adapter_are_portable():
+    rows = list(
+        rows_from_csv(
+            "\ufeffEmail,Name,email_verified,cohort\nMEMBER@example.com,Ada Lovelace,yes,2026\n"
+        )
+    )
+    register_import_adapter("slack", lambda payload: rows_from_csv(payload))
+
+    result = run_registered_import(
+        "slack",
+        "email,first_name\nslack@example.com,Grace\n",
+    )
+
+    assert rows[0].email == "MEMBER@example.com"
+    assert rows[0].first_name == "Ada"
+    assert rows[0].last_name == "Lovelace"
+    assert rows[0].email_verified is True
+    assert rows[0].metadata == {"cohort": "2026"}
+    assert result.users_created == 1
+    assert get_user_model().objects.get(email="slack@example.com").first_name == "Grace"
