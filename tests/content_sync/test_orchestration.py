@@ -102,6 +102,67 @@ def test_parser_failure_is_observable_as_partial(tmp_path, source):
     assert log.errors == [{"content_type": "broken", "error": "authored content is malformed"}]
 
 
+def test_parser_error_redacts_source_secret(tmp_path, source):
+    class BrokenParser(FixtureParser):
+        def discover(self, checkout, source):
+            raise ValueError(f"bad credential {source.webhook_secret}")
+
+    register_parser("broken", BrokenParser())
+
+    log = sync_content_source(source, repo_dir=tmp_path)
+
+    assert source.webhook_secret not in repr(log.errors)
+    assert "[REDACTED]" in log.errors[0]["error"]
+
+
+def test_matching_successful_remote_commit_is_skipped_without_archive_download(source):
+    source.last_synced_commit = "a" * 40
+    source.last_sync_status = SyncStatus.SUCCESS
+    source.save(update_fields=("last_synced_commit", "last_sync_status"))
+
+    with (
+        patch(
+            "community_base.content_sync.github.GitHubClient.resolve_commit",
+            return_value="a" * 40,
+        ),
+        patch("community_base.content_sync.github.checkout_repository") as checkout,
+    ):
+        log = sync_content_source(source)
+
+    assert log.status == SyncStatus.SKIPPED
+    assert log.commit_sha == "a" * 40
+    checkout.assert_not_called()
+
+
+def test_force_downloads_matching_remote_commit(source):
+    source.last_synced_commit = "a" * 40
+    source.last_sync_status = SyncStatus.SUCCESS
+    source.save(update_fields=("last_synced_commit", "last_sync_status"))
+
+    class Checkout:
+        commit_sha = "a" * 40
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+    with (
+        patch(
+            "community_base.content_sync.github.GitHubClient.resolve_commit",
+            return_value="a" * 40,
+        ),
+        patch(
+            "community_base.content_sync.github.checkout_repository", return_value=Checkout()
+        ) as checkout,
+    ):
+        log = sync_content_source(source, force=True)
+
+    assert log.status == SyncStatus.SUCCESS
+    checkout.assert_called_once()
+
+
 def test_active_source_lock_requests_follow_up(source):
     from django.utils import timezone
 

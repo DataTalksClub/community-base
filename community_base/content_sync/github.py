@@ -127,14 +127,20 @@ class GitHubClient:
 
     @staticmethod
     def _validate_repository(repo_name):
-        if not isinstance(repo_name, str) or not REPOSITORY_PATTERN.fullmatch(repo_name):
+        if (
+            not isinstance(repo_name, str)
+            or not REPOSITORY_PATTERN.fullmatch(repo_name)
+            or any(part in {".", ".."} for part in repo_name.split("/"))
+        ):
             raise GitHubClientError("Invalid GitHub repository name")
 
 
 @contextmanager
-def checkout_repository(source, *, client=None):
+def checkout_repository(source, *, client=None, commit_sha=None):
     client = client or GitHubClient()
-    commit_sha = client.resolve_commit(source.repo_name, private=source.is_private)
+    commit_sha = commit_sha or client.resolve_commit(source.repo_name, private=source.is_private)
+    if not COMMIT_PATTERN.fullmatch(commit_sha):
+        raise GitHubClientError("Invalid GitHub commit SHA")
     with ExitStack() as stack:
         workspace = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="cb-github-")))
         archive = workspace / "source.tar.gz"

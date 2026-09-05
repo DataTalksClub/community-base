@@ -8,6 +8,8 @@ from community_base.content_sync.checkout import ImmutableCheckout, git_commit_s
 from community_base.content_sync.media import media_store
 from community_base.content_sync.models import ContentSource, SyncLog, SyncStatus
 from community_base.content_sync.parsers import parsers
+from community_base.kernel import conf
+from community_base.kernel.redaction import mask_sensitive_spans
 
 LOCK_TIMEOUT_SECONDS = 600
 
@@ -65,6 +67,16 @@ def _deleted_count(value):
     return len(list(value or ()))
 
 
+def _safe_error(source, error):
+    return mask_sensitive_spans(
+        str(error),
+        canaries=(
+            source.webhook_secret,
+            str(conf.get("CONTENT_SYNC_GITHUB_PRIVATE_KEY")),
+        ),
+    )[:1000]
+
+
 def sync_content_source(source, *, repo_dir=None, batch_id=None, force=False):
     source = ContentSource.objects.get(pk=source.pk)
     if not source.is_enabled and not force:
@@ -83,9 +95,26 @@ def sync_content_source(source, *, repo_dir=None, batch_id=None, force=False):
     log = SyncLog.objects.create(source=source, batch_id=batch_id, status=SyncStatus.RUNNING)
     try:
         if repo_dir is None:
-            from community_base.content_sync.github import checkout_repository
+            from community_base.content_sync.github import GitHubClient, checkout_repository
 
-            checkout_context = checkout_repository(source)
+            client = GitHubClient()
+            commit_sha = client.resolve_commit(source.repo_name, private=source.is_private)
+            if (
+                not force
+                and source.last_synced_commit == commit_sha
+                and source.last_sync_status in {SyncStatus.SUCCESS, SyncStatus.SKIPPED}
+            ):
+                log.commit_sha = commit_sha
+                log.status = SyncStatus.SKIPPED
+                log.warnings = ["Repository commit was already synchronized"]
+                log.finished_at = timezone.now()
+                log.save(update_fields=("commit_sha", "status", "warnings", "finished_at"))
+                ContentSource.objects.filter(pk=source.pk).update(
+                    last_sync_status=SyncStatus.SKIPPED,
+                    last_synced_at=log.finished_at,
+                )
+                return log
+            checkout_context = checkout_repository(source, client=client, commit_sha=commit_sha)
         else:
             path = Path(repo_dir)
             checkout_context = ImmutableCheckout(
@@ -119,7 +148,9 @@ def sync_content_source(source, *, repo_dir=None, batch_id=None, force=False):
                     deleted = _deleted_count(parser.soft_delete_missing(seen, source))
                     counts["deleted"] += deleted
                 except Exception as error:
-                    errors.append({"content_type": content_type, "error": str(error)[:1000]})
+                    errors.append(
+                        {"content_type": content_type, "error": _safe_error(source, error)}
+                    )
 
             log.items_created = counts["created"]
             log.items_updated = counts["updated"]
@@ -146,14 +177,15 @@ def sync_content_source(source, *, repo_dir=None, batch_id=None, force=False):
             )
             return log
     except Exception as error:
+        safe_error = _safe_error(source, error)
         log.status = SyncStatus.FAILED
-        log.errors = [{"error": str(error)[:1000]}]
+        log.errors = [{"error": safe_error}]
         log.finished_at = timezone.now()
         log.save(update_fields=("status", "errors", "finished_at"))
         ContentSource.objects.filter(pk=source.pk).update(
             last_synced_at=log.finished_at,
             last_sync_status=SyncStatus.FAILED,
-            last_sync_log=str(error)[:4000],
+            last_sync_log=safe_error,
         )
         return log
     finally:
