@@ -363,6 +363,7 @@ def test_social_account_signal_marks_identity_and_populates_name():
     user = get_user_model().objects.create_user(email="oauth@example.com")
     sociallogin = SimpleNamespace(
         user=user,
+        email_addresses=[EmailAddress(email=user.email, verified=True)],
         account=SimpleNamespace(
             provider="github",
             extra_data={"name": "Ada Lovelace"},
@@ -377,3 +378,18 @@ def test_social_account_signal_marks_identity_and_populates_name():
     assert user.signup_source == "oauth"
     assert user.first_name == "Ada"
     assert user.last_name == "Lovelace"
+
+
+def test_social_login_does_not_verify_an_unverified_provider_email():
+    user = get_user_model().objects.create_user(email="oauth@example.com")
+    sociallogin = SimpleNamespace(
+        user=user,
+        email_addresses=[EmailAddress(email=user.email, verified=False)],
+        account=SimpleNamespace(provider="github", extra_data={}),
+    )
+
+    mark_social_account_added(None, None, sociallogin)
+
+    user.refresh_from_db()
+    assert user.email_verified is False
+    assert user.account_activated is True

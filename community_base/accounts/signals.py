@@ -2,11 +2,19 @@ from allauth.socialaccount.signals import pre_social_login, social_account_added
 from django.dispatch import receiver
 
 
-def _mark_social_identity(user, *, activate=False):
+def _has_verified_user_email(user, sociallogin):
+    email = (getattr(user, "email", "") or "").strip().lower()
+    return bool(email) and any(
+        address.verified and (address.email or "").strip().lower() == email
+        for address in (getattr(sociallogin, "email_addresses", None) or ())
+    )
+
+
+def _mark_social_identity(user, sociallogin, *, activate=False):
     if not getattr(user, "pk", None):
         return
     fields = []
-    if not user.email_verified:
+    if not user.email_verified and _has_verified_user_email(user, sociallogin):
         user.email_verified = True
         fields.append("email_verified")
     if activate and user.signup_source == "unknown":
@@ -21,12 +29,12 @@ def _mark_social_identity(user, *, activate=False):
 
 @receiver(pre_social_login, dispatch_uid="community_base.accounts.social_login")
 def mark_social_login_verified(sender, request, sociallogin, **kwargs):
-    _mark_social_identity(sociallogin.user)
+    _mark_social_identity(sociallogin.user, sociallogin)
 
 
 @receiver(social_account_added, dispatch_uid="community_base.accounts.social_added")
 def mark_social_account_added(sender, request, sociallogin, **kwargs):
-    _mark_social_identity(sociallogin.user, activate=True)
+    _mark_social_identity(sociallogin.user, sociallogin, activate=True)
     user = sociallogin.user
     if not getattr(user, "pk", None) or user.first_name or user.last_name:
         return
