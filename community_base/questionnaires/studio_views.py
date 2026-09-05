@@ -1,11 +1,20 @@
+import json
+
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Count, Q
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from community_base.kernel.decorators import staff_required
-from community_base.questionnaires.models import Persona, Question, Questionnaire, ResponseQuestion
+from community_base.questionnaires.models import (
+    Persona,
+    Question,
+    Questionnaire,
+    QuestionOption,
+    ResponseQuestion,
+)
 from community_base.questionnaires.response_workflows import (
     ResponseNotSubmitted,
     compact_response_queryset,
@@ -19,6 +28,46 @@ from community_base.questionnaires.studio_forms import (
     ResponseQuestionForm,
 )
 from community_base.studio.utils import studio_pagination_context
+
+
+def _parse_reorder_payload(request):
+    if request.method != "POST":
+        return None, JsonResponse({"error": "POST required"}, status=405)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return None, JsonResponse({"error": "Invalid JSON"}, status=400)
+    if not isinstance(data, list):
+        return None, JsonResponse({"error": "Payload must be a list"}, status=400)
+    items = []
+    for entry in data:
+        if not isinstance(entry, dict) or set(("id", "order")) - entry.keys():
+            return None, JsonResponse({"error": "Each item needs an id and an order"}, status=400)
+        item_id, order = entry["id"], entry["order"]
+        if (
+            isinstance(item_id, bool)
+            or isinstance(order, bool)
+            or not isinstance(item_id, int)
+            or not isinstance(order, int)
+        ):
+            return None, JsonResponse({"error": "id and order must be integers"}, status=400)
+        if order < 0:
+            return None, JsonResponse({"error": "order must be zero or positive"}, status=400)
+        items.append((item_id, order))
+    return items, None
+
+
+def _apply_reorder(*, items, queryset, model, parent_filters=None):
+    submitted_ids = [item_id for item_id, _order in items]
+    if len(submitted_ids) != len(set(submitted_ids)):
+        return JsonResponse({"error": "Duplicate ids are not allowed"}, status=400)
+    if queryset.filter(pk__in=submitted_ids).count() != len(submitted_ids):
+        return JsonResponse({"error": "One or more ids are outside this collection"}, status=400)
+    filters = parent_filters or {}
+    with transaction.atomic():
+        for item_id, order in items:
+            model.objects.filter(pk=item_id, **filters).update(order=order)
+    return JsonResponse({"status": "ok"})
 
 
 @staff_required
@@ -119,6 +168,35 @@ def question_delete(request, questionnaire_id, question_id):
 
 
 @staff_required
+def question_reorder(request, questionnaire_id):
+    questionnaire = get_object_or_404(Questionnaire, pk=questionnaire_id)
+    items, error = _parse_reorder_payload(request)
+    if error is not None:
+        return error
+    return _apply_reorder(
+        items=items,
+        queryset=questionnaire.questions,
+        model=Question,
+        parent_filters={"questionnaire": questionnaire},
+    )
+
+
+@staff_required
+def question_option_reorder(request, questionnaire_id, question_id):
+    questionnaire = get_object_or_404(Questionnaire, pk=questionnaire_id)
+    question = get_object_or_404(Question, pk=question_id, questionnaire=questionnaire)
+    items, error = _parse_reorder_payload(request)
+    if error is not None:
+        return error
+    return _apply_reorder(
+        items=items,
+        queryset=question.options,
+        model=QuestionOption,
+        parent_filters={"question": question},
+    )
+
+
+@staff_required
 def persona_list(request):
     return render(
         request,
@@ -142,6 +220,14 @@ def persona_edit(request, persona_id):
 
 
 @staff_required
+def persona_reorder(request):
+    items, error = _parse_reorder_payload(request)
+    if error is not None:
+        return error
+    return _apply_reorder(items=items, queryset=Persona.objects, model=Persona)
+
+
+@staff_required
 def response_queue(request):
     filters = {
         "status": request.GET.get("status", "submitted"),
@@ -157,6 +243,31 @@ def response_queue(request):
         request,
         "questionnaires/studio/responses.html",
         {"responses": studio_pagination_context(request, rows)["page"], "filters": filters},
+    )
+
+
+@staff_required
+def questionnaire_responses(request, questionnaire_id):
+    questionnaire = get_object_or_404(Questionnaire, pk=questionnaire_id)
+    filters = {
+        "status": request.GET.get("status", "all"),
+        "review": request.GET.get("review", "all"),
+        "purpose": "all",
+        "questionnaire": questionnaire.pk,
+        "search": request.GET.get("q", "").strip(),
+    }
+    try:
+        rows = compact_response_queryset(**filters)
+    except ValueError as error:
+        return HttpResponseBadRequest(str(error))
+    return render(
+        request,
+        "questionnaires/studio/responses.html",
+        {
+            "questionnaire": questionnaire,
+            "responses": studio_pagination_context(request, rows)["page"],
+            "filters": filters,
+        },
     )
 
 

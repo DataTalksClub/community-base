@@ -34,12 +34,27 @@ urlpatterns = [
         studio_views.question_delete,
         name="questionnaires_studio_question_delete",
     ),
+    path(
+        "questionnaires/<int:questionnaire_id>/questions/reorder",
+        studio_views.question_reorder,
+        name="questionnaires_studio_question_reorder",
+    ),
+    path(
+        "questionnaires/<int:questionnaire_id>/questions/<int:question_id>/options/reorder",
+        studio_views.question_option_reorder,
+        name="questionnaires_studio_option_reorder",
+    ),
     path("personas/", studio_views.persona_list, name="questionnaires_studio_persona_list"),
     path("personas/new/", studio_views.persona_create, name="questionnaires_studio_persona_create"),
     path(
         "personas/<int:persona_id>/edit/",
         studio_views.persona_edit,
         name="questionnaires_studio_persona_edit",
+    ),
+    path(
+        "personas/reorder",
+        studio_views.persona_reorder,
+        name="questionnaires_studio_persona_reorder",
     ),
     path(
         "questionnaire-responses/",
@@ -50,6 +65,11 @@ urlpatterns = [
         "questionnaires/<int:questionnaire_id>/responses/<int:response_id>/",
         studio_views.response_detail,
         name="questionnaires_studio_response_detail",
+    ),
+    path(
+        "questionnaires/<int:questionnaire_id>/responses/",
+        studio_views.questionnaire_responses,
+        name="questionnaires_studio_responses",
     ),
     path(
         "questionnaires/<int:questionnaire_id>/responses/<int:response_id>/review/",
