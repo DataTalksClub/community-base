@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     "community_base.kernel",
     "community_base.api",
+    "community_base.config",
 ]
 
 MIDDLEWARE = [
