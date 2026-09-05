@@ -54,7 +54,7 @@ issues that can start now.
 |---|---|---|---|---|---|---|
 | `C2.1a` | community-base | Studio shell, registry and security | C1.5 | no | done | https://github.com/DataTalksClub/community-base/pull/43 |
 | `C2.1b` | community-base | Integrate existing package Studio screens | C2.1a | no | done | https://github.com/DataTalksClub/community-base/pull/46 |
-| `C2.2` | community-base | Users management in Studio | C2.1b | no | in-progress | https://github.com/DataTalksClub/community-base/pull/49 |
+| `C2.2` | community-base | Users management in Studio | C2.1b | no | done | https://github.com/DataTalksClub/community-base/pull/49 |
 | `C2.3` | community-base | Content sync engine | C1.5, C2.1a | no | todo |  |
 | `C2.4` | community-base | Release 0.3.0 | C2.1b, C2.2, C2.3 | no | todo |  |
 | `A2.1` | AI-Shipping-Labs/website | Adopt the Studio shell | C2.4 | no | todo |  |
