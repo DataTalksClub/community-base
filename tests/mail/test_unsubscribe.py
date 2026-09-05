@@ -90,3 +90,32 @@ def test_unavailable_replay_remains_pending_and_retries():
 def test_invalid_replay_payload_fails_permanently():
     with pytest.raises(PermanentJobError):
         replay_unsubscribe(context(), {"pending_unsubscribe_id": "nope"})
+
+
+@pytest.mark.django_db
+def test_rejected_replay_is_settled_and_never_retried():
+    pending = PendingUnsubscribe.objects.create(
+        unsubscribe_token=TOKEN,
+        token_fingerprint=relay_links.token_fingerprint(TOKEN),
+        scope="client",
+    )
+    with mock.patch.object(relay_links, "_pool", return_value=FakeRelay(404)):
+        replay_unsubscribe(context(), {"pending_unsubscribe_id": str(pending.id)})
+    pending.refresh_from_db()
+    assert pending.status == PendingUnsubscribe.Status.REJECTED
+    relay_client = FakeRelay(200)
+    with mock.patch.object(relay_links, "_pool", return_value=relay_client):
+        replay_unsubscribe(context(), {"pending_unsubscribe_id": str(pending.id)})
+    assert not relay_client.called
+
+
+@pytest.mark.django_db
+def test_unconfigured_replay_fails_permanently(settings):
+    settings.COMMUNITY_BASE = {**settings.COMMUNITY_BASE, "RELAY_BASE_URL": ""}
+    pending = PendingUnsubscribe.objects.create(
+        unsubscribe_token=TOKEN,
+        token_fingerprint=relay_links.token_fingerprint(TOKEN),
+        scope="client",
+    )
+    with pytest.raises(PermanentJobError, match="relay_bridge_not_configured"):
+        replay_unsubscribe(context(), {"pending_unsubscribe_id": str(pending.id)})

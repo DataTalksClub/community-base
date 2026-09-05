@@ -111,3 +111,23 @@ def test_unconfigured_or_invalid_base_fails_closed(settings):
         relay_links.record_click(TOKEN, "https://example.com").outcome
         is BridgeOutcome.NOT_CONFIGURED
     )
+
+
+def test_trailing_slash_does_not_double_the_path_separator(settings):
+    settings.COMMUNITY_BASE = {**settings.COMMUNITY_BASE, "RELAY_BASE_URL": f"{RELAY}/"}
+    assert relay_links.bridge_base_url() == RELAY
+
+
+def test_unknown_unsubscribe_token_maps_to_rejected():
+    result = run_with(FakeRelay(404), relay_links.load_unsubscribe, TOKEN)
+    assert result.outcome is BridgeOutcome.REJECTED
+
+
+def test_all_bridge_calls_disable_redirect_following():
+    relay = FakeRelay(200)
+    run_with(relay, relay_links.load_unsubscribe, TOKEN)
+    assert relay.calls[0].allow_redirects is False
+
+
+def test_fingerprint_of_absent_token_is_non_identifying():
+    assert relay_links.token_fingerprint("") == "absent"

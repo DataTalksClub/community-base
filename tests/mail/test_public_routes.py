@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 from django.urls import resolve, reverse
+from django.utils.encoding import iri_to_uri
 
 from community_base.jobs.models import JobIntent
 from community_base.mail import relay_links
@@ -125,3 +126,76 @@ def test_unconfigured_bridge_routes_fail_closed(client, settings):
     assert click.status_code == 404
     assert "Location" not in click.headers
     assert client.get(UNSUBSCRIBE_PATH).status_code == 404
+
+
+@pytest.mark.django_db
+def test_malformed_pixel_token_never_reaches_relay(client):
+    relay_client = FakeRelay(200)
+    with relay(relay_client):
+        response = client.get("/t/o/short.gif")
+    assert response.status_code == 404
+    assert response.content == TRANSPARENT_GIF
+    assert not relay_client.called
+
+
+@pytest.mark.django_db
+def test_duplicate_destination_cannot_split_record_from_redirect(client):
+    relay_client = FakeRelay(302)
+    with relay(relay_client):
+        response = client.get(f"{CLICK_PATH}?u=https://example.com/one&u=https://example.com/two")
+    assert response["Location"] == relay_client.calls[0].params["u"]
+
+
+@pytest.mark.django_db
+def test_click_destination_survives_decode_and_encode(client):
+    destination = "https://example.com/a b?q=data&letter=ü"
+    relay_client = FakeRelay(302)
+    with relay(relay_client):
+        response = client.get(CLICK_PATH, {"u": destination})
+    assert relay_client.calls[0].params == {"u": destination}
+    assert response["Location"] == iri_to_uri(destination)
+
+
+@pytest.mark.django_db
+def test_unknown_unsubscribe_link_changes_nothing(client):
+    with relay(FakeRelay(404)):
+        response = client.get(UNSUBSCRIBE_PATH)
+    assert response.status_code == 404
+    assert b"no longer valid" in response.content
+    assert not PendingUnsubscribe.objects.exists()
+
+
+@pytest.mark.django_db
+def test_unsupported_unsubscribe_scope_never_reaches_relay(client):
+    relay_client = FakeRelay(200)
+    with relay(relay_client):
+        response = client.post(UNSUBSCRIBE_PATH, {"scope": "everything"})
+    assert response.status_code == 400
+    assert b"Choose one option" in response.content
+    assert not relay_client.called
+
+
+@pytest.mark.django_db
+def test_degraded_unsubscribe_get_still_offers_form(client):
+    with relay(unreachable_relay()):
+        response = client.get(UNSUBSCRIBE_PATH)
+    assert response.status_code == 200
+    assert b'name="scope"' in response.content
+    assert b"could not check this link" in response.content
+
+
+@pytest.mark.django_db
+def test_unsubscribe_page_needs_no_cookie_or_csrf_token(client):
+    with relay(FakeRelay(200)):
+        response = client.get(UNSUBSCRIBE_PATH)
+    assert "Set-Cookie" not in response.headers
+    assert b"csrfmiddlewaretoken" not in response.content
+
+
+@pytest.mark.django_db
+def test_unsubscribe_page_is_private_and_unindexed(client):
+    with relay(FakeRelay(200)):
+        response = client.get(UNSUBSCRIBE_PATH)
+    assert "private" in response["Cache-Control"]
+    assert "no-store" in response["Cache-Control"]
+    assert response["X-Robots-Tag"] == "noindex, nofollow"

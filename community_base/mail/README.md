@@ -24,3 +24,8 @@ Delivery rows retain the JSON template context needed for durable execution and 
 but never rendered bodies. Callers must pass only retention-approved template inputs; secret-bearing
 values must be resolved by the worker at send time. Recipient addresses, stored context and raw
 unsubscribe tokens must never be logged, returned by APIs or placed in job payloads.
+
+The DTC link-bridge contract tests were adapted for the package settings and URL configuration.
+Site-owned exclusions are the legacy-path inventory, site branding, site response middleware,
+Gunicorn access-log class and observability backend wiring; the package tests retain the route,
+forwarding, outage, redirect, token-confidentiality and durable replay behavior.
