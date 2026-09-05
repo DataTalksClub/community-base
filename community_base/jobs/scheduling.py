@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass
 
 from django.db import transaction
@@ -52,6 +53,18 @@ def schedule_changes(existing: dict[str, dict]) -> tuple[tuple[str, str], ...]:
         action = "create" if current is None else "unchanged" if current == expected else "update"
         changes.append((action, spec.name))
     return tuple(changes)
+
+
+def parse_stored_kwargs(value) -> dict:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str):
+        return {}
+    try:
+        parsed = ast.literal_eval(value)
+    except (SyntaxError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def dispatch_registered_schedule(*, schedule_name: str) -> str:

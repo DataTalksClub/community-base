@@ -8,7 +8,11 @@ from django.utils import timezone
 
 from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import JobContext, JobPayload, register_handler, schedule
-from community_base.jobs.scheduling import desired_local_schedules, schedule_changes
+from community_base.jobs.scheduling import (
+    desired_local_schedules,
+    parse_stored_kwargs,
+    schedule_changes,
+)
 
 COMPLETED = []
 
@@ -95,6 +99,15 @@ def test_schedule_diff_identifies_create_update_and_unchanged():
         ("create", "community-base:jobs-run-due"),
         ("create", "community-base:tests.operations.hourly"),
     )
+
+
+def test_schedule_diff_parses_django_q_text_kwargs():
+    value = "{'schedule_name': 'hourly', 'q_options': {'task_name': 'hourly'}}"
+    assert parse_stored_kwargs(value) == {
+        "schedule_name": "hourly",
+        "q_options": {"task_name": "hourly"},
+    }
+    assert parse_stored_kwargs("not valid Python") == {}
 
 
 def test_sync_schedules_is_a_noop_for_sync_backend(capsys, settings):

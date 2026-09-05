@@ -8,6 +8,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include((api_urlpatterns(), "cb_api"))),
     path("internal/jobs/", include("community_base.jobs.urls")),
+    path("studio/", include("community_base.jobs.studio_urls")),
     path("studio/", include("community_base.api.urls")),
     path("studio/", include("community_base.config.urls")),
 ]

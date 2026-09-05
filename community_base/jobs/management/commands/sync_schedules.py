@@ -1,6 +1,10 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from community_base.jobs.scheduling import desired_local_schedules, schedule_changes
+from community_base.jobs.scheduling import (
+    desired_local_schedules,
+    parse_stored_kwargs,
+    schedule_changes,
+)
 from community_base.kernel.conf import get
 
 
@@ -29,7 +33,7 @@ class Command(BaseCommand):
             row.name: {
                 "func": row.func,
                 "cron": row.cron,
-                "kwargs": row.kwargs,
+                "kwargs": parse_stored_kwargs(row.kwargs),
                 "repeats": row.repeats,
             }
             for row in Schedule.objects.filter(name__in=names)
