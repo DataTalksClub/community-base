@@ -225,8 +225,9 @@ Steps
    `url=<SITE_URL>/internal/jobs/run`, `idempotency_key=<SITE_KEY>:<key_hash>`, and params
    `{"intent_id": ...}`; persist the returned task id.
 2. Add completion/failure calls for chunked 202 leases and preserve lease fencing locally.
-3. Register schedules with Relay using idempotent PUT semantics keyed by name. Delete remote
-   schedules no longer declared; dry-run prints the exact diff.
+3. Register schedules with Relay using its idempotent `POST /api/schedules` upsert keyed by name.
+   Delete remote schedules no longer declared with `DELETE /api/schedules/{id}`; dry-run prints
+   the exact diff.
 4. Add `sync_relay_schedules` and Relay worker-health projection for the standalone Studio page.
 5. Test submit, lease completion, retries, schedule create/update/delete, timeouts and malformed
    responses against the package FakeRelay transport contract.
