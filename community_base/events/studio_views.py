@@ -49,8 +49,10 @@ def _save_form(request, form_class, *, instance=None):
 
 @staff_required
 def event_list(request):
-    rows = Event.objects.select_related("event_series").annotate(
-        registration_count=Count("registrations")
+    rows = (
+        Event.objects.select_related("event_series")
+        .annotate(registration_count=Count("registrations"))
+        .order_by("-start_datetime", "pk")
     )
     query = request.GET.get("q", "").strip()
     status = request.GET.get("status", "").strip()
