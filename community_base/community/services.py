@@ -57,8 +57,12 @@ class SlackCommunityService(CommunityService):
         self.request = request or requests.post
         self.sleep = sleep or time.sleep
 
+    @property
+    def api_configured(self):
+        return bool(conf.get("SLACK_ENABLED") and self.token)
+
     def _api_call(self, method, **payload):
-        if not conf.get("SLACK_ENABLED") or not self.token:
+        if not self.api_configured:
             raise SlackAPIError("not_configured", method=method)
         url = f"{str(conf.get('SLACK_API_BASE_URL')).rstrip('/')}/{method}"
         headers = {
@@ -152,20 +156,24 @@ class SlackCommunityService(CommunityService):
         grant, _changed, delivery = ensure_access_grant(
             user, source=SlackAccessGrant.Source.ELIGIBILITY
         )
-        user_id = self._resolve_user_id(user)
+        user_id = self._resolve_user_id(user) if self.api_configured else user.slack_user_id
         results = self.add_to_channels(user_id) if user_id else []
         self._audit(user, CommunityAuditLog.Action.INVITE, user_id, results)
         return grant, delivery, results
 
     def remove(self, user):
         grant, _changed = revoke_access(user)
-        results = self.remove_from_channels(user.slack_user_id) if user.slack_user_id else []
+        results = (
+            self.remove_from_channels(user.slack_user_id)
+            if self.api_configured and user.slack_user_id
+            else []
+        )
         self._audit(user, CommunityAuditLog.Action.REMOVE, user.slack_user_id, results)
         return grant, results
 
     def reactivate(self, user):
         grant, _changed, delivery = reactivate_access(user)
-        user_id = self._resolve_user_id(user)
+        user_id = self._resolve_user_id(user) if self.api_configured else user.slack_user_id
         results = self.add_to_channels(user_id) if user_id else []
         self._audit(user, CommunityAuditLog.Action.REACTIVATE, user_id, results)
         return grant, delivery, results

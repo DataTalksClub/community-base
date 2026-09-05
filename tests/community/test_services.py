@@ -119,6 +119,17 @@ def test_invite_links_member_grants_access_and_writes_safe_audit(settings):
     assert "secret-token" not in audit.details
 
 
+def test_invite_still_grants_and_queues_mail_when_slack_api_is_disabled(settings):
+    configured(settings, SLACK_ENABLED=False)
+    member = user()
+
+    grant, delivery, results = SlackCommunityService().invite(member)
+
+    assert grant.active is True
+    assert delivery == EmailDelivery.objects.get()
+    assert results == []
+
+
 def test_membership_unknown_preserves_state_and_member_refreshes_it(settings):
     configured(settings)
     member = user(slack_member=True, slack_user_id="")
