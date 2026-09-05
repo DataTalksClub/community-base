@@ -1,4 +1,6 @@
 import json
+import re
+from importlib.resources import files
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 
@@ -38,6 +40,7 @@ def test_allauth_settings_use_email_identity_and_package_adapter():
 
     assert configured["ACCOUNT_LOGIN_METHODS"] == {"email"}
     assert configured["ACCOUNT_SIGNUP_FIELDS"] == ["email*"]
+    assert configured["ACCOUNT_SIGNUP_REDIRECT_URL"] == "/"
     assert configured["ACCOUNT_USER_MODEL_USERNAME_FIELD"] is None
     assert configured["SOCIALACCOUNT_ADAPTER"] == (
         "community_base.accounts.adapters.SocialAccountAdapter"
@@ -58,6 +61,26 @@ def test_public_pages_render_from_package(client):
         assert b'class="cb-page"' in response.content
 
 
+def test_public_templates_follow_the_shared_contract():
+    allowed_blocks = {
+        "title",
+        "meta_description",
+        "page_head_metadata",
+        "content",
+        "extra_js",
+    }
+    template_dir = files("community_base.accounts").joinpath("templates/accounts")
+
+    for template in template_dir.iterdir():
+        if template.suffix != ".html":
+            continue
+        source = template.read_text()
+        assert '{% extends "base.html" %}' in source
+        assert set(re.findall(r"{% block ([a-z_]+) %}", source)) <= allowed_blocks
+        for class_value in re.findall(r'class="([^"]+)"', source):
+            assert all(name.startswith("cb-") for name in class_value.split())
+
+
 def test_login_lists_only_configured_oauth_providers(client):
     provider = SocialApp.objects.create(
         provider="google",
@@ -74,6 +97,15 @@ def test_login_lists_only_configured_oauth_providers(client):
     assert b'href="/accounts/google/login/' in response.content
     assert b"Sign in with GitHub" not in response.content
     assert b"Sign in with Slack" not in response.content
+
+
+def test_legacy_signup_redirect_preserves_only_safe_next(client):
+    safe = client.get("/accounts/signup/?next=/events/42/")
+    unsafe = client.get("/accounts/signup/?next=https://evil.example/")
+
+    assert safe.status_code == unsafe.status_code == 302
+    assert safe.url == "/accounts/register/?next=%2Fevents%2F42%2F"
+    assert unsafe.url == "/accounts/register/"
 
 
 def test_registration_queues_verification_logs_in_and_verifies(client):

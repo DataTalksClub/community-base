@@ -1,6 +1,7 @@
 import datetime
 import hashlib
 import json
+from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.backends import ModelBackend
@@ -135,6 +136,14 @@ def register_view(request):
         return redirect("account_verification_sent")
     context = {"form": form, "next": next_path, **provider_context()}
     return render(request, "accounts/register.html", context)
+
+
+def signup_redirect_view(request):
+    next_path = safe_return_path(request.GET.get("next"), "")
+    target = "/accounts/register/"
+    if next_path:
+        target = f"{target}?{urlencode({'next': next_path})}"
+    return redirect(target)
 
 
 def logout_view(request):

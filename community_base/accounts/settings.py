@@ -5,6 +5,7 @@ def allauth_settings():
         "ACCOUNT_EMAIL_VERIFICATION": "none",
         "ACCOUNT_LOGIN_METHODS": {"email"},
         "ACCOUNT_SIGNUP_FIELDS": ["email*"],
+        "ACCOUNT_SIGNUP_REDIRECT_URL": "/",
         "ACCOUNT_UNIQUE_EMAIL": True,
         "ACCOUNT_USER_MODEL_EMAIL_FIELD": "email",
         "ACCOUNT_USER_MODEL_USERNAME_FIELD": None,
