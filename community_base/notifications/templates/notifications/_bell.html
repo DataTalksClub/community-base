@@ -1,0 +1,1 @@
+<a href="{% url 'notification_list' %}" aria-label="Notifications{% if unread_count %}, {{ unread_count }} unread{% endif %}">Notifications{% if unread_count %} <span aria-label="{{ unread_count }} unread">{{ unread_count }}</span>{% endif %}</a>
