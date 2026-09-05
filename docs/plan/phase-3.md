@@ -214,22 +214,61 @@ Verification
 - squash equivalence in AISL; `testproject` reveal page returns 403 for ineligible and 200 with
   `Cache-Control: no-store` for eligible.
 
-## C3.5 Notifications, comments, voting
+## C3.5a Notifications
 
-Repository: community-base. Depends on: C3.1e. Playbook P4 for each (labels kept).
+Repository: community-base. Depends on: C3.1e. Playbook P4 for `notifications` (label kept).
+
+Read first
+- `~/git/ai-shipping-labs/notifications/` (delivery sources, preferences, bell and JSON routes).
 
 Steps
-1. Lift the three apps. Replace imports of `content`, `events`, `plans`, `bookclub` with signals
-   consumed by the notifications app (`register_notification_source`) and generic relations for
-   comments and votes targets. Public templates follow the contract.
-2. Notification bell partial and JSON endpoints keep their URL names.
+1. Lift the app. Replace imports of `content`, `events`, `plans` and `bookclub` with signals
+   consumed through `register_notification_source`.
+2. Keep the notification bell partial and JSON endpoint names. Public templates follow the
+   package template contract.
 
 Verification
-- squash equivalence in AISL for each app; `testproject` bell shows unread count after a signal.
+- Package tests cover source registration, preferences, read state and recipient ownership.
+- `testproject` bell shows an unread count after a registered source emits a notification.
+- AISL squash equivalence remains C3.7 work.
+
+## C3.5b Comments
+
+Repository: community-base. Depends on: C3.1e. Playbook P4 for `comments` (label kept).
+
+Read first
+- `~/git/ai-shipping-labs/comments/` (generic targets, moderation, member and Studio routes).
+
+Steps
+1. Lift the app and replace site-domain imports with generic relations and registered target
+   adapters.
+2. Preserve public template blocks and URL names used by both sites.
+
+Verification
+- Package tests cover generic targets, ownership, moderation and target deletion.
+- `testproject` can comment on a fixture target without importing a site app.
+- AISL squash equivalence remains C3.7 work.
+
+## C3.5c Voting
+
+Repository: community-base. Depends on: C3.1e. Playbook P4 for `voting` (label kept).
+
+Read first
+- `~/git/ai-shipping-labs/voting/` (generic targets, vote transitions and JSON routes).
+
+Steps
+1. Lift the app and replace site-domain imports with generic relations and registered target
+   adapters.
+2. Preserve public template blocks and URL names used by both sites.
+
+Verification
+- Package tests cover generic targets, vote transitions, counts and recipient ownership.
+- `testproject` can vote on a fixture target without importing a site app.
+- AISL squash equivalence remains C3.7 work.
 
 ## C3.6 Identity and community capability checkpoint
 
-Repository: community-base. Depends on: C3.1e, C3.2, C3.3, C3.4, C3.5.
+Repository: community-base. Depends on: C3.1e, C3.2, C3.3, C3.4, C3.5a, C3.5b, C3.5c.
 
 Goal: prove package-local identity and community behavior without tagging provisional kept-label
 migrations.
