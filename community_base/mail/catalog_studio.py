@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from django.contrib import messages
+from django.core.exceptions import ImproperlyConfigured
 from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 
@@ -16,9 +17,9 @@ def template_list(request):
     error = ""
     try:
         templates = configured_client().templates()
-    except RelayMailError as exception:
+    except (RelayMailError, ImproperlyConfigured) as exception:
         templates = ()
-        error = exception.code
+        error = exception.code if isinstance(exception, RelayMailError) else "relay_not_configured"
     return render(
         request,
         "community_base/mail/template_list.html",
@@ -29,7 +30,19 @@ def template_list(request):
 @never_cache
 @staff_required
 def template_detail(request, template_key):
-    client = configured_client()
+    try:
+        client = configured_client()
+    except ImproperlyConfigured:
+        return render(
+            request,
+            "community_base/mail/template_detail.html",
+            {
+                "template_key": template_key,
+                "versions": (),
+                "rendered": None,
+                "error": "relay_not_configured",
+            },
+        )
     rendered = None
     error = ""
     if request.method == "POST":

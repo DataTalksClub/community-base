@@ -10,6 +10,7 @@ import requests
 from django.core.exceptions import ImproperlyConfigured
 
 from community_base.kernel.conf import get
+from community_base.kernel.context import is_safe_external_context_id
 
 DEFAULT_TIMEOUT_SECONDS = 15
 RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429})
@@ -130,8 +131,7 @@ class RelayMailClient:
         version = message.get("template_version", delivery.template_version)
         replay = document.get("idempotent_replay")
         if (
-            not message_id
-            or len(message_id) > 128
+            not is_safe_external_context_id(message_id)
             or status not in MESSAGE_STATUSES
             or not isinstance(version, int)
             or isinstance(version, bool)
@@ -304,7 +304,7 @@ def _is_suppression(document: dict | None) -> bool:
 def _suppression_reason(document: dict) -> str:
     error = document.get("error", {})
     reason = error.get("reason") if isinstance(error, dict) else None
-    if isinstance(reason, str) and 0 < len(reason) <= 128:
+    if isinstance(reason, str) and re.fullmatch(r"[a-z][a-z0-9_.:-]{0,127}", reason):
         return reason
     return "relay_suppressed"
 
@@ -336,8 +336,7 @@ def _parse_send_result(document: dict, template_key: str, fallback_version: int)
     version = message.get("template_version", fallback_version)
     replay = document.get("idempotent_replay", False)
     if (
-        not message_id
-        or len(message_id) > 128
+        not is_safe_external_context_id(message_id)
         or status not in MESSAGE_STATUSES
         or not isinstance(version, int)
         or isinstance(version, bool)
@@ -355,10 +354,8 @@ def _parse_message(row) -> RelayMessage:
     raw_id = row.get("id")
     message_id = str(raw_id) if isinstance(raw_id, str | int) else ""
     fields = ("client_reference", "status", "template_key", "updated_at")
-    if (
-        not message_id
-        or len(message_id) > 128
-        or any(not isinstance(row.get(field), str) or not row[field] for field in fields)
+    if not is_safe_external_context_id(message_id) or any(
+        not isinstance(row.get(field), str) or not row[field] for field in fields
     ):
         raise RelayMailError("malformed_messages_response")
     version = _version(row.get("template_version"))

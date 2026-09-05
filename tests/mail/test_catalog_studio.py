@@ -70,3 +70,18 @@ def test_catalog_studio_rejects_invalid_context_without_network_payload_leak(
     assert response.status_code == 200
     assert b"invalid_input" in response.content
     assert b"not-json" not in response.content
+
+
+@pytest.mark.django_db
+def test_catalog_studio_reports_unconfigured_relay(client, staff_user, settings):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "RELAY_BASE_URL": "",
+        "RELAY_API_KEY": "",
+    }
+    client.force_login(staff_user)
+    listing = client.get(reverse("community_base_mail_templates"))
+    detail = client.get(reverse("community_base_mail_template", args=("welcome",)))
+    assert listing.status_code == detail.status_code == 200
+    assert b"relay_not_configured" in listing.content
+    assert b"relay_not_configured" in detail.content
