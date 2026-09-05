@@ -51,7 +51,7 @@ DEFAULTS = {
     "JOBS_BACKEND": "sync",
     "HOST_PROFILE_RESOLVER": None,
     "MAIL_BACKEND": "memory",
-    "MAIL_CONTEXT_RESOLVER": "community_base.accounts.mail_context.resolve_delivery_context",
+    "MAIL_CONTEXT_RESOLVER": "community_base.mail.context.resolve_delivery_context",
     "MAIL_PREFERENCE_RESOLVER": "community_base.accounts.preferences.resolve_mail_preference",
     "MAIL_SEND_RECORDER": None,
     "MAIL_TEMPLATE_DIR": None,
