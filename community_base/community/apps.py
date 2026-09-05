@@ -13,5 +13,10 @@ class CommunityConfig(AppConfig):
 
         register_slack_import_adapter()
 
+        if apps.is_installed("community_base.jobs"):
+            from community_base.community.jobs import register_schedules
+
+            register_schedules()
+
         if apps.is_installed("community_base.onboarding"):
             from community_base.community import signals  # noqa: F401

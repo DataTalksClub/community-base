@@ -1,11 +1,18 @@
 import abc
 import json
 import time
+from datetime import timedelta
 
 import requests
 from django.utils import timezone
 
-from community_base.community.access import ensure_access_grant, reactivate_access, revoke_access
+from community_base.community.access import (
+    ensure_access_grant,
+    is_eligible,
+    reactivate_access,
+    revoke_access,
+)
+from community_base.community.hooks import hooks
 from community_base.community.models import CommunityAuditLog, SlackAccessGrant
 from community_base.kernel import conf
 
@@ -182,6 +189,8 @@ def sync_membership(user, *, service=None):
     state, user_id = service.check_workspace_membership(user.email)
     if state == "unknown":
         return state
+    first_check = user.slack_checked_at is None
+    previous = bool(user.slack_member)
     user.slack_member = state == "member"
     if user_id and not user.slack_user_id:
         user.slack_user_id = user_id
@@ -189,11 +198,44 @@ def sync_membership(user, *, service=None):
     fields = ["slack_member", "slack_checked_at"]
     if user_id:
         fields.append("slack_user_id")
+    tags = list(user.tags or [])
+    if state == "member" and "slack-member" not in tags:
+        tags.append("slack-member")
+        user.tags = tags
+        fields.append("tags")
+    elif state == "not_member" and "slack-member" in tags:
+        user.tags = [tag for tag in tags if tag != "slack-member"]
+        fields.append("tags")
     user.save(update_fields=fields)
     CommunityAuditLog.objects.create(
         user=user, action=CommunityAuditLog.Action.CHECK, details=f"membership_{state}"
     )
+    if state == "member" and not first_check and not previous:
+        hooks.joined(user=user)
     return state
+
+
+def stale_membership_users(*, now=None):
+    now = now or timezone.now()
+    try:
+        refresh_days = max(1, int(conf.get("SLACK_MEMBERSHIP_REFRESH_DAYS")))
+    except (TypeError, ValueError):
+        refresh_days = 7
+    try:
+        batch_size = min(100, max(1, int(conf.get("SLACK_MEMBERSHIP_BATCH_SIZE"))))
+    except (TypeError, ValueError):
+        batch_size = 30
+    cutoff = now - timedelta(days=refresh_days)
+    user_model = SlackAccessGrant._meta.get_field("user").remote_field.model
+    candidates = user_model.objects.filter(is_active=True).order_by("slack_checked_at", "pk")
+    selected = []
+    for user in candidates.iterator():
+        stale = user.slack_checked_at is None or user.slack_checked_at < cutoff
+        if stale and is_eligible(user):
+            selected.append(user)
+        if len(selected) == batch_size:
+            break
+    return selected
 
 
 def get_community_service():
