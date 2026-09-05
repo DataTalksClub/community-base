@@ -189,6 +189,7 @@ COMMUNITY_BASE = {
     "RELAY_API_KEY": env("RELAY_API_KEY"),
     "RELAY_WEBHOOK_SECRET": env("RELAY_WEBHOOK_SECRET"),
     "STUDIO_TITLE": "AI Shipping Labs Studio",
+    "STUDIO_AUDIT_WRITER": "website.audit.write_studio_event",
 }
 ```
 

@@ -37,6 +37,14 @@
       </a>
       <button id="studio-sidebar-close" type="button" class="h-11 w-11 md:hidden" aria-label="Close Studio sidebar">×</button>
     </div>
+    <div class="relative mb-5" data-studio-search data-endpoint="{% url 'studio_global_search' %}">
+      <label for="studio-search" class="sr-only">Search Studio</label>
+      <input id="studio-search" type="search" autocomplete="off" placeholder="Search Studio"
+             class="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm"
+             aria-controls="studio-search-results" aria-expanded="false">
+      <div id="studio-search-results"
+           class="absolute inset-x-0 top-full z-50 mt-1 hidden max-h-80 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"></div>
+    </div>
     <nav aria-label="Studio" data-studio-active-section="{{ state.active_section }}">
       {% for item in state.sections %}
         {% if item.section.title %}
