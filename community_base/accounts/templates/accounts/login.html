@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block meta_description %}Sign in to your community account.{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Sign in</h1></header>
+  {% if form.non_field_errors %}<div class="cb-alert">{{ form.non_field_errors }}</div>{% endif %}
+  <form class="cb-form" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% for field in form %}<div class="cb-field">{{ field.label_tag }} {{ field }} {{ field.errors }}</div>{% endfor %}
+    <button class="cb-button cb-button-primary" type="submit">Sign in</button>
+  </form>
+  <p><a href="{% url 'accounts:password_reset_request' %}">Forgot your password?</a></p>
+  <p><a href="{% url 'accounts:register' %}">Create an account</a></p>
+</main>
+{% endblock %}
