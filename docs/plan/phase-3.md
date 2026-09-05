@@ -20,7 +20,8 @@ Exit criteria:
 Repository: community-base. Depends on: C2.4.
 
 Read first
-- `~/git/ai-shipping-labs/accounts/models/`, `accounts/managers.py` and model tests.
+- `~/git/ai-shipping-labs/accounts/models/` (including `UserManager` in `models/user.py`) and
+  model tests.
 - `~/git/dtc-website/_docs/specs/01-platform-architecture.md` "Member profile version 1";
   `accounts/models.py`.
 
