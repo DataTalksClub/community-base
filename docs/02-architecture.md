@@ -72,6 +72,9 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
    `LOGIN_URL`, `SECRET_KEY`, and a Django setting explicitly named as a declared config fallback.
    It never reads other arbitrary `settings.X`. The declared kernel keys are `SITE_KEY`,
    `SITE_URL`, `ACCESS_POLICY`, `JOBS_BACKEND`, `MAIL_BACKEND`, `MAIL_TEMPLATE_DIR`, `RELAY_BASE_URL`,
+   `CONTENT_SOURCES`, `CONTENT_SYNC_GITHUB_API_URL`, `CONTENT_SYNC_GITHUB_APP_ID`,
+   `CONTENT_SYNC_GITHUB_INSTALLATION_ID`, `CONTENT_SYNC_GITHUB_PRIVATE_KEY`,
+   `CONTENT_SYNC_HTTP_TIMEOUT`, `CONTENT_SYNC_MAX_ARCHIVE_BYTES`,
    `RELAY_API_KEY`, `RELAY_WEBHOOK_SECRET`, `STUDIO_TITLE`, `STUDIO_AUDIT_WRITER` and
    `USER_TAGS_ACCESSOR`.
    Mail also declares `MAIL_PREFERENCE_RESOLVER`, `MAIL_SEND_RECORDER`,

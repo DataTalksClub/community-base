@@ -7,6 +7,13 @@ idempotency and service contracts used by all shared apps.
 
 | Key | Type | Default |
 |---|---|---|
+| `CONTENT_SOURCES` | list of source dictionaries | `[]` |
+| `CONTENT_SYNC_GITHUB_API_URL` | absolute URL | `"https://api.github.com"` |
+| `CONTENT_SYNC_GITHUB_APP_ID` | `str` | `""` |
+| `CONTENT_SYNC_GITHUB_INSTALLATION_ID` | `str` | `""` |
+| `CONTENT_SYNC_GITHUB_PRIVATE_KEY` | PEM `str` | `""` |
+| `CONTENT_SYNC_HTTP_TIMEOUT` | positive seconds | `30` |
+| `CONTENT_SYNC_MAX_ARCHIVE_BYTES` | positive bytes | `100000000` |
 | `SITE_KEY` | `str` | `""` |
 | `ACCESS_POLICY` | dotted path or policy object | `"community_base.kernel.access.OpenPolicy"` |
 | `JOBS_BACKEND` | `str` | `"sync"` |
