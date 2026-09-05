@@ -53,7 +53,7 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `C2.1a` | community-base | Studio shell, registry and security | C1.5 | no | done | https://github.com/DataTalksClub/community-base/pull/43 |
-| `C2.1b` | community-base | Integrate existing package Studio screens | C2.1a | no | todo |  |
+| `C2.1b` | community-base | Integrate existing package Studio screens | C2.1a | no | in-progress | https://github.com/DataTalksClub/community-base/issues/45 |
 | `C2.2` | community-base | Users management in Studio | C2.1b | no | todo |  |
 | `C2.3` | community-base | Content sync engine | C1.5, C2.1a | no | todo |  |
 | `C2.4` | community-base | Release 0.3.0 | C2.1b, C2.2, C2.3 | no | todo |  |
