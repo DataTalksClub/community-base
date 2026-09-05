@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import uuid
 from typing import Any
 
+from django.apps.registry import AppRegistryNotReady
 from django.conf import settings
 from django.core.cache import cache
-from django.db import transaction
+from django.core.exceptions import ImproperlyConfigured
+from django.db import DatabaseError, transaction
 
 from community_base.config.crypto import decrypt, encrypt
 from community_base.config.models import Setting, SettingChange
@@ -16,6 +19,9 @@ from community_base.kernel.redaction import REDACTED
 
 STAMP_KEY = "community_base.config.stamp"
 _DEFAULT_SENTINEL = object()
+logger = logging.getLogger(__name__)
+_RUNTIME_READ_ERRORS = (AppRegistryNotReady, DatabaseError)
+_STAMP_ERRORS = (ImproperlyConfigured, DatabaseError)
 
 
 def running_in_worker_process() -> bool:
@@ -35,20 +41,32 @@ class RuntimeConfig:
         self._populated = False
 
     def publish(self) -> None:
-        self.stamp_store.set(STAMP_KEY, uuid.uuid4().hex, timeout=None)
         self.reset()
+        try:
+            self.stamp_store.set(STAMP_KEY, uuid.uuid4().hex, timeout=None)
+        except _STAMP_ERRORS:
+            logger.warning("Unable to publish the runtime configuration stamp", exc_info=True)
 
     def value(self, key: str, default=_DEFAULT_SENTINEL):
         item = definition(key)
         if running_in_worker_process():
-            row = Setting.objects.filter(key=key).first()
+            try:
+                row = Setting.objects.filter(key=key).first()
+            except _RUNTIME_READ_ERRORS:
+                return _fallback(item, default)
             return _stored_value(item, row) if row is not None else _fallback(item, default)
-        current_stamp = self.stamp_store.get(STAMP_KEY)
+        try:
+            current_stamp = self.stamp_store.get(STAMP_KEY)
+        except _STAMP_ERRORS:
+            current_stamp = None
         if not self._populated or current_stamp != self._stamp:
-            self._values = {
-                row.key: _stored_value(definition(row.key), row)
-                for row in Setting.objects.filter(key__in=[item.key for item in definitions()])
-            }
+            try:
+                self._values = {
+                    row.key: _stored_value(definition(row.key), row)
+                    for row in Setting.objects.filter(key__in=[item.key for item in definitions()])
+                }
+            except _RUNTIME_READ_ERRORS:
+                self._values = {}
             self._stamp = current_stamp
             self._populated = True
         return self._values[key] if key in self._values else _fallback(item, default)
@@ -85,8 +103,11 @@ def is_enabled(key: str) -> bool:
 
 def resolved_source(key: str) -> str:
     item = definition(key)
-    if Setting.objects.filter(key=key).exists():
-        return "db"
+    try:
+        if Setting.objects.filter(key=key).exists():
+            return "db"
+    except _RUNTIME_READ_ERRORS:
+        pass
     if item.env_var and item.env_var in os.environ:
         return "environment"
     if item.django_settings_fallback and hasattr(settings, item.django_settings_fallback):

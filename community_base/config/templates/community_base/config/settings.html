@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Runtime settings{% endblock %}
+
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Runtime settings</h1></header>
+
+  {% if messages %}
+    {% for message in messages %}<p class="cb-alert">{{ message }}</p>{% endfor %}
+  {% endif %}
+
+  {% for group in groups %}
+    <section class="cb-card" aria-labelledby="group-{{ group.name }}">
+      <h2 class="cb-card-title" id="group-{{ group.name }}">{{ group.name }}</h2>
+      <form class="cb-form" method="post" action="{% url 'community_base_settings_save_group' group.name %}">
+        {% csrf_token %}
+        {% for setting in group.settings %}
+          <div class="cb-field">
+            <label for="id_{{ setting.key }}">{{ setting.label }}</label>
+            {% if setting.secret %}
+              <input id="id_{{ setting.key }}" name="{{ setting.key }}" type="password" autocomplete="new-password">
+            {% elif setting.value_type == "bool" %}
+              <input id="id_{{ setting.key }}" name="{{ setting.key }}" type="checkbox"{% if setting.value %} checked{% endif %}>
+            {% elif setting.multiline or setting.value_type == "json" or setting.value_type == "list" %}
+              <textarea id="id_{{ setting.key }}" name="{{ setting.key }}">{{ setting.display_value }}</textarea>
+            {% else %}
+              <input id="id_{{ setting.key }}" name="{{ setting.key }}" value="{{ setting.display_value }}"{% if setting.is_email %} type="email"{% endif %}>
+            {% endif %}
+            <span class="cb-badge">{{ setting.source }}</span>
+            <p class="cb-card-meta">{{ setting.description }}</p>
+            {% if setting.docs_url %}<a href="{{ setting.docs_url }}">Documentation</a>{% endif %}
+          </div>
+        {% endfor %}
+        <button class="cb-button cb-button-primary" type="submit">Save {{ group.name }}</button>
+      </form>
+    </section>
+  {% empty %}
+    <p class="cb-empty">No runtime settings have been declared.</p>
+  {% endfor %}
+
+  <section class="cb-card" aria-labelledby="settings-transfer">
+    <h2 class="cb-card-title" id="settings-transfer">Import and export</h2>
+    <p><a class="cb-button" href="{% url 'community_base_settings_export' %}">Export JSON</a></p>
+    <form class="cb-form" method="post" action="{% url 'community_base_settings_import' %}">
+      {% csrf_token %}
+      {{ import_form.as_p }}
+      <button class="cb-button" type="submit">Import JSON</button>
+    </form>
+  </section>
+</main>
+{% endblock %}
