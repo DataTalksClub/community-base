@@ -40,3 +40,7 @@ def test_deep_routes_activate_each_package_destination():
         state = active_state(request_for(route_name, superuser=superuser))
         assert state["active_section"] == "operations"
         assert state["active_destination"] == destination
+
+    onboarding = active_state(request_for("onboarding_studio_progress_list"))
+    assert onboarding["active_section"] == "onboarding"
+    assert onboarding["active_destination"] == "onboarding-flows"
