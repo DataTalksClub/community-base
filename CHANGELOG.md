@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 - 2026-09-05
+
+- C2.1a: Add the shared Studio shell, registry, route checks, assets, search and security controls.
+- C2.1b: Integrate configuration, API key, durable jobs and mail operations into Studio.
+- C2.2: Add generic Studio user list, detail, export, tags and notes with extension registries.
+- C2.3: Add immutable content sync, GitHub webhooks, durable dispatch, S3 media, Studio and API.
+
 ## 0.2.0 - 2026-09-05
 
 - C1.1a: Add durable jobs, local backends, signed ingress, schedules, commands and Studio.
