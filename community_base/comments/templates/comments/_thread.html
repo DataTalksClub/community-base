@@ -1,0 +1,5 @@
+<section data-comment-thread="{{ content_id }}" data-comments-url="{% url 'comments_endpoint' content_id %}">
+  <h2>Questions and comments</h2>
+  <div data-comment-list aria-live="polite"></div>
+  {% if request.user.is_authenticated %}<form data-comment-form><label for="comment-body-{{ content_id }}">Add a comment</label><textarea id="comment-body-{{ content_id }}" name="body" required></textarea><button type="submit">Post</button></form>{% else %}<p><a href="{% url 'account_login' %}?next={{ request.path|urlencode }}">Sign in to comment</a></p>{% endif %}
+</section>
