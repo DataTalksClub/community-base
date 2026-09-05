@@ -9,3 +9,4 @@
 2026-09-05T17:14:18+02:00 | build | split C3.1c into services, self API, and Studio slices after C3.1a and C3.1b merged | guideline
 2026-09-05T20:02:00+02:00 | build | implemented C3.1c portable account services with explicit site hooks and donor behavior classification | guideline
 2026-09-05T20:31:00+02:00 | build | implemented C3.1d session-authenticated account and profile surfaces with revision-safe writes | guideline
+2026-09-05T20:45:00+02:00 | build | implemented C3.1e Studio account operations, integration documentation, and complete AISL account-test classification | guideline
