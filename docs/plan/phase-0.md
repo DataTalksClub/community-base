@@ -259,26 +259,46 @@ Done when
 
 ## A0.1 Add the package dependency and the local link targets
 
-Repository: AI-Shipping-Labs/website. Depends on: C0.5.
+Repository: AI-Shipping-Labs/website. Depends on: C2.4.
+
+Goal: install the released `v0.3.0` dependency and safe local tooling without activating shared
+runtime apps. The owner assigned this preparation before the adoption-ready release; donor and
+service gates still apply to later adoption.
+
+Read first
+- `pyproject.toml`, `uv.lock`, `Makefile`, `.github/workflows/ci.yml`,
+  `.github/workflows/deploy-dev.yml`, `scripts/affected_tests.py`.
+- `_docs/audits/2026-09-06-community-base-migration-plan.md` and the site's process.
 
 Steps
-1. `pyproject.toml`: add `community-base` dependency and `[tool.uv.sources]` git tag `v0.1.0`
-   (`docs/02-architecture.md` section 4). Run `uv lock`.
-2. `Makefile`: add `core-link` and `core-unlink` targets from section 4.
-3. `.github/workflows/ci.yml`: add a step `grep -n 'path = "../community-base"' pyproject.toml && exit 1 || true`
-   named "no local package link".
-4. `INSTALLED_APPS`: add `community_base.kernel` after `django_q`.
-5. `COMMUNITY_BASE` dictionary in `website/settings.py`: `SITE_KEY="aisl"`,
-   `ACCESS_POLICY="content.access.TierAccessPolicy"` (created in A0.3), `JOBS_BACKEND="django_q"`,
-   `MAIL_BACKEND="ses_local"`, `STUDIO_TITLE="AI Shipping Labs Studio"`.
+1. Verify the remote `v0.3.0` tag and release wheel. Add `community-base>=0.3.0,<0.4` and
+   `[tool.uv.sources] community-base = { git = "https://github.com/DataTalksClub/community-base", tag = "v0.3.0" }`.
+   Run `uv lock`; record the resolved tag commit. Never pin untagged package main.
+2. Add `core-link` and `core-unlink` with a dependency-file cleanliness precondition and a
+   recoverable snapshot below `.tmp/`. Refuse repeated link or unlink without a snapshot.
+   Restore only the captured dependency state; never discard unrelated caller edits.
+3. Add a parsed TOML/lock guard requiring the approved tagged git source and matching lock entry.
+   Reject path, editable, branch, missing-tag and mismatched sources with nonzero exit status.
+   Wire it before dependency installation into both PR CI and `deploy-dev.yml` (main's workflow).
+4. Verify link/unlink in a disposable checkout with the sibling package path explicitly supplied;
+   dependency manifests return byte-identical, the restored pin passes, a local link fails.
+5. Keep runtime settings and app lists unchanged. A0.3 creates the real access-policy hook before
+   installing the kernel; A0.2 installs config/API. Do not reference a class that does not exist.
 
 Verification
-- `uv sync && uv run python manage.py check` -> clean.
-- `uv run python -c "import community_base; print(community_base.__version__)"` -> `0.1.0`.
-- `make core-link && make core-unlink && git status --porcelain` -> empty.
+- `uv sync --locked` and `uv run python manage.py check` -> clean.
+- `uv run python -c "import community_base; print(community_base.__version__)"` -> `0.3.0`.
+- Guard negative fixtures -> nonzero; restored tag -> exit 0.
+- `uv run python scripts/affected_tests.py --json` and `make test-affected` -> selected checks pass.
+- Independent tester and PM acceptance, local merge/push and on-call verification follow site rules.
 
 Done when
-- [ ] CI green with the new step
+- [ ] the tagged dependency imports and no shared runtime app has been activated
+- [ ] reversible link targets and fail-closed main CI guard pass focused tests
+- [ ] site review gates and applicable development CI pass
+
+Docs
+- `_docs/audits/2026-09-06-community-base-migration-plan.md`, developer workflow documentation.
 
 ## A0.2 Replace the settings framework with the package config app
 
@@ -290,14 +310,18 @@ Read first
 - every `from integrations.config import` site: `grep -rn "from integrations.config import" --include=*.py . | grep -v tests | wc -l`
 
 Steps
-1. Add `community_base.config` and `community_base.api` to `INSTALLED_APPS`; migrate.
+1. Add `community_base.kernel`, `community_base.config` and `community_base.api` to
+   `INSTALLED_APPS`; migrate. Configure only hooks already implemented by the site.
 2. Convert `INTEGRATION_GROUPS` to `declare(...)` calls in `integrations/settings_keys.py`,
    imported from `IntegrationsConfig.ready()`. One `declare` per key; keep `docs_url` values.
 3. Data migration in `integrations` (playbook P6, first pull request): copy `IntegrationSetting`
-   rows into `cb_config.Setting` with `value_type="str"` and `source="db"`.
-4. Replace `integrations/config.py` body with a shim:
-   `from community_base.config import get as get_config, is_enabled, clear_config_cache` plus a
-   `DeprecationWarning` on import. Keep the module for one release.
+   rows into `cb_config.Setting` with mapped `value_type` and `source="db"`. Encrypt secret
+   values in the target format using a reviewed historical migration-safe implementation;
+   direct plaintext copies cannot be decrypted by the package. Prove round trips with synthetic secrets.
+4. Inventory and preserve the actual `get_config(..., use_settings=...)`, source-resolution and
+   cache-reset contracts in a tested compatibility shim. The released package exports `get` and
+   `is_enabled`, not `clear_config_cache`; do not import a nonexistent function. Any missing
+   shared public contract must be implemented and tagged before cutover. Keep the shim for one release.
 5. Point the Studio settings URL at the package view; delete `studio/views/settings.py` and
    `templates/studio/settings/`. Point `/api/integration-settings` at the package endpoints and
    delete `api/views/integration_settings.py`. Update `asl_cli` commands that used the old path.
@@ -312,7 +336,7 @@ Verification
 - After step 6: `grep -rn "integrations.config\|IntegrationSetting" --include=*.py . | grep -v migrations` -> nothing.
 
 Done when
-- [ ] Studio settings page renders all 17 groups with source badges on development
+- [ ] Studio settings page renders the donor-inventoried groups with source badges on development
 - [ ] `_docs/configuration.md` updated to name the package page and API
 
 Docs
@@ -327,7 +351,10 @@ Steps
    `user.tier.level` and active `TierOverride` (reuse the existing helper in `content/access.py`).
 2. Make `content/access.py` constants import from `community_base.kernel.access` so there is one
    source for the level numbers.
-3. Do not change call sites yet; they change per app in later phases (playbook P3).
+3. Install the kernel if A0.2 has not already done so. Configure the actual hook path
+   `content.access_policy.TierAccessPolicy` with `SITE_KEY="aisl"`, `JOBS_BACKEND="django_q"`,
+   `MAIL_BACKEND="ses_local"` and the site Studio title. Do not activate jobs/mail apps yet.
+4. Do not change call sites yet; they change per app in later phases (playbook P3).
 
 Verification
 - `uv run python manage.py test content --parallel 4` -> pass.
@@ -338,50 +365,149 @@ Done when
 
 ## D0.1 Add the package and replace the settings frameworks
 
-Repository: DataTalksClub/website. Depends on: C0.5.
+Repository: DataTalksClub/website. Depends on: D0.1d.
 
-Read first
-- `core/operational_settings.py`, `core/operational_settings_service.py`, `core/site_settings.py`, `core/settings_batch.py`
-- `studio/views.py` (settings view), `management_registry.py` (settings capabilities)
-
-Steps
-1. Same as A0.1 steps 1 to 4 with `SITE_KEY="dtc"`, `ACCESS_POLICY="community_base.kernel.access.RegisteredOnlyPolicy"`,
-   `JOBS_BACKEND="relay"`, `MAIL_BACKEND="relay"`. Add the `COMMUNITY_BASE` dict to
-   `website/settings/base.py`; the deployed settings modules add Relay keys in Phase 1.
-2. Convert every `_declare(...)` in `core/operational_settings.py` and every site setting in
-   `core/site_settings.py` to `community_base.config.registry.declare` in `core/settings_keys.py`.
-3. Data migration copying `OperationalSetting` rows into `cb_config.Setting` keeping
-   `value_type`; `SettingChange` rows from the existing history table if one exists.
-4. Replace the Studio settings view with the package view; remove the settings capabilities from
-   `management_registry.py`; mount `community_base.api` at `/api/v1/` in `website/urls.py`
-   alongside `management_api` (which keeps its other routes for now).
-5. Second pull request: delete `OperationalSetting`, `core/operational_settings*.py`,
-   `core/site_settings.py`, `core/settings_batch.py`, and their tests that moved to the package.
+Goal: close the settings adoption milestone after its separately reviewed parts below are deployed.
+This parent owns no implementation; do not mark it done when only bootstrap is installed.
 
 Verification
-- `uv run pytest core studio -q` -> pass.
-- On the development database copy: counts match; `GET /api/v1/settings` with a `cb_api` key
-  -> 200.
-- `grep -rn "operational_settings\|site_settings" --include=*.py . | grep -v migrations` -> nothing after the second pull request.
+- D0.1a through D0.1d are done with linked review and development evidence.
+- Development settings UI/API parity, counts and retained audit history are verified.
 
 Done when
-- [ ] `_docs/specs/06-studio-and-admin-api.md` Studio "Site" section names the package settings page
+- [ ] the child tasks and deployed settings parity checks pass
 
 Docs
-- `_docs/architecture/app-boundaries.md` (core no longer owns settings), `_docs/specs/06-studio-and-admin-api.md`
+- `_docs/architecture/app-boundaries.md`, `_docs/specs/06-studio-and-admin-api.md`.
+
+## D0.1a Install the released kernel and local development tools
+
+Repository: DataTalksClub/website. Depends on: C2.4.
+
+Goal: install only the released kernel and dependency tools while retaining existing runtime owners.
+
+Read first
+- `pyproject.toml`, `uv.lock`, `Makefile`, `website/settings/base.py`, `.github/workflows/ci.yml`.
+- `_docs/PROCESS.md`, `_docs/ci/change-selective-ci.md` and the site migration plan.
+
+Steps
+1. Verify remote `v0.3.0` and its release wheel; pin the bounded dependency and exact tagged
+   source as in A0.1. Record the resolved commit. Run `uv lock` and `uv sync --frozen`.
+2. Install only `community_base.kernel.apps.KernelConfig`. Configure `SITE_KEY="dtc"`,
+   `ACCESS_POLICY="community_base.kernel.access.RegisteredOnlyPolicy"`, `JOBS_BACKEND="relay"`,
+   `MAIL_BACKEND="relay"`, `STUDIO_TITLE="DataTalks.Club Studio"` in `COMMUNITY_BASE`.
+   These declarations do not install jobs/mail, contact Relay or require credentials.
+3. Implement reversible local-link targets and a parsed tag/lock guard per A0.1, wired into
+   actual Make/CI checks. Fail closed on local paths, editable, branches and source mismatch.
+4. Add a meaningful integration test: kernel loads without any other shared model app,
+   anonymous level 5 is denied, authenticated level 5 allowed and paid levels denied.
+   Keep `AUTH_USER_MODEL="accounts.CustomUser"`; no migration should be generated.
+
+Verification
+- `uv sync --frozen` and package version import -> `0.3.0`.
+- `uv run python manage.py check --settings=website.settings.test` -> no issues.
+- `uv run python manage.py makemigrations --check --dry-run --settings=website.settings.test` -> no changes.
+- Disposable link/unlink restores byte-identical manifests; negative pin fixtures fail.
+- `make verification-plan VERIFY_ISSUE=<site-issue>` followed by the exact generated
+  verification-run/evidence/report gates -> pass. Honor dependency impact; no bare root pytest.
+
+Done when
+- [ ] kernel integration and safe dependency tools pass site engineer/tester/PM gates
+- [ ] local merge/push and required development CI evidence are recorded
+
+Docs
+- Site migration plan and local development instructions.
+
+## D0.1b Inventory settings contracts and prove package parity
+
+Repository: DataTalksClub/website. Depends on: D0.1a.
+
+Read first
+- `core/operational_settings.py`, `core/operational_settings_service.py`, `core/site_settings.py`,
+  `core/settings_batch.py`, `management_registry.py`, `management_api/urls.py`, Studio settings code.
+
+Steps
+1. Record every declaration, type, validator, fallback, source badge, permission and audit owner.
+2. Compare grouped batch/revision, If-Match and idempotency behavior against released config/API.
+3. Write a field/endpoint matrix with synthetic parity cases and explicit site adapter ownership.
+4. File blocking package gaps; shared fixes must be tagged before D0.1c. Do not change writers.
+
+Verification
+- Every inventory row has a tested mapping or a linked blocking gap.
+- Synthetic parity checks and site-selected verification pass without real secrets.
+
+Done when
+- [ ] the D0.1c implementation mapping and all prerequisite gaps are explicit and reviewed
+
+Docs
+- Site settings parity inventory and migration plan.
+
+## D0.1c Copy settings and switch readers and writers
+
+Repository: DataTalksClub/website. Depends on: D0.1b.
+
+Prerequisite: every recorded shared parity gap is resolved in a published package tag.
+
+Steps
+1. Install config/API and declare mapped keys. Add reversible historical-model data copy with
+   explicit type, secret-encryption and audit-history mappings.
+2. Preserve DTC all-or-nothing batch, revision, If-Match, idempotency and capability protections
+   through adapters. Mount routes without shadowing `/api/v1/admin` or `/api/v1/me`.
+3. Rehearse on a permitted development copy. Compare exact counts and non-secret invariants;
+   second copy adds zero rows, malformed input causes zero partial writes.
+4. Switch readers and writers together under reviewed deployment sequencing. Retain old storage
+   read-only for rollback. Verify no divergent writes before reverse copy.
+
+Verification
+- Development-copy migration, reverse/reapply and exact row comparisons pass.
+- Settings permission, batch, revision, source badge and redaction regression scenarios pass.
+- Site versioned verification plan, independent tester/PM and development deploy gates pass.
+
+Done when
+- [ ] the deployed cutover is reconciled and rollback instructions are verified
+
+Docs
+- Settings mapping, deployment evidence and rollback runbook.
+
+## D0.1d Retire old settings storage after the rollback window
+
+Repository: DataTalksClub/website. Depends on: D0.1c.
+
+Prerequisite: development cutover is green and the rollback window has been explicitly closed.
+
+Steps
+1. Prove every consumer has moved and audit/history is retained. Unclassified readers block removal.
+2. Remove only inventoried migrated declarations, models and shims, with a storage-drop migration.
+   Retain unrelated core primitives and tests. Preserve all parity tests in their owning layer.
+3. Update spec 06 and app boundaries to reflect actual deployed ownership.
+
+Verification
+- Retired-import inventory is empty except immutable migrations and intentional historical docs.
+- Migration rehearsal, retained row/audit invariants and site-selected verification pass.
+
+Done when
+- [ ] old settings ownership is retired after verified parity and the rollback window
+
+Docs
+- `_docs/architecture/app-boundaries.md`, `_docs/specs/06-studio-and-admin-api.md`.
 
 ## D0.2 Site CI guard and pin bump workflow
 
-Repository: DataTalksClub/website. Depends on: D0.1.
+Repository: DataTalksClub/website. Depends on: D0.1a.
 
 Steps
-1. Add the "no local package link" CI step (A0.1 step 3).
-2. Add `.github/workflows/bump-community-base.yml`: weekly, opens a pull request that updates the
-   tag to the latest release (uses `gh release view --repo DataTalksClub/community-base` and
-   `uv lock --upgrade-package community-base`). Same workflow copied to AISL in A0.1's follow-up.
+1. Reuse the guard installed in D0.1a; verify it protects the main workflow.
+2. Add weekly release inspection producing a deduplicated update issue or advisory for ordinary
+   PM, engineer, tester, PM acceptance and local merge/push. Both sites prohibit PRs.
+3. Do not auto-change pins or select an adoption-incompatible domain release. Failed release
+   lookup is an actionable error. Implement the same advisory flow for AISL as a separate site issue.
 
 Verification
-- Manually trigger the workflow -> a pull request opens or the run says "already latest".
+- Manual workflow -> one deduplicated issue/advisory or `already latest`; lookup failure is nonzero.
+- Main CI rejects a local-link fixture and accepts the approved tag.
 
 Done when
-- [ ] both sites have the guard and the bump workflow
+- [ ] both sites have guards and reviewed update-advisory workflows
+
+Docs
+- Both site migration plans and dependency-update operator instructions.

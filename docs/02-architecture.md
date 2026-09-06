@@ -163,17 +163,15 @@ dependencies = [
 community-base = { git = "https://github.com/DataTalksClub/community-base", tag = "v0.3.0" }
 ```
 
-Local development against a checkout in a sibling directory:
+Local development uses site `core-link` and `core-unlink` wrappers (P1). Before linking, require
+clean dependency manifests and capture their exact prior bytes in a unique `.tmp/` snapshot.
+Refuse repeated links or missing/conflicting recovery state. Unlink restores that captured tagged
+state without discarding unrelated edits. Resolve the package checkout explicitly because a site
+agent worktree is not necessarily a sibling of `community-base`.
 
-```make
-core-link:    ## use ../community-base (editable) instead of the pinned tag
-	uv add --editable ../community-base
-core-unlink:  ## restore the pinned tag from git
-	git checkout -- pyproject.toml uv.lock && uv sync
-```
-
-`make core-link` must never be committed: CI in each site fails if `pyproject.toml` contains
-`path = "../community-base"` (check added in Phase 0).
+Local links must never be committed. Each site's parsed TOML/lock guard rejects path, editable,
+branch, missing-tag and mismatched package sources. Run the guard in the actual main CI workflow
+before dependency installation; a PR-only workflow does not protect sites that use local merges.
 
 Site settings:
 

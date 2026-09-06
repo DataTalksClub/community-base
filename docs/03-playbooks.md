@@ -14,12 +14,15 @@ Repository names used below:
 
 ## P1. Develop a site against a local package checkout
 
-1. In the site: `make core-link`. This runs `uv add --editable ../community-base`.
+1. In the site: `make core-link`. The site wrapper verifies dependency files are clean, records
+   their exact original bytes under `.tmp/`, then links the explicitly resolved package checkout.
+   Refuse an existing link snapshot; do not overwrite recovery state.
 2. Verify: `uv run python -c "import community_base, pathlib; print(pathlib.Path(community_base.__file__).resolve())"`
    prints a path under `~/git/community-base/`.
 3. Work. Package changes are visible without reinstall.
-4. Before committing in the site: `make core-unlink`, which runs
-   `git checkout -- pyproject.toml uv.lock && uv sync`.
+4. Before committing in the site: `make core-unlink`, which restores the captured original
+   dependency files and syncs the tagged dependency. Refuse conflicting edits or missing recovery
+   state; never use a blanket Git restore that discards unrelated dependency changes.
 5. Verify: `grep -n 'path = "../community-base"' pyproject.toml` prints nothing, and
    `git diff --stat pyproject.toml uv.lock` prints nothing unless the issue bumps the pin.
 
