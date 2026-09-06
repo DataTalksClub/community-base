@@ -1,0 +1,6 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{% if object %}Edit{% else %}Create{% endif %} {{ kind }}{% endblock %}
+{% block studio_content %}
+<h1>{% if object %}Edit{% else %}Create{% endif %} {{ kind }}</h1>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Save</button></form>
+{% endblock %}

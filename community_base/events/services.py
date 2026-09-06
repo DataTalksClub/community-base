@@ -93,6 +93,7 @@ def publish_event(event):
     event.status = "upcoming"
     event.published_at = event.published_at or timezone.now()
     event.save(update_fields=("status", "published_at", "updated_at"))
+    event.public_id = allocate_public_id(event)
     enroll_series_registrants_in_event(event)
     _after_commit(event_published, event)
     return event

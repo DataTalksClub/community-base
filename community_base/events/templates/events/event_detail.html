@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }}{% endblock %}
+{% block meta_description %}{{ event.description|striptags|truncatewords:30 }}{% endblock %}
+{% block content %}
+<main class="cb-page cb-event-detail">
+  <p><a href="{% url 'events_list' %}">All events</a></p>
+  <header class="cb-page-header">
+    <p>{{ event.get_kind_display }}</p>
+    <h1 class="cb-page-title">{{ event.title }}</h1>
+    <p>
+      <time datetime="{{ event.start_datetime|date:'c' }}">{{ event.start_datetime }}</time>
+      {% if event.location %} · {{ event.location }}{% endif %}
+    </p>
+  </header>
+
+  {% if messages %}<ul class="cb-messages">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
+
+  {% if event.description %}<section class="cb-section"><h2>About this event</h2><p>{{ event.description|linebreaksbr }}</p></section>{% endif %}
+
+  {% if event.ordered_hosts %}
+    <section class="cb-section"><h2>Hosts</h2><ul>{% for host in event.ordered_hosts %}<li>{{ host.name }}{% if host.title %}, {{ host.title }}{% endif %}</li>{% endfor %}</ul></section>
+  {% endif %}
+
+  <section class="cb-section" id="registration">
+    <h2>Registration</h2>
+    {% if registration.is_active %}
+      <p>You are registered.</p>
+      <form method="post" action="{{ event.get_absolute_url }}unregister/">{% csrf_token %}<button class="cb-button" type="submit">Cancel registration</button></form>
+      <p><a class="cb-button" href="{{ event.get_absolute_url }}calendar.ics">Add to calendar</a></p>
+    {% elif event.is_upcoming and request.user.is_authenticated and can_register %}
+      <form method="post" action="{{ event.get_absolute_url }}register/">{% csrf_token %}<button class="cb-button cb-button-primary" type="submit">Register</button></form>
+    {% elif event.is_upcoming and not request.user.is_authenticated and event.required_level == 0 %}
+      <form class="cb-form" method="post" action="{{ event.get_absolute_url }}register/">
+        {% csrf_token %}
+        {{ anonymous_form.non_field_errors }}
+        <label class="cb-label">Email {{ anonymous_form.email }}{{ anonymous_form.email.errors }}</label>
+        <label class="cb-label">Name {{ anonymous_form.display_name }}{{ anonymous_form.display_name.errors }}</label>
+        <label class="cb-label">{{ anonymous_form.privacy_acknowledged }} I agree to the event privacy notice.</label>
+        <label class="cb-label">{{ anonymous_form.newsletter_consent }} Send me community updates.</label>
+        <button class="cb-button cb-button-primary" type="submit">Register by email</button>
+      </form>
+    {% elif event.is_upcoming %}
+      <p>Sign in with an eligible account to register.</p>
+    {% else %}
+      <p>This event has ended.</p>
+    {% endif %}
+  </section>
+
+  {% if event.is_past and registration %}
+    <section class="cb-section" id="feedback">
+      <h2>Feedback</h2>
+      <form class="cb-form" method="post" action="{{ event.get_absolute_url }}feedback/">
+        {% csrf_token %}
+        {{ feedback_form.non_field_errors }}
+        <label class="cb-label">Rating {{ feedback_form.rating }}{{ feedback_form.rating.errors }}</label>
+        <label class="cb-label">What worked? {{ feedback_form.comment }}{{ feedback_form.comment.errors }}</label>
+        <label class="cb-label">What would you change? {{ feedback_form.would_change }}{{ feedback_form.would_change.errors }}</label>
+        <button class="cb-button cb-button-primary" type="submit">Save feedback</button>
+      </form>
+    </section>
+  {% endif %}
+
+  {% if event.is_past and event.recording_url %}<section class="cb-section"><h2>Recording</h2><p><a href="{{ event.recording_url }}">Watch the recording</a></p></section>{% endif %}
+</main>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Event hosts{% endblock %}
+{% block studio_content %}
+<h1>Event hosts</h1><p><a href="{% url 'events_studio_host_create' %}">Create host</a></p>
+<ul>{% for host in hosts %}<li><a href="{% url 'events_studio_host_edit' host.pk %}">{{ host.name }}</a> · {{ host.kind }} <form method="post" action="{% url 'events_studio_host_delete' host.pk %}">{% csrf_token %}<button type="submit">Delete</button></form></li>{% empty %}<li>No event hosts.</li>{% endfor %}</ul>
+{% endblock %}

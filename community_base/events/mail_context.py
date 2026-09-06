@@ -20,8 +20,8 @@ def resolve_delivery_context(*, delivery, context):
             issued_at=delivery.created_at,
             jti=delivery.id,
         )
-        resolved["verify_url"] = f"{site_url}/events/registrations/verify?token={token}"
-    elif delivery.purpose == "events.registration_confirmed":
+        resolved["verify_url"] = f"{site_url}/events/registration/verify/?token={token}"
+    elif delivery.purpose in {"events.registration_confirmed", "events.guest_invitation"}:
         token = generate_registration_token(
             registration,
             action="manage",
@@ -29,5 +29,5 @@ def resolve_delivery_context(*, delivery, context):
             jti=delivery.id,
             expiry_hours=24 * 365,
         )
-        resolved["manage_url"] = f"{site_url}/events/registrations/manage?token={token}"
+        resolved["manage_url"] = f"{site_url}/events/registration/manage/?token={token}"
     return resolved

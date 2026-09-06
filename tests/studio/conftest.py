@@ -13,6 +13,7 @@ def register_package_studio():
     from community_base.content_sync.studio_registration import (
         register_studio as register_content_sync,
     )
+    from community_base.events.studio_registration import register_studio as register_events
     from community_base.jobs.studio_registration import register_studio as register_jobs
     from community_base.mail.studio_registration import register_studio as register_mail
     from community_base.onboarding.studio_registration import (
@@ -27,6 +28,7 @@ def register_package_studio():
     register_onboarding()
     register_community()
     register_comments()
+    register_events()
     builtin.register_builtin_section()
     register_config()
     register_api()

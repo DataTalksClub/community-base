@@ -180,6 +180,11 @@ class Event(TimestampedModel):
                 raise ValidationError("Event public_id is immutable.")
         super().save(*args, **kwargs)
 
+    def get_absolute_url(self):
+        from community_base.events.routing import event_url
+
+        return event_url(self)
+
     def clean(self):
         super().clean()
         if self.end_datetime is not None and self.end_datetime < self.start_datetime:

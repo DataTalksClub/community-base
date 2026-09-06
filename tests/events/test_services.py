@@ -138,6 +138,7 @@ def test_lifecycle_services_emit_after_commit(django_capture_on_commit_callbacks
     try:
         with django_capture_on_commit_callbacks(execute=True):
             item = publish_event(item)
+        assert item.public_id is not None
         new_start = item.start_datetime + timedelta(days=1)
         with django_capture_on_commit_callbacks(execute=True):
             item = reschedule_event(item, start_datetime=new_start, reason="New day")

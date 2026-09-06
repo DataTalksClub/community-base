@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Events{% endblock %}
+{% block meta_description %}Join upcoming community events and browse completed sessions.{% endblock %}
+{% block content %}
+<main class="cb-page cb-events-list">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Events</h1>
+    <p>Live community sessions, workshops and meetups.</p>
+  </header>
+
+  <section class="cb-section" aria-labelledby="upcoming-events">
+    <h2 class="cb-section-title" id="upcoming-events">Upcoming events</h2>
+    {% for event in upcoming_events %}
+      <article class="cb-card cb-event-card">
+        <p><time datetime="{{ event.start_datetime|date:'c' }}">{{ event.start_datetime }}</time></p>
+        <h3><a href="{{ event.get_absolute_url }}">{{ event.title }}</a></h3>
+        {% if event.description %}<p>{{ event.description|truncatewords:40 }}</p>{% endif %}
+      </article>
+    {% empty %}
+      <p>No upcoming events are scheduled.</p>
+    {% endfor %}
+  </section>
+
+  <section class="cb-section" aria-labelledby="past-events">
+    <h2 class="cb-section-title" id="past-events">Past events</h2>
+    {% for event in past_events %}
+      <article class="cb-card cb-event-card">
+        <p><time datetime="{{ event.start_datetime|date:'c' }}">{{ event.start_datetime }}</time></p>
+        <h3><a href="{{ event.get_absolute_url }}">{{ event.title }}</a></h3>
+      </article>
+    {% empty %}
+      <p>No completed events yet.</p>
+    {% endfor %}
+  </section>
+</main>
+{% endblock %}
