@@ -19,7 +19,10 @@ site adoption and deployed exit criteria still determine phase completion. Use
 | 5 | `phase-5.md` | Shared curriculum (cohort and self-paced) and coursework | AISL one weekend, DTC one weekend | 4 | not started |
 | 6 | `phase-6.md` | AISL cutover to Relay for mail, jobs, campaigns, contacts and email-log history | AISL one weekend | 1 proven per D13, 5 | not started |
 
-Order during the current campaign: ready package issues first. After the adoption-ready `v0.6.0`
+Order during the current campaign: ready package issues first by default. On 2026-09-06 the
+owner additionally assigned site migration planning and released-package bootstrap (A0.1 and
+D0.1a); those may proceed now. This does not waive release, donor compatibility, Relay or freeze
+gates for subsequent adoption. After the adoption-ready `v0.6.0`
 release, use dependency order across Relay, DTC and AISL. Relay issues in Phase 1 have the longest
 external lead time and may be opened independently.
 

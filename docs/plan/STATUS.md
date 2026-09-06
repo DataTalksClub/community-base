@@ -20,11 +20,15 @@ issues that can start now.
 | `C0.3` | community-base | Config app: registry, storage, cache, Studio page, import and export | C0.4 | no | done | https://github.com/DataTalksClub/community-base/pull/13 |
 | `C0.4` | community-base | API app: keys with scopes, bearer auth, OpenAPI, route registry | C0.2 | no | done | https://github.com/DataTalksClub/community-base/pull/11 |
 | `C0.5` | community-base | First release | C0.2, C0.3, C0.4 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.1.0 |
-| `A0.1` | AI-Shipping-Labs/website | Add the package dependency and the local link targets | C0.5 | no | todo |  |
+| `A0.1` | AI-Shipping-Labs/website | Add the package dependency and the local link targets | C2.4 | no | todo |  |
 | `A0.2` | AI-Shipping-Labs/website | Replace the settings framework with the package config app | A0.1 | no | todo |  |
 | `A0.3` | AI-Shipping-Labs/website | Access policy hook | A0.1 | no | todo |  |
-| `D0.1` | DataTalksClub/website | Add the package and replace the settings frameworks | C0.5 | no | todo |  |
-| `D0.2` | DataTalksClub/website | Site CI guard and pin bump workflow | D0.1 | no | todo |  |
+| `D0.1` | DataTalksClub/website | Add the package and replace the settings frameworks | D0.1d | no | todo |  |
+| `D0.1a` | DataTalksClub/website | Install the released kernel and local development tools | C2.4 | no | todo |  |
+| `D0.1b` | DataTalksClub/website | Inventory settings contracts and prove package parity | D0.1a | no | todo |  |
+| `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | todo |  |
+| `D0.1d` | DataTalksClub/website | Retire old settings storage after the rollback window | D0.1c | no | todo |  |
+| `D0.2` | DataTalksClub/website | Site CI guard and pin bump workflow | D0.1a | no | todo |  |
 
 ## Phase 1
 
@@ -94,7 +98,7 @@ issues that can start now.
 | `C4.1a` | community-base | Events models and domain services | C3.6 | no | done | https://github.com/DataTalksClub/community-base/pull/100 |
 | `C4.1b` | community-base | Registration, reminders and feedback | C4.1a | no | done | https://github.com/DataTalksClub/community-base/pull/103 |
 | `C4.1c` | community-base | Event integrations and job handlers | C4.1b | no | done | https://github.com/DataTalksClub/community-base/pull/107 |
-| `C4.1d` | community-base | Event pages, Studio and APIs | C4.1c | no | review | https://github.com/DataTalksClub/community-base/pull/110 |
+| `C4.1d` | community-base | Event pages, Studio and APIs | C4.1c | no | done | https://github.com/DataTalksClub/community-base/pull/110 |
 | `C4.2` | community-base | Events capability checkpoint | C4.1d | no | todo |  |
 | `C4.3` | community-base | Events donor compatibility checkpoint | C4.2, A4.1 | no | todo |  |
 | `A4.2` | AI-Shipping-Labs/website | Freeze weekend: adopt shared events | C5.3, C4.3, A4.1 | yes | todo |  |
