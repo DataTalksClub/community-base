@@ -16,10 +16,10 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `C0.1` | community-base | Create the package repository skeleton |  | no | done | https://github.com/DataTalksClub/community-base/pull/6 |
-| `C0.2` | community-base | Kernel: configuration dictionary, hooks, access policy, staff decorators | C0.1 | no | todo |  |
-| `C0.3` | community-base | Config app: registry, storage, cache, Studio page, import and export | C0.4 | no | todo |  |
-| `C0.4` | community-base | API app: keys with scopes, bearer auth, OpenAPI, route registry | C0.2 | no | todo |  |
-| `C0.5` | community-base | First release | C0.2, C0.3, C0.4 | no | todo |  |
+| `C0.2` | community-base | Kernel: configuration dictionary, hooks, access policy, staff decorators | C0.1 | no | done | https://github.com/DataTalksClub/community-base/pull/8 |
+| `C0.3` | community-base | Config app: registry, storage, cache, Studio page, import and export | C0.4 | no | done | https://github.com/DataTalksClub/community-base/pull/13 |
+| `C0.4` | community-base | API app: keys with scopes, bearer auth, OpenAPI, route registry | C0.2 | no | done | https://github.com/DataTalksClub/community-base/pull/11 |
+| `C0.5` | community-base | First release | C0.2, C0.3, C0.4 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.1.0 |
 | `A0.1` | AI-Shipping-Labs/website | Add the package dependency and the local link targets | C2.4 | no | todo |  |
 | `A0.2` | AI-Shipping-Labs/website | Replace the settings framework with the package config app | A0.1 | no | todo |  |
 | `A0.3` | AI-Shipping-Labs/website | Access policy hook | A0.1 | no | todo |  |
@@ -39,13 +39,13 @@ issues that can start now.
 | `R1.3` | DataTalksClub/relay | Template catalog: versions, preview, test send, typed context |  | no | in-progress | https://github.com/DataTalksClub/relay/issues/12 |
 | `R1.4` | DataTalksClub/relay | Client callbacks for delivery and engagement events | R1.2 | no | todo |  |
 | `R1.5` | DataTalksClub/relay | Preference categories and double opt-in |  | no | todo |  |
-| `C1.1a` | community-base | Durable jobs core and local backends | C0.5 | no | todo |  |
-| `C1.1b` | community-base | Relay jobs client and contract tests | C1.1a | no | todo |  |
-| `C1.2a` | community-base | Durable mail core, memory backend, and local surfaces | C1.1a | no | todo |  |
-| `C1.2b` | community-base | Relay mail, catalog, callback, and reconciliation clients | C1.1b, C1.2a | no | todo |  |
-| `C1.3` | community-base | ses_local backend (transitional, for AISL) | C1.2a | no | todo |  |
-| `C1.4` | community-base | Test doubles exported for sites | C1.1a, C1.1b, C1.2a, C1.2b | no | todo |  |
-| `C1.5` | community-base | Release 0.2.0 | C1.1a, C1.1b, C1.2a, C1.2b, C1.3, C1.4 | no | todo |  |
+| `C1.1a` | community-base | Durable jobs core and local backends | C0.5 | no | done | https://github.com/DataTalksClub/community-base/pull/19 |
+| `C1.1b` | community-base | Relay jobs client and contract tests | C1.1a | no | done | https://github.com/DataTalksClub/community-base/pull/22 |
+| `C1.2a` | community-base | Durable mail core, memory backend, and local surfaces | C1.1a | no | done | https://github.com/DataTalksClub/community-base/pull/26 |
+| `C1.2b` | community-base | Relay mail, catalog, callback, and reconciliation clients | C1.1b, C1.2a | no | done | https://github.com/DataTalksClub/community-base/pull/29 |
+| `C1.3` | community-base | ses_local backend (transitional, for AISL) | C1.2a | no | done | https://github.com/DataTalksClub/community-base/pull/32 |
+| `C1.4` | community-base | Test doubles exported for sites | C1.1a, C1.1b, C1.2a, C1.2b | no | done | https://github.com/DataTalksClub/community-base/pull/35 |
+| `C1.5` | community-base | Release 0.2.0 | C1.1a, C1.1b, C1.2a, C1.2b, C1.3, C1.4 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.2.0 |
 | `D1.1` | DataTalksClub/website | Replace DTC jobs with the package jobs app (relay backend) | C1.5, R1.1, R1.2 | no | todo |  |
 | `D1.2` | DataTalksClub/website | Replace DTC email_app and the Datamailer outbox with the package mail app | D1.1, R1.3, R1.4, R1.5 | no | todo |  |
 | `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2 | yes | todo |  |
@@ -57,10 +57,10 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `C2.1a` | community-base | Studio shell, registry and security | C1.5 | no | done | https://github.com/DataTalksClub/community-base/pull/43 |
-| `C2.1b` | community-base | Integrate existing package Studio screens | C2.1a | no | todo |  |
-| `C2.2` | community-base | Users management in Studio | C2.1b | no | todo |  |
-| `C2.3` | community-base | Content sync engine | C1.5, C2.1a | no | todo |  |
-| `C2.4` | community-base | Release 0.3.0 | C2.1b, C2.2, C2.3 | no | todo |  |
+| `C2.1b` | community-base | Integrate existing package Studio screens | C2.1a | no | done | https://github.com/DataTalksClub/community-base/pull/46 |
+| `C2.2` | community-base | Users management in Studio | C2.1b | no | done | https://github.com/DataTalksClub/community-base/pull/49 |
+| `C2.3` | community-base | Content sync engine | C1.5, C2.1a | no | done | https://github.com/DataTalksClub/community-base/pull/52 |
+| `C2.4` | community-base | Release 0.3.0 | C2.1b, C2.2, C2.3 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.3.0 |
 | `A2.1` | AI-Shipping-Labs/website | Adopt the Studio shell | C2.4 | no | todo |  |
 | `A2.2` | AI-Shipping-Labs/website | Users pages from the package | A2.1 | no | todo |  |
 | `A2.3` | AI-Shipping-Labs/website | Content sync through the package engine | C2.4 | no | todo |  |
@@ -72,17 +72,17 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `C3.1a` | community-base | Target accounts schema | C2.4 | no | done | https://github.com/DataTalksClub/community-base/pull/60 |
-| `C3.1b` | community-base | Authentication and public account entry points | C3.1a | no | todo |  |
-| `C3.1c` | community-base | Account domain services and mail preferences | C3.1b | no | todo |  |
-| `C3.1d` | community-base | Account pages and self API | C3.1c | no | todo |  |
-| `C3.1e` | community-base | Studio account operations and documentation | C3.1d | no | todo |  |
-| `C3.2` | community-base | Questionnaires | C3.1e | no | todo |  |
-| `C3.3` | community-base | Onboarding flows | C3.1e, C3.2 | no | todo |  |
-| `C3.4` | community-base | Community (Slack) | C3.1e | no | todo |  |
-| `C3.5a` | community-base | Notifications | C3.1e | no | todo |  |
-| `C3.5b` | community-base | Comments | C3.1e | no | todo |  |
-| `C3.5c` | community-base | Voting | C3.1e | no | todo |  |
-| `C3.6` | community-base | Identity and community capability checkpoint | C3.1e, C3.2, C3.3, C3.4, C3.5a, C3.5b, C3.5c | no | todo |  |
+| `C3.1b` | community-base | Authentication and public account entry points | C3.1a | no | done | https://github.com/DataTalksClub/community-base/pull/63 |
+| `C3.1c` | community-base | Account domain services and mail preferences | C3.1b | no | done | https://github.com/DataTalksClub/community-base/pull/68 |
+| `C3.1d` | community-base | Account pages and self API | C3.1c | no | done | https://github.com/DataTalksClub/community-base/pull/71 |
+| `C3.1e` | community-base | Studio account operations and documentation | C3.1d | no | done | https://github.com/DataTalksClub/community-base/pull/74 |
+| `C3.2` | community-base | Questionnaires | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/77 |
+| `C3.3` | community-base | Onboarding flows | C3.1e, C3.2 | no | done | https://github.com/DataTalksClub/community-base/pull/80 |
+| `C3.4` | community-base | Community (Slack) | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/83 |
+| `C3.5a` | community-base | Notifications | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/87 |
+| `C3.5b` | community-base | Comments | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/90 |
+| `C3.5c` | community-base | Voting | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/93 |
+| `C3.6` | community-base | Identity and community capability checkpoint | C3.1e, C3.2, C3.3, C3.4, C3.5a, C3.5b, C3.5c | no | done | https://github.com/DataTalksClub/community-base/pull/96 |
 | `C3.7` | community-base | Identity donor compatibility checkpoint | C3.6, A3.2, D3.1 | no | todo |  |
 | `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2a | no | todo |  |
 | `A3.2` | AI-Shipping-Labs/website | Extension models for the remaining site-only user fields | A3.1 | no | todo |  |
@@ -95,11 +95,11 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `A4.1` | AI-Shipping-Labs/website | Cut the seams in AISL events | C5.2a, A3.2 | no | todo |  |
-| `C4.1a` | community-base | Events models and domain services | C3.6 | no | todo |  |
-| `C4.1b` | community-base | Registration, reminders and feedback | C4.1a | no | todo |  |
-| `C4.1c` | community-base | Event integrations and job handlers | C4.1b | no | todo |  |
-| `C4.1d` | community-base | Event pages, Studio and APIs | C4.1c | no | todo |  |
-| `C4.2` | community-base | Events capability checkpoint | C4.1d | no | todo |  |
+| `C4.1a` | community-base | Events models and domain services | C3.6 | no | done | https://github.com/DataTalksClub/community-base/pull/100 |
+| `C4.1b` | community-base | Registration, reminders and feedback | C4.1a | no | done | https://github.com/DataTalksClub/community-base/pull/103 |
+| `C4.1c` | community-base | Event integrations and job handlers | C4.1b | no | done | https://github.com/DataTalksClub/community-base/pull/107 |
+| `C4.1d` | community-base | Event pages, Studio and APIs | C4.1c | no | done | https://github.com/DataTalksClub/community-base/pull/110 |
+| `C4.2` | community-base | Events capability checkpoint | C4.1d | no | done | https://github.com/DataTalksClub/community-base/pull/113 |
 | `C4.3` | community-base | Events donor compatibility checkpoint | C4.2, A4.1 | no | todo |  |
 | `A4.2` | AI-Shipping-Labs/website | Freeze weekend: adopt shared events | C5.3, C4.3, A4.1 | yes | todo |  |
 | `D4.1` | DataTalksClub/website | Database-authored events in DTC | C5.3 | no | todo |  |
@@ -110,12 +110,12 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `C5.1a` | community-base | Curriculum models and access | C4.2 | no | done | https://github.com/DataTalksClub/community-base/pull/117 |
-| `C5.1b` | community-base | Curriculum import | C5.1a | no | todo |  |
-| `C5.1c` | community-base | Curriculum public pages and member APIs | C5.1b | no | todo |  |
-| `C5.1d` | community-base | Curriculum Studio and staff APIs | C5.1c | no | todo |  |
-| `C5.2a` | community-base | Coursework models | C5.1d | no | todo |  |
-| `C5.2b` | community-base | Homework scoring and statistics | C5.2a | no | todo |  |
-| `C5.2c` | community-base | Projects and peer review | C5.2b | no | todo |  |
+| `C5.1b` | community-base | Curriculum import | C5.1a | no | done | https://github.com/DataTalksClub/community-base/pull/119 |
+| `C5.1c` | community-base | Curriculum public pages and member APIs | C5.1b | no | done | https://github.com/DataTalksClub/community-base/pull/121 |
+| `C5.1d` | community-base | Curriculum Studio and staff APIs | C5.1c | no | done | https://github.com/DataTalksClub/community-base/pull/123 |
+| `C5.2a` | community-base | Coursework models | C5.1d | no | done | https://github.com/DataTalksClub/community-base/pull/126 |
+| `C5.2b` | community-base | Homework scoring and statistics | C5.2a | no | done | https://github.com/DataTalksClub/community-base/pull/128 |
+| `C5.2c` | community-base | Projects and peer review | C5.2b | no | done | https://github.com/DataTalksClub/community-base/pull/132 |
 | `C5.2da` | community-base | Leaderboard rollup, preferences and complaints | C5.2c | no | in-progress |  |
 | `C5.2db` | community-base | Registration campaigns and course registrations | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/138 |
 | `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | todo |  |
