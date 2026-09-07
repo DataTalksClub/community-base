@@ -29,9 +29,9 @@ REPO_BY_LETTER = {
 }
 STATUSES = ("todo", "in-progress", "blocked", "review", "done", "skipped")
 
-ISSUE_RE = re.compile(r"^## ([CADR]\d+\.\d+[a-z]?) (.+)$")
+ISSUE_RE = re.compile(r"^## ([CADR]\d+\.\d+[a-z]*) (.+)$")
 DEPENDS_RE = re.compile(r"Depends on:\s*([^\n]*)")
-ID_RE = re.compile(r"\b[CADR]\d+\.\d+[a-z]?\b")
+ID_RE = re.compile(r"\b[CADR]\d+\.\d+[a-z]*\b")
 FREEZE_RE = re.compile(r"Freeze required: (yes|no)", re.IGNORECASE)
 
 
