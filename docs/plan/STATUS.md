@@ -118,7 +118,7 @@ issues that can start now.
 | `C5.2c` | community-base | Projects and peer review | C5.2b | no | todo |  |
 | `C5.2da` | community-base | Leaderboard rollup, preferences and complaints | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/141 |
 | `C5.2db` | community-base | Registration campaigns and course registrations | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/138 |
-| `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | todo |  |
+| `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | in-progress | https://github.com/DataTalksClub/community-base/pull/146 |
 | `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2dc | no | todo |  |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e | no | todo |  |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3 | no | todo |  |
