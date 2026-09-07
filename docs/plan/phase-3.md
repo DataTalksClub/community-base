@@ -293,7 +293,7 @@ Done when
 
 ## A3.1 Move tier and Stripe fields off the user model
 
-Repository: AI-Shipping-Labs/website. Depends on: C5.2. Playbook P7, AISL part, step 1.
+Repository: AI-Shipping-Labs/website. Depends on: C5.2a. Playbook P7, AISL part, step 1.
 
 Steps
 1. `payments.Membership(user OneToOne, tier FK, pending_tier FK, billing_period_end,
@@ -345,7 +345,7 @@ Done when
 
 ## D3.1 Extension models and user model rename
 
-Repository: DataTalksClub/website. Depends on: C5.2. Playbook P7, DTC part,
+Repository: DataTalksClub/website. Depends on: C5.2a. Playbook P7, DTC part,
 steps 1 to 3.
 
 Steps

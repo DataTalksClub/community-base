@@ -124,36 +124,122 @@ Verification
 - `testproject`: import the AISL content fixture and a DTC curriculum fixture -> both render;
   drip lock respected for a cohort started today with `available_after_days=7`.
 
-## C5.2 Coursework app
+## C5.2a Coursework models
 
 Repository: community-base. Depends on: C5.1d.
 
 Read first
-- `~/git/dtc-website/courses/models/homework.py`, `project.py`, `courses/scoring.py`,
-  `leaderboard.py`, `project_*.py`, `homework_*.py`, `courses/views/`, `studio_courses/`,
-  `_docs/specs/04-courses-and-cohorts.md` "Preserved learner behavior".
+- `~/git/dtc-website/courses/models/homework.py`, `project.py`, `stat_display.py`,
+  `testimonial.py`, `wrapped.py`, `validators/`,
+  `_docs/specs/04-courses-and-cohorts.md` "Target model".
 
 Steps
-1. Models (`label = "cb_coursework"`) from DTC with `cohort` FK to `cb_curriculum.Cohort`:
-   `Homework`, `Question`, `Submission`, `Answer`, `HomeworkStatistics`, `Project`,
-   `ProjectSubmission`, `ProjectVote`, `ReviewCriteria`, `ProjectCriteriaAssignment`, `PeerReview`,
-   `CriteriaResponse`, `ProjectEvaluationScore`, `ProjectStatistics`, `LeaderboardComplaint`,
+1. New app `community_base.coursework` (`label = "cb_coursework"`) with the models from the
+   C5.2 list: `Homework`, `Question`, `Submission`, `Answer`, `HomeworkStatistics`,
+   `Project`, `ProjectSubmission`, `ProjectVote`, `ReviewCriteria`,
+   `ProjectCriteriaAssignment`, `PeerReview`, `CriteriaResponse`,
+   `ProjectEvaluationScore`, `ProjectStatistics`, `LeaderboardComplaint`,
    `RegistrationCampaign`, `CourseRegistration`, `Testimonial`, `WrappedStatistics`.
-2. Services, scoring, leaderboard, deadline reminders (as job handlers and mail purposes),
-   learner views, Studio pages from `studio_courses`, API endpoints from DTC `api`.
-3. AISL's light `PeerReview` and `ProjectSubmission` (content app) map to `ProjectSubmission`
-   and `PeerReview` here; the AISL peer-review settings on `Course` become a `Project` per
-   cohort with the same criteria text.
-4. Tests moved from DTC `courses/tests/` and `studio_courses/tests/`.
+2. Cohort, enrollment and user references point at `cb_curriculum.Cohort`,
+   `cb_curriculum.Enrollment` and `settings.AUTH_USER_MODEL`. Provenance fields follow the
+   curriculum pattern; keep validators in a migration-stable module.
+3. Drop `validate_url_200` and other synchronous external URL checks per spec 04
+   ("synchronous arbitrary URL validation is removed from request paths").
+4. Port the shared statistics display helpers.
+
+Verification
+- `uv run pytest tests/coursework` -> pass.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+
+## C5.2b Homework scoring and statistics
+
+Repository: community-base. Depends on: C5.2a.
+
+Read first
+- `~/git/dtc-website/courses/homework_answer_checks.py`, `homework_answer_resolution.py`,
+  `homework_score_calculation.py`, `homework_question_stats.py`,
+  `deadline_reminder_*.py`, `_docs/specs/04-courses-and-cohorts.md`
+  "Preserved learner behavior".
+
+Steps
+1. Submission service: create/update submission, answer checking and scoring per question
+   type, FAQ and learning-in-public scoring.
+2. Answer resolution for question answer envelopes (encrypted sources stay site-side; the
+   package consumes resolved envelopes).
+3. Homework statistics computation (min/max/avg/median/quartiles per score and time field).
+4. Deadline reminder job handlers and mail purposes registered through the jobs and mail apps.
+
+Verification
+- `uv run pytest tests/coursework` -> pass; a submitted homework scores correctly, statistics
+  compute, and a deadline reminder job handler runs synchronously.
+
+## C5.2c Projects and peer review
+
+Repository: community-base. Depends on: C5.2b.
+
+Read first
+- `~/git/dtc-website/courses/project_assignment.py`, `project_assignment_selection.py`,
+  `project_review_scores.py`, `project_score_calculation.py`, `project_scoring.py`,
+  `project_submission_scoring.py`, `votes.py`.
+
+Steps
+1. Project submission service with github/commit capture and learning-in-public scoring.
+2. Peer review assignment (required and volunteer reviews), criteria responses, evaluation
+   score rollup, review and submission scoring, project statistics.
+3. Project votes.
+4. AISL mapping documented: the AISL light `ProjectSubmission`/`PeerReview` become a `Project`
+   per cohort with the same criteria text (A5.1 applies it).
+
+Verification
+- `uv run pytest tests/coursework` -> pass; a project flow assigns reviews, collects criteria
+  responses, computes evaluation and total scores and statistics.
+
+## C5.2d Leaderboard, registration and learner views
+
+Repository: community-base. Depends on: C5.2c.
+
+Read first
+- `~/git/dtc-website/courses/leaderboard.py`, `scoring.py`, `registration.py`,
+  `services/registration_campaigns.py`, `services/registration_counts.py`, `courses/views/`,
+  `courses/urls.py`, `_docs/compatibility/course-route-contracts.json`.
+
+Steps
+1. Leaderboard computation with display-name and visibility preferences, complaint model
+   surface, and total-score rollups on Enrollment.
+2. Registration campaigns and course registrations with the campaign count semantics from
+   spec 04 (baseline, native boundary, current cohort).
+3. Learner views: homework form, project submission, peer review, leaderboard, certificate
+   page; template contract.
+4. Member APIs for the learner flows.
+
+Verification
+- `make test tests/coursework` -> pass.
+- `testproject`: submit homework, score it, leaderboard position computed; submit project,
+  peer review assignment, evaluation score, certificate issued.
+
+## C5.2e Coursework Studio and Wrapped
+
+Repository: community-base. Depends on: C5.2d.
+
+Read first
+- `~/git/dtc-website/studio_courses/`, `courses/wrapped_statistics/`,
+  `courses/services/testimonials.py`.
+
+Steps
+1. Studio operations from `studio_courses`: homework and question management, submissions and
+   rescoring, projects and criteria, peer review administration, leaderboard recompute,
+   complaint resolution, certificate management, registration campaigns.
+2. Testimonial management surface.
+3. Wrapped statistics read/recalculate surfaces.
 
 Verification
 - `make test tests/coursework` -> pass with at least DTC's test count for these modules.
-- `testproject`: submit homework, score it, leaderboard position computed; submit project, peer
-  review assignment, evaluation score, certificate issued.
+- `testproject`: the coursework Studio flows cover homework rescoring, peer review
+  administration and leaderboard recompute on imported data.
 
 ## C5.3 Release 0.6.0
 
-Repository: community-base. Depends on: C3.7, C4.3, C5.2. Playbook P15.
+Repository: community-base. Depends on: C3.7, C4.3, C5.2e. Playbook P15.
 
 This is the single adoption-ready domain release. Do not publish provisional `v0.4.0` or
 `v0.5.0` releases containing kept-label migrations.

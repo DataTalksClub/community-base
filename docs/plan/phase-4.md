@@ -15,7 +15,7 @@ Exit criteria:
 
 ## A4.1 Cut the seams in AISL events
 
-Repository: AI-Shipping-Labs/website. Depends on: C5.2, A3.2. Playbook P3. One pull request per row.
+Repository: AI-Shipping-Labs/website. Depends on: C5.2a, A3.2. Playbook P3. One pull request per row.
 
 | Import in `events` | Replacement |
 |---|---|
