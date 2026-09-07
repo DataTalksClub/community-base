@@ -169,15 +169,23 @@ def ensure_volunteer_reviewer_submission(
     github_link: str = VOLUNTEER_GITHUB_LINK,
     commit_id: str = VOLUNTEER_COMMIT_ID,
 ) -> ProjectSubmission:
-    """Volunteers review through a placeholder submission without a real project.
+    """Resolve the reviewer identity for an optional peer review.
 
-    The placeholder link is site-branded; sites may pass their own values.
+    A learner's real submission comes first; only learners without one review
+    through a placeholder submission. The placeholder link is site-branded;
+    sites may pass their own values.
     """
-    submission = ProjectSubmission.objects.filter(
+    real = ProjectSubmission.objects.filter(
+        project=project, student=user, volunteer_review_only=False
+    ).first()
+    if real is not None:
+        return real
+
+    placeholder = ProjectSubmission.objects.filter(
         project=project, student=user, volunteer_review_only=True
     ).first()
-    if submission is not None:
-        return submission
+    if placeholder is not None:
+        return placeholder
 
     enrollment, _ = Enrollment.objects.get_or_create(user=user, cohort=project.cohort)
     submission, _ = ProjectSubmission.objects.get_or_create(
@@ -211,7 +219,12 @@ def add_volunteer_peer_review(
 
 
 def remove_volunteer_peer_review(project, user, review_id) -> int:
-    reviewer_submission = ProjectSubmission.objects.filter(project=project, student=user).first()
+    # Real submission first, placeholder fallback: the identity the add path resolved.
+    reviewer_submission = (
+        ProjectSubmission.objects.filter(project=project, student=user)
+        .order_by("volunteer_review_only")
+        .first()
+    )
     if reviewer_submission is None:
         return 0
     deleted_count, _ = PeerReview.objects.filter(
