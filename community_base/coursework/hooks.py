@@ -53,7 +53,9 @@ class CourseworkHooks:
     registration_submitted = Hook("COURSEWORK_REGISTRATION_SUBMITTED", discard_event)
     registration_campaign_changed = Hook("COURSEWORK_REGISTRATION_CAMPAIGN_CHANGED", discard_event)
     certificate_issued = Hook("COURSEWORK_CERTIFICATE_ISSUED", discard_event)
-    display_name_generator = Hook("COURSEWORK_DISPLAY_NAME_GENERATOR", default_display_name_generator)
+    display_name_generator = Hook(
+        "COURSEWORK_DISPLAY_NAME_GENERATOR", default_display_name_generator
+    )
 
 
 hooks = CourseworkHooks()
