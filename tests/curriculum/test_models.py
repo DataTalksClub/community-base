@@ -23,6 +23,7 @@ pytestmark = pytest.mark.django_db
 def make_course(**values):
     values.setdefault("slug", "test-course")
     values.setdefault("title", "Test Course")
+    values.setdefault("status", "published")
     return Course.objects.create(**values)
 
 

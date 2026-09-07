@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ module.title }}{% endblock %}
+{% block meta_description %}{{ module.title }} in {{ course.title }}.{% endblock %}
+{% block content %}
+<main class="cb-page cb-module-overview">
+  <header class="cb-page-header">
+    <p class="cb-card-meta"><a href="{{ course.get_absolute_url }}">{{ course.title }}</a></p>
+    <h1 class="cb-page-title">{{ module.title }}</h1>
+  </header>
+  {% if module.overview_html %}<section class="cb-card">{{ module.overview_html|safe }}</section>{% endif %}
+  <section class="cb-list" aria-label="Lessons">
+    <ol>
+      {% for unit in units %}
+        <li>
+          {% if has_access or unit.is_preview %}
+            <a href="{% url 'curriculum_unit_detail' course.slug cohort.slug module.slug unit.slug %}">{{ unit.title }}</a>
+          {% else %}
+            {{ unit.title }}
+          {% endif %}
+          {% if unit.pk in completed_unit_ids %}<span class="cb-badge">Completed</span>{% endif %}
+        </li>
+      {% empty %}
+        <li class="cb-empty">No lessons in this module yet.</li>
+      {% endfor %}
+    </ol>
+  </section>
+</main>
+{% endblock %}

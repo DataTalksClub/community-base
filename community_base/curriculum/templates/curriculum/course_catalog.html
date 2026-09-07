@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Courses{% endblock %}
+{% block meta_description %}Browse the course catalog and start learning.{% endblock %}
+{% block content %}
+<main class="cb-page cb-course-catalog">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Courses</h1>
+    <p>Cohort-based and self-paced courses.</p>
+  </header>
+  <section class="cb-list">
+    {% for course in courses %}
+      <article class="cb-card cb-course-card">
+        {% if course.cover_image_url %}<img class="cb-card-media" src="{{ course.cover_image_url }}" alt="">{% endif %}
+        <h2 class="cb-card-title"><a href="{{ course.get_absolute_url }}">{{ course.title }}</a></h2>
+        {% if course.description %}<p>{{ course.description|truncatewords:30 }}</p>{% endif %}
+        <p class="cb-card-meta">
+          {% if course.pk in enrolled_course_ids %}<span class="cb-badge">Enrolled</span>{% endif %}
+          {% if not course.is_free %}<span class="cb-badge">{{ course.required_level }}</span>{% endif %}
+          {% for tag in course.tags %}<span class="cb-badge">{{ tag }}</span>{% endfor %}
+        </p>
+      </article>
+    {% empty %}
+      <p class="cb-empty">No courses are published yet.</p>
+    {% endfor %}
+  </section>
+</main>
+{% endblock %}
