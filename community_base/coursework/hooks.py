@@ -25,13 +25,24 @@ class CourseworkHooks:
     project_leaderboard_updater = Hook("COURSEWORK_PROJECT_LEADERBOARD_UPDATER", discard_event)
     homework_scored = Hook("COURSEWORK_HOMEWORK_SCORED", discard_event)
     homework_scoring_failed = Hook("COURSEWORK_HOMEWORK_SCORING_FAILED", discard_event)
+    homework_scoring_started = Hook("COURSEWORK_HOMEWORK_SCORING_STARTED", discard_event)
     homework_leaderboard_updater = Hook("COURSEWORK_HOMEWORK_LEADERBOARD_UPDATER", discard_event)
     enrollment_display_name_generator = Hook(
         "COURSEWORK_ENROLLMENT_DISPLAY_NAME_GENERATOR", discard_event
     )
     registration_created = Hook("COURSEWORK_REGISTRATION_CREATED", discard_event)
+    registration_submitted = Hook("COURSEWORK_REGISTRATION_SUBMITTED", discard_event)
     registration_campaign_stopped = Hook("COURSEWORK_REGISTRATION_CAMPAIGN_STOPPED", discard_event)
     registration_cohort_opened = Hook("COURSEWORK_REGISTRATION_COHORT_OPENED", discard_event)
+    homework_submitted = Hook("COURSEWORK_HOMEWORK_SUBMITTED", discard_event)
+    homework_submission_rejected = Hook("COURSEWORK_HOMEWORK_SUBMISSION_REJECTED", discard_event)
+    homework_validation_failed = Hook("COURSEWORK_HOMEWORK_VALIDATION_FAILED", discard_event)
+    project_submitted = Hook("COURSEWORK_PROJECT_SUBMITTED", discard_event)
+    project_deleted = Hook("COURSEWORK_PROJECT_DELETED", discard_event)
+    project_validation_failed = Hook("COURSEWORK_PROJECT_VALIDATION_FAILED", discard_event)
+    project_vote_updated = Hook("COURSEWORK_PROJECT_VOTE_UPDATED", discard_event)
+    project_review_submitted = Hook("COURSEWORK_PROJECT_REVIEW_SUBMITTED", discard_event)
+    project_review_unauthorized = Hook("COURSEWORK_PROJECT_REVIEW_UNAUTHORIZED", discard_event)
 
 
 hooks = CourseworkHooks()
