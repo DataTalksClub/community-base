@@ -280,6 +280,32 @@ def test_preferences_toggle_returns_donor_json_and_400_on_unknown_field(client):
     assert "error" in unknown.json()
 
 
+def test_leaderboard_data_returns_read_only_member_api_json(client):
+    cohort = coursework_cohort()
+    _user, enrollment = enrollment_for(cohort, email="board-reader@example.com")
+    _hidden_user, hidden_enrollment = enrollment_for(cohort, email="board-hidden@example.com")
+    hidden_enrollment.display_on_leaderboard = False
+    hidden_enrollment.save()
+    client.force_login(enrollment.user)
+    url = reverse("coursework_leaderboard_data", args=["cw-course", "cw"])
+
+    response = client.get(url)
+
+    assert response.status_code == 200
+    payload = response.json()
+    listed_ids = [row["id"] for row in payload["results"]]
+    assert enrollment.id in listed_ids
+    assert hidden_enrollment.id not in listed_ids
+    assert payload["page"] == 1
+    assert payload["num_pages"] == 1
+    assert payload["total_enrollments"] == 1
+    assert payload["current_student_enrollment_id"] == enrollment.id
+    assert payload["current_student_page_number"] == 1
+
+    client.logout()
+    assert client.get(url).status_code == 302
+
+
 def test_certificate_page_prefers_certificate_row_and_falls_back_to_legacy_url(client):
     cohort = coursework_cohort()
     row_user, row_enrollment = enrollment_for(cohort, email="cert-row@example.com")

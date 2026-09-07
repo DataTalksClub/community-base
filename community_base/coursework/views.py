@@ -410,6 +410,33 @@ def leaderboard_view(request, course_slug: str, cohort_identifier: str):
     )
 
 
+@login_required
+def leaderboard_data_view(request, course_slug: str, cohort_identifier: str):
+    """Read-only member API: the cohort leaderboard rows as session-authenticated JSON.
+
+    Same read model, pagination and personalization as the HTML page; the rows
+    are the ``leaderboard.serialize_leaderboard_enrollment`` dicts. The donor
+    served leaderboard data publicly as ``leaderboard.yaml``; the member API
+    keeps the read behind the session.
+    """
+
+    cohort = _cohort_or_404(course_slug, cohort_identifier)
+    context = leaderboard.leaderboard_context(cohort, request.user, request.GET.get("page"))
+    page_obj = context["page_obj"]
+    return JsonResponse(
+        {
+            "course_slug": course_slug,
+            "cohort_identifier": cohort_identifier,
+            "page": page_obj.number,
+            "num_pages": page_obj.paginator.num_pages,
+            "total_enrollments": page_obj.paginator.count,
+            "results": list(page_obj.object_list),
+            "current_student_enrollment_id": context["current_student_enrollment_id"],
+            "current_student_page_number": context["current_student_page_number"],
+        }
+    )
+
+
 def leaderboard_score_breakdown_view(
     request, course_slug: str, cohort_identifier: str, enrollment_id: int
 ):

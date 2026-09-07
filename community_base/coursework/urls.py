@@ -54,6 +54,11 @@ urlpatterns = [
         name="coursework_leaderboard_score_breakdown",
     ),
     path(
+        "<slug:course_slug>/<slug:cohort_identifier>/leaderboard/data/",
+        views.leaderboard_data_view,
+        name="coursework_leaderboard_data",
+    ),
+    path(
         "<slug:course_slug>/<slug:cohort_identifier>/leaderboard/<int:enrollment_id>/report/",
         views.leaderboard_complaint_view,
         name="coursework_leaderboard_complaint",
