@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Score breakdown{% endblock %}
+{% block content %}
+<main class="cb-page cb-score-breakdown">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Score breakdown</h1>
+    <p class="cb-card-meta">{{ course.title }} · {{ enrollment.cohort.title }} ·
+      {% if public_profile %}{{ public_profile.get_full_name|default:public_profile.email }}{% else %}Learner{% endif %}
+      · {{ enrollment.total_score }} points</p>
+  </header>
+
+  {% if show_public_profile_settings_link %}<p class="cb-card-meta"><a href="#">Make your profile public</a></p>{% endif %}
+
+  <section class="cb-card">
+    <h2 class="cb-card-title">Homework</h2>
+    <ul class="cb-list">
+      {% for submission in submissions %}
+        <li>{{ submission.homework.title }} · {{ submission.total_score }} points</li>
+      {% empty %}
+        <li>No homework submissions.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="cb-card">
+    <h2 class="cb-card-title">Projects</h2>
+    <ul class="cb-list">
+      {% for submission in project_submissions %}
+        <li>{{ submission.project.title }} · {{ submission.total_score }} points</li>
+      {% empty %}
+        <li>No project submissions.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <p><a href="{% url 'coursework_leaderboard_complaint' course.slug enrollment.cohort.slug enrollment.id %}">Report a problem</a></p>
+</main>
+{% endblock %}

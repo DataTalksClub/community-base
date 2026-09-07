@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Certificate: {{ course.title }}{% endblock %}
+{% block content %}
+<main class="cb-page cb-certificate">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Certificate</h1>
+    <p class="cb-card-meta">{{ course.title }} · {{ enrollment.cohort.title }}</p>
+  </header>
+
+  {% if certificate_url %}
+    <p>
+      <a class="cb-button cb-button-primary" href="{{ certificate_url }}"
+         {% if certificate %}data-certificate-id="{{ certificate.pk }}"{% endif %}>
+        Download certificate
+      </a>
+    </p>
+    {% if certificate %}<p class="cb-card-meta">Issued {{ certificate.issued_at }}</p>{% endif %}
+  {% else %}
+    <aside class="cb-alert" role="note"><p>No certificate is available for this course yet.</p></aside>
+  {% endif %}
+</main>
+{% endblock %}

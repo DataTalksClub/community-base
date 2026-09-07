@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Report a leaderboard problem{% endblock %}
+{% block content %}
+<main class="cb-page cb-complaint">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Report a leaderboard problem</h1>
+    <p class="cb-card-meta">{{ course.title }} · {{ enrollment.cohort.title }}</p>
+  </header>
+
+  {% if error %}<p class="cb-alert">{{ error }}</p>{% endif %}
+
+  <form class="cb-form" method="post">
+    {% csrf_token %}
+    <label for="id_issue_type">Issue</label>
+    <select id="id_issue_type" name="issue_type">
+      {% for value, label in issue_types %}
+        <option value="{{ value }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label for="id_description">Description</label>
+    <textarea id="id_description" name="description" required></textarea>
+    <button class="cb-button cb-button-primary" type="submit">Send report</button>
+  </form>
+</main>
+{% endblock %}
