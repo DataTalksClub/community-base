@@ -23,7 +23,7 @@ from community_base.coursework.models import (
     ProjectSubmission,
     Submission,
 )
-from community_base.curriculum.models import Cohort, Enrollment
+from community_base.curriculum.models import Enrollment
 
 logger = logging.getLogger(__name__)
 
@@ -276,9 +276,7 @@ def set_enrollment_preference(cohort, user, field, value):
 
     if field not in ENROLLMENT_PREFERENCE_FIELDS:
         raise ValueError(f"Unknown enrollment preference field: {field}")
-    enrollment = Enrollment.objects.get(
-        cohort=cohort, user=user, unenrolled_at__isnull=True
-    )
+    enrollment = Enrollment.objects.get(cohort=cohort, user=user, unenrolled_at__isnull=True)
     enabled = _preference_enabled(value)
     previous = getattr(enrollment, field)
     setattr(enrollment, field, enabled)
