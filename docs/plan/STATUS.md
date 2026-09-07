@@ -114,7 +114,7 @@ issues that can start now.
 | `C5.1c` | community-base | Curriculum public pages and member APIs | C5.1b | no | done | https://github.com/DataTalksClub/community-base/pull/121 |
 | `C5.1d` | community-base | Curriculum Studio and staff APIs | C5.1c | no | done | https://github.com/DataTalksClub/community-base/pull/123 |
 | `C5.2a` | community-base | Coursework models | C5.1d | no | done | https://github.com/DataTalksClub/community-base/pull/126 |
-| `C5.2b` | community-base | Homework scoring and statistics | C5.2a | no | todo |  |
+| `C5.2b` | community-base | Homework scoring and statistics | C5.2a | no | in-progress | https://github.com/DataTalksClub/community-base/pull/128 |
 | `C5.2c` | community-base | Projects and peer review | C5.2b | no | todo |  |
 | `C5.2d` | community-base | Leaderboard, registration and learner views | C5.2c | no | todo |  |
 | `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2d | no | todo |  |
