@@ -1,0 +1,13 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ kind|capfirst }}{% endblock %}
+{% block studio_content %}
+<h1>{% if instance %}Edit {{ kind }}{% else %}New {{ kind }}{% endif %}</h1>
+{% if source_locked %}<p>Source-managed row: the repository is the source of truth. Editing is disabled.</p>{% endif %}
+<form method="post">{% csrf_token %}
+{{ form.as_p }}
+{% if not source_locked %}<button type="submit">Save</button>{% endif %}
+</form>
+{% if instance %}
+<p><a href="{% if kind == 'course' %}{% url 'curriculum_studio_course_detail' instance.pk %}{% elif kind == 'cohort' %}{% url 'curriculum_studio_cohort_detail' instance.pk %}{% elif kind == 'module' %}{% url 'curriculum_studio_cohort_detail' instance.cohort_id %}{% else %}{% url 'curriculum_studio_cohort_detail' instance.module.cohort_id %}{% endif %}">Back</a></p>
+{% endif %}
+{% endblock %}

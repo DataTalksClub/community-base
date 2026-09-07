@@ -1,0 +1,94 @@
+from django.urls import path
+
+from community_base.curriculum import studio_views
+
+urlpatterns = [
+    path("courses/", studio_views.course_list, name="curriculum_studio_course_list"),
+    path("courses/create/", studio_views.course_create, name="curriculum_studio_course_create"),
+    path(
+        "courses/<int:course_id>/",
+        studio_views.course_detail,
+        name="curriculum_studio_course_detail",
+    ),
+    path(
+        "courses/<int:course_id>/edit/",
+        studio_views.course_edit,
+        name="curriculum_studio_course_edit",
+    ),
+    path(
+        "courses/<int:course_id>/delete/",
+        studio_views.course_delete,
+        name="curriculum_studio_course_delete",
+    ),
+    path(
+        "courses/<int:course_id>/instructors/add/",
+        studio_views.instructor_add,
+        name="curriculum_studio_instructor_add",
+    ),
+    path(
+        "courses/<int:course_id>/instructors/<int:link_id>/remove/",
+        studio_views.instructor_remove,
+        name="curriculum_studio_instructor_remove",
+    ),
+    path(
+        "courses/<int:course_id>/cohorts/create/",
+        studio_views.cohort_create,
+        name="curriculum_studio_cohort_create",
+    ),
+    path(
+        "cohorts/<int:cohort_id>/",
+        studio_views.cohort_detail,
+        name="curriculum_studio_cohort_detail",
+    ),
+    path(
+        "cohorts/<int:cohort_id>/edit/",
+        studio_views.cohort_edit,
+        name="curriculum_studio_cohort_edit",
+    ),
+    path(
+        "cohorts/<int:cohort_id>/delete/",
+        studio_views.cohort_delete,
+        name="curriculum_studio_cohort_delete",
+    ),
+    path(
+        "cohorts/<int:cohort_id>/modules/create/",
+        studio_views.module_create,
+        name="curriculum_studio_module_create",
+    ),
+    path(
+        "cohorts/<int:cohort_id>/enrollments/create/",
+        studio_views.enrollment_create,
+        name="curriculum_studio_enrollment_create",
+    ),
+    path(
+        "enrollments/<int:enrollment_id>/delete/",
+        studio_views.enrollment_delete,
+        name="curriculum_studio_enrollment_delete",
+    ),
+    path(
+        "enrollments/<int:enrollment_id>/certificate/",
+        studio_views.certificate_issue,
+        name="curriculum_studio_certificate_issue",
+    ),
+    path(
+        "modules/<int:module_id>/edit/",
+        studio_views.module_edit,
+        name="curriculum_studio_module_edit",
+    ),
+    path(
+        "modules/<int:module_id>/delete/",
+        studio_views.module_delete,
+        name="curriculum_studio_module_delete",
+    ),
+    path(
+        "modules/<int:module_id>/units/create/",
+        studio_views.unit_create,
+        name="curriculum_studio_unit_create",
+    ),
+    path("units/<int:unit_id>/edit/", studio_views.unit_edit, name="curriculum_studio_unit_edit"),
+    path(
+        "units/<int:unit_id>/delete/",
+        studio_views.unit_delete,
+        name="curriculum_studio_unit_delete",
+    ),
+]

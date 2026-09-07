@@ -1,0 +1,42 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ course.title }}{% endblock %}
+{% block studio_content %}
+<h1>{{ course.title }} <small>({{ course.slug }})</small></h1>
+<p><a href="{% url 'curriculum_studio_course_edit' course.pk %}">Edit</a> · <a href="{% url 'curriculum_studio_cohort_create' course.pk %}">Add cohort</a></p>
+{% if source_locked %}<p>Source-managed course: content edits happen in the repository; re-sync to update.</p>{% endif %}
+
+<h2>Instructors</h2>
+<ol>
+{% for link in instructor_links %}
+  <li>{{ link.host.name }} (position {{ link.position }})
+    <form method="post" action="{% url 'curriculum_studio_instructor_remove' course.pk link.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Remove</button></form>
+  </li>
+{% empty %}
+  <li>No instructors linked.</li>
+{% endfor %}
+</ol>
+{% if not source_locked %}
+<form method="post" action="{% url 'curriculum_studio_instructor_add' course.pk %}">{% csrf_token %}
+  <label>Host slug or name <input name="host"></label>
+  <button type="submit">Link instructor</button>
+</form>
+{% endif %}
+
+<h2>Cohorts</h2>
+<table><thead><tr><th>Cohort</th><th>Mode</th><th>Starts</th><th>Format</th><th>Enrolled</th></tr></thead><tbody>
+{% for cohort in cohorts %}
+  <tr>
+    <td><a href="{% url 'curriculum_studio_cohort_detail' cohort.pk %}">{{ cohort.title }}</a></td>
+    <td>{{ cohort.mode }}</td>
+    <td>{{ cohort.start_date|default:"-" }}</td>
+    <td>{{ cohort.curriculum_format }}</td>
+    <td>{{ cohort.enrollment_count }}</td>
+  </tr>
+{% empty %}
+  <tr><td colspan="5">No cohorts.</td></tr>
+{% endfor %}
+</tbody></table>
+
+<h2>Danger zone</h2>
+<form method="post" action="{% url 'curriculum_studio_course_delete' course.pk %}">{% csrf_token %}<button type="submit">Delete course</button></form>
+{% endblock %}
