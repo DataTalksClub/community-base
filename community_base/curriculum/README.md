@@ -74,6 +74,60 @@ Run imports with the content sync command:
 uv run python manage.py sync_content --from-disk <checkout> --source <slug>
 ```
 
+## Studio
+
+Mount the Studio routes and register the section (done by the app config):
+
+```python
+urlpatterns = [
+    path("studio/", include("community_base.curriculum.studio_urls")),
+]
+```
+
+Routes cover courses, cohorts, modules, units, instructors, enrollments and certificate
+issuing, registered under the `Courses` section. Rows with provenance are source-managed:
+Studio renders them read-only and refuses saves, because the repository is the truth.
+
+## Staff API
+
+The app registers bearer-authenticated routes under `/api/v1/` (scopes `curriculum.read`
+and `curriculum.write`):
+
+| Route | Purpose |
+|---|---|
+| `GET/POST /api/v1/courses/<slug>/enrollments` | List enrollments; bulk enroll into the self-paced cohort (four-bucket result). |
+| `DELETE /api/v1/courses/<slug>/enrollments/<email>` | Soft-unenroll a learner from every cohort of the course. |
+| `GET/POST /api/v1/courses/<slug>/certificates` | List certificates; issue or update one per active enrollment. |
+| `DELETE /api/v1/courses/<slug>/certificates/<email>` | Not available: revoke in Studio. |
+| `GET/PUT /api/v1/courses/<slug>/instructors` | Read or atomically replace the ordered instructor list (409 for source-managed courses). |
+
+## Studio
+
+Mount the Studio routes and register the section (done by the app config):
+
+```python
+urlpatterns = [
+    path("studio/", include("community_base.curriculum.studio_urls")),
+]
+```
+
+Routes cover courses, cohorts, modules, units, instructors, enrollments and certificate
+issuing, registered under the `Courses` section. Rows with provenance are source-managed:
+Studio renders them read-only and refuses saves, because the repository is the truth.
+
+## Staff API
+
+The app registers bearer-authenticated routes under `/api/v1/` (scopes `curriculum.read`
+and `curriculum.write`):
+
+| Route | Purpose |
+|---|---|
+| `GET/POST /api/v1/courses/<slug>/enrollments` | List enrollments; bulk enroll into the self-paced cohort (four-bucket result). |
+| `DELETE /api/v1/courses/<slug>/enrollments/<email>` | Soft-unenroll a learner from every cohort of the course. |
+| `GET/POST /api/v1/courses/<slug>/certificates` | List certificates; issue or update one per active enrollment. |
+| `DELETE /api/v1/courses/<slug>/certificates/<email>` | Not available: revoke in Studio. |
+| `GET/PUT /api/v1/courses/<slug>/instructors` | Read or atomically replace the ordered instructor list (409 for source-managed courses). |
+
 ## Domain services
 
 `community_base.curriculum.services` provides enrollment (`ensure_enrollment`, `unenroll`),

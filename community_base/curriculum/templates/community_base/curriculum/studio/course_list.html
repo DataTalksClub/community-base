@@ -1,0 +1,10 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Courses{% endblock %}
+{% block studio_content %}
+<h1>Courses</h1>
+<nav><a href="{% url 'curriculum_studio_course_create' %}">Create course</a></nav>
+<form method="get"><label>Search <input name="q" value="{{ q }}"></label><label>Status <input name="status" value="{{ status }}"></label><button type="submit">Filter</button></form>
+<table><thead><tr><th>Course</th><th>Slug</th><th>Status</th><th>Level</th><th>Source</th></tr></thead><tbody>
+{% for course in courses %}<tr><td><a href="{% url 'curriculum_studio_course_detail' course.pk %}">{{ course.title }}</a></td><td>{{ course.slug }}</td><td>{{ course.status }}</td><td>{{ course.required_level }}</td><td>{% if course.source_content_id %}repo{% else %}studio{% endif %}</td></tr>{% empty %}<tr><td colspan="5">No courses.</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}

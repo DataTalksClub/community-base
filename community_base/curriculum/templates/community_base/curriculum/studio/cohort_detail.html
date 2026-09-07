@@ -1,0 +1,71 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ cohort.title }}{% endblock %}
+{% block studio_content %}
+<h1>{{ cohort.title }} <small>({{ cohort.course.title }})</small></h1>
+<p>
+  <a href="{% url 'curriculum_studio_cohort_edit' cohort.pk %}">Edit</a> ·
+  <a href="{% url 'curriculum_studio_module_create' cohort.pk %}">Add module</a> ·
+  <a href="{% url 'curriculum_studio_course_detail' cohort.course_id %}">Back to course</a>
+</p>
+{% if source_locked %}<p>Source-managed cohort: edit the repository and re-sync.</p>{% endif %}
+<p>Mode: {{ cohort.mode }} · Format: {{ cohort.curriculum_format }} · Starts {{ cohort.start_date|default:"-" }}</p>
+
+<h2>Curriculum</h2>
+{% for module in modules %}
+  <div>
+    <h3>{{ module.title }} <small>({{ module.units.count }} units)</small></h3>
+    <p>
+      <a href="{% url 'curriculum_studio_module_edit' module.pk %}">Edit module</a> ·
+      <a href="{% url 'curriculum_studio_unit_create' module.pk %}">Add unit</a> ·
+      <form method="post" action="{% url 'curriculum_studio_module_delete' module.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Delete module</button></form>
+    </p>
+    <ul>
+      {% for unit in module.units.all %}
+        <li>{{ unit.title }} (order {{ unit.sort_order }}){% if unit.is_preview %} · preview{% endif %}
+          <a href="{% url 'curriculum_studio_unit_edit' unit.pk %}">Edit</a>
+          <form method="post" action="{% url 'curriculum_studio_unit_delete' unit.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Delete</button></form>
+        </li>
+      {% empty %}
+        <li>No units.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% empty %}
+  <p>No modules.</p>
+{% endfor %}
+
+<h2>Enrollments ({{ cohort.enrollment_count }})</h2>
+{% if not source_locked %}
+<form method="post" action="{% url 'curriculum_studio_enrollment_create' cohort.pk %}">{% csrf_token %}
+  <label>Email <input name="email" type="email"></label>
+  <button type="submit">Enroll</button>
+</form>
+{% endif %}
+<table><thead><tr><th>Learner</th><th>Source</th><th>Enrolled</th><th>Certificate</th><th></th></tr></thead><tbody>
+{% for enrollment in enrollments %}
+  <tr>
+    <td>{{ enrollment.user.email }}</td>
+    <td>{{ enrollment.source }}</td>
+    <td>{{ enrollment.enrolled_at }}</td>
+    <td>
+      {% if enrollment.certificate %}
+        <a href="{{ enrollment.certificate.url }}">{{ enrollment.certificate.url }}</a>
+      {% elif not source_locked %}
+        <form method="post" action="{% url 'curriculum_studio_certificate_issue' enrollment.pk %}">{% csrf_token %}
+          <input name="url" placeholder="https://…">
+          <button type="submit">Issue certificate</button>
+        </form>
+      {% endif %}
+    </td>
+    <td>
+      <form method="post" action="{% url 'curriculum_studio_enrollment_delete' enrollment.pk %}">{% csrf_token %}<button type="submit">Remove</button></form>
+    </td>
+  </tr>
+{% empty %}
+  <tr><td colspan="5">No enrollments.</td></tr>
+{% endfor %}
+</tbody></table>
+
+<h2>Danger zone</h2>
+<form method="post" action="{% url 'curriculum_studio_cohort_delete' cohort.pk %}">{% csrf_token %}<button type="submit">Delete cohort</button></form>
+{% endblock %}
