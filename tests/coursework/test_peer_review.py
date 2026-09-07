@@ -383,3 +383,32 @@ def test_volunteer_peer_review_flow():
 
     assert remove_volunteer_peer_review(project, volunteer, review.id) == 1
     assert remove_volunteer_peer_review(project, volunteer, review.id) == 0
+
+
+def test_volunteer_review_anchors_on_the_real_submission():
+    cohort = coursework_cohort()
+    project = make_project(
+        cohort,
+        number_of_peers_to_evaluate=2,
+        submission_due_date=timezone.now() - datetime.timedelta(days=1),
+    )
+    submissions = make_submissions(project, cohort, 3)
+    assign_peer_reviews_for_project(project)
+    learner = submissions[0].student
+    other = submissions[1]
+
+    reviewer_submission = ensure_volunteer_reviewer_submission(project, learner)
+    assert reviewer_submission.id == submissions[0].id
+    assert ProjectSubmission.objects.filter(project=project, student=learner).count() == 1
+
+    review, created = add_volunteer_peer_review(project, learner, other)
+    assert created is True
+    assert review.optional is True
+    assert review.reviewer_id == submissions[0].id
+
+    with pytest.raises(ValidationError):
+        add_volunteer_peer_review(project, learner, submissions[0])
+    assert PeerReview.objects.filter(reviewer_id=submissions[0].id, optional=True).count() == 1
+
+    assert remove_volunteer_peer_review(project, learner, review.id) == 1
+    assert ProjectSubmission.objects.filter(project=project, student=learner).count() == 1
