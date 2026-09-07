@@ -194,23 +194,86 @@ Verification
 - `uv run pytest tests/coursework` -> pass; a project flow assigns reviews, collects criteria
   responses, computes evaluation and total scores and statistics.
 
-## C5.2d Leaderboard, registration and learner views
+## C5.2da Leaderboard rollup, preferences and complaints
 
 Repository: community-base. Depends on: C5.2c.
 
+Split from C5.2d; the donor analysis lives in `docs/plan/evidence/c5.2d-leaderboard-donors.md`
+and `docs/plan/evidence/c5.2d-donors.md` (step 1 sections).
+
 Read first
-- `~/git/dtc-website/courses/leaderboard.py`, `scoring.py`, `registration.py`,
-  `services/registration_campaigns.py`, `services/registration_counts.py`, `courses/views/`,
-  `courses/urls.py`, `_docs/compatibility/course-route-contracts.json`.
+- `~/git/dtc-website/courses/leaderboard.py`, `courses/views/course_leaderboard_data.py`,
+  `courses/views/course_leaderboard_breakdown.py`, `courses/services/enrollment_flags.py`,
+  `courses/random_names.py`.
 
 Steps
-1. Leaderboard computation with display-name and visibility preferences, complaint model
-   surface, and total-score rollups on Enrollment.
-2. Registration campaigns and course registrations with the campaign count semantics from
-   spec 04 (baseline, native boundary, current cohort).
-3. Learner views: homework form, project submission, peer review, leaderboard, certificate
-   page; template contract.
-4. Member APIs for the learner flows.
+1. `coursework/leaderboard.py` write side: `update_leaderboard(cohort)` full recompute of
+   `Enrollment.total_score` and `position_on_leaderboard` over active enrollments (integer sums
+   of homework and non-volunteer project scores, `(-total_score, enrollment id)` ranking, one
+   `bulk_update`), plus cache invalidation.
+2. Read side in the same module: visibility filter, `Coalesce` ordering, pagination,
+   serialization with `passed_projects`, current-student staleness rebuild; shared by the
+   C5.2dc views and member APIs.
+3. `coursework/enrollment_flags.py` `set_learning_in_public_disabled`, `random_names.py`
+   `ensure_display_name` with a configurable name generator, and the complaint services
+   `file_leaderboard_complaint` and `resolve_leaderboard_complaint`.
+4. Default the `COURSEWORK_PROJECT_LEADERBOARD_UPDATER` hook to the package updater; it stays
+   site-overridable.
+
+Verification
+- `uv run pytest tests/coursework` -> pass; recompute ranks with the id tie-break, hidden
+  enrollments stay ranked but unlisted, the complaint lifecycle persists reporter and resolver.
+- `testproject`: submit homework, score it, call the updater, leaderboard position computed.
+
+## C5.2db Registration campaigns and course registrations
+
+Repository: community-base. Depends on: C5.2c.
+
+Split from C5.2d; the donor analysis lives in `docs/plan/evidence/c5.2d-donors.md` (step 2
+section).
+
+Read first
+- `~/git/dtc-website/courses/services/registration_campaigns.py`,
+  `services/registration_counts.py`, `courses/views/registration.py`,
+  `courses/views/registration_form.py`.
+
+Steps
+1. `coursework/registration.py` `public_course_registration_count` with the spec 04 semantics:
+   baseline only while it names the current cohort, native boundary exclusion, `None` without a
+   current cohort.
+2. Campaign bindings and state machine: `active_campaign_for_cohort`,
+   `next_edition_campaign_for_cohort`, `campaign_slug_in_registration_url`,
+   `family_registration`, `stop_registration`, `open_new_cohort` with
+   `RegistrationCampaignStateError`.
+3. `create_course_registration` service core with the duplicate rule and optional consent,
+   plus `campaign_course_is_open` and the existing-registration lookup; the
+   `COURSEWORK_REGISTRATION_SUBMITTED` and `COURSEWORK_REGISTRATION_CAMPAIGN_CHANGED` hooks.
+
+Verification
+- `uv run pytest tests/coursework` -> pass; count semantics cover baseline carry, boundary
+  exclusion and no-current-cohort; the state machine rejects illegal transitions.
+- `testproject`: a campaign count reflects baseline plus native rows.
+
+## C5.2dc Learner views, member APIs and certificates
+
+Repository: community-base. Depends on: C5.2da, C5.2db.
+
+Split from C5.2d; the donor analysis lives in `docs/plan/evidence/c5.2d-donors.md` (step 3 and
+step 4 sections).
+
+Read first
+- `~/git/dtc-website/courses/views/`, `courses/urls.py`,
+  `_docs/compatibility/course-route-contracts.json`.
+
+Steps
+1. `coursework/submissions.py` `submit_homework`; learner views for the homework form, project
+   submission, peer review, leaderboard, score breakdown, complaint, enrollment preferences and
+   certificate page; templates under `community_base/coursework/templates/coursework/`
+   following the template contract.
+2. Member APIs for the learner flows: enrollment preferences toggle with session
+   authentication and read-only leaderboard data; `coursework/certificates.py`
+   `issue_certificate` with the `COURSEWORK_CERTIFICATE_ISSUED` hook; the remaining
+   `COURSEWORK_*` hooks from the donor analysis declared in `kernel/conf.py`.
 
 Verification
 - `make test tests/coursework` -> pass.
@@ -219,7 +282,7 @@ Verification
 
 ## C5.2e Coursework Studio and Wrapped
 
-Repository: community-base. Depends on: C5.2d.
+Repository: community-base. Depends on: C5.2dc.
 
 Read first
 - `~/git/dtc-website/studio_courses/`, `courses/wrapped_statistics/`,

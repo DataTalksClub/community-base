@@ -39,6 +39,31 @@ Repository: community-base. Depends on: C0.1a.
     assert issues[1]["depends"] == ["C0.1a"]
 
 
+def test_two_letter_suffix_ids(monkeypatch, tmp_path):
+    issues, _ = configure_plan(
+        monkeypatch,
+        tmp_path,
+        """# Phase 0
+
+## C0.1da First part of a split issue
+
+Repository: community-base. Depends on: nothing.
+
+## C0.1db Second part of a split issue
+
+Repository: community-base. Depends on: C0.1da.
+
+## C0.2 Later issue
+
+Repository: community-base. Depends on: C0.1db.
+""",
+    )
+
+    assert [issue["id"] for issue in issues] == ["C0.1da", "C0.1db", "C0.2"]
+    assert issues[1]["depends"] == ["C0.1da"]
+    assert issues[2]["depends"] == ["C0.1db"]
+
+
 def test_check_rejects_duplicate_ids(monkeypatch, tmp_path, capsys):
     configure_plan(
         monkeypatch,

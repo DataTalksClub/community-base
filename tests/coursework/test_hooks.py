@@ -4,7 +4,11 @@ import pytest
 from django.utils import timezone
 
 from community_base.accounts.models import User
-from community_base.coursework.hooks import discard_event
+from community_base.coursework.hooks import (
+    _default_project_leaderboard_updater,
+    default_display_name_generator,
+    discard_event,
+)
 from community_base.coursework.hooks import hooks as coursework_hooks
 from community_base.coursework.models import PeerReview
 from community_base.coursework.review import (
@@ -30,7 +34,15 @@ def test_hooks_default_to_discard():
     assert coursework_hooks.peer_reviews_assigned is discard_event
     assert coursework_hooks.optional_review_added is discard_event
     assert coursework_hooks.project_scored is discard_event
-    assert coursework_hooks.project_leaderboard_updater is discard_event
+
+
+def test_leaderboard_and_name_defaults_point_at_package_services():
+    assert coursework_hooks.project_leaderboard_updater is _default_project_leaderboard_updater
+    assert coursework_hooks.display_name_generator is default_display_name_generator
+    assert coursework_hooks.homework_submitted is discard_event
+    assert coursework_hooks.project_submitted is discard_event
+    assert coursework_hooks.registration_submitted is discard_event
+    assert coursework_hooks.certificate_issued is discard_event
 
 
 def test_assignment_and_scoring_fire_configured_hooks(settings):
