@@ -119,7 +119,7 @@ issues that can start now.
 | `C5.2da` | community-base | Leaderboard rollup, preferences and complaints | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/141 |
 | `C5.2db` | community-base | Registration campaigns and course registrations | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/138 |
 | `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | done | https://github.com/DataTalksClub/community-base/pull/146 |
-| `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2dc | no | todo |  |
+| `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2dc | no | in-progress |  |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e | no | todo |  |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3 | no | todo |  |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo |  |
