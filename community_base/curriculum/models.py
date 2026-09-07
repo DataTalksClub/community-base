@@ -281,10 +281,6 @@ class Cohort(SourceProvenanceMixin, models.Model):
     min_projects_to_pass = models.IntegerField(default=1)
     first_homework_scored = models.BooleanField(default=False)
     homework_problems_comments_field = models.BooleanField(default=False)
-    project_passing_score = models.IntegerField(default=0)
-    min_projects_to_pass = models.IntegerField(default=1)
-    first_homework_scored = models.BooleanField(default=False)
-    homework_problems_comments_field = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("start_date", "pk")
