@@ -23,6 +23,15 @@ class CourseworkHooks:
     project_scored = Hook("COURSEWORK_PROJECT_SCORED", discard_event)
     project_scoring_failed = Hook("COURSEWORK_PROJECT_SCORING_FAILED", discard_event)
     project_leaderboard_updater = Hook("COURSEWORK_PROJECT_LEADERBOARD_UPDATER", discard_event)
+    homework_scored = Hook("COURSEWORK_HOMEWORK_SCORED", discard_event)
+    homework_scoring_failed = Hook("COURSEWORK_HOMEWORK_SCORING_FAILED", discard_event)
+    homework_leaderboard_updater = Hook("COURSEWORK_HOMEWORK_LEADERBOARD_UPDATER", discard_event)
+    enrollment_display_name_generator = Hook(
+        "COURSEWORK_ENROLLMENT_DISPLAY_NAME_GENERATOR", discard_event
+    )
+    registration_created = Hook("COURSEWORK_REGISTRATION_CREATED", discard_event)
+    registration_campaign_stopped = Hook("COURSEWORK_REGISTRATION_CAMPAIGN_STOPPED", discard_event)
+    registration_cohort_opened = Hook("COURSEWORK_REGISTRATION_COHORT_OPENED", discard_event)
 
 
 hooks = CourseworkHooks()
