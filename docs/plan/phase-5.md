@@ -18,17 +18,16 @@ Exit criteria:
 - DTC cohorts with homework, projects, leaderboards and certificates work in the development
   environment with the imported data.
 
-## C5.1 Curriculum app
+## C5.1a Curriculum models and access
 
 Repository: community-base. Depends on: C4.2.
 
 Read first
-- `~/git/ai-shipping-labs/content/models/course.py`, `cohort.py`, `enrollment.py`, `completion.py`,
-  `peer_review.py`, `instructor.py`, `content/views/` course views, `content/access.py`,
-  `_docs/course_yaml.md`, `integrations/services/github_sync/dispatchers/` course dispatcher,
+- `~/git/ai-shipping-labs/content/models/course.py`, `cohort.py`, `enrollment.py`,
+  `instructor.py`, `content/access.py`, `content/services/course_units.py`,
   `specs/05-content-courses.md`.
 - `~/git/dtc-website/courses/models/cohort.py`, `curriculum.py`, `curriculum_import.py`,
-  `courses/course_family_catalog.py`, `_docs/specs/04-courses-and-cohorts.md`.
+  `_docs/specs/04-courses-and-cohorts.md`.
 
 Model design (`label = "cb_curriculum"`):
 
@@ -44,17 +43,81 @@ Model design (`label = "cb_curriculum"`):
 | `CurriculumImportRun` | as DTC | DTC |
 
 Steps
-1. Models above; access via `can_access(user, unit)` with unit level inheritance from cohort and
-   course; purchase access through hook `COURSE_ACCESS_GRANTS(user, course) -> bool` (AISL
-   implements with `CourseAccess`).
-2. Import: parser for AISL `course.yaml` layout and parser for the DTC repository curriculum
-   adapter (`content_sync` parsers registered by the app), both producing the same graph type.
-3. Public pages: catalog, course detail with cohorts, unit page with sidebar, progress toggle
-   API, cohort enroll and unenroll API; template contract.
-4. Studio: courses, cohorts, modules, units (read-only when source-managed), instructors,
-   enrollments, certificates issue; registered under `Courses`.
-5. API endpoints from AISL `api/views/course_*.py` and `enrollments.py`.
-6. Tests: moved from AISL `content/tests/` course tests and DTC `courses/tests/` curriculum tests.
+1. Models above with one initial migration for the new `cb_curriculum` label.
+2. Access service: `can_access(user, unit)` with the unit level inheritance from the unit
+   override, the course default and the course `required_level`; purchase access through hook
+   `COURSE_ACCESS_GRANTS(user, course) -> bool` (AISL implements with `CourseAccess`).
+3. Domain services: enrollment ensure/unenroll, progress toggle, drip-lock decision
+   (`available_after_days` against the cohort start date), next/previous unit in reading order.
+4. Markdown rendering for description, overview, body and homework html.
+
+Verification
+- `uv run pytest tests/curriculum` -> pass.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+
+## C5.1b Curriculum import
+
+Repository: community-base. Depends on: C5.1a.
+
+Read first
+- `~/git/ai-shipping-labs/integrations/services/github_sync/dispatchers/courses.py`,
+  `_docs/course_yaml.md`.
+- `~/git/dtc-website/content_sync/course_repository.py` (curriculum parts),
+  `courses/services/curriculum_source.py`, `courses/services/curriculum_import.py`.
+
+Steps
+1. Shared source graph dataclasses (course, cohorts, modules, units) as the one graph type both
+   parsers produce.
+2. Parser for the AISL `course.yaml` layout: `course.yaml`, `module.yaml`, unit markdown
+   frontmatter, access values, sort-order filename prefixes.
+3. Parser for the DTC repository curriculum adapter: `course.yaml`, `SITE.md`, module
+   manifests, unit frontmatter, `cohorts/<identifier>/cohort.yaml`; homework manifests stay
+   unread until C5.2.
+4. Graph importer that upserts `cb_curriculum` rows with provenance and records a
+   `CurriculumImportRun`; register both parsers as `content_sync` parsers from the app.
+
+Verification
+- `uv run pytest tests/curriculum` -> pass.
+- `testproject`: import an AISL course.yaml fixture and a DTC course repository fixture ->
+  courses, cohorts, modules and units rows match the fixtures, provenance set, re-import is
+  unchanged, removal soft-deletes.
+
+## C5.1c Curriculum public pages and member APIs
+
+Repository: community-base. Depends on: C5.1b.
+
+Read first
+- `~/git/ai-shipping-labs/content/views/courses.py`, `content/services/course_units.py`,
+  `api/views/course_enrollments.py` member shape, `specs/05-content-courses.md` pages.
+
+Steps
+1. Public pages: catalog, course detail with cohorts, module overview, unit page with sidebar;
+   template contract.
+2. Progress toggle API and cohort enroll and unenroll API (session authenticated, CSRF kept).
+3. Member API endpoints for courses list, course detail with syllabus and progress, and unit
+   detail.
+
+Verification
+- `uv run pytest tests/curriculum` -> pass.
+- `testproject`: import the AISL content fixture and a DTC curriculum fixture -> both render;
+  drip lock respected for a cohort started today with `available_after_days=7`.
+
+## C5.1d Curriculum Studio and staff APIs
+
+Repository: community-base. Depends on: C5.1c.
+
+Read first
+- `~/git/ai-shipping-labs/studio/` course pages, `api/views/course_certificates.py`,
+  `course_enrollments.py`, `course_instructors.py`, `enrollments.py`.
+
+Steps
+1. Studio under `Courses`: courses, cohorts, modules, units (read-only when source-managed),
+   instructors, enrollments, certificates issue.
+2. Staff API endpoints from AISL `api/views/course_enrollments.py`, `course_certificates.py`
+   and `course_instructors.py`. The sprint endpoints in `enrollments.py` stay in AISL:
+   sprints belong to `plans`, which is not extracted.
+3. Move the remaining curriculum tests from AISL `content/tests/` course tests and DTC
+   `courses/tests/` curriculum tests.
 
 Verification
 - `make test tests/curriculum` -> pass.
@@ -63,7 +126,7 @@ Verification
 
 ## C5.2 Coursework app
 
-Repository: community-base. Depends on: C5.1.
+Repository: community-base. Depends on: C5.1d.
 
 Read first
 - `~/git/dtc-website/courses/models/homework.py`, `project.py`, `courses/scoring.py`,
