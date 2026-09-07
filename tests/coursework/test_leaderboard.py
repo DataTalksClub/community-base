@@ -1,6 +1,7 @@
 """Leaderboard rollup, read model, preferences, complaints and batch scoring."""
 
 import datetime
+import itertools
 
 import pytest
 from django.contrib.auth.models import AnonymousUser
@@ -37,6 +38,19 @@ from community_base.curriculum.models import Enrollment
 from tests.coursework.test_models import coursework_cohort, homework, question
 
 pytestmark = pytest.mark.django_db
+
+_homework_counter = itertools.count()
+
+
+@pytest.fixture(autouse=True)
+def _clear_leaderboard_cache():
+    """Cohort ids repeat across rolled-back tests; the cache outlives them."""
+
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+    cache.clear()
 
 
 def make_enrollment(cohort, email, **enrollment_values):
@@ -107,7 +121,7 @@ def test_update_leaderboard_ranks_with_id_tiebreak():
 def make_scored_submission(cohort, enrollment, total_score):
     """Score a submission; the rollup reads Submission rows, not Enrollment totals."""
 
-    hw = homework(cohort)
+    hw = homework(cohort, slug=f"hw-{next(_homework_counter)}")
     return Submission.objects.create(
         homework=hw,
         student=enrollment.user,
@@ -151,6 +165,7 @@ def test_leaderboard_rebuilds_when_current_student_missing():
     student = current_student_leaderboard_enrollment(cohort, newcomer.user)
     data = get_leaderboard_data(cohort, student)
     assert [row["id"] for row in data] == [newcomer.id, stale.id]
+    newcomer.refresh_from_db()
     assert newcomer.position_on_leaderboard == 1
 
 
@@ -313,8 +328,18 @@ def test_score_homework_submissions_rejects_future_due_date():
 
 def test_score_homework_submissions_rejects_closed_and_already_scored():
     cohort = coursework_cohort()
-    closed = homework(cohort, slug="closed", state=HomeworkState.CLOSED.value)
-    scored = homework(cohort, slug="scored", state=HomeworkState.SCORED.value)
+    closed = homework(
+        cohort,
+        slug="closed",
+        state=HomeworkState.CLOSED.value,
+        due_date=timezone.now() - datetime.timedelta(days=1),
+    )
+    scored = homework(
+        cohort,
+        slug="scored",
+        state=HomeworkState.SCORED.value,
+        due_date=timezone.now() - datetime.timedelta(days=1),
+    )
 
     status, message = score_homework_submissions(closed.id)
     assert status is HomeworkScoringStatus.FAIL
