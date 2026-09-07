@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ course.title }}{% endblock %}
+{% block meta_description %}{{ course.description|truncatewords:40 }}{% endblock %}
+{% block content %}
+<main class="cb-page cb-course-detail">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">{{ course.title }}</h1>
+    {% if required_level_label %}<span class="cb-badge">{{ required_level_label }}</span>{% endif %}
+    {% for instructor in course.ordered_instructors %}
+      <p class="cb-card-meta">{{ instructor.name }}</p>
+    {% endfor %}
+  </header>
+
+  {% if course.description_html %}<section class="cb-card">{{ course.description_html|safe }}</section>{% endif %}
+
+  {% if total_units %}
+    <p class="cb-card-meta">Progress: {{ completed_units }}/{{ total_units }} ({{ progress_pct }}%)</p>
+  {% endif %}
+
+  {% if user.is_authenticated %}
+    {% if user_is_enrolled %}
+      <form class="cb-form" method="post" action="{% url 'curriculum_course_unenroll' course.slug %}">
+        {% csrf_token %}
+        <button class="cb-button" type="submit">Unenroll</button>
+      </form>
+      {% if next_unit %}<a class="cb-button cb-button-primary" href="{% url 'curriculum_unit_detail' course.slug next_unit.module.cohort.slug next_unit.module.slug next_unit.slug %}">Continue</a>{% endif %}
+    {% elif has_access %}
+      <form class="cb-form" method="post" action="{% url 'curriculum_course_enroll' course.slug %}">
+        {% csrf_token %}
+        <button class="cb-button cb-button-primary" type="submit">Enroll</button>
+      </form>
+    {% endif %}
+  {% endif %}
+
+  <section class="cb-list" aria-label="Cohorts">
+    {% for cohort in cohorts %}
+      <article class="cb-card cb-cohort-card">
+        <h2 class="cb-card-title">{{ cohort.title }}</h2>
+        <p class="cb-card-meta">
+          {% if cohort.start_date %}Starts {{ cohort.start_date }}{% else %}Self-paced{% endif %}
+          {% if cohort.spots_remaining is not None %} · {{ cohort.spots_remaining }} spots left{% endif %}
+        </p>
+        {% if user.is_authenticated and has_access and cohort.mode != 'self_paced' %}
+          {% if cohort.pk in user_enrolled_cohort_ids %}
+            <form class="cb-form" method="post" action="{% url 'curriculum_cohort_unenroll' course.slug cohort.slug %}">
+              {% csrf_token %}
+              <button class="cb-button" type="submit">Leave cohort</button>
+            </form>
+          {% else %}
+            <form class="cb-form" method="post" action="{% url 'curriculum_cohort_enroll' course.slug cohort.slug %}">
+              {% csrf_token %}
+              <button class="cb-button cb-button-primary" type="submit">Join cohort</button>
+            </form>
+          {% endif %}
+        {% elif cohort.registration_url %}
+          <a class="cb-button" href="{{ cohort.registration_url }}">Register</a>
+        {% endif %}
+        {% for module in cohort.modules.all %}
+          <h3>{{ module.title }}</h3>
+          <ul class="cb-list">
+            {% for unit in module.units.all %}
+              <li>
+                {% if has_access or unit.is_preview %}
+                  <a href="{% url 'curriculum_unit_detail' course.slug cohort.slug module.slug unit.slug %}">{{ unit.title }}</a>
+                {% else %}
+                  {{ unit.title }}
+                {% endif %}
+                {% if unit.is_preview %}<span class="cb-badge">Preview</span>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endfor %}
+      </article>
+    {% endfor %}
+  </section>
+
+  {% if not has_access %}
+    <aside class="cb-alert" role="note">
+      <p>This course requires {{ required_level_label }} access.</p>
+    </aside>
+  {% endif %}
+</main>
+{% endblock %}

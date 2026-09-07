@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ unit.title }}{% endblock %}
+{% block meta_description %}{{ unit.title }} in {{ course.title }}.{% endblock %}
+{% block content %}
+<main class="cb-page cb-unit-detail">
+  <header class="cb-page-header">
+    <p class="cb-card-meta">
+      <a href="{{ course.get_absolute_url }}">{{ course.title }}</a> ·
+      <a href="{% url 'curriculum_module_overview' course.slug module.cohort.slug module.slug %}">{{ module.title }}</a>
+    </p>
+    <h1 class="cb-page-title">{{ unit.title }}</h1>
+  </header>
+
+  {% if is_gated %}
+    <aside class="cb-alert" role="note">
+      {% if is_drip_locked %}
+        <h2 class="cb-card-title">This lesson opens on {{ drip_available_date }}</h2>
+        <p>Your cohort schedule controls when this lesson opens.</p>
+        <a class="cb-button" href="{{ course.get_absolute_url }}">Back to course</a>
+      {% else %}
+        {% if gated_reason == 'authentication_required' %}
+          <h2 class="cb-card-title">Sign in to read this lesson</h2>
+        {% else %}
+          <h2 class="cb-card-title">{{ required_level_label }} access required</h2>
+        {% endif %}
+        {% if not user_authenticated %}<a class="cb-button cb-button-primary" href="/accounts/login/">Sign in</a>{% endif %}
+      {% endif %}
+    </aside>
+  {% else %}
+    <div class="cb-page cb-unit-body">
+      {% if unit.video_url %}
+        <p><a href="{{ unit.video_url }}">Watch the lesson video</a></p>
+      {% endif %}
+      {% if unit.body_html %}<section class="cb-card">{{ unit.body_html|safe }}</section>{% endif %}
+      {% if unit.homework_html %}
+        <section class="cb-card">
+          <h2 class="cb-card-title">Homework</h2>
+          {{ unit.homework_html|safe }}
+        </section>
+      {% endif %}
+    </div>
+
+    {% if user_authenticated %}
+      <form class="cb-form" id="mark-complete" method="post" action="{{ completion_url }}">
+        {% csrf_token %}
+        <button class="cb-button {% if is_completed %}cb-button-primary{% endif %}" type="submit">
+          {% if is_completed %}Completed{% else %}Mark as completed{% endif %}
+        </button>
+      </form>
+    {% endif %}
+
+    <nav class="cb-list" aria-label="Course navigation">
+      {% if prev_unit %}<a class="cb-button" href="{% url 'curriculum_unit_detail' course.slug prev_unit.module.cohort.slug prev_unit.module.slug prev_unit.slug %}">Previous: {{ prev_unit.title }}</a>{% endif %}
+      {% if next_unit %}<a class="cb-button cb-button-primary" href="{% url 'curriculum_unit_detail' course.slug next_unit.module.cohort.slug next_unit.module.slug next_unit.slug %}">Next: {{ next_unit.title }}</a>{% endif %}
+    </nav>
+
+    <aside class="cb-list cb-unit-sidebar" aria-label="Lessons">
+      {% for sidebar_unit in units %}
+        <p>
+          {% if sidebar_unit.pk == unit.pk %}<strong>{{ sidebar_unit.title }}</strong>
+          {% else %}<a href="{% url 'curriculum_unit_detail' course.slug sidebar_unit.module.cohort.slug sidebar_unit.module.slug sidebar_unit.slug %}">{{ sidebar_unit.title }}</a>{% endif %}
+          {% if sidebar_unit.pk in completed_unit_ids %}<span class="cb-badge">✓</span>{% endif %}
+        </p>
+      {% endfor %}
+    </aside>
+  {% endif %}
+</main>
+{% endblock %}
+{% block extra_js %}
+{% if not is_gated and user_authenticated %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('mark-complete');
+    if (!form) return;
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value,
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin'
+      })
+        .then(function (response) { return response.json(); })
+        .then(function (data) { window.location.reload(); })
+        .catch(function () { form.submit(); });
+    });
+  });
+</script>
+{% endif %}
+{% endblock %}
