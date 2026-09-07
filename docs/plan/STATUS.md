@@ -35,7 +35,7 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `R1.1` | DataTalksClub/relay | Relay production environment |  | no | todo |  |
-| `R1.2` | DataTalksClub/relay | Webhook task hardening |  | no | todo |  |
+| `R1.2` | DataTalksClub/relay | Webhook task hardening |  | no | done | https://github.com/DataTalksClub/relay/pull/9 |
 | `R1.3` | DataTalksClub/relay | Template catalog: versions, preview, test send, typed context |  | no | todo |  |
 | `R1.4` | DataTalksClub/relay | Client callbacks for delivery and engagement events | R1.2 | no | todo |  |
 | `R1.5` | DataTalksClub/relay | Preference categories and double opt-in |  | no | todo |  |
