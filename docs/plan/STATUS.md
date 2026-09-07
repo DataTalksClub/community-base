@@ -84,17 +84,17 @@ issues that can start now.
 | `C3.5c` | community-base | Voting | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/93 |
 | `C3.6` | community-base | Identity and community capability checkpoint | C3.1e, C3.2, C3.3, C3.4, C3.5a, C3.5b, C3.5c | no | done | https://github.com/DataTalksClub/community-base/pull/96 |
 | `C3.7` | community-base | Identity donor compatibility checkpoint | C3.6, A3.2, D3.1 | no | todo |  |
-| `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2 | no | todo |  |
+| `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2a | no | todo |  |
 | `A3.2` | AI-Shipping-Labs/website | Extension models for the remaining site-only user fields | A3.1 | no | todo |  |
 | `A3.3` | AI-Shipping-Labs/website | Freeze weekend: adopt shared accounts, questionnaires, community, notifications, comments, voting | C5.3, C3.7, A3.2 | yes | todo |  |
-| `D3.1` | DataTalksClub/website | Extension models and user model rename | C5.2 | no | todo |  |
+| `D3.1` | DataTalksClub/website | Extension models and user model rename | C5.2a | no | todo |  |
 | `D3.2` | DataTalksClub/website | Freeze weekend: adopt shared accounts and onboarding | C5.3, C3.7, D3.1 | yes | todo |  |
 
 ## Phase 4
 
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
-| `A4.1` | AI-Shipping-Labs/website | Cut the seams in AISL events | C5.2, A3.2 | no | todo |  |
+| `A4.1` | AI-Shipping-Labs/website | Cut the seams in AISL events | C5.2a, A3.2 | no | todo |  |
 | `C4.1a` | community-base | Events models and domain services | C3.6 | no | done | https://github.com/DataTalksClub/community-base/pull/100 |
 | `C4.1b` | community-base | Registration, reminders and feedback | C4.1a | no | done | https://github.com/DataTalksClub/community-base/pull/103 |
 | `C4.1c` | community-base | Event integrations and job handlers | C4.1b | no | done | https://github.com/DataTalksClub/community-base/pull/107 |
@@ -113,8 +113,12 @@ issues that can start now.
 | `C5.1b` | community-base | Curriculum import | C5.1a | no | done | https://github.com/DataTalksClub/community-base/pull/119 |
 | `C5.1c` | community-base | Curriculum public pages and member APIs | C5.1b | no | done | https://github.com/DataTalksClub/community-base/pull/121 |
 | `C5.1d` | community-base | Curriculum Studio and staff APIs | C5.1c | no | done | https://github.com/DataTalksClub/community-base/pull/123 |
-| `C5.2` | community-base | Coursework app | C5.1d | no | todo |  |
-| `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2 | no | todo |  |
+| `C5.2a` | community-base | Coursework models | C5.1d | no | in-progress |  |
+| `C5.2b` | community-base | Homework scoring and statistics | C5.2a | no | todo |  |
+| `C5.2c` | community-base | Projects and peer review | C5.2b | no | todo |  |
+| `C5.2d` | community-base | Leaderboard, registration and learner views | C5.2c | no | todo |  |
+| `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2d | no | todo |  |
+| `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e | no | todo |  |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3 | no | todo |  |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo |  |
 | `D5.1` | DataTalksClub/website | Map DTC course platform data to the shared apps | C5.3 | no | todo |  |
