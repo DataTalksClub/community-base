@@ -7,14 +7,14 @@ campaign path, or that names no campaign in this database, resolves to
 nothing and the caller offers no registration rather than guessing.
 
 Donor mapping (``courses/services/registration_campaigns.py``,
-``registration_counts.py``, ``courses/views/registration.py``): the donor
-``course`` argument is the package ``Cohort`` and donor ``current_course`` is
-``current_cohort``. The package ``Cohort`` carries no ``year`` field, so
-course families order editions by ``-start_date, -pk`` where the donor
-ordered ``-year, -id``. Analytics and audit writes fire through
-``coursework.hooks`` and stay site-configured; newsletter consent is optional
-evidence passed by the caller, and countries/region derivation stays with the
-site registration views.
+``registration_counts.py``): the donor ``course`` argument is the package
+``Cohort``, donor ``current_course`` is ``current_cohort`` and donor
+``Enrollment.student`` is ``Enrollment.user``. The package ``Cohort`` carries
+no ``year`` field, so course families order editions by ``-start_date, -pk``
+where the donor ordered ``-year, -id``. Analytics and audit writes fire
+through ``coursework.hooks`` and stay site-configured; newsletter consent is
+optional evidence passed by the caller, and countries/region derivation stays
+with the site registration views.
 """
 
 import re
@@ -41,7 +41,7 @@ _CAMPAIGN_PATH = re.compile(
 )
 
 
-class RegistrationCampaignStateError(ValueError):
+class RegistrationCampaignStateError(Exception):
     """The campaign's ``current_cohort`` state does not allow this transition.
 
     A campaign is either promoting one cohort (``current_cohort`` set) or
@@ -135,7 +135,7 @@ def next_edition_campaign_for_cohort(cohort: Cohort) -> RegistrationCampaign | N
     return campaign
 
 
-def family_registration(course) -> FamilyRegistration:
+def family_registration(course) -> FamilyRegistration | None:
     """Return the registration a course family offers, newest edition first."""
 
     editions = list(course.cohorts.filter(visible=True).order_by("-start_date", "-pk"))
@@ -150,33 +150,27 @@ def family_registration(course) -> FamilyRegistration:
     return FamilyRegistration()
 
 
-def campaign_course_is_open(campaign) -> bool:
+def campaign_course_is_open(cohort: Cohort) -> bool:
     """Whether the promoted cohort actually has course content to start on."""
 
-    cohort = campaign.current_cohort
-    if cohort is None:
-        return False
     return (
         Homework.objects.filter(cohort=cohort).exists()
         or Project.objects.filter(cohort=cohort).exists()
     )
 
 
-def existing_course_registration(campaign, user) -> CourseRegistration | None:
-    """Return the authenticated caller's registration in this campaign, if any.
+def existing_course_registration(campaign, user, email) -> CourseRegistration | None:
+    """Return the caller's registration in this campaign, if one exists.
 
-    Donor parity: an anonymous visitor has no registration here; an
-    authenticated one matches on their account or their normalized email.
+    An authenticated caller matches on their account or their normalized
+    email; an anonymous caller matches on the normalized email alone.
     """
 
-    if user is None or not getattr(user, "is_authenticated", True):
-        return None
-    email_normalized = (user.email or "").strip().lower()
-    return (
-        CourseRegistration.objects.filter(campaign=campaign)
-        .filter(Q(user=user) | Q(email_normalized=email_normalized))
-        .first()
-    )
+    email_normalized = (email or "").strip().lower()
+    identity = Q(email_normalized=email_normalized)
+    if user is not None and getattr(user, "is_authenticated", True):
+        identity |= Q(user=user)
+    return CourseRegistration.objects.filter(campaign=campaign).filter(identity).first()
 
 
 def create_course_registration(
@@ -200,7 +194,7 @@ def create_course_registration(
     campaign's current cohort (snapshotted by the model on save) and may be
     passed explicitly to override that snapshot. The submitted hook fires
     synchronously after the save, mirroring the donor's synchronous analytics
-    event; emails, datamailer syncs and profile updates stay site-side.
+    event; emails and profile updates stay site-side.
     """
 
     email_normalized = (email or "").strip().lower()
