@@ -20,7 +20,7 @@ issues that can start now.
 | `C0.3` | community-base | Config app: registry, storage, cache, Studio page, import and export | C0.4 | no | todo |  |
 | `C0.4` | community-base | API app: keys with scopes, bearer auth, OpenAPI, route registry | C0.2 | no | todo |  |
 | `C0.5` | community-base | First release | C0.2, C0.3, C0.4 | no | todo |  |
-| `A0.1` | AI-Shipping-Labs/website | Add the package dependency and the local link targets | C2.4 | no | todo |  |
+| `A0.1` | AI-Shipping-Labs/website | Add the package dependency and the local link targets | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1563 |
 | `A0.2` | AI-Shipping-Labs/website | Replace the settings framework with the package config app | A0.1 | no | todo |  |
 | `A0.3` | AI-Shipping-Labs/website | Access policy hook | A0.1 | no | todo |  |
 | `D0.1` | DataTalksClub/website | Add the package and replace the settings frameworks | D0.1d | no | todo |  |
@@ -35,8 +35,8 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `R1.1` | DataTalksClub/relay | Relay production environment |  | no | todo |  |
-| `R1.2` | DataTalksClub/relay | Webhook task hardening |  | no | todo |  |
-| `R1.3` | DataTalksClub/relay | Template catalog: versions, preview, test send, typed context |  | no | todo |  |
+| `R1.2` | DataTalksClub/relay | Webhook task hardening |  | no | done | https://github.com/DataTalksClub/relay/pull/9 |
+| `R1.3` | DataTalksClub/relay | Template catalog: versions, preview, test send, typed context |  | no | in-progress | https://github.com/DataTalksClub/relay/issues/12 |
 | `R1.4` | DataTalksClub/relay | Client callbacks for delivery and engagement events | R1.2 | no | todo |  |
 | `R1.5` | DataTalksClub/relay | Preference categories and double opt-in |  | no | todo |  |
 | `C1.1a` | community-base | Durable jobs core and local backends | C0.5 | no | todo |  |
@@ -116,8 +116,8 @@ issues that can start now.
 | `C5.2a` | community-base | Coursework models | C5.1d | no | todo |  |
 | `C5.2b` | community-base | Homework scoring and statistics | C5.2a | no | todo |  |
 | `C5.2c` | community-base | Projects and peer review | C5.2b | no | todo |  |
-| `C5.2da` | community-base | Leaderboard rollup, preferences and complaints | C5.2c | no | in-progress |  |
-| `C5.2db` | community-base | Registration campaigns and course registrations | C5.2c | no | in-progress |  |
+| `C5.2da` | community-base | Leaderboard rollup, preferences and complaints | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/141 |
+| `C5.2db` | community-base | Registration campaigns and course registrations | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/138 |
 | `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | todo |  |
 | `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2dc | no | todo |  |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e | no | todo |  |
