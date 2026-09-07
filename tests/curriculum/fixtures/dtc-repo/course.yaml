@@ -1,0 +1,10 @@
+schema_version: 1
+content_id: 9a2b3c4d-0001-4000-8000-000000000001
+slug: ml-zoomcamp
+title: Machine Learning Zoomcamp
+outcome: Build ML systems end to end.
+repository_url: https://github.com/example/ml-zoomcamp
+docs_url: https://example.com/docs
+faq_url: https://example.com/faq
+hashtag: mlzoomcamp
+published: true

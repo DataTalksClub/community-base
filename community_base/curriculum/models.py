@@ -287,7 +287,7 @@ class Cohort(SourceProvenanceMixin, models.Model):
                 condition=Q(mode="self_paced"),
                 name="cb_cohort_self_paced_unique",
             ),
-            provenance_constraint(name="cb_cohort_source_complete"),
+            provenance_constraint(name="cb_cohort_source_complete", identity_fields=()),
         ]
 
     def __str__(self):
@@ -332,7 +332,7 @@ class Module(SourceProvenanceMixin, models.Model):
                 fields=("cohort", "slug"),
                 name="cb_module_cohort_slug_unique",
             ),
-            provenance_constraint(name="cb_module_source_complete"),
+            provenance_constraint(name="cb_module_source_complete", identity_fields=()),
         ]
 
     def __str__(self):
@@ -385,7 +385,7 @@ class Unit(SourceProvenanceMixin, models.Model):
                 fields=("module", "slug"),
                 name="cb_unit_module_slug_unique",
             ),
-            provenance_constraint(name="cb_unit_source_complete"),
+            provenance_constraint(name="cb_unit_source_complete", identity_fields=()),
         ]
 
     def __str__(self):
