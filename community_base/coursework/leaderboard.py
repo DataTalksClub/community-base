@@ -14,6 +14,7 @@ from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db.models import Case, IntegerField, Prefetch, Sum, Value, When
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 from community_base.coursework.hooks import hooks as coursework_hooks
 from community_base.coursework.models import (
@@ -23,6 +24,7 @@ from community_base.coursework.models import (
     ProjectSubmission,
     Submission,
 )
+from community_base.coursework.random_names import ensure_display_name
 from community_base.curriculum.models import Enrollment
 
 logger = logging.getLogger(__name__)
@@ -293,21 +295,6 @@ def set_enrollment_preference(cohort, user, field, value):
     return enrollment, enabled, changed
 
 
-def ensure_display_name(enrollment, generator=None):
-    """Fill a blank leaderboard name in place; returns the display name.
-
-    The donor generates ``"<adjective> <famous person>"`` from site word lists;
-    the word lists stay site-side, so the package default generator is a plain
-    fallback and sites override ``COURSEWORK_DISPLAY_NAME_GENERATOR``.
-    """
-
-    if enrollment.display_name:
-        return enrollment.display_name
-    generate = generator or coursework_hooks.display_name_generator
-    enrollment.display_name = generate(enrollment)
-    return enrollment.display_name
-
-
 def ensure_enrollment(cohort, user, *, source="manual"):
     """Return the user's active enrollment, creating it when missing.
 
@@ -342,4 +329,14 @@ def file_leaderboard_complaint(enrollment, reporter, *, issue_type, description)
     complaint.reporter = reporter
     complaint.full_clean()
     complaint.save()
+    return complaint
+
+
+def resolve_leaderboard_complaint(complaint, resolver):
+    """Mark a complaint resolved; donor parity: no score recompute happens here."""
+
+    complaint.resolved = True
+    complaint.resolved_at = timezone.now()
+    complaint.resolved_by = resolver
+    complaint.save(update_fields=["resolved", "resolved_at", "resolved_by"])
     return complaint
