@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Review submission #{{ review.id }}{% endblock %}
+{% block content %}
+<main class="cb-page cb-eval-submit">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Review submission</h1>
+    <p class="cb-card-meta">{{ project.title }} · {{ submission.github_link }}</p>
+  </header>
+
+  {% if disabled %}<p class="cb-alert">Peer review is closed for this project.</p>{% endif %}
+
+  {% if accepting_submissions %}
+    <section class="cb-card">
+      <h2 class="cb-card-title">Vote for this submission</h2>
+      <p class="cb-card-meta">{{ voted_submission_ids|length }} of {{ project_votes_per_project }} votes used
+        {% if vote_limit_reached %}(limit reached){% endif %}</p>
+      <form class="cb-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="form_action" value="vote">
+        <input type="hidden" name="vote_action" value="vote">
+        <button class="cb-button" type="submit" {% if vote_limit_reached %}disabled{% endif %}>Vote</button>
+      </form>
+      <form class="cb-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="form_action" value="vote">
+        <input type="hidden" name="vote_action" value="remove">
+        <button class="cb-button" type="submit">Remove vote</button>
+      </form>
+    </section>
+
+    <form class="cb-form" method="post">
+      {% csrf_token %}
+      <fieldset class="cb-card">
+        <legend>Rubric</legend>
+        <ul class="cb-list">
+          {% for criteria, response in criteria_response_pairs %}
+            <li>
+              <label for="criteria_{{ criteria.id }}">{{ criteria.description }}</label>
+              <input id="criteria_{{ criteria.id }}" name="criteria_{{ criteria.id }}"
+                     value="{% if response %}{{ response.answer }}{% endif %}">
+            </li>
+          {% endfor %}
+        </ul>
+      </fieldset>
+      <label for="id_note_to_peer">Note to peer</label>
+      <textarea id="id_note_to_peer" name="note_to_peer"></textarea>
+      <label for="id_problems_comments">Problems and comments</label>
+      <textarea id="id_problems_comments" name="problems_comments"></textarea>
+      <label for="id_time_spent_reviewing">Hours spent reviewing</label>
+      <input id="id_time_spent_reviewing" name="time_spent_reviewing">
+      <button class="cb-button cb-button-primary" type="submit">Submit review</button>
+    </form>
+  {% endif %}
+</main>
+{% endblock %}

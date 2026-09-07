@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ project.title }} - {{ course.title }}{% endblock %}
+{% block content %}
+<main class="cb-page cb-project">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">{{ project.title }}</h1>
+    <p class="cb-card-meta">{{ course.title }} · {{ project.get_state_display }}</p>
+  </header>
+
+  {% if project.description %}<section class="cb-card">{{ project.description }}</section>{% endif %}
+
+  {% if not is_authenticated %}
+    <aside class="cb-alert" role="note"><p>Sign in to submit this project.</p></aside>
+  {% else %}
+    {% if has_submission %}
+      <p class="cb-card-meta">Submitted {{ submission.submitted_at }} · {{ submission.github_link }} · score {{ submission.total_score }}</p>
+    {% else %}
+      <p class="cb-card-meta">No submission yet.</p>
+    {% endif %}
+    {% if disabled %}
+      <p class="cb-alert">The submission form is closed.</p>
+    {% else %}
+      <form class="cb-form" method="post">
+        {% csrf_token %}
+        <label for="id_github_link">GitHub repository link</label>
+        <input id="id_github_link" name="github_link" value="{% if submission %}{{ submission.github_link }}{% endif %}">
+        <label for="id_commit_id">Commit id</label>
+        <input id="id_commit_id" name="commit_id" value="{% if submission %}{{ submission.commit_id }}{% endif %}">
+        <button class="cb-button cb-button-primary" type="submit">Submit</button>
+      </form>
+      {% if has_submission %}
+        <form class="cb-form" method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete">
+          <button class="cb-button" type="submit">Delete submission</button>
+        </form>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+
+  {% if certificate_name %}<p class="cb-card-meta">Certificate name: {{ certificate_name }}</p>{% endif %}
+</main>
+{% endblock %}

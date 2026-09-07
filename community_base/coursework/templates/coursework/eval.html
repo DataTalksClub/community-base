@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Peer review: {{ project.title }}{% endblock %}
+{% block content %}
+<main class="cb-page cb-eval">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Peer review: {{ project.title }}</h1>
+    <p class="cb-card-meta">{{ course.title }} · {{ project.get_state_display }}</p>
+  </header>
+
+  {% if eval_closed %}<p class="cb-alert">Peer review is closed for this project.</p>{% endif %}
+
+  {% if is_authenticated %}
+    <p class="cb-card-meta">Completed evaluations: {{ number_of_completed_evaluation }}</p>
+    {% if not has_submission %}<p class="cb-card-meta">You have no submission in this project.</p>{% endif %}
+    <section class="cb-card">
+      <h2 class="cb-card-title">Assigned reviews</h2>
+      <ul class="cb-list">
+        {% for review in assigned_reviews %}
+          <li>
+            Review #{{ review.id }} · {{ review.get_state_display }}
+            <a href="{% url 'coursework_projects_eval_submit' course.slug project.cohort.slug project.slug review.id %}">Open</a>
+          </li>
+        {% empty %}
+          <li>No assigned reviews.</li>
+        {% endfor %}
+      </ul>
+    </section>
+    <section class="cb-card">
+      <h2 class="cb-card-title">Selected reviews</h2>
+      <ul class="cb-list">
+        {% for review in selected_reviews %}
+          <li>
+            Review #{{ review.id }} · {{ review.get_state_display }}
+            <a href="{% url 'coursework_projects_eval_submit' course.slug project.cohort.slug project.slug review.id %}">Open</a>
+          </li>
+        {% empty %}
+          <li>No selected reviews.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% else %}
+    <aside class="cb-alert" role="note"><p>Sign in to see your reviews.</p></aside>
+  {% endif %}
+</main>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard: {{ course.title }}{% endblock %}
+{% block content %}
+<main class="cb-page cb-leaderboard">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Leaderboard</h1>
+    <p class="cb-card-meta">{{ course.title }} · {{ cohort.title }} · {{ total_enrollments }} learners</p>
+  </header>
+
+  <table class="cb-table">
+    <thead>
+      <tr><th>Position</th><th>Learner</th><th>Score</th><th>Passed projects</th></tr>
+    </thead>
+    <tbody>
+      {% for row in enrollments %}
+        <tr>
+          <td>{{ row.position_on_leaderboard }}</td>
+          <td>
+            <a href="{% url 'coursework_leaderboard_score_breakdown' course.slug cohort.slug row.id %}">
+              {{ row.display_name }}
+            </a>
+          </td>
+          <td>{{ row.total_score }}</td>
+          <td>
+            {% for passed in row.passed_projects %}{{ passed.title }}{% if not forloop.last %}, {% endif %}{% endfor %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">No ranked learners yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <nav class="cb-pagination" aria-label="Pages">
+    {% for number in page_range %}
+      {% if number %}
+        <a href="?page={{ number }}">{{ number }}</a>
+      {% else %}
+        <span>…</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+
+  {% if current_student_enrollment_id %}
+    <p class="cb-card-meta">
+      You are on page {{ current_student_page_number|default:"—" }}.
+      <a href="{% url 'coursework_leaderboard_score_breakdown' course.slug cohort.slug current_student_enrollment_id %}">Your breakdown</a>
+    </p>
+  {% endif %}
+</main>
+{% endblock %}

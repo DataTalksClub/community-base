@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ homework.title }} - {{ course.title }}{% endblock %}
+{% block content %}
+<main class="cb-page cb-homework">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">{{ homework.title }}</h1>
+    <p class="cb-card-meta">{{ course.title }} · {{ homework.cohort.title }}</p>
+  </header>
+
+  {% if homework.description %}<section class="cb-card">{{ homework.description }}</section>{% endif %}
+  {% if instructions_url %}<p><a class="cb-button" href="{{ instructions_url }}">Instructions</a></p>{% endif %}
+
+  {% if not accepting_submissions %}<p class="cb-alert">This homework is closed.</p>
+  {% elif deadline_passed %}<p class="cb-alert">The deadline has passed.</p>{% endif %}
+
+  {% if not is_authenticated %}
+    <aside class="cb-alert" role="note">
+      <p>Sign in to submit this homework.</p>
+    </aside>
+    <ul class="cb-list">
+      {% for question, answer in question_answers %}
+        <li>{{ question.text }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    {% if submission %}<p class="cb-card-meta">Last submitted {{ submission.submitted_at }} · score {{ submission.total_score }}</p>{% endif %}
+    {% if disabled %}
+      <ul class="cb-list">
+        {% for question, answer in question_answers %}
+          <li>{{ question.text }}{% if answer %} — {{ answer.answer_text }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <form class="cb-form" method="post">
+        {% csrf_token %}
+        <ul class="cb-list">
+          {% for question, answer in question_answers %}
+            <li>
+              <label for="answer_{{ question.id }}">{{ question.text }}</label>
+              <input id="answer_{{ question.id }}" name="answer_{{ question.id }}"
+                     value="{% if answer %}{{ answer.answer_text }}{% endif %}">
+            </li>
+          {% endfor %}
+        </ul>
+        <button class="cb-button cb-button-primary" type="submit">Submit</button>
+      </form>
+    {% endif %}
+  {% endif %}
+</main>
+{% endblock %}
