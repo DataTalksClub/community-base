@@ -110,7 +110,7 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `C5.1a` | community-base | Curriculum models and access | C4.2 | no | done | https://github.com/DataTalksClub/community-base/pull/117 |
-| `C5.1b` | community-base | Curriculum import | C5.1a | no | todo |  |
+| `C5.1b` | community-base | Curriculum import | C5.1a | no | in-progress |  |
 | `C5.1c` | community-base | Curriculum public pages and member APIs | C5.1b | no | todo |  |
 | `C5.1d` | community-base | Curriculum Studio and staff APIs | C5.1c | no | todo |  |
 | `C5.2` | community-base | Coursework app | C5.1d | no | todo |  |

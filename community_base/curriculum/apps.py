@@ -6,3 +6,13 @@ class CurriculumConfig(AppConfig):
     name = "community_base.curriculum"
     label = "cb_curriculum"
     verbose_name = "Curriculum"
+
+    def ready(self):
+        from community_base.content_sync.parsers import register_parser
+        from community_base.curriculum.content_sync_parsers import (
+            AislCourseParser,
+            DtcCourseRepositoryParser,
+        )
+
+        register_parser("curriculum_aisl_course", AislCourseParser())
+        register_parser("curriculum_dtc_course_repository", DtcCourseRepositoryParser())

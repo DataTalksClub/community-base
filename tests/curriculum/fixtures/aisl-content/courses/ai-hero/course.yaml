@@ -1,0 +1,16 @@
+content_id: 1a2b3c4d-0001-4000-8000-000000000001
+slug: ai-hero
+title: AI Hero Crash Course
+description: |
+  A seven-day tour through **applied** AI.
+cover_image_url: https://example.com/cover.png
+instructors:
+  - name: Ada Lovelace
+    bio: First programmer.
+required_level: 0
+default_unit_access: registered
+discussion_url: https://example.com/discussion
+tags: [ai-agents, crash-course]
+testimonials:
+  - quote: Best week of my life.
+    name: Grace Hopper
