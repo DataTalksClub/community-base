@@ -450,6 +450,8 @@ class Enrollment(models.Model):
     display_name = models.CharField(max_length=255, blank=True, default="")
     display_on_leaderboard = models.BooleanField(default=True)
     display_public_profile = models.BooleanField(default=False)
+    position_on_leaderboard = models.IntegerField(null=True, blank=True)
+    disable_learning_in_public = models.BooleanField(default=False)
     certificate_name = models.CharField(max_length=255, blank=True, default="")
     total_score = models.IntegerField(default=0)
     certificate_url = models.CharField(max_length=500, blank=True, default="")

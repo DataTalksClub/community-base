@@ -6,3 +6,6 @@ class CourseworkConfig(AppConfig):
     name = "community_base.coursework"
     label = "cb_coursework"
     verbose_name = "Coursework"
+
+    def ready(self):
+        from community_base.coursework import reminders  # noqa: F401
