@@ -87,7 +87,7 @@ issues that can start now.
 | `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2a | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1579 |
 | `A3.2` | AI-Shipping-Labs/website | Extension models for the remaining site-only user fields | A3.1 | no | todo |  |
 | `A3.3` | AI-Shipping-Labs/website | Freeze weekend: adopt shared accounts, questionnaires, community, notifications, comments, voting | C5.3, C3.7, A3.2 | yes | todo |  |
-| `D3.1` | DataTalksClub/website | Extension models and user model rename | C5.2a | no | todo |  |
+| `D3.1` | DataTalksClub/website | Extension models and user model rename | C5.2a | no | in-progress | https://github.com/DataTalksClub/website/issues/334 |
 | `D3.2` | DataTalksClub/website | Freeze weekend: adopt shared accounts and onboarding | C5.3, C3.7, D3.1 | yes | todo |  |
 
 ## Phase 4
