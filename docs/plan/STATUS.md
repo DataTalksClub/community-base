@@ -49,7 +49,7 @@ issues that can start now.
 | `D1.1` | DataTalksClub/website | Replace DTC jobs with the package jobs app (relay backend) | C1.5, R1.1, R1.2 | no | todo |  |
 | `D1.2` | DataTalksClub/website | Replace DTC email_app and the Datamailer outbox with the package mail app | D1.1, R1.3, R1.4, R1.5 | no | todo |  |
 | `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2 | yes | todo |  |
-| `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | todo |  |
+| `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1577 |
 | `A1.2` | AI-Shipping-Labs/website | Adopt the package mail app on the ses_local backend | C1.5, A1.1 | no | todo |  |
 
 ## Phase 2
