@@ -37,7 +37,7 @@ issues that can start now.
 | `R1.1` | DataTalksClub/relay | Relay production environment |  | no | done | https://github.com/DataTalksClub/relay/pull/15 |
 | `R1.2` | DataTalksClub/relay | Webhook task hardening |  | no | done | https://github.com/DataTalksClub/relay/pull/9 |
 | `R1.3` | DataTalksClub/relay | Template catalog: versions, preview, test send, typed context |  | no | done | https://github.com/DataTalksClub/relay/pull/16 |
-| `R1.4` | DataTalksClub/relay | Client callbacks for delivery and engagement events | R1.2 | no | todo |  |
+| `R1.4` | DataTalksClub/relay | Client callbacks for delivery and engagement events | R1.2 | no | in-progress | https://github.com/DataTalksClub/relay/issues/17 |
 | `R1.5` | DataTalksClub/relay | Preference categories and double opt-in |  | no | todo |  |
 | `C1.1a` | community-base | Durable jobs core and local backends | C0.5 | no | done | https://github.com/DataTalksClub/community-base/pull/19 |
 | `C1.1b` | community-base | Relay jobs client and contract tests | C1.1a | no | done | https://github.com/DataTalksClub/community-base/pull/22 |
