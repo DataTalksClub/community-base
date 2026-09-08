@@ -8,4 +8,4 @@ class CourseworkConfig(AppConfig):
     verbose_name = "Coursework"
 
     def ready(self):
-        from community_base.coursework import reminders  # noqa: F401
+        from community_base.coursework import api_views, reminders  # noqa: F401
