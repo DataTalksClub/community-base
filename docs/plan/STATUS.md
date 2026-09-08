@@ -24,7 +24,7 @@ issues that can start now.
 | `A0.2` | AI-Shipping-Labs/website | Replace the settings framework with the package config app | A0.1 | no | todo |  |
 | `A0.3` | AI-Shipping-Labs/website | Access policy hook | A0.1 | no | todo |  |
 | `D0.1` | DataTalksClub/website | Add the package and replace the settings frameworks | D0.1d | no | todo |  |
-| `D0.1a` | DataTalksClub/website | Install the released kernel and local development tools | C2.4 | no | todo |  |
+| `D0.1a` | DataTalksClub/website | Install the released kernel and local development tools | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/compare/main...d0.1a-kernel-local-dev-tools |
 | `D0.1b` | DataTalksClub/website | Inventory settings contracts and prove package parity | D0.1a | no | todo |  |
 | `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | todo |  |
 | `D0.1d` | DataTalksClub/website | Retire old settings storage after the rollback window | D0.1c | no | todo |  |
