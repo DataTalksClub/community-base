@@ -41,6 +41,7 @@ def test_sections_are_sorted_with_their_destinations():
         "later",
         "people",
         "courses",
+        "coursework",
         "onboarding",
         "community",
         "events",

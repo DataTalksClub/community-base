@@ -1,0 +1,32 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Coursework homework{% endblock %}
+{% block studio_content %}
+<h1>Homework</h1>
+<form method="get">
+  <label for="cohort-filter">Cohort</label>
+  <select id="cohort-filter" name="cohort">
+    <option value="">All cohorts</option>
+    {% for cohort in cohorts %}
+    <option value="{{ cohort.pk }}" {% if request.GET.cohort == cohort.pk|stringformat:"s" %}selected{% endif %}>{{ cohort.course.title }} / {{ cohort.title }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filter</button>
+</form>
+<table>
+  <thead>
+    <tr><th>Homework</th><th>Cohort</th><th>Due</th><th>State</th></tr>
+  </thead>
+  <tbody>
+    {% for homework in homeworks %}
+    <tr>
+      <td><a href="{% url 'coursework_studio_homework_detail' homework.pk %}">{{ homework.title }}</a> <small>{{ homework.slug }}</small></td>
+      <td>{{ homework.cohort.course.title }} / {{ homework.cohort.title }}</td>
+      <td>{{ homework.due_date }}</td>
+      <td>{{ homework.get_state_display }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">No homework.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

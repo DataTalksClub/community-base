@@ -1,0 +1,28 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Certificates{% endblock %}
+{% block studio_content %}
+<h1>{{ cohort.course.title }} / {{ cohort.title }} — certificates</h1>
+<table>
+  <thead>
+    <tr><th>Learner</th><th>Score</th><th>Certificate</th><th>Issue / update</th></tr>
+  </thead>
+  <tbody>
+    {% for enrollment in enrollments %}
+    <tr>
+      <td>{{ enrollment.user.email }}</td>
+      <td>{{ enrollment.total_score }}</td>
+      <td>{% if enrollment.certificate_url %}<a href="{{ enrollment.certificate_url }}">{{ enrollment.certificate_url }}</a>{% else %}-{% endif %}</td>
+      <td>
+        <form method="post" action="{% url 'coursework_studio_certificate_issue' cohort.pk enrollment.pk %}">{% csrf_token %}
+          <label class="sr-only" for="certificate-url-{{ enrollment.pk }}">Certificate URL</label>
+          <input id="certificate-url-{{ enrollment.pk }}" name="url" placeholder="https://…">
+          <button type="submit">Save</button>
+        </form>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">No enrollments.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

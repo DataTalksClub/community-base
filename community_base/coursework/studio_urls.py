@@ -1,0 +1,116 @@
+from django.urls import path
+
+from community_base.coursework import studio_views
+
+urlpatterns = [
+    path("", studio_views.homework_list, name="coursework_studio_homework_list"),
+    path(
+        "homework/create/<int:cohort_id>/",
+        studio_views.homework_create,
+        name="coursework_studio_homework_create",
+    ),
+    path(
+        "homework/<int:homework_id>/",
+        studio_views.homework_detail,
+        name="coursework_studio_homework_detail",
+    ),
+    path(
+        "homework/<int:homework_id>/edit/",
+        studio_views.homework_edit,
+        name="coursework_studio_homework_edit",
+    ),
+    path(
+        "homework/<int:homework_id>/rescore/",
+        studio_views.homework_rescore,
+        name="coursework_studio_homework_rescore",
+    ),
+    path(
+        "homework/<int:homework_id>/questions/create/",
+        studio_views.question_create,
+        name="coursework_studio_question_create",
+    ),
+    path(
+        "questions/<int:question_id>/edit/",
+        studio_views.question_edit,
+        name="coursework_studio_question_edit",
+    ),
+    path(
+        "questions/<int:question_id>/delete/",
+        studio_views.question_delete,
+        name="coursework_studio_question_delete",
+    ),
+    path("projects/", studio_views.project_list, name="coursework_studio_project_list"),
+    path(
+        "projects/<int:project_id>/",
+        studio_views.project_detail,
+        name="coursework_studio_project_detail",
+    ),
+    path(
+        "projects/<int:project_id>/assign-reviews/",
+        studio_views.project_assign_reviews,
+        name="coursework_studio_project_assign_reviews",
+    ),
+    path(
+        "projects/<int:project_id>/score/",
+        studio_views.project_score,
+        name="coursework_studio_project_score",
+    ),
+    path(
+        "projects/<int:project_id>/criteria/add/",
+        studio_views.criteria_add,
+        name="coursework_studio_criteria_add",
+    ),
+    path(
+        "projects/<int:project_id>/criteria/<int:assignment_id>/remove/",
+        studio_views.criteria_remove,
+        name="coursework_studio_criteria_remove",
+    ),
+    path(
+        "projects/<int:project_id>/volunteer-reviews/add/",
+        studio_views.volunteer_review_add,
+        name="coursework_studio_volunteer_review_add",
+    ),
+    path(
+        "projects/<int:project_id>/volunteer-reviews/<int:review_id>/remove/",
+        studio_views.volunteer_review_remove,
+        name="coursework_studio_volunteer_review_remove",
+    ),
+    path(
+        "cohorts/<int:cohort_id>/leaderboard/",
+        studio_views.cohort_leaderboard,
+        name="coursework_studio_cohort_leaderboard",
+    ),
+    path(
+        "cohorts/<int:cohort_id>/leaderboard/recompute/",
+        studio_views.leaderboard_recompute,
+        name="coursework_studio_leaderboard_recompute",
+    ),
+    path("complaints/", studio_views.complaints, name="coursework_studio_complaints"),
+    path(
+        "complaints/<int:complaint_id>/resolve/",
+        studio_views.complaint_resolve,
+        name="coursework_studio_complaint_resolve",
+    ),
+    path(
+        "enrollments/<int:enrollment_id>/complaints/create/",
+        studio_views.complaint_create,
+        name="coursework_studio_complaint_create",
+    ),
+    path(
+        "cohorts/<int:cohort_id>/certificates/",
+        studio_views.certificates,
+        name="coursework_studio_certificates",
+    ),
+    path(
+        "cohorts/<int:cohort_id>/certificates/<int:enrollment_id>/issue/",
+        studio_views.certificate_issue,
+        name="coursework_studio_certificate_issue",
+    ),
+    path("campaigns/", studio_views.campaigns, name="coursework_studio_campaigns"),
+    path("wrapped/", studio_views.wrapped, name="coursework_studio_wrapped"),
+    path(
+        "wrapped/recalculate/",
+        studio_views.wrapped_recalculate,
+        name="coursework_studio_wrapped_recalculate",
+    ),
+]

@@ -1,0 +1,34 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ homework.title }}{% endblock %}
+{% block studio_content %}
+<h1>{{ homework.title }} <small>({{ homework.cohort.course.title }} / {{ homework.cohort.title }})</small></h1>
+<p>
+  <a href="{% url 'coursework_studio_homework_edit' homework.pk %}">Edit</a> ·
+  <a href="{% url 'coursework_studio_question_create' homework.pk %}">Add question</a> ·
+  <a href="{% url 'coursework_studio_cohort_leaderboard' homework.cohort_id %}">Cohort leaderboard</a>
+</p>
+<p>Due {{ homework.due_date }} · state {{ homework.get_state_display }}</p>
+<form method="post" action="{% url 'coursework_studio_homework_rescore' homework.pk %}">{% csrf_token %}
+  <label><input type="checkbox" name="force" value="1"> force (already-scored homework)</label>
+  <button type="submit">Rescore submissions</button>
+</form>
+
+<h2>Questions</h2>
+<ul>
+{% for question in questions %}
+  <li>{{ question.text }} ({{ question.question_type }} / {{ question.answer_type }})
+    <a href="{% url 'coursework_studio_question_edit' question.pk %}">Edit</a>
+    <form method="post" action="{% url 'coursework_studio_question_delete' question.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Delete</button></form>
+  </li>
+{% empty %}<li>No questions.</li>{% endfor %}
+</ul>
+
+<h2>Submissions ({{ submissions|length }})</h2>
+<table><thead><tr><th>Student</th><th>Questions</th><th>Learning in public</th><th>FAQ</th><th>Total</th></tr></thead><tbody>
+{% for submission in submissions %}
+<tr><td>{{ submission.student.email }}</td><td>{{ submission.questions_score }}</td><td>{{ submission.learning_in_public_score }}</td><td>{{ submission.faq_score }}</td><td>{{ submission.total_score }}</td></tr>
+{% empty %}<tr><td colspan="5">No submissions.</td></tr>{% endfor %}
+</tbody></table>
+
+<p>States: {% for state in states %}{{ state.value }}={{ state.name|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+{% endblock %}

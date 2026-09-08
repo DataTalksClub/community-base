@@ -1,0 +1,40 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Leaderboard{% endblock %}
+{% block studio_content %}
+<h1>{{ cohort.course.title }} / {{ cohort.title }} — leaderboard</h1>
+<form method="post" action="{% url 'coursework_studio_leaderboard_recompute' cohort.pk %}">{% csrf_token %}
+  <button type="submit">Recompute leaderboard</button>
+</form>
+<table>
+  <thead>
+    <tr><th>Position</th><th>Learner</th><th>Display name</th><th>Visible</th><th>Total score</th><th>File complaint</th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.position_on_leaderboard|default:"-" }}</td>
+      <td>{{ row.user.email }}</td>
+      <td>{{ row.display_name }}</td>
+      <td>{{ row.display_on_leaderboard }}</td>
+      <td>{{ row.total_score }}</td>
+      <td>
+        <form method="post" action="{% url 'coursework_studio_complaint_create' row.pk %}">{% csrf_token %}
+          <label class="sr-only" for="issue-type-{{ row.pk }}">Issue type</label>
+          <select id="issue-type-{{ row.pk }}" name="issue_type">
+            <option value="learning_in_public">Incorrect learning in public links</option>
+            <option value="homework">Incorrect homework</option>
+            <option value="project">Incorrect project</option>
+            <option value="other">Other leaderboard issue</option>
+          </select>
+          <label class="sr-only" for="issue-description-{{ row.pk }}">Description</label>
+          <input id="issue-description-{{ row.pk }}" name="description" placeholder="What is wrong?">
+          <button type="submit">File</button>
+        </form>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6">No enrollments.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

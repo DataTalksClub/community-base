@@ -1,0 +1,54 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Wrapped{% endblock %}
+{% block studio_content %}
+<h1>Wrapped statistics</h1>
+<form method="post" action="{% url 'coursework_studio_wrapped_recalculate' %}">{% csrf_token %}
+  <label for="wrapped-year">Year</label>
+  <input id="wrapped-year" name="year" type="number" value="2026">
+  <button type="submit">Recalculate (force)</button>
+</form>
+<table>
+  <thead>
+    <tr><th>Year</th><th>Visible</th><th>Participants</th><th>Enrollments</th><th>Hours</th><th>Certificates</th><th>Points</th></tr>
+  </thead>
+  <tbody>
+    {% for row in years %}
+    <tr>
+      <td>{{ row.year }}</td>
+      <td>{{ row.is_visible }}</td>
+      <td>{{ row.total_participants }}</td>
+      <td>{{ row.total_enrollments }}</td>
+      <td>{{ row.total_hours }}</td>
+      <td>{{ row.total_certificates }}</td>
+      <td>{{ row.total_points }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7">No wrapped statistics yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Per-user statistics (latest 25)</h2>
+<table>
+  <thead>
+    <tr><th>User</th><th>Display name</th><th>Year</th><th>Rank</th><th>Points</th><th>Hours</th><th>Homework</th><th>Projects</th><th>Peer reviews</th></tr>
+  </thead>
+  <tbody>
+    {% for row in user_rows %}
+    <tr>
+      <td>{{ row.user.email }}</td>
+      <td>{{ row.display_name }}</td>
+      <td>{{ row.wrapped.year }}</td>
+      <td>{{ row.rank|default:"-" }}</td>
+      <td>{{ row.total_points }}</td>
+      <td>{{ row.total_hours }}</td>
+      <td>{{ row.homework_count }}</td>
+      <td>{{ row.project_count }}</td>
+      <td>{{ row.peer_reviews_given }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="9">No per-user wrapped statistics yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

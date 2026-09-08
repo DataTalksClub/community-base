@@ -1,0 +1,12 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ kind|capfirst }}{% endblock %}
+{% block studio_content %}
+<h1>{{ kind|capfirst }}</h1>
+<form method="post">{% csrf_token %}
+{{ form.as_p }}
+<button type="submit">Save</button>
+</form>
+{% if back_url_name %}
+<p><a href="{% if back_kwargs %}{% url back_url_name back_kwargs.homework_id %}{% else %}{% url back_url_name %}{% endif %}">Back</a></p>
+{% endif %}
+{% endblock %}

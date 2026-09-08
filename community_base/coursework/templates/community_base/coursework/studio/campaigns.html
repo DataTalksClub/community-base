@@ -1,0 +1,12 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Campaigns{% endblock %}
+{% block studio_content %}
+<h1>Registration campaigns</h1>
+<table><thead><tr><th>Campaign</th><th>Slug</th><th>Current cohort</th><th>Public count</th></tr></thead><tbody>
+{% for campaign, count in rows %}
+<tr><td>{{ campaign.title }}</td><td>{{ campaign.slug }}</td>
+<td>{% if campaign.current_cohort %}{{ campaign.current_cohort.course.title }} / {{ campaign.current_cohort.title }}{% else %}-{% endif %}</td>
+<td>{% if count is not None %}{{ count }}{% else %}-{% endif %}</td></tr>
+{% empty %}<tr><td colspan="4">No campaigns.</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
