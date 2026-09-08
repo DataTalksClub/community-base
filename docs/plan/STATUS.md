@@ -28,7 +28,7 @@ issues that can start now.
 | `D0.1b` | DataTalksClub/website | Inventory settings contracts and prove package parity | D0.1a | no | todo |  |
 | `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | todo |  |
 | `D0.1d` | DataTalksClub/website | Retire old settings storage after the rollback window | D0.1c | no | todo |  |
-| `D0.2` | DataTalksClub/website | Site CI guard and pin bump workflow | D0.1a | no | in-progress | https://github.com/DataTalksClub/website/issues/354 |
+| `D0.2` | DataTalksClub/website | Site CI guard and pin bump workflow | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/354 |
 
 ## Phase 1
 
