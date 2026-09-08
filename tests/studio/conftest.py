@@ -13,6 +13,7 @@ def register_package_studio():
     from community_base.content_sync.studio_registration import (
         register_studio as register_content_sync,
     )
+    from community_base.coursework.studio_registration import register_studio as register_coursework
     from community_base.curriculum.studio_registration import register_studio as register_curriculum
     from community_base.events.studio_registration import register_studio as register_events
     from community_base.jobs.studio_registration import register_studio as register_jobs
@@ -31,6 +32,7 @@ def register_package_studio():
     register_comments()
     register_events()
     register_curriculum()
+    register_coursework()
     builtin.register_builtin_section()
     register_config()
     register_api()

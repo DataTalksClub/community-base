@@ -1,0 +1,39 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ cohort.title }} coursework{% endblock %}
+{% block studio_content %}
+<h1>{{ cohort.title }} <small>({{ cohort.course.title }})</small></h1>
+<p><a href="{% url 'coursework_studio_cohort_list' %}">Back to coursework cohorts</a></p>
+
+<h2>Support metrics</h2>
+<p>
+Enrollments: {{ support_metrics.total_enrollments }} ·
+Learning in public disabled: {{ support_metrics.disabled_lip }} ·
+Zero score: {{ support_metrics.zero_score }} ·
+Hidden from leaderboard: {{ support_metrics.hidden_leaderboard }} ·
+Open complaints: {{ support_metrics.open_complaints }}
+</p>
+
+<h2>Homeworks</h2>
+<table><thead><tr><th>Homework</th><th>Due</th><th>State</th><th>Submissions</th><th>Actions</th></tr></thead><tbody>
+{% for row in homeworks %}<tr>
+  <td><a href="{% url 'coursework_studio_homework_submissions' row.homework.pk %}">{{ row.homework.title }}</a></td>
+  <td>{{ row.homework.due_date }}</td>
+  <td>{{ row.homework.state }}</td>
+  <td>{{ row.submissions_count }}</td>
+  <td>
+    {% if row.can_score %}
+    <form method="post" action="{% url 'coursework_studio_homework_score' row.homework.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Score submissions</button></form>
+    {% endif %}
+    {% if row.homework.is_scored %}
+    <form method="post" action="{% url 'coursework_studio_homework_rescore' row.homework.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Re-score</button></form>
+    {% endif %}
+    {% if row.can_extend_deadline %}
+    <form method="post" action="{% url 'coursework_studio_homework_extend_deadline' row.homework.pk %}" style="display:inline">{% csrf_token %}
+      <select name="days">{% for days, label in extension_options %}<option value="{{ days }}">{{ label }}</option>{% endfor %}</select>
+      <button type="submit">Extend deadline</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>{% empty %}<tr><td colspan="5">No homework.</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}

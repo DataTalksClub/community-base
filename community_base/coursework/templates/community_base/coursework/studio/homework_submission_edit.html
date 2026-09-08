@@ -1,0 +1,32 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Edit submission{% endblock %}
+{% block studio_content %}
+<h1>Edit submission for {{ submission.student.email }}</h1>
+<p><a href="{% url 'coursework_studio_homework_submissions' homework.pk %}">Back to submissions</a></p>
+<form method="post">{% csrf_token %}
+<table><thead><tr><th>Question</th><th>Answer</th><th>Correct answer</th><th>Checked</th></tr></thead><tbody>
+{% for record in questions_with_answers %}<tr>
+  <td>{{ record.question.text }}</td>
+  <td><input name="answer_{{ record.question.pk }}" value="{{ record.answer_text }}"></td>
+  <td>{{ record.question.correct_answer|default:"-" }}</td>
+  <td>{% if record.answer %}{% if record.answer.is_correct %}Correct{% else %}Incorrect{% endif %}{% else %}-{% endif %}</td>
+</tr>{% endfor %}
+</tbody></table>
+<p>
+  <label>Learning in public links (one per line)<br>
+    <textarea name="learning_in_public_links" rows="4" cols="60">{{ form.learning_in_public_links.value|default:'' }}</textarea>
+  </label>
+</p>
+<p>
+  <label>FAQ contribution URL<br>
+    <input name="faq_contribution_url" value="{{ form.faq_contribution_url.value|default:'' }}" size="60">
+  </label>
+</p>
+<p>
+  <label>FAQ score<br>
+    <input name="faq_score" value="{{ form.faq_score.value|default:'' }}" type="number" min="0">
+  </label>
+</p>
+<button type="submit">Save submission</button>
+</form>
+{% endblock %}

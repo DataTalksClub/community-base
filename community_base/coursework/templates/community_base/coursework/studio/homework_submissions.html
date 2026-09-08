@@ -1,0 +1,61 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ homework.title }} submissions{% endblock %}
+{% block studio_content %}
+<h1>Submissions for {{ homework.title }}</h1>
+<p><a href="{% url 'coursework_studio_cohort' cohort.pk %}">Back to {{ cohort.title }}</a></p>
+
+<h2>Homework actions</h2>
+<p>
+<form method="post" action="{% url 'coursework_studio_homework_set_correct_answers' homework.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="{% url 'coursework_studio_homework_submissions' homework.pk %}"><button type="submit">Select most frequent answer</button></form>
+<form method="post" action="{% url 'coursework_studio_homework_clear_correct_answers' homework.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="{% url 'coursework_studio_homework_submissions' homework.pk %}"><button type="submit">Clear correct answers</button></form>
+{% if homework.is_scored %}
+<form method="post" action="{% url 'coursework_studio_homework_rescore' homework.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="{% url 'coursework_studio_homework_submissions' homework.pk %}"><button type="submit">Rescore</button></form>
+{% else %}
+<form method="post" action="{% url 'coursework_studio_homework_score' homework.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="{% url 'coursework_studio_homework_submissions' homework.pk %}"><button type="submit">Score submissions</button></form>
+{% endif %}
+</p>
+
+{% if questions %}
+<h2>Correct answers</h2>
+<form method="post" action="{% url 'coursework_studio_homework_save_answers' homework.pk %}">{% csrf_token %}
+<input type="hidden" name="next" value="{% url 'coursework_studio_homework_submissions' homework.pk %}">
+<table><thead><tr><th>Question</th><th>Type</th><th>Correct answer</th><th>Answer type</th></tr></thead><tbody>
+{% for question in questions %}<tr>
+  <td>{{ forloop.counter }}. {{ question.text }}</td>
+  <td>{{ question.get_question_type_display }}</td>
+  <td>
+    {% if question.has_choice_answers %}
+      {% for option in question.get_possible_answers %}
+        <label><input type="checkbox" name="correct_answer_{{ question.pk }}" value="{{ forloop.counter }}"{% if forloop.counter in question.get_correct_answer_indices %} checked{% endif %}> {{ forloop.counter }}. {{ option }}</label>
+      {% endfor %}
+    {% else %}
+      <input name="correct_answer_{{ question.pk }}" value="{{ question.correct_answer|default:'' }}">
+    {% endif %}
+  </td>
+  <td>
+    {% if not question.has_choice_answers %}
+    <select name="answer_type_{{ question.pk }}">
+      <option value="">---</option>
+      {% for value, label in answer_types %}<option value="{{ value }}"{% if question.answer_type == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    {% endif %}
+  </td>
+</tr>{% empty %}<tr><td colspan="4">No questions.</td></tr>{% endfor %}
+</tbody></table>
+<button type="submit">Save answers</button>
+</form>
+{% endif %}
+
+<h2>Submissions</h2>
+<form method="get"><label>Search <input name="q" value="{{ search_query }}"></label><button type="submit">Search</button></form>
+<table><thead><tr><th>Learner</th><th>Display name</th><th>Submitted</th><th>Score</th><th></th></tr></thead><tbody>
+{% for submission in submissions %}<tr>
+  <td>{{ submission.student.email }}</td>
+  <td>{{ submission.enrollment.display_name }}</td>
+  <td>{{ submission.submitted_at|date:"Y-m-d H:i" }}</td>
+  <td>{{ submission.total_score }}</td>
+  <td><a href="{% url 'coursework_studio_homework_submission_edit' homework.pk submission.pk %}">Open</a></td>
+</tr>{% empty %}<tr><td colspan="5">No submissions match this search.</td></tr>{% endfor %}
+</tbody></table>
+{% if show_pager %}{% include "community_base/studio/includes/list_pager.html" %}{% endif %}
+{% endblock %}
