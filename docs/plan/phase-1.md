@@ -385,40 +385,68 @@ Verification
 Done when
 - [ ] `_docs/architecture/app-boundaries.md` says `jobs` is provided by the package and Relay executes it
 
-## D1.2 Replace DTC email_app and the Datamailer outbox with the package mail app
+## D1.2a Install the mail app, move PendingUnsubscribe, commit the purpose templates
 
-Repository: DataTalksClub/website. Depends on: D1.1, R1.3, R1.4, R1.5.
-
-Read first
-- `email_app/`, `course_management/datamailer_outbox*.py`, `course_management/datamailer/`,
-  `data/models.py`, `studio_courses/views/datamailer*.py`, `courses/deadline_reminder_*.py`,
-  `_docs/specs/05-events-registration-email.md` purpose catalog.
+Repository: DataTalksClub/website. Depends on: D1.1, R1.3, R1.4, R1.5. Split out of the combined original issue for one-landing scoping.
 
 Steps
-1. Install `community_base.mail` (P2). Move `PendingUnsubscribe` rows (P6).
-2. Templates: write the DTC purposes as markdown templates in `email_templates/` in the repo
-   (deadline reminder, course registration confirmation, enrollment confirmation, certificate
-   ready, Slack access), import them into Relay with `import_templates`, publish version 1.
-   Commit `email_templates/` as the source of truth mirrored into Relay by a deploy step.
-3. Replace every `enqueue_datamailer_outbox_event(...)` with `community_base.mail.send(...)`.
-   Keep the idempotency keys the outbox used.
-4. Delete `course_management/datamailer*`, `data` app (migration drops its tables after a
-   development deploy with counts recorded), `studio_courses/views/datamailer*.py` and their
-   templates; Studio email pages come from the package.
-5. Link bridge URLs keep their paths; `RELAY_LINK_BRIDGE_*` settings become `COMMUNITY_BASE`
-   keys declared by the mail app.
+1. Install `community_base.mail` (P2): mount its URL include at the site root and the studio
+   include under `/studio/`; add the `COMMUNITY_BASE` keys the app README documents.
+2. Move `PendingUnsubscribe` rows with a copy_forward/copy_backward data migration (P6). Do not
+   delete the old model in this issue. Record development-copy counts.
+3. Write the DTC purposes as markdown templates in `email_templates/` in the repo (deadline
+   reminder, course registration confirmation, enrollment confirmation, certificate ready, Slack
+   access). Commit `email_templates/` as the source of truth mirrored into Relay by a deploy step.
+4. Import them into Relay with `import_templates` and publish version 1. Not run here, needs: a
+   permitted development Relay with the R1.5 tag; the deploy step and template tests land first.
 
 Verification
-- `uv run pytest -q` -> pass; `grep -rln datamailer --include=*.py . | grep -v migrations` -> nothing.
+- `manage.py check`, `makemigrations --check --dry-run`, fresh-database and development-copy
+  migrations, exact `PendingUnsubscribe` row counts.
+- Template tests prove every purpose renders from `email_templates/` with synthetic context.
+
+Done when
+- [ ] the mail app is installed, PendingUnsubscribe is copied, and the template source of truth is committed
+
+## D1.2b Send through the package mail app with the outbox idempotency keys
+
+Repository: DataTalksClub/website. Depends on: D1.2a. Split out of the combined original issue for one-landing scoping.
+
+Steps
+1. Replace every `enqueue_datamailer_outbox_event(...)` call site with `community_base.mail.send(...)`,
+   keeping the idempotency keys the outbox used and the five purposes from D1.2a.
+2. Keep the datamailer outbox storage read-only for rollback; no enqueue path may remain.
+
+Verification
+- `grep -rn "enqueue_datamailer_outbox_event" --include=*.py . | grep -v migrations` is empty.
 - Development: register for a course cohort -> `EmailDelivery` reaches `delivered` for an
-  owner-controlled address; open pixel and click bridge respond as before (existing tests).
+  owner-controlled address (needs the development stack green, see the D0.1c blocker).
+
+Done when
+- [ ] every send path goes through the package with replay-safe keys
+
+## D1.2c Retire the datamailer client, the data app and the studio datamailer views
+
+Repository: DataTalksClub/website. Depends on: D1.2b. Split out of the combined original issue for one-landing scoping.
+
+Steps
+1. Delete `course_management/datamailer*`, `email_app/`, `data` app (migration drops its tables
+   after a development deploy with counts recorded), `studio_courses/views/datamailer*.py` and
+   their templates; Studio email pages come from the package.
+2. Link bridge URLs keep their paths; `RELAY_LINK_BRIDGE_*` settings become `COMMUNITY_BASE` keys
+   declared by the mail app. Retire the retained outbox storage from D1.2b after the rollback
+   window (P6 step 4).
+
+Verification
+- `grep -rln datamailer --include=*.py . | grep -v migrations` -> nothing.
+- Open pixel and click bridge respond as before (existing tests); migration rehearsal with counts.
 
 Done when
 - [ ] spec 05 "Datamailer remains read-only migration input" line removed; Datamailer named only in history
 
 ## D1.3 Freeze weekend: DTC on Relay in production
 
-Repository: DataTalksClub/website. Depends on: D1.1, D1.2. Freeze required: yes. Playbook P13.
+Repository: DataTalksClub/website. Depends on: D1.1, D1.2c. Freeze required: yes. Playbook P13.
 
 Production checks after deploy:
 - `jobs_ingress_selftest` in the production container -> `OK`.
