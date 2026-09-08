@@ -97,9 +97,7 @@ def test_calculate_wrapped_statistics_aggregates_platform_and_users():
     assert stats.course_stats[0]["enrollment_count"] == 2
 
     hours = sorted(
-        UserWrappedStatistics.objects.filter(wrapped=stats).values_list(
-            "total_hours", flat=True
-        )
+        UserWrappedStatistics.objects.filter(wrapped=stats).values_list("total_hours", flat=True)
     )
     assert hours == [102.0, 103.0]
     learner = UserWrappedStatistics.objects.filter(wrapped=stats).first()
