@@ -119,7 +119,7 @@ issues that can start now.
 | `C5.2da` | community-base | Leaderboard rollup, preferences and complaints | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/141 |
 | `C5.2db` | community-base | Registration campaigns and course registrations | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/138 |
 | `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | done | https://github.com/DataTalksClub/community-base/pull/146 |
-| `C5.2ea` | community-base | Coursework Studio: homework and submissions | C5.2dc | no | in-progress |  |
+| `C5.2ea` | community-base | Coursework Studio: homework and submissions | C5.2dc | no | in-progress | https://github.com/DataTalksClub/community-base/pull/162 |
 | `C5.2eb` | community-base | Coursework Studio: projects, complaints, certificates and campaigns | C5.2ea | no | todo |  |
 | `C5.2ec` | community-base | Testimonial management and Wrapped statistics | C5.2dc | no | todo |  |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2ec | no | todo |  |
