@@ -34,9 +34,9 @@ issues that can start now.
 
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
-| `R1.1` | DataTalksClub/relay | Relay production environment |  | no | todo |  |
+| `R1.1` | DataTalksClub/relay | Relay production environment |  | no | done | https://github.com/DataTalksClub/relay/pull/15 |
 | `R1.2` | DataTalksClub/relay | Webhook task hardening |  | no | done | https://github.com/DataTalksClub/relay/pull/9 |
-| `R1.3` | DataTalksClub/relay | Template catalog: versions, preview, test send, typed context |  | no | in-progress | https://github.com/DataTalksClub/relay/issues/12 |
+| `R1.3` | DataTalksClub/relay | Template catalog: versions, preview, test send, typed context |  | no | done | https://github.com/DataTalksClub/relay/pull/16 |
 | `R1.4` | DataTalksClub/relay | Client callbacks for delivery and engagement events | R1.2 | no | todo |  |
 | `R1.5` | DataTalksClub/relay | Preference categories and double opt-in |  | no | todo |  |
 | `C1.1a` | community-base | Durable jobs core and local backends | C0.5 | no | done | https://github.com/DataTalksClub/community-base/pull/19 |
@@ -119,8 +119,10 @@ issues that can start now.
 | `C5.2da` | community-base | Leaderboard rollup, preferences and complaints | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/141 |
 | `C5.2db` | community-base | Registration campaigns and course registrations | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/138 |
 | `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | done | https://github.com/DataTalksClub/community-base/pull/146 |
-| `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2dc | no | todo |  |
-| `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e | no | todo |  |
+| `C5.2ea` | community-base | Coursework Studio: homework and submissions | C5.2dc | no | in-progress |  |
+| `C5.2eb` | community-base | Coursework Studio: projects, complaints, certificates and campaigns | C5.2ea | no | todo |  |
+| `C5.2ec` | community-base | Testimonial management and Wrapped statistics | C5.2dc | no | todo |  |
+| `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2ec | no | todo |  |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3 | no | todo |  |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo |  |
 | `D5.1` | DataTalksClub/website | Map DTC course platform data to the shared apps | C5.3 | no | todo |  |

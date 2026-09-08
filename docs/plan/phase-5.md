@@ -280,29 +280,97 @@ Verification
 - `testproject`: submit homework, score it, leaderboard position computed; submit project,
   peer review assignment, evaluation score, certificate issued.
 
-## C5.2e Coursework Studio and Wrapped
+## C5.2ea Coursework Studio: homework and submissions
 
 Repository: community-base. Depends on: C5.2dc.
 
+Split from C5.2e; the donor analysis lives in `docs/plan/evidence/c5.2e-donors.md` (step 1
+sections "Cohort list and cohort admin", "Homework and question management", "Submissions and
+rescoring").
+
 Read first
-- `~/git/dtc-website/studio_courses/`, `courses/wrapped_statistics/`,
-  `courses/services/testimonials.py`.
+- `~/git/dtc-website/studio_courses/views/homework.py`, `homework_submission_edit.py`,
+  `homework_submission_list.py`, `studio_courses/services.py`,
+  `studio_courses/deadline_extension.py`, `courses/homework_correct_answers.py`.
 
 Steps
-1. Studio operations from `studio_courses`: homework and question management, submissions and
-   rescoring, projects and criteria, peer review administration, leaderboard recompute,
-   complaint resolution, certificate management, registration campaigns.
-2. Testimonial management surface.
-3. Wrapped statistics read/recalculate surfaces.
+1. Studio section `coursework` registered from the app config, with the cohort list and the
+   cohort admin page: homeworks annotated with submissions counts and action flags, support
+   metrics over the cohort's enrollments and open complaints.
+2. Homework actions: score, rescore (reset to OPEN, then the scoring service), deadline
+   extension limited to open homework and the donor's 1/3/7-day options, save correct
+   answers per question, fill correct answers from the most popular submission answer,
+   clear correct answers.
+3. Homework submissions list with search and pagination; submission edit that rewrites the
+   answers and learning-in-public links, applies the FAQ-score override, rescores the
+   submission and refreshes the leaderboard when the total changed.
 
 Verification
-- `make test tests/coursework` -> pass with at least DTC's test count for these modules.
+- `uv run pytest tests/coursework` -> pass; a rescore resets, rescores and recomputes the
+  leaderboard; correct-answer fill picks the most popular answer; deadline extension rejects
+  closed homework and days outside the option set.
+- `testproject`: the Studio homework flow scores and rescores on imported data, updating
+  submission scores and leaderboard positions.
+
+## C5.2eb Coursework Studio: projects, complaints, certificates and campaigns
+
+Repository: community-base. Depends on: C5.2ea.
+
+Split from C5.2e; the donor analysis lives in `docs/plan/evidence/c5.2e-donors.md` (step 1
+sections "Projects, criteria and peer review administration", "Leaderboard recompute,
+complaints, enrollments and certificates", "Registration campaigns").
+
+Read first
+- `~/git/dtc-website/studio_courses/views/projects.py`, `project_submission_edit.py`,
+  `project_submission_list.py`, `enrollment.py`, `enrollment_edit.py`,
+  `enrollment_complaints.py`, `campaigns.py`, `campaign_lifecycle.py`,
+  `campaign_registration_list.py`.
+
+Steps
+1. Project actions: assign peer reviews, score, deadline extension by project state; project
+   submissions list and the admin override edit that rewrites evaluation scores, pass flags
+   and totals.
+2. Leaderboard complaints page and resolve action; enrollment list, edit and
+   learning-in-public toggle; certificate management over `coursework/certificates.py`;
+   leaderboard recompute through the scoring and enrollment actions.
+3. Registration campaign create/edit with the guarded lifecycle actions, plus the campaign
+   registrations page with role, country and region breakdowns.
+
+Verification
+- `uv run pytest tests/coursework` -> pass; peer review administration (assign, submit,
+  score, admin override), complaint resolution, certificate issue and the campaign
+  lifecycle state machine behave as recorded.
 - `testproject`: the coursework Studio flows cover homework rescoring, peer review
   administration and leaderboard recompute on imported data.
 
+## C5.2ec Testimonial management and Wrapped statistics
+
+Repository: community-base. Depends on: C5.2dc.
+
+Split from C5.2e; the donor analysis lives in `docs/plan/evidence/c5.2e-donors.md` (step 2
+and step 3 sections).
+
+Read first
+- `~/git/dtc-website/courses/services/testimonials.py`, `courses/admin/testimonial.py`,
+  `courses/admin/wrapped.py`, `courses/wrapped_statistics/`, `courses/views/wrapped.py`.
+
+Steps
+1. Testimonial management surface: Studio CRUD over `coursework.Testimonial` with the
+   placement scope rule surfaced as form validation.
+2. Wrapped statistics calculator port (`calculate_wrapped_statistics` with the activity,
+   platform and per-user persistence) and the Studio read/recalculate surfaces.
+3. Learner Wrapped pages: the public year page gated on `is_visible` and the per-member page
+   readable by its owner and staff.
+
+Verification
+- `uv run pytest tests/coursework` -> pass; recalculation is idempotent under `force` and a
+  no-op without it; the per-member page 404s for anyone but the owner and staff.
+- `testproject`: calculate Wrapped statistics for a year with imported submissions and read
+  the year page.
+
 ## C5.3 Release 0.6.0
 
-Repository: community-base. Depends on: C3.7, C4.3, C5.2e. Playbook P15.
+Repository: community-base. Depends on: C3.7, C4.3, C5.2ec. Playbook P15.
 
 This is the single adoption-ready domain release. Do not publish provisional `v0.4.0` or
 `v0.5.0` releases containing kept-label migrations.
