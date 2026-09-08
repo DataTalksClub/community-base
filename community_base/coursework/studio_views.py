@@ -110,7 +110,7 @@ def homework_detail(request, homework_id):
             "submissions": homework.submissions.select_related("student", "enrollment").order_by(
                 "id"
             ),
-            "states": HomeworkState,
+            "states": list(HomeworkState),
         },
     )
 

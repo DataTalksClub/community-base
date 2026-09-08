@@ -234,11 +234,12 @@ def test_homework_rescore_scores_submissions_and_reranks_leaderboard(client, sta
     submission = Submission.objects.create(homework=hw, student=user, enrollment=enrollment)
     Answer.objects.create(submission=submission, question=question, answer_text="my answer")
 
-    response = client.post(
-        reverse("coursework_studio_homework_rescore", args=[hw.pk]), follow=True
-    )
+    response = client.post(reverse("coursework_studio_homework_rescore", args=[hw.pk]))
 
-    assert response.status_code == 200
+    # The POST result is what this flow tests; messages are read off the redirect
+    # response instead of following into the rendered homework detail page.
+    assert response.status_code == 302
+    assert response.url == reverse("coursework_studio_homework_detail", args=[hw.pk])
     hw.refresh_from_db()
     assert hw.state == HomeworkState.SCORED.value
     submission.refresh_from_db()
@@ -252,19 +253,31 @@ def test_homework_rescore_without_force_warns_and_force_rescores(client, staff):
     cohort = coursework_cohort()
     hw = past_due_homework(cohort)
     user, enrollment = enrollment_for(cohort, email="forced@example.com")
-    Submission.objects.create(homework=hw, student=user, enrollment=enrollment, total_score=2)
+    submission = Submission.objects.create(
+        homework=hw, student=user, enrollment=enrollment, total_score=2
+    )
+    exact = make_question(
+        hw,
+        question_type=QuestionTypes.FREE_FORM.value,
+        answer_type=AnswerTypes.EXACT_STRING.value,
+        correct_answer="vienna",
+        scores_for_correct_answer=2,
+    )
+    Answer.objects.create(submission=submission, question=exact, answer_text="vienna")
     status, _message = score_homework_submissions(hw.pk)
     assert status.value == "OK"
     rescore_url = reverse("coursework_studio_homework_rescore", args=[hw.pk])
 
-    response = client.post(rescore_url, follow=True)
+    response = client.post(rescore_url)
 
+    assert response.status_code == 302
     assert any("already scored" in message for message in messages_of(response))
     hw.refresh_from_db()
     assert hw.state == HomeworkState.SCORED.value
 
-    response = client.post(rescore_url, {"force": "1"}, follow=True)
+    response = client.post(rescore_url, {"force": "1"})
 
+    assert response.status_code == 302
     assert any(
         "is scored" in message and "already scored" not in message
         for message in messages_of(response)
@@ -336,7 +349,11 @@ def test_volunteer_review_add_creates_one_optional_review(client, staff):
     assert reviews.count() == 1
     assert reviews.get().submission_under_evaluation == submissions[0]
 
-    client.post(add_url, {"email": volunteer.email, "submission_id": submissions[0].pk}, follow=True)
+    client.post(
+        add_url,
+        {"email": volunteer.email, "submission_id": submissions[0].pk},
+        follow=True,
+    )
 
     assert reviews.count() == 1
 
