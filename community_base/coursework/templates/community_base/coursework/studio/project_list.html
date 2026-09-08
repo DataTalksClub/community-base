@@ -1,0 +1,22 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Coursework projects{% endblock %}
+{% block studio_content %}
+<h1>Projects</h1>
+<table>
+  <thead>
+    <tr><th>Project</th><th>Cohort</th><th>State</th><th>Submissions due</th></tr>
+  </thead>
+  <tbody>
+    {% for project in projects %}
+    <tr>
+      <td><a href="{% url 'coursework_studio_project_detail' project.pk %}">{{ project.title }}</a> <small>{{ project.slug }}</small></td>
+      <td>{{ project.cohort.course.title }} / {{ project.cohort.title }}</td>
+      <td>{{ project.get_state_display }}</td>
+      <td>{{ project.submission_due_date }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">No projects.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

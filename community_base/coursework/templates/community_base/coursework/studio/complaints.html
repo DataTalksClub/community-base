@@ -1,0 +1,30 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Leaderboard complaints{% endblock %}
+{% block studio_content %}
+<h1>Leaderboard complaints</h1>
+<h2>Open</h2>
+<table>
+  <thead>
+    <tr><th>Enrollment</th><th>Type</th><th>Description</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for complaint in open_complaints %}
+    <tr>
+      <td>{{ complaint.enrollment.user.email }} ({{ complaint.enrollment.cohort.title }})</td>
+      <td>{{ complaint.get_issue_type_display }}</td>
+      <td>{{ complaint.description }}</td>
+      <td><form method="post" action="{% url 'coursework_studio_complaint_resolve' complaint.pk %}">{% csrf_token %}<button type="submit">Resolve</button></form></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">No open complaints.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<h2>Recently resolved</h2>
+<ul>
+  {% for complaint in resolved_complaints %}
+  <li>{{ complaint.enrollment.user.email }} — {{ complaint.get_issue_type_display }} ({{ complaint.resolved_at }})</li>
+  {% empty %}<li>None.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

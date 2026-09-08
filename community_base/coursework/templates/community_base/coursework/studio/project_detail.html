@@ -1,0 +1,54 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ project.title }}{% endblock %}
+{% block studio_content %}
+<h1>{{ project.title }} <small>({{ project.cohort.course.title }} / {{ project.cohort.title }})</small></h1>
+<p>State {{ project.get_state_display }} · submissions due {{ project.submission_due_date }} · reviews due {{ project.peer_review_due_date }}</p>
+<form method="post" action="{% url 'coursework_studio_project_assign_reviews' project.pk %}">{% csrf_token %}<button type="submit">Assign peer reviews</button></form>
+<form method="post" action="{% url 'coursework_studio_project_score' project.pk %}">{% csrf_token %}<button type="submit">Score project</button></form>
+
+<h2>Criteria</h2>
+<ol>
+{% for criterion in criteria %}
+  <li>{{ criterion.description }}</li>
+{% empty %}<li>No criteria assigned.</li>{% endfor %}
+</ol>
+
+<h2>Criteria assignments</h2>
+<ul>
+{% for assignment in assignments %}
+  <li>{{ assignment.position }}. {{ assignment.criteria.description }}
+    <form method="post" action="{% url 'coursework_studio_criteria_remove' project.pk assignment.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Remove</button></form>
+  </li>
+{% empty %}<li>No assignment rows.</li>{% endfor %}
+</ul>
+<form method="post" action="{% url 'coursework_studio_criteria_add' project.pk %}">{% csrf_token %}
+  <label>Criterion
+  <select name="criteria">
+    {% for option in criteria_options %}<option value="{{ option.pk }}">{{ option.description }}</option>{% endfor %}
+  </select>
+  </label>
+  <label>Position <input name="position" type="number" min="0"></label>
+  <button type="submit">Assign criterion</button>
+</form>
+
+<h2>Submissions ({{ submissions|length }})</h2>
+<table><thead><tr><th>Student</th><th>Total</th><th>Passed</th><th>Volunteer only</th></tr></thead><tbody>
+{% for submission in submissions %}
+<tr><td>{{ submission.student.email }}</td><td>{{ submission.total_score }}</td><td>{{ submission.passed }}</td><td>{{ submission.volunteer_review_only }}</td></tr>
+{% empty %}<tr><td colspan="4">No submissions.</td></tr>{% endfor %}
+</tbody></table>
+
+<h2>Peer reviews</h2>
+<table><thead><tr><th>Target</th><th>Reviewer</th><th>State</th><th>Optional</th><th></th></tr></thead><tbody>
+{% for review in reviews %}
+<tr><td>{{ review.submission_under_evaluation.student.email }}</td><td>{{ review.reviewer.student.email }}</td><td>{{ review.get_state_display }}</td><td>{{ review.optional }}</td>
+<td><form method="post" action="{% url 'coursework_studio_volunteer_review_remove' project.pk review.pk %}">{% csrf_token %}
+<input type="hidden" name="email" value="{{ review.reviewer.student.email }}"><button type="submit">Remove as volunteer</button></form></td></tr>
+{% empty %}<tr><td colspan="5">No peer reviews.</td></tr>{% endfor %}
+</tbody></table>
+<h3>Add volunteer reviewer</h3>
+<form method="post" action="{% url 'coursework_studio_volunteer_review_add' project.pk %}">{% csrf_token %}
+  <label>Volunteer email <input name="email" type="email"></label>
+  <button type="submit">Add volunteer</button>
+</form>
+{% endblock %}

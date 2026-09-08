@@ -9,3 +9,6 @@ class CourseworkConfig(AppConfig):
 
     def ready(self):
         from community_base.coursework import api_views, reminders  # noqa: F401
+        from community_base.coursework.studio_registration import register_studio
+
+        register_studio()
