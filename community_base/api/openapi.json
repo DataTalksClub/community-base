@@ -403,11 +403,10 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "cookieAuth": []
           }
         ],
-        "summary": "Read the cached leaderboard rows for one cohort",
-        "x-required-scope": "coursework.read"
+        "summary": "Read the leaderboard rows for one cohort"
       }
     },
     "/api/v1/courses/{slug}/certificates": {

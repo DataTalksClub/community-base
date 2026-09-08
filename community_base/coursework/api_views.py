@@ -1,88 +1,50 @@
-"""Member API endpoints for coursework learner flows.
+"""Member APIs for the coursework learner flows.
 
-Restores the C5.2dc member-API surface: the donor exposes the leaderboard
-through the public ``leaderboard.yaml`` export and toggles display preferences
-through the enrollment page form; the package additionally serves both over the
-API registry so site clients can reuse them without scraping HTML.
+The donor's learner surface is entirely server-rendered and its JSON API is
+staff-oriented, so per the donor analysis these member endpoints follow the
+registry-route shape adopted in C5.1c instead of a donor endpoint.
 """
 
 from community_base.api import route
 from community_base.api.errors import APIError
 from community_base.api.registry import json_response
 from community_base.api.safety import read_json_object
-from community_base.coursework import leaderboard
+from community_base.coursework.leaderboard import (
+    LEADERBOARD_PAGE_SIZE,
+    current_student_leaderboard_enrollment,
+    get_leaderboard_data,
+    set_enrollment_preference,
+)
 from community_base.curriculum.models import Cohort, Enrollment
 
-PREFERENCE_REQUEST = {
+OBJECT_SCHEMA = {"type": "object"}
+PREFERENCE_RESPONSE_SCHEMA = {
     "type": "object",
-    "properties": {"field": {"type": "string"}, "value": {"type": "string"}},
-    "required": ["field", "value"],
-}
-PREFERENCE_RESPONSE = {
-    "type": "object",
-    "properties": {
-        "changed": {"type": "boolean"},
-        "enabled": {"type": "boolean"},
-        "enrollment": {"type": "object"},
-        "field": {"type": "string"},
-    },
     "required": ["enrollment", "field", "enabled", "changed"],
-}
-LEADERBOARD_RESPONSE = {
-    "type": "object",
     "properties": {
-        "count": {"type": "integer"},
-        "leaderboard": {"type": "array", "items": {"type": "object"}},
+        "enrollment": OBJECT_SCHEMA,
+        "field": {"type": "string"},
+        "enabled": {"type": "boolean"},
+        "changed": {"type": "boolean"},
+    },
+}
+LEADERBOARD_RESPONSE_SCHEMA = {
+    "type": "object",
+    "required": ["leaderboard", "page", "page_size", "count"],
+    "properties": {
+        "leaderboard": {"type": "array", "items": OBJECT_SCHEMA},
         "page": {"type": "integer"},
         "page_size": {"type": "integer"},
+        "count": {"type": "integer"},
     },
-    "required": ["leaderboard", "page", "page_size", "count"],
 }
 
 
-def _cohort(course_slug, cohort_slug) -> Cohort:
+def _cohort_for(course_slug, cohort_slug) -> Cohort:
     cohort = Cohort.objects.filter(course__slug=course_slug, slug=cohort_slug).first()
     if cohort is None:
         raise APIError(404, "unknown_cohort", "Cohort was not found.")
     return cohort
-
-
-def _serialize_enrollment(enrollment) -> dict:
-    return {
-        "id": enrollment.id,
-        "display_name": enrollment.display_name,
-        "display_on_leaderboard": enrollment.display_on_leaderboard,
-        "display_public_profile": enrollment.display_public_profile,
-        "total_score": enrollment.total_score,
-        "position_on_leaderboard": enrollment.position_on_leaderboard,
-    }
-
-
-@route(
-    "GET",
-    "courses/<slug:course_slug>/cohorts/<slug:cohort_slug>/leaderboard",
-    "coursework.read",
-    "Read the cached leaderboard rows for one cohort",
-    LEADERBOARD_RESPONSE,
-)
-def cohort_leaderboard(request, course_slug, cohort_slug):
-    cohort = _cohort(course_slug, cohort_slug)
-    current_student = leaderboard.current_student_leaderboard_enrollment(cohort, request.user)
-    rows = leaderboard.get_leaderboard_data(cohort, current_student)
-    try:
-        page = max(int(request.GET.get("page", 1)), 1)
-    except ValueError:
-        page = 1
-    start = (page - 1) * leaderboard.LEADERBOARD_PAGE_SIZE
-    end = start + leaderboard.LEADERBOARD_PAGE_SIZE
-    return json_response(
-        {
-            "leaderboard": rows[start:end],
-            "page": page,
-            "page_size": leaderboard.LEADERBOARD_PAGE_SIZE,
-            "count": len(rows),
-        }
-    )
 
 
 @route(
@@ -90,30 +52,59 @@ def cohort_leaderboard(request, course_slug, cohort_slug):
     "courses/<slug:course_slug>/cohorts/<slug:cohort_slug>/enrollment-preferences",
     None,
     "Toggle one leaderboard display preference for the signed-in learner",
-    PREFERENCE_RESPONSE,
-    request=PREFERENCE_REQUEST,
+    PREFERENCE_RESPONSE_SCHEMA,
+    request={
+        "type": "object",
+        "required": ["field", "value"],
+        "properties": {"field": {"type": "string"}, "value": {"type": "string"}},
+    },
     authentication="session",
 )
-def update_enrollment_preferences(request, course_slug, cohort_slug):
+def update_enrollment_preference(request, course_slug, cohort_slug):
+    cohort = _cohort_for(course_slug, cohort_slug)
     data = read_json_object(request)
     field = data.get("field")
     value = data.get("value")
     if not isinstance(field, str) or not isinstance(value, str):
-        raise APIError(422, "invalid_body", 'Body must be {"field": str, "value": str}.')
-    cohort = _cohort(course_slug, cohort_slug)
+        raise APIError(400, "invalid_body", "Provide string fields 'field' and 'value'.")
     try:
-        enrollment, enabled, changed = leaderboard.set_enrollment_preference(
-            cohort, request.user, field, value
-        )
+        enrollment, enabled, changed = set_enrollment_preference(cohort, request.user, field, value)
     except ValueError as error:
-        raise APIError(422, "unknown_preference_field", str(error)) from error
+        raise APIError(400, "unknown_field", str(error)) from error
     except Enrollment.DoesNotExist as error:
-        raise APIError(404, "not_enrolled", "The learner has no active enrollment.") from error
+        raise APIError(404, "not_enrolled", "No active enrollment in this cohort.") from error
     return json_response(
         {
-            "enrollment": _serialize_enrollment(enrollment),
+            "enrollment": {"id": enrollment.id},
             "field": field,
             "enabled": enabled,
             "changed": changed,
+        }
+    )
+
+
+@route(
+    "GET",
+    "courses/<slug:course_slug>/cohorts/<slug:cohort_slug>/leaderboard",
+    None,
+    "Read the leaderboard rows for one cohort",
+    LEADERBOARD_RESPONSE_SCHEMA,
+    authentication="session",
+)
+def get_cohort_leaderboard(request, course_slug, cohort_slug):
+    cohort = _cohort_for(course_slug, cohort_slug)
+    current_student = current_student_leaderboard_enrollment(cohort, request.user)
+    enrollments_data = get_leaderboard_data(cohort, current_student)
+    try:
+        page = max(1, int(request.GET.get("page", "1")))
+    except ValueError:
+        page = 1
+    start = (page - 1) * LEADERBOARD_PAGE_SIZE
+    return json_response(
+        {
+            "leaderboard": enrollments_data[start : start + LEADERBOARD_PAGE_SIZE],
+            "page": page,
+            "page_size": LEADERBOARD_PAGE_SIZE,
+            "count": len(enrollments_data),
         }
     )
