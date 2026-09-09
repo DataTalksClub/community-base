@@ -425,28 +425,59 @@ Verification
 Done when
 - [ ] every send path goes through the package with replay-safe keys
 
-## D1.2c Retire the datamailer client, the data app and the studio datamailer views
+## D1.2ca Send the remaining datamailer mail through the package mail app and retire the datamailer client
 
-Repository: DataTalksClub/website. Depends on: D1.2b. Split out of the combined original issue for one-landing scoping.
+Repository: DataTalksClub/website. Depends on: D1.2b. Split from the combined retirement issue for one-landing scoping.
 
 Steps
-1. Delete `course_management/datamailer*`, `email_app/`, `data` app (migration drops its tables
-   after a development deploy with counts recorded), `studio_courses/views/datamailer*.py` and
-   their templates; Studio email pages come from the package.
-2. Link bridge URLs keep their paths; `RELAY_LINK_BRIDGE_*` settings become `COMMUNITY_BASE` keys
-   declared by the mail app. Retire the retained outbox storage from D1.2b after the rollback
-   window (P6 step 4).
+1. Commit the remaining datamailer purposes as templates in `email_templates/` (homework
+   submission confirmation, homework score notification, project score notification, peer
+   review assignment) and send them through `community_base.mail.send` with replay-safe keys
+   derived from the business objects the datamailer idempotency keys used.
+2. Replace the remote datamailer preference store: the three category opt-outs become fields
+   on the site user, the account email-preferences page reads and writes them, and the site
+   `MAIL_PREFERENCE_RESOLVER` suppresses on an explicit opt-out (unset and userless sends
+   stay allowed; Relay-side global unsubscribe still applies). Provide a command that imports
+   opt-outs from a datamailer preferences export; the production import is an operator step
+   before the D1.3 freeze.
+3. Delete `course_management/datamailer*`, `course_management/datamailer_templates/`,
+   `course_management/email_templates.py`, the `course_management/datamailer_outbox_*`
+   modules, the datamailer campaign/status/audit/sync management commands, the studio
+   datamailer views and their URL entries, the datamailer send-audits API view and the
+   datamailer webhook route. Studio email pages come from the package.
 
 Verification
-- `grep -rln datamailer --include=*.py . | grep -v migrations` -> nothing.
-- Open pixel and click bridge respond as before (existing tests); migration rehearsal with counts.
+- `grep -rln datamailer --include=*.py . | grep -v migrations` lists only `email_app/` and
+  `data/` remnants.
+- `manage.py check`, `makemigrations --check --dry-run`, ruff check/format, mypy; the
+  affected Django suites pass.
+
+Done when
+- [ ] no product code path contacts the datamailer; every send goes through the package
+
+## D1.2cb Retire email_app and the data app, move the bridge settings
+
+Repository: DataTalksClub/website. Depends on: D1.2ca. Split from the combined retirement issue for one-landing scoping.
+
+Steps
+1. Delete `email_app/`: the package serves the durable unsubscribe and the pixel/click bridge
+   at the same paths; the donor PendingUnsubscribe tables are dropped (P6 step 4).
+2. Delete the `data` app; a migration drops the outbox, send-audit, dispatch-run and
+   contact-event tables after a development deploy with counts recorded (P14).
+3. Retire the `relay.link_bridge.*` runtime settings: the bridge base URL is
+   `COMMUNITY_BASE["RELAY_BASE_URL"]`; timeouts and pool sizing become package constants.
+
+Verification
+- `grep -rln datamailer --include=*.py . | grep -v migrations` is empty.
+- Open pixel and click bridge respond as before (existing tests); migration rehearsal with
+  counts.
 
 Done when
 - [ ] spec 05 "Datamailer remains read-only migration input" line removed; Datamailer named only in history
 
 ## D1.3 Freeze weekend: DTC on Relay in production
 
-Repository: DataTalksClub/website. Depends on: D1.1, D1.2c. Freeze required: yes. Playbook P13.
+Repository: DataTalksClub/website. Depends on: D1.1, D1.2cb. Freeze required: yes. Playbook P13.
 
 Production checks after deploy:
 - `jobs_ingress_selftest` in the production container -> `OK`.

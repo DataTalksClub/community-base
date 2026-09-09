@@ -49,7 +49,8 @@ issues that can start now.
 | `D1.1` | DataTalksClub/website | Replace DTC jobs with the package jobs app (relay backend) | C1.5, R1.1, R1.2 | no | done | https://github.com/DataTalksClub/website/issues/350 |
 | `D1.2a` | DataTalksClub/website | Install the mail app, move PendingUnsubscribe, commit the purpose templates | D1.1, R1.3, R1.4, R1.5 | no | done | https://github.com/DataTalksClub/website/issues/368 |
 | `D1.2b` | DataTalksClub/website | Send through the package mail app with the outbox idempotency keys | D1.2a | no | done | https://github.com/DataTalksClub/website/issues/370 |
-| `D1.2c` | DataTalksClub/website | Retire the datamailer client, the data app and the studio datamailer views | D1.2b | no | in-progress | https://github.com/DataTalksClub/website/issues/372 |
+| `D1.2ca` | DataTalksClub/website | Send the remaining datamailer mail through the package mail app and retire the datamailer client | D1.2b | no | in-progress | https://github.com/DataTalksClub/website/issues/372 |
+| `D1.2cb` | DataTalksClub/website | Retire email_app and the data app, move the bridge settings | D1.2ca | no | todo |  |
 | `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2c | yes | todo |  |
 | `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1577 |
 | `A1.2` | AI-Shipping-Labs/website | Adopt the package mail app on the ses_local backend | C1.5, A1.1 | no | todo |  |
