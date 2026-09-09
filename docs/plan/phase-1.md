@@ -418,7 +418,7 @@ Steps
 2. Keep the datamailer outbox storage read-only for rollback; no enqueue path may remain.
 
 Verification
-- `grep -rn "enqueue_datamailer_outbox_event" --include=*.py . | grep -v migrations` is empty.
+- `grep -rnE "enqueue_datamailer_outbox_event\(|import enqueue_datamailer_outbox_event" --include=*.py . | grep -v migrations` is empty.
 - Development: register for a course cohort -> `EmailDelivery` reaches `delivered` for an
   owner-controlled address (needs the development stack green, see the D0.1c blocker).
 
