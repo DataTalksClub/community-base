@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -30,6 +31,7 @@ class RenderedEmail:
     subject: str
     body_html: str
     html: str
+    plain_text: str
     unsubscribe_url: str | None
     verify_email_url: str | None
 
@@ -136,9 +138,115 @@ def render_delivery(delivery: EmailDelivery, context: Mapping) -> RenderedEmail:
         subject=subject,
         body_html=body_html,
         html=html,
+        plain_text=_plain_text(
+            body_markdown,
+            site_name=site_name,
+            footer_note=footer_note,
+            unsubscribe_url=unsubscribe_url,
+            verify_email_url=verify_email_url,
+        ),
         unsubscribe_url=unsubscribe_url,
         verify_email_url=verify_email_url,
     )
+
+
+_BLOCK_TAGS = frozenset(
+    {
+        "blockquote",
+        "br",
+        "div",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "hr",
+        "li",
+        "ol",
+        "p",
+        "pre",
+        "section",
+        "table",
+        "tbody",
+        "td",
+        "th",
+        "thead",
+        "tr",
+        "ul",
+    }
+)
+
+
+class _PlainTextHTMLParser(HTMLParser):
+    """Flatten rendered email HTML to readable text, keeping link targets."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.chunks: list[str] = []
+        self._href: str | None = None
+        self._link_text: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self._href = dict(attrs).get("href")
+            self._link_text = []
+        elif tag in _BLOCK_TAGS:
+            self.chunks.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag == "a":
+            text = "".join(self._link_text).strip()
+            if self._href and text:
+                self.chunks.append(f"{text} ({self._href})")
+            else:
+                self.chunks.append(text or (self._href or ""))
+            self._href = None
+            self._link_text = []
+        elif tag in _BLOCK_TAGS:
+            self.chunks.append("\n")
+
+    def handle_data(self, data):
+        target = self._link_text if self._href is not None else self.chunks
+        target.append(data)
+
+
+def _html_to_text(html_source: str) -> str:
+    parser = _PlainTextHTMLParser()
+    parser.feed(html_source)
+    text = "".join(parser.chunks)
+    lines = [line.strip() for line in text.splitlines()]
+    compacted: list[str] = []
+    for line in lines:
+        if line or (compacted and compacted[-1]):
+            compacted.append(line)
+    return "\n".join(compacted).strip()
+
+
+def _plain_text(
+    body_markdown: str,
+    *,
+    site_name: str,
+    footer_note: str,
+    unsubscribe_url: str | None,
+    verify_email_url: str | None,
+) -> str:
+    """Derive the SES text part from the same rendered body as the HTML part.
+
+    Mirrors the transitional site renderer's section order: body, site name,
+    footer note, verification CTA, unsubscribe action.
+    """
+
+    sections = [_html_to_text(markdown.markdown(body_markdown)), site_name]
+    if footer_note:
+        sections.append(str(footer_note).strip())
+    if verify_email_url:
+        sections.append(
+            f"Your email is not verified on our platform.\nVerify your email: {verify_email_url}"
+        )
+    if unsubscribe_url:
+        sections.append(f"Unsubscribe from all emails: {unsubscribe_url}")
+    return "\n\n".join(section for section in sections if section).strip()
 
 
 def _load_template_source(template_key: str) -> tuple[str, str, str]:
@@ -175,10 +283,13 @@ def _send(delivery: EmailDelivery, rendered: RenderedEmail) -> SESResult:
         addresses = delivery.transport_options.get(option)
         if addresses:
             destination[key] = list(addresses)
+    body = {"Html": {"Data": rendered.html, "Charset": "UTF-8"}}
+    if rendered.plain_text:
+        body["Text"] = {"Data": rendered.plain_text, "Charset": "UTF-8"}
     content = {
         "Simple": {
             "Subject": {"Data": rendered.subject, "Charset": "UTF-8"},
-            "Body": {"Html": {"Data": rendered.html, "Charset": "UTF-8"}},
+            "Body": body,
         }
     }
     if rendered.unsubscribe_url:
@@ -186,11 +297,18 @@ def _send(delivery: EmailDelivery, rendered: RenderedEmail) -> SESResult:
             {"Name": "List-Unsubscribe", "Value": f"<{rendered.unsubscribe_url}>"},
             {"Name": "List-Unsubscribe-Post", "Value": "List-Unsubscribe=One-Click"},
         ]
-    response = configured_client().send_email(
-        FromEmailAddress=sender,
-        Destination=destination,
-        Content=content,
-    )
+    send_kwargs = {
+        "FromEmailAddress": sender,
+        "Destination": destination,
+        "Content": content,
+    }
+    reply_to = delivery.transport_options.get("reply_to")
+    if reply_to:
+        send_kwargs["ReplyToAddresses"] = list(reply_to)
+    configuration_set = delivery.transport_options.get("configuration_set")
+    if configuration_set:
+        send_kwargs["ConfigurationSetName"] = configuration_set
+    response = configured_client().send_email(**send_kwargs)
     message_id = response.get("MessageId") if isinstance(response, Mapping) else None
     if not isinstance(message_id, str) or not message_id or len(message_id) > 128:
         raise PermanentJobError("ses_malformed_response")

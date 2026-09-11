@@ -138,16 +138,16 @@ def _context_hash(context: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded.encode()).hexdigest()
 
 
-def _transport_options(extra: Mapping[str, Any] | None) -> dict[str, list[str]]:
+def _transport_options(extra: Mapping[str, Any] | None) -> dict[str, Any]:
     if extra is None:
         return {}
     if not isinstance(extra, Mapping):
         raise MailError("mail extra must be an object")
-    unknown = set(extra) - {"cc", "bcc"}
+    unknown = set(extra) - {"cc", "bcc", "reply_to", "configuration_set"}
     if unknown:
         raise MailError("unsupported mail extra option")
     result = {}
-    for name in ("cc", "bcc"):
+    for name in ("cc", "bcc", "reply_to"):
         raw = extra.get(name)
         values = [raw] if isinstance(raw, str) else raw
         if values is None:
@@ -161,6 +161,11 @@ def _transport_options(extra: Mapping[str, Any] | None) -> dict[str, list[str]]:
             normalized.append(value.strip())
         if normalized:
             result[name] = normalized
+    configuration_set = extra.get("configuration_set")
+    if configuration_set is not None:
+        if not isinstance(configuration_set, str) or not configuration_set.strip():
+            raise MailError("mail configuration_set must be a name")
+        result["configuration_set"] = configuration_set.strip()
     return result
 
 

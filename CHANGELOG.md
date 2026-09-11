@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 - 2026-09-11
+
+- A1.2: ses_local gains `reply_to` and `configuration_set` transport options and sends a derived plain-text part next to the HTML part.
+
 ## 0.3.0 - 2026-09-05
 
 - C2.1a: Add the shared Studio shell, registry, route checks, assets, search and security controls.

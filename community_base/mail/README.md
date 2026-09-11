@@ -14,8 +14,9 @@ does not mean delivery. Callback transitions are monotonic and callback event ID
 `ambiguous`, and Relay suppression is terminal.
 
 `ses_local` is a transitional AISL migration backend. It renders frontmatter markdown from
-`MAIL_TEMPLATE_DIR`, sends through SES v2 and accepts `extra={"cc": ..., "bcc": ...}` on
-`send()`. A delivery-level `sender` wins over the `SES_FROM_EMAIL` runtime setting. The backend
+`MAIL_TEMPLATE_DIR`, sends through SES v2 with an HTML and a derived plain-text part, and accepts
+`extra={"cc": ..., "bcc": ..., "reply_to": ..., "configuration_set": ...}` on `send()`. A
+delivery-level `sender` wins over the `SES_FROM_EMAIL` runtime setting. The backend
 declares `AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `SES_FROM_EMAIL` in the
 runtime configuration registry. SES event ingress remains site-owned. Phase 6 removes this backend
 after AISL templates and delivery move to Relay.
