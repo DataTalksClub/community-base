@@ -11,13 +11,13 @@ site adoption and deployed exit criteria still determine phase completion. Use
 
 | Phase | File | Goal | Freeze | Depends on | Status |
 |---|---|---|---|---|---|
-| 0 | `phase-0.md` | Package repository, kernel, config, API layer; both sites consume config through the package | none | | not started |
-| 1 | `phase-1.md` | Jobs and mail apps with `relay`, `django_q` and `ses_local` backends; Relay production; DTC runs on Relay; AISL adopts the apps on local backends | DTC one weekend | 0 | not started |
-| 2 | `phase-2.md` | Shared Studio shell with registered sections, users management, content sync engine | none | 0, 1 | not started |
-| 3 | `phase-3.md` | Shared accounts and auth, onboarding flows, Slack community, notifications, comments, voting | AISL one weekend, DTC one weekend | 2 | not started |
-| 4 | `phase-4.md` | Shared events with series and registration on both sites | AISL one weekend, DTC one weekend | 3 | not started |
-| 5 | `phase-5.md` | Shared curriculum (cohort and self-paced) and coursework | AISL one weekend, DTC one weekend | 4 | not started |
-| 6 | `phase-6.md` | AISL cutover to Relay for mail, jobs, campaigns, contacts and email-log history | AISL one weekend | 1 proven per D13, 5 | not started |
+| 0 | `phase-0.md` | Package repository, kernel, config, API layer; both sites consume config through the package | none | | in progress |
+| 1 | `phase-1.md` | Jobs and mail apps with `relay`, `django_q` and `ses_local` backends; Relay production; DTC runs on Relay; AISL adopts the apps on local backends | DTC one weekend | 0 | in progress |
+| 2 | `phase-2.md` | Shared Studio shell with registered sections, users management, content sync engine | none | 0, 1 | in progress |
+| 3 | `phase-3.md` | Shared accounts and auth, onboarding flows, Slack community, notifications, comments, voting | AISL one weekend, DTC one weekend | 2 | in progress |
+| 4 | `phase-4.md` | Shared events with series and registration on both sites | AISL one weekend, DTC one weekend | 3 | in progress |
+| 5 | `phase-5.md` | Shared curriculum (cohort and self-paced) and coursework | AISL one weekend, DTC one weekend | 4 | in progress |
+| 6 | `phase-6.md` | AISL cutover to Relay for mail, jobs, campaigns, contacts and email-log history | AISL one weekend | 1 proven per D1.3, 5 | not started |
 
 Order during the current campaign: ready package issues first by default. On 2026-09-06 the
 owner additionally assigned site migration planning and released-package bootstrap (A0.1 and

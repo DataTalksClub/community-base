@@ -26,7 +26,7 @@ issues that can start now.
 | `D0.1` | DataTalksClub/website | Add the package and replace the settings frameworks | D0.1d | no | todo |  |
 | `D0.1a` | DataTalksClub/website | Install the released kernel and local development tools | C2.4 | no | done | https://github.com/DataTalksClub/website/commit/f8f68c46e84353f59229cbdc113a85a43f5ca246 |
 | `D0.1b` | DataTalksClub/website | Inventory settings contracts and prove package parity | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/355 |
-| `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | blocked | merged as website 3fb9db07; dev deploy migration task red since 2a9dde22, fix in flight as website#345 |
+| `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | blocked | merged as website 3fb9db07; dev deploy blocked on red main CI (website#345, fix in flight), then the worker self-check IAM ask (aws-infra#49) |
 | `D0.1d` | DataTalksClub/website | Retire old settings storage after the rollback window | D0.1c | no | todo |  |
 | `D0.2` | DataTalksClub/website | Site CI guard and pin bump workflow | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/354 |
 
@@ -49,11 +49,11 @@ issues that can start now.
 | `D1.1` | DataTalksClub/website | Replace DTC jobs with the package jobs app (relay backend) | C1.5, R1.1, R1.2 | no | done | https://github.com/DataTalksClub/website/issues/350 |
 | `D1.2a` | DataTalksClub/website | Install the mail app, move PendingUnsubscribe, commit the purpose templates | D1.1, R1.3, R1.4, R1.5 | no | done | https://github.com/DataTalksClub/website/issues/368 |
 | `D1.2b` | DataTalksClub/website | Send through the package mail app with the outbox idempotency keys | D1.2a | no | done | https://github.com/DataTalksClub/website/issues/370 |
-| `D1.2ca` | DataTalksClub/website | Send the remaining datamailer mail through the package mail app and retire the datamailer client | D1.2b | no | in-progress | https://github.com/DataTalksClub/website/issues/372 |
+| `D1.2ca` | DataTalksClub/website | Send the remaining datamailer mail through the package mail app and retire the datamailer client | D1.2b | no | blocked | website#372 branch issue-372 gates green; dev deploy blocked on red main CI (website#345, fix in flight), then the worker self-check IAM ask (aws-infra#49) |
 | `D1.2cb` | DataTalksClub/website | Retire email_app and the data app, move the bridge settings | D1.2ca | no | todo |  |
-| `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2c | yes | todo |  |
-| `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1577 |
-| `A1.2` | AI-Shipping-Labs/website | Adopt the package mail app on the ses_local backend | C1.5, A1.1 | no | todo |  |
+| `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2cb | yes | todo |  |
+| `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | done | https://github.com/AI-Shipping-Labs/website/commit/b8d0eb8096668c4b1478840dd3e1c5c4051834c6 |
+| `A1.2` | AI-Shipping-Labs/website | Adopt the package mail app on the ses_local backend | C1.5, A1.1 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1610 |
 
 ## Phase 2
 
@@ -87,7 +87,7 @@ issues that can start now.
 | `C3.5c` | community-base | Voting | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/93 |
 | `C3.6` | community-base | Identity and community capability checkpoint | C3.1e, C3.2, C3.3, C3.4, C3.5a, C3.5b, C3.5c | no | done | https://github.com/DataTalksClub/community-base/pull/96 |
 | `C3.7` | community-base | Identity donor compatibility checkpoint | C3.6, A3.2, D3.1 | no | todo |  |
-| `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2a | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1579 |
+| `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2a | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1579 accepted at website 0b1c7eff, dev deploy green; human checks AC13/AC14 pending |
 | `A3.2` | AI-Shipping-Labs/website | Extension models for the remaining site-only user fields | A3.1 | no | todo |  |
 | `A3.3` | AI-Shipping-Labs/website | Freeze weekend: adopt shared accounts, questionnaires, community, notifications, comments, voting | C5.3, C3.7, A3.2 | yes | todo |  |
 | `D3.1` | DataTalksClub/website | Extension models and user model rename | C5.2a | no | in-progress | https://github.com/DataTalksClub/website/issues/334 |
