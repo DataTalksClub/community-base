@@ -326,8 +326,65 @@ def test_transport_options_are_validated():
                 "ada@example.com",
                 {},
                 "password-reset:bad-extra",
-                extra={"reply_to": "person@example.com"},
+                extra={"carrier_pigeon": "soon@example.com"},
             )
+        with pytest.raises(MailError, match="invalid mail reply_to recipient"):
+            send(
+                "password_reset",
+                "ada@example.com",
+                {},
+                "password-reset:bad-reply-to",
+                extra={"reply_to": "not-an-email"},
+            )
+        with pytest.raises(MailError, match="mail configuration_set must be a name"):
+            send(
+                "password_reset",
+                "ada@example.com",
+                {},
+                "password-reset:bad-configuration-set",
+                extra={"configuration_set": "   "},
+            )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_plain_text_part_and_extras_reach_ses_payload(ses_settings):
+    ses_settings.COMMUNITY_BASE["MAIL_UNSUBSCRIBE_URL_BUILDER"] = lambda delivery: (
+        "https://aishippinglabs.com/api/unsubscribe?token=test-token"
+    )
+    ses_settings.COMMUNITY_BASE["MAIL_VERIFY_EMAIL_URL_BUILDER"] = lambda delivery: (
+        "https://aishippinglabs.com/api/verify-email?token=test-token"
+    )
+    ses = StubSES()
+    with patch("community_base.mail.backends.ses_local.configured_client", return_value=ses):
+        with transaction.atomic():
+            delivery = send(
+                "password_reset",
+                "ada@example.com",
+                PREVIEW_CONTEXTS["password_reset"],
+                "password-reset:plain-text",
+                sender="noreply@aishippinglabs.com",
+                extra={
+                    "reply_to": ["welcome@aishippinglabs.com"],
+                    "configuration_set": "ses-events-dev",
+                },
+            )
+
+    delivery.refresh_from_db()
+    assert delivery.state == EmailDelivery.State.PROVIDER_ACCEPTED
+    payload = ses.calls[0]
+    assert payload["ReplyToAddresses"] == ["welcome@aishippinglabs.com"]
+    assert payload["ConfigurationSetName"] == "ses-events-dev"
+    body = payload["Content"]["Simple"]["Body"]
+    assert body["Html"]["Data"]
+    text = body["Text"]["Data"]
+    assert "AI Shipping Labs" in text
+    assert (
+        "Your email is not verified on our platform.\n"
+        "Verify your email: https://aishippinglabs.com/api/verify-email?token=test-token"
+    ) in text
+    assert (
+        "Unsubscribe from all emails: https://aishippinglabs.com/api/unsubscribe?token=test-token"
+    ) in text
 
 
 def test_ses_runtime_keys_are_declared():
