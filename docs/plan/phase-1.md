@@ -508,7 +508,10 @@ Verification
 Repository: AI-Shipping-Labs/website. Depends on: C1.5, A1.1.
 
 Read first
-- the 35 `EmailService` call sites: `grep -rn "EmailService" --include=*.py . | grep -v tests`.
+- the `EmailService` call sites: `grep -rn "EmailService" --include=*.py . | grep -v tests`.
+  The original estimate of 35 was low: the real count when the issue opened was 142 raw
+  references and 41 `EmailService()` call sites, and the live count lives in the mirrored
+  issue.
 
 Steps
 1. Install `community_base.mail`; `MAIL_BACKEND="ses_local"`,
@@ -534,4 +537,4 @@ Verification
 - Final: `grep -rn "EmailService" --include=*.py . | grep -v tests` -> nothing.
 
 Done when
-- [ ] `_docs/configuration.md` email section names `community_base.mail` and the hooks
+- [x] `_docs/configuration.md` email section names `community_base.mail` and the hooks
