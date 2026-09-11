@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2 - 2026-09-11
+
+- A1.2: add `declare_if_absent` so sites that already declare backend operational keys keep their operator metadata; ses_local's AWS keys use it.
+
 ## 0.3.1 - 2026-09-11
 
 - A1.2: ses_local gains `reply_to` and `configuration_set` transport options and sends a derived plain-text part next to the HTML part.

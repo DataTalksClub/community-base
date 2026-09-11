@@ -1,6 +1,8 @@
-from community_base.config.registry import declare
+from community_base.config.registry import declare, declare_if_absent
 
-declare(
+# The AWS credentials are commonly declared by the site first (with its own
+# operator-facing group and docs); the first declaration wins.
+declare_if_absent(
     key="AWS_SES_REGION",
     group="mail",
     label="AWS SES region",
@@ -9,7 +11,7 @@ declare(
     default="us-east-1",
 )
 
-declare(
+declare_if_absent(
     key="AWS_ACCESS_KEY_ID",
     group="mail",
     label="AWS access key id",
@@ -19,7 +21,7 @@ declare(
     secret=True,
 )
 
-declare(
+declare_if_absent(
     key="AWS_SECRET_ACCESS_KEY",
     group="mail",
     label="AWS secret access key",

@@ -1,7 +1,12 @@
 import pytest
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 
-from community_base.config.registry import declare, definition, groups
+from community_base.config.registry import (
+    declare,
+    declare_if_absent,
+    definition,
+    groups,
+)
 
 
 def test_installed_app_settings_keys_are_discovered():
@@ -49,6 +54,39 @@ def test_conflicting_declaration_is_rejected():
             value_type="str",
             default="",
         )
+
+
+def test_declare_if_absent_keeps_the_first_definition():
+    first = declare(
+        key="TEST_REGISTRY_ABSENT",
+        group="testing",
+        label="First",
+        description="First declaration wins.",
+        value_type="str",
+        default="",
+    )
+
+    second = declare_if_absent(
+        key="TEST_REGISTRY_ABSENT",
+        group="other",
+        label="Second",
+        description="Different metadata is not a conflict here.",
+        value_type="str",
+        default="changed",
+    )
+
+    assert second == first
+    assert definition("TEST_REGISTRY_ABSENT").group == "testing"
+
+    fresh = declare_if_absent(
+        key="TEST_REGISTRY_ABSENT_NEW",
+        group="other",
+        label="New",
+        description="Absent keys are declared.",
+        value_type="str",
+        default="",
+    )
+    assert definition("TEST_REGISTRY_ABSENT_NEW") == fresh
 
 
 @pytest.mark.parametrize(
