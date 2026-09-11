@@ -121,6 +121,22 @@ def declare(
     return definition
 
 
+def declare_if_absent(**kwargs) -> Definition:
+    """Declare a runtime key unless any definition already exists.
+
+    Transitional sites commonly declare the operational keys a backend needs
+    (AWS credentials, region) with their own operator-facing group, label and
+    docs link. The first declaration in app import order wins and later
+    declarations of the same key keep it, instead of failing startup over
+    metadata the backend does not depend on.
+    """
+
+    existing = _definitions.get(kwargs["key"])
+    if existing is not None:
+        return existing
+    return declare(**kwargs)
+
+
 def definition(key: str) -> Definition:
     try:
         return _definitions[key]
