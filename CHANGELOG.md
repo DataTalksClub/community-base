@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3 - 2026-09-11
+
+- A1.2: ses_local's registry declarations, including `SES_FROM_EMAIL`, become `declare_if_absent` with package docs metadata so every contributed key stays documented when the site declares nothing.
+
 ## 0.3.2 - 2026-09-11
 
 - A1.2: add `declare_if_absent` so sites that already declare backend operational keys keep their operator metadata; ses_local's AWS keys use it.

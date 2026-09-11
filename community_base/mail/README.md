@@ -21,6 +21,16 @@ declares `AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `SES
 runtime configuration registry. SES event ingress remains site-owned. Phase 6 removes this backend
 after AISL templates and delivery move to Relay.
 
+## Runtime settings
+
+- `SES_FROM_EMAIL`: default From address when a delivery does not name a `sender`. Optional; sends
+  without either value fail in `ses_local`.
+- `AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: the SES sending identity and its
+  IAM credentials.
+
+Sites that declare these keys first keep their own operator-facing group, label and docs link; the
+backend declarations then apply unchanged metadata instead of conflicting.
+
 Mount `community_base.mail.urls` at the site root. It owns the exact recipient-link routes plus
 `POST /internal/mail/callback`. Relay callbacks use HMAC-SHA256 over
 `<X-Relay-Timestamp>.<raw body>` with `RELAY_WEBHOOK_SECRET`, accept at most five minutes of clock
