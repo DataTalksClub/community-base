@@ -1,8 +1,13 @@
 # Changelog
 
-## 0.3.6 - 2026-09-12
+## 0.3.7 - 2026-09-12
 
 - C6.2: add the Relay contacts, subscriptions and tags clients (`RelayContactsClient`) with FakeRelay contract coverage; contact-level callbacks record transition `sequence` and `occurred_at` and emit `relay_callback_processed` for site `unsubscribed` and `bounce_state` updates.
+- Release note: the `v0.3.6` tag was cut from the studio-maintenance line (a4d2632, PR #224) before the C6.2 merge reached a tag, so 0.3.7 is the first release that carries C6.2. Sites adopting A6.2 pin `v0.3.7`.
+
+## 0.3.6 - 2026-09-12
+
+- Studio: add nested destination groups and the `COMMUNITY_BASE["STUDIO_EXTRA_CSS"]` shell stylesheet hook (community-base#220).
 
 ## 0.3.4 - 2026-09-12
 
