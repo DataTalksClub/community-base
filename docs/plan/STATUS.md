@@ -66,7 +66,7 @@ issues that can start now.
 | `C2.4` | community-base | Release 0.3.0 | C2.1b, C2.2, C2.3 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.3.0 |
 | `A2.1` | AI-Shipping-Labs/website | Adopt the Studio shell | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1615 |
 | `A2.2` | AI-Shipping-Labs/website | Users pages from the package | A2.1 | no | todo |  |
-| `A2.3` | AI-Shipping-Labs/website | Content sync through the package engine | C2.4 | no | todo |  |
+| `A2.3` | AI-Shipping-Labs/website | Content sync through the package engine | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1617 |
 | `D2.1` | DataTalksClub/website | Mount the Studio shell and re-home DTC Studio pages | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/377 |
 | `D2.2a` | DataTalksClub/website | Content sync adoption: articles and people through the package engine | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/379 |
 | `D2.2b` | DataTalksClub/website | Content sync adoption: podcast and books | D2.2a | no | todo |  |
