@@ -112,6 +112,27 @@ Verification
   callback converge on the projected state.
 - Real Relay checks are listed under `Not run here, needs: R6.1`.
 
+## C6.2a Relay verification confirmation scope
+
+Repository: community-base. Depends on: C6.2.
+
+Goal: expose the scope Relay already returns on the double opt-in confirmation so the adopting
+site (A6.2 step 4) can correlate the confirm with its own user. Relay's confirm response carries
+`email`, `audience` and `client` next to the enabled category, and contract version 1
+`subscription.changed` callbacks carry no contact identity, so the confirm response is the only
+correlation input; the parsed `RelayVerificationConfirmation` dropped it. Discovered by A6.2
+recon; split from C6.2 per the letter-suffix rule instead of improvising inside a site issue.
+
+Steps
+1. Parse `email`, `audience` and `client` from the confirm document onto
+   `RelayVerificationConfirmation`; a malformed or missing scope field raises
+   `malformed_verification_response`. The values are in-memory correlation inputs for the calling
+   site and never logged.
+2. Cover the happy path, the malformed document and the invalid-token error with FakeRelay.
+
+Verification
+- `make check && make test` -> pass.
+
 ## A6.1 Templates into Relay
 
 Repository: AI-Shipping-Labs/website. Depends on: R6.1, R1.3.
