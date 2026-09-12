@@ -27,7 +27,7 @@ issues that can start now.
 | `D0.1a` | DataTalksClub/website | Install the released kernel and local development tools | C2.4 | no | done | https://github.com/DataTalksClub/website/commit/f8f68c46e84353f59229cbdc113a85a43f5ca246 |
 | `D0.1b` | DataTalksClub/website | Inventory settings contracts and prove package parity | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/355 |
 | `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | blocked | merged as website 3fb9db07; dev deploy blocked on red main CI (website#345, lint-mask fix 950065e0 merged, first unmasked run 34676767710 red with fresh traces), then the worker self-check IAM ask (aws-infra#49) |
-| `D0.1d` | DataTalksClub/website | Retire old settings storage after the rollback window | D0.1c | no | todo | https://github.com/DataTalksClub/website/issues/387 |
+| `D0.1d` | DataTalksClub/website | Retire old settings storage after the rollback window | D0.1c | no | todo | https://github.com/DataTalksClub/website/issues/385 |
 | `D0.2` | DataTalksClub/website | Site CI guard and pin bump workflow | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/354 |
 
 ## Phase 1
@@ -69,8 +69,8 @@ issues that can start now.
 | `A2.3` | AI-Shipping-Labs/website | Content sync through the package engine | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1617 |
 | `D2.1` | DataTalksClub/website | Mount the Studio shell and re-home DTC Studio pages | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/377 |
 | `D2.2a` | DataTalksClub/website | Content sync adoption: articles and people through the package engine | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/379 |
-| `D2.2b` | DataTalksClub/website | Content sync adoption: podcast and books | D2.2a | no | todo | https://github.com/DataTalksClub/website/issues/383 |
-| `D2.2c` | DataTalksClub/website | Content sync adoption: docs, FAQ and podwiki, retire the staged pipeline | D2.2b | no | todo | https://github.com/DataTalksClub/website/issues/386 |
+| `D2.2b` | DataTalksClub/website | Content sync adoption: podcast and books | D2.2a | no | todo | https://github.com/DataTalksClub/website/issues/382 |
+| `D2.2c` | DataTalksClub/website | Content sync adoption: docs, FAQ and podwiki, retire the staged pipeline | D2.2b | no | todo | https://github.com/DataTalksClub/website/issues/384 |
 
 ## Phase 3
 
