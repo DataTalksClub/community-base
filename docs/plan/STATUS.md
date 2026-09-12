@@ -53,7 +53,7 @@ issues that can start now.
 | `D1.2cb` | DataTalksClub/website | Retire email_app and the data app, move the bridge settings | D1.2ca | no | todo | https://github.com/DataTalksClub/website/issues/372 (D1.2c umbrella spans D1.2ca and D1.2cb) |
 | `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2cb | yes | todo |  |
 | `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | done | https://github.com/AI-Shipping-Labs/website/commit/b8d0eb8096668c4b1478840dd3e1c5c4051834c6 |
-| `A1.2` | AI-Shipping-Labs/website | Adopt the package mail app on the ses_local backend | C1.5, A1.1 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1610 |
+| `A1.2` | AI-Shipping-Labs/website | Adopt the package mail app on the ses_local backend | C1.5, A1.1 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1610 (closed 2026-09-12 with dev deploy green; canonical final check unmet, remainder filed as https://github.com/AI-Shipping-Labs/website/issues/1629) |
 
 ## Phase 2
 
