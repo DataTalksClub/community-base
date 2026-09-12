@@ -8,11 +8,14 @@ components, dashboard and search extension points, and audited user impersonatio
 (path("studio/", include("community_base.studio.urls")),)
 ```
 
-All built-in views require staff access. Starting impersonation additionally requires a superuser;
-restoration succeeds only when the session points back to an active superuser. Configure
-`COMMUNITY_BASE["STUDIO_AUDIT_WRITER"]` with a callable accepting the keyword arguments `event`,
-`actor_ref`, `target_ref` and `metadata`. Identifiers are opaque strings; the package does not put
-email addresses in audit events.
+All built-in views require staff access. Set `COMMUNITY_BASE["STUDIO_AUTHORIZER"]` to a callable
+that receives the request and returns a truthy value to allow access; it replaces the default
+`is_staff` check on every shared Studio view, so a site can keep its own staff-role rules.
+Authentication is always required before the authorizer runs. Starting impersonation additionally
+requires a superuser; restoration succeeds only when the session points back to an active
+superuser. Configure `COMMUNITY_BASE["STUDIO_AUDIT_WRITER"]` with a callable accepting the keyword
+arguments `event`, `actor_ref`, `target_ref` and `metadata`. Identifiers are opaque strings; the
+package does not put email addresses in audit events.
 
 ## Navigation registration
 

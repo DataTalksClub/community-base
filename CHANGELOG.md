@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.4 - 2026-09-12
+
+- D2.1: add the `STUDIO_AUTHORIZER` hook so a site can replace the default `is_staff` check on shared Studio views.
+
 ## 0.3.3 - 2026-09-11
 
 - A1.2: ses_local's registry declarations, including `SES_FROM_EMAIL`, become `declare_if_absent` with package docs metadata so every contributed key stays documented when the site declares nothing.

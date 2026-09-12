@@ -37,3 +37,41 @@ def test_superuser_required_forbids_staff_and_allows_superuser():
 
     request.user.is_superuser = True
     assert superuser_required(view)(request).content == b"ok"
+
+
+def allow_all(request):
+    return True
+
+
+def deny_all(request):
+    return False
+
+
+def test_staff_required_authorizer_replaces_the_staff_check():
+    request = RequestFactory().get("/studio/")
+    request.user = SimpleNamespace(is_authenticated=True, is_staff=False)
+    with override_settings(COMMUNITY_BASE={"STUDIO_AUTHORIZER": allow_all}):
+        assert staff_required(view)(request).content == b"ok"
+
+    request.user.is_staff = True
+    with override_settings(COMMUNITY_BASE={"STUDIO_AUTHORIZER": deny_all}):
+        assert staff_required(view)(request).status_code == 403
+
+
+@override_settings(LOGIN_URL="/sign-in/")
+def test_staff_required_authorizer_still_requires_authentication():
+    request = RequestFactory().get("/studio/")
+    request.user = SimpleNamespace(is_authenticated=False)
+    with override_settings(COMMUNITY_BASE={"STUDIO_AUTHORIZER": allow_all}):
+        response = staff_required(view)(request)
+
+    assert response.status_code == 302
+    assert response.url == "/sign-in/?next=/studio/"
+
+
+@override_settings(COMMUNITY_BASE={"STUDIO_AUTHORIZER": "tests.kernel.test_decorators.allow_all"})
+def test_staff_required_authorizer_resolves_a_dotted_path():
+    request = RequestFactory().get("/studio/")
+    request.user = SimpleNamespace(is_authenticated=True, is_staff=False)
+
+    assert staff_required(view)(request).content == b"ok"
