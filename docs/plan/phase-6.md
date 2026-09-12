@@ -86,6 +86,32 @@ Steps
 Verification
 - `grep -rn "ses_local\|django_q" community_base/` -> nothing; `make check && make test` -> pass.
 
+## C6.2 Relay contacts, subscriptions and tags clients
+
+Repository: community-base. Depends on: C1.2b.
+
+Goal: implement the Relay contact and subscription contracts the site adoptions need
+(A6.2) against FakeRelay before real conformance. Releases through 0.3.5 ship only the
+mail transport, catalog, callback and reconciliation clients; this card closes that gap.
+
+Steps
+1. Contact clients for upsert/subscribe and the tag endpoints (`PUT /api/contacts/<id>`,
+   `PUT /api/contacts/<id>/tags`, `POST`/`DELETE .../tags/<slug>`), persisting no recipient
+   data in logs.
+2. Subscription clients for preference and category reads/writes (`/api/subscriptions/*`)
+   and the double opt-in verification handoff used by the link bridge.
+3. Extend the C1.2b callback projection so `subscription.changed` and `delivery.bounced`
+   events expose the subscription and suppression state sites need for `unsubscribed` and
+   `bounce_state` updates.
+4. Cover success, conflict, not-found and malformed responses plus reordered callbacks
+   with FakeRelay; export the test doubles for sites.
+
+Verification
+- `make check && make test` -> pass.
+- FakeRelay contact upsert with tags, a preference change and a `subscription.changed`
+  callback converge on the projected state.
+- Real Relay checks are listed under `Not run here, needs: R6.1`.
+
 ## A6.1 Templates into Relay
 
 Repository: AI-Shipping-Labs/website. Depends on: R6.1, R1.3.
@@ -104,7 +130,7 @@ Verification
 
 ## A6.2 Contacts and preferences into Relay
 
-Repository: AI-Shipping-Labs/website. Depends on: R6.3, R1.5.
+Repository: AI-Shipping-Labs/website. Depends on: C6.2, R6.3, R1.5.
 
 Steps
 1. One-off `sync_contacts_to_relay` command: every user with `unsubscribed`, `email_preferences`,
