@@ -137,7 +137,7 @@ issues that can start now.
 |---|---|---|---|---|---|---|
 | `R6.1` | DataTalksClub/relay | AISL tenant and SES identity in Relay production | D1.3, D5.2 | no | todo |  |
 | `R6.2` | DataTalksClub/relay | History import | R6.1 | no | todo |  |
-| `R6.3` | DataTalksClub/relay | Campaign parity for AISL | R1.5 | no | in-progress | https://github.com/DataTalksClub/relay/issues/21 |
+| `R6.3` | DataTalksClub/relay | Campaign parity for AISL | R1.5 | no | done | https://github.com/DataTalksClub/relay/commit/e183b23fb3cff7a782d1406cb5f84104ff17b51f |
 | `C6.1` | community-base | Remove transitional backends | A6.4 | no | todo |  |
 | `A6.1` | AI-Shipping-Labs/website | Templates into Relay | R6.1, R1.3 | no | todo |  |
 | `A6.2` | AI-Shipping-Labs/website | Contacts and preferences into Relay | R6.3, R1.5 | no | todo |  |
