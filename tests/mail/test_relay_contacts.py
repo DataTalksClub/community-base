@@ -131,6 +131,7 @@ def test_double_opt_in_handoff_records_the_verification_send(relay, client):
     assert len(relay.verification_sends) == 1
     token = relay.verification_sends[0]["context"]["verification_token"]
     confirmation = client.confirm_verification(token)
+    assert confirmation.email == EMAIL
     assert confirmation.category.tag == "course-updates"
     assert confirmation.category.enabled is True
 
