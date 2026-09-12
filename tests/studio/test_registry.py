@@ -233,7 +233,5 @@ def test_superuser_group_destinations_follow_destination_rules():
     assert security["groups"] == []
 
     superuser_state = active_state(superuser_request)
-    security = next(
-        row for row in superuser_state["sections"] if row["section"].slug == "security"
-    )
+    security = next(row for row in superuser_state["sections"] if row["section"].slug == "security")
     assert [item["destination"].key for item in security["groups"][0]["destinations"]] == ["keys"]
