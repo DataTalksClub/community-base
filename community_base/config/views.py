@@ -11,7 +11,7 @@ from django.views.decorators.cache import never_cache
 
 from community_base.config import service
 from community_base.config.forms import SettingsGroupForm, SettingsImportForm
-from community_base.config.registry import groups
+from community_base.config.registry import definition, groups
 from community_base.kernel.decorators import staff_required
 
 
@@ -58,15 +58,28 @@ def settings_save_group(request, group):
         initial_values=initial,
     )
     if form.is_valid():
+        changed = set()
+        cleared = 0
         with transaction.atomic():
+            for key in form.cleaned_clears():
+                if service.unset(key, f"user:{request.user.pk}", f"Cleared Studio group {group}"):
+                    changed.add(key)
+                    cleared += 1
             for key, value in form.cleaned_updates().items():
+                if service.get(key) != value:
+                    changed.add(key)
                 service.set(
                     key,
                     value,
                     actor_ref=f"user:{request.user.pk}",
                     reason=f"Updated Studio group {group}",
                 )
-        messages.success(request, f"Saved {group} settings.")
+        feedback = f"Saved {group} settings."
+        if cleared:
+            feedback += f" Cleared {cleared} override(s); fallback values now apply."
+        messages.success(request, feedback)
+        if any(definition(key).requires_restart for key in changed):
+            messages.warning(request, "Restart the application for these settings to take effect.")
     else:
         messages.error(request, f"Could not save {group} settings: {form.errors.as_text()}")
     return redirect("community_base_settings")

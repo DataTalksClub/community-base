@@ -126,3 +126,37 @@ def test_import_is_atomic_when_a_key_is_unknown():
         )
 
     assert not Setting.objects.filter(key=STRING_KEY).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_unset_secret_redacts_audit_and_publishes_new_stamp():
+    service.set(SECRET_KEY, "removed-secret", "test:actor")
+    old_stamp = cache.get(service.STAMP_KEY)
+
+    assert service.unset(SECRET_KEY, "test:actor", "Remove removed-secret") is True
+
+    assert not Setting.objects.filter(key=SECRET_KEY).exists()
+    assert service.get(SECRET_KEY) == ""
+    assert cache.get(service.STAMP_KEY) != old_stamp
+    change = SettingChange.objects.filter(setting_key=SECRET_KEY).latest("created_at")
+    assert change.old_value == REDACTED
+    assert change.old_value_redacted is True
+    assert change.new_value is None
+    assert "removed-secret" not in change.reason
+    count = SettingChange.objects.filter(setting_key=SECRET_KEY).count()
+    assert service.unset(SECRET_KEY, "test:actor") is False
+    assert SettingChange.objects.filter(setting_key=SECRET_KEY).count() == count
+
+
+@pytest.mark.django_db
+def test_unset_rolls_back_with_transaction():
+    from django.db import transaction
+
+    service.set(STRING_KEY, "kept-value", "test:actor")
+    with pytest.raises(RuntimeError), transaction.atomic():
+        service.unset(STRING_KEY, "test:actor")
+        raise RuntimeError("rollback")
+    service.runtime.reset()
+
+    assert service.get(STRING_KEY) == "kept-value"
+    assert SettingChange.objects.filter(setting_key=STRING_KEY).count() == 1

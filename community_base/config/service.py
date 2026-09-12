@@ -133,6 +133,7 @@ def describe(key: str) -> dict[str, Any]:
         "optional": item.optional,
         "is_email": item.is_email,
         "docs_url": item.docs_url,
+        "requires_restart": item.requires_restart,
     }
 
 
@@ -162,6 +163,31 @@ def set(key: str, value, actor_ref: str, reason: str = "", *, source: str = "stu
         runtime.reset()
         transaction.on_commit(runtime.publish)
     return row
+
+
+def unset(key: str, actor_ref: str, reason: str = "") -> bool:
+    """Remove a database override and restore normal fallback resolution."""
+    item = definition(key)
+    with transaction.atomic():
+        previous = Setting.objects.select_for_update().filter(key=key).first()
+        if previous is None:
+            return False
+        previous.delete()
+        SettingChange.objects.create(
+            setting_key=key,
+            old_value=REDACTED if item.secret else previous.value,
+            old_value_redacted=item.secret,
+            new_value=None,
+            new_value_redacted=False,
+            actor_ref=mask_sensitive_spans(str(actor_ref)),
+            reason=mask_sensitive_spans(
+                str(reason),
+                canaries=(str(decrypt(previous.value)),) if item.secret else (),
+            ),
+        )
+        runtime.reset()
+        transaction.on_commit(runtime.publish)
+    return True
 
 
 def export() -> dict[str, Any]:

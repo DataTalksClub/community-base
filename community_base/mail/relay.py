@@ -103,13 +103,13 @@ class RelayMailClient:
         self.transport = transport or RequestsTransport()
         self.timeout_seconds = timeout_seconds
 
-    def send(self, delivery) -> RelaySendResult:
+    def send(self, delivery, *, context=None) -> RelaySendResult:
         payload = {
             "email": delivery.recipient_email,
             "template_key": delivery.template_key,
             "template_version": delivery.template_version,
             "idempotency_key": delivery.idempotency_key,
-            "context": delivery.context_data,
+            "context": delivery.context_data if context is None else context,
         }
         if delivery.category:
             payload["category"] = delivery.category
