@@ -97,9 +97,7 @@ def register(section: Section) -> Section:
             if current is None:
                 merged_groups[group.key] = group
             elif (current.title, current.order) != (group.title, group.order):
-                raise ValueError(
-                    f"Studio destination group conflicts: {section.slug}/{group.key}"
-                )
+                raise ValueError(f"Studio destination group conflicts: {section.slug}/{group.key}")
             else:
                 merged_groups[group.key] = DestinationGroup(
                     key=current.key,
