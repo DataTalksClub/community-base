@@ -26,7 +26,7 @@ issues that can start now.
 | `D0.1` | DataTalksClub/website | Add the package and replace the settings frameworks | D0.1d | no | todo |  |
 | `D0.1a` | DataTalksClub/website | Install the released kernel and local development tools | C2.4 | no | done | https://github.com/DataTalksClub/website/commit/f8f68c46e84353f59229cbdc113a85a43f5ca246 |
 | `D0.1b` | DataTalksClub/website | Inventory settings contracts and prove package parity | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/355 |
-| `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | blocked | merged as website 3fb9db07; dev deploy blocked on red main CI (website#345, fix in flight), then the worker self-check IAM ask (aws-infra#49) |
+| `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | blocked | merged as website 3fb9db07; dev deploy blocked on red main CI (website#345, lint-mask fix 950065e0 merged, first unmasked run 34676767710 red with fresh traces), then the worker self-check IAM ask (aws-infra#49) |
 | `D0.1d` | DataTalksClub/website | Retire old settings storage after the rollback window | D0.1c | no | todo |  |
 | `D0.2` | DataTalksClub/website | Site CI guard and pin bump workflow | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/354 |
 
@@ -49,7 +49,7 @@ issues that can start now.
 | `D1.1` | DataTalksClub/website | Replace DTC jobs with the package jobs app (relay backend) | C1.5, R1.1, R1.2 | no | done | https://github.com/DataTalksClub/website/issues/350 |
 | `D1.2a` | DataTalksClub/website | Install the mail app, move PendingUnsubscribe, commit the purpose templates | D1.1, R1.3, R1.4, R1.5 | no | done | https://github.com/DataTalksClub/website/issues/368 |
 | `D1.2b` | DataTalksClub/website | Send through the package mail app with the outbox idempotency keys | D1.2a | no | done | https://github.com/DataTalksClub/website/issues/370 |
-| `D1.2ca` | DataTalksClub/website | Send the remaining datamailer mail through the package mail app and retire the datamailer client | D1.2b | no | blocked | website#372 branch issue-372 gates green; dev deploy blocked on red main CI (website#345, fix in flight), then the worker self-check IAM ask (aws-infra#49) |
+| `D1.2ca` | DataTalksClub/website | Send the remaining datamailer mail through the package mail app and retire the datamailer client | D1.2b | no | blocked | website#372 branch issue-372 gates green; dev deploy blocked on red main CI (website#345, lint-mask fix 950065e0 merged, first unmasked run 34676767710 red with fresh traces), then the worker self-check IAM ask (aws-infra#49) |
 | `D1.2cb` | DataTalksClub/website | Retire email_app and the data app, move the bridge settings | D1.2ca | no | todo |  |
 | `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2cb | yes | todo |  |
 | `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | done | https://github.com/AI-Shipping-Labs/website/commit/b8d0eb8096668c4b1478840dd3e1c5c4051834c6 |
