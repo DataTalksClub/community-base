@@ -132,3 +132,114 @@ def test_unknown_delivery_and_message_mismatch_fail_closed(client, delivery):
     mismatch = signed_post(client, payload(delivery, "callback:mismatch", "delivery.delivered"))
     assert unknown.status_code == 404
     assert mismatch.status_code == 409
+
+
+def subscription_document(event_id, reason_code, sequence, timestamp):
+    return {
+        "event_id": event_id,
+        "event_type": "subscription.changed",
+        "message_id": None,
+        "client_reference": None,
+        "reason_code": reason_code,
+        "sequence": sequence,
+        "timestamp": timestamp,
+    }
+
+
+@pytest.mark.django_db
+def test_subscription_changed_records_transition_metadata(client):
+    document = subscription_document(
+        "callback:subscription-meta", "unsubscribed", 3, timezone.now().isoformat()
+    )
+    response = signed_post(client, document)
+    assert response.status_code == 200
+    event = CallbackEvent.objects.get(event_id="callback:subscription-meta")
+    assert event.reason_code == "unsubscribed"
+    assert event.sequence == 3
+    assert event.occurred_at is not None
+    assert event.state == ""
+
+
+@pytest.mark.django_db
+def test_reordered_subscription_callbacks_converge_in_transition_order(client):
+    now = timezone.now()
+    newer = subscription_document("callback:sub-new", "unsubscribed", 2, now.isoformat())
+    older = subscription_document(
+        "callback:sub-old", "subscribed", 1, (now - timedelta(minutes=5)).isoformat()
+    )
+    # Relay retries reorder deliveries; arrival order must not decide the state.
+    assert signed_post(client, newer).status_code == 200
+    assert signed_post(client, older).status_code == 200
+    latest = (
+        CallbackEvent.objects.filter(event_type="subscription.changed")
+        .order_by("occurred_at", "sequence")
+        .last()
+    )
+    assert latest.reason_code == "unsubscribed"
+
+
+@pytest.mark.django_db
+def test_bounced_callback_records_the_bounce_state(client, delivery):
+    response = signed_post(
+        client,
+        payload(
+            delivery,
+            "callback:bounce-state",
+            "delivery.bounced",
+            bounce_type="hard",
+            reason_code="hard_bounce",
+            sequence=2,
+        ),
+    )
+    assert response.status_code == 200
+    delivery.refresh_from_db()
+    event = CallbackEvent.objects.get(event_id="callback:bounce-state")
+    assert delivery.state == EmailDelivery.State.HARD_BOUNCED
+    assert event.state == EmailDelivery.State.HARD_BOUNCED
+    assert event.reason_code == "hard_bounce"
+    assert event.sequence == 2
+
+
+@pytest.mark.django_db
+def test_processed_callbacks_emit_the_projection_signal(client, delivery):
+    from community_base.mail.signals import relay_callback_processed
+
+    received = []
+
+    def receiver(sender, **kwargs):
+        received.append(kwargs)
+
+    relay_callback_processed.connect(receiver)
+    try:
+        transition = signed_post(
+            client, payload(delivery, "callback:signal-one", "delivery.delivered")
+        )
+        subscription = signed_post(
+            client,
+            subscription_document(
+                "callback:signal-two", "subscribed", 1, timezone.now().isoformat()
+            ),
+        )
+    finally:
+        relay_callback_processed.disconnect(receiver)
+    assert transition.status_code == subscription.status_code == 200
+    assert len(received) == 2
+    by_type = {kwargs["event_type"]: kwargs for kwargs in received}
+    delivery_kwargs = by_type["delivery.delivered"]
+    assert delivery_kwargs["state"] == EmailDelivery.State.DELIVERED
+    assert delivery_kwargs["applied"] is True
+    assert delivery_kwargs["delivery"].pk == delivery.pk
+    assert delivery_kwargs["event_id"] == "callback:signal-one"
+    subscription_kwargs = by_type["subscription.changed"]
+    assert subscription_kwargs["reason_code"] == "subscribed"
+    assert subscription_kwargs["delivery"] is None
+    assert subscription_kwargs["sequence"] == 1
+
+
+@pytest.mark.django_db
+def test_callback_with_malformed_sequence_is_rejected(client, delivery):
+    response = signed_post(
+        client, payload(delivery, "callback:bad-seq", "delivery.delivered", sequence="3")
+    )
+    assert response.status_code == 400
+    assert not CallbackEvent.objects.exists()
