@@ -13,6 +13,10 @@
     })();
   </script>
   <link rel="stylesheet" href="{% static 'community_base/studio.css' %}">
+  {% studio_extra_css as studio_extra_stylesheets %}
+  {% for stylesheet in studio_extra_stylesheets %}
+  <link rel="stylesheet" href="{% static stylesheet %}">
+  {% endfor %}
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
   {% block extra_head %}{% endblock %}
 </head>
@@ -66,6 +70,31 @@
             {% endif %}
           {% endfor %}
           </ul>
+          {% if item.groups %}
+          <div class="mt-1 space-y-1">
+          {% for group_row in item.groups %}
+            <details class="studio-nav-group" data-studio-group="{{ group_row.group.key }}"{% if group_row.active %} open{% endif %}>
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-colors {% if group_row.active %}text-foreground{% else %}text-muted-foreground hover:bg-secondary hover:text-foreground{% endif %}">
+                <span>{{ group_row.group.title }}</span>
+                <i data-lucide="chevron-down" class="accordion-chevron h-4 w-4" aria-hidden="true"></i>
+              </summary>
+              <ul class="ml-3 space-y-1 border-l border-border pl-2">
+              {% for row in group_row.destinations %}
+                {% if row.url %}
+                <li>
+                  <a href="{{ row.url }}"
+                     class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors {% if row.active %}bg-secondary text-foreground{% else %}text-muted-foreground hover:bg-secondary hover:text-foreground{% endif %}"
+                     {% if row.active %}aria-current="page"{% endif %}>
+                    <span>{{ row.destination.title }}</span>
+                  </a>
+                </li>
+                {% endif %}
+              {% endfor %}
+              </ul>
+            </details>
+          {% endfor %}
+          </div>
+          {% endif %}
         {% if item.section.title %}</section>{% endif %}
       {% endfor %}
     </nav>
