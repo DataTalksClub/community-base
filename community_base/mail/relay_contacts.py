@@ -93,6 +93,7 @@ class RelayVerificationRequest:
 
 @dataclass(frozen=True, slots=True)
 class RelayVerificationConfirmation:
+    email: str
     category: RelayCategoryPreference
 
 
@@ -303,13 +304,14 @@ class RelayContactsClient:
             "POST", "/api/subscriptions/confirm", {"token": token}, expected={200}
         )
         category = document.get("category") if isinstance(document, dict) else None
-        if not isinstance(category, dict):
+        email = document.get("email") if isinstance(document, dict) else None
+        if not isinstance(category, dict) or not isinstance(email, str) or not email:
             raise RelayContactsError("malformed_verification_response")
         try:
             parsed = _preference_row(category, "category")
         except RelayContactsError as error:
             raise RelayContactsError("malformed_verification_response") from error
-        return RelayVerificationConfirmation(category=parsed)
+        return RelayVerificationConfirmation(email=email, category=parsed)
 
     def _request(
         self,
