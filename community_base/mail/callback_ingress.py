@@ -18,6 +18,7 @@ from community_base.mail.callbacks import (
     record_callback_event,
 )
 from community_base.mail.models import EmailDelivery
+from community_base.mail.signals import relay_callback_processed
 
 MAX_CALLBACK_BODY_BYTES = 32_768
 EVENT_STATES = {
@@ -55,6 +56,18 @@ def receive_callback(request: HttpRequest) -> JsonResponse:
         return _error("invalid_payload", 400)
     if result is None:
         return _error("delivery_not_found", 404)
+    relay_callback_processed.send(
+        sender=EmailDelivery,
+        event_id=result.event.event_id,
+        event_type=result.event.event_type,
+        state=result.event.state,
+        reason_code=result.event.reason_code,
+        sequence=result.event.sequence,
+        occurred_at=result.event.occurred_at,
+        delivery=result.event.delivery,
+        created=result.created,
+        applied=result.applied,
+    )
     return JsonResponse({"status": "ok", "created": result.created, "applied": result.applied})
 
 
@@ -65,15 +78,17 @@ def _apply(document: dict):
     message_id = document.get("message_id")
     reason_code = document.get("reason_code", "")
     occurred_at = document.get("timestamp")
+    sequence = document.get("sequence")
     if isinstance(message_id, int) and not isinstance(message_id, bool):
         message_id = str(message_id)
+    occurred = parse_datetime(occurred_at) if isinstance(occurred_at, str) else None
     if (
         not isinstance(event_id, str)
         or not isinstance(event_type, str)
         or not isinstance(reason_code, str)
         or (message_id is not None and not is_safe_external_context_id(message_id))
-        or not isinstance(occurred_at, str)
-        or parse_datetime(occurred_at) is None
+        or occurred is None
+        or (sequence is not None and (not isinstance(sequence, int) or isinstance(sequence, bool)))
     ):
         raise CallbackError("invalid callback payload")
     delivery = None
@@ -102,6 +117,8 @@ def _apply(document: dict):
             delivery_id=delivery.id,
             state=state,
             reason_code=reason_code,
+            sequence=sequence,
+            occurred_at=occurred,
         )
     if event_type not in NON_TRANSITION_EVENTS:
         raise CallbackError("unknown callback event type")
@@ -110,6 +127,8 @@ def _apply(document: dict):
         event_type=event_type,
         delivery=delivery,
         reason_code=reason_code,
+        sequence=sequence,
+        occurred_at=occurred,
     )
 
 

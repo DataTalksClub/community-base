@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
 from django.db import DEFAULT_DB_ALIAS, transaction
 
@@ -50,6 +51,8 @@ def apply_callback(
     state: str,
     reason_code: str = "",
     event_type: str = "delivery.updated",
+    sequence: int | None = None,
+    occurred_at: datetime | None = None,
     using: str = DEFAULT_DB_ALIAS,
 ) -> CallbackResult:
     with transaction.atomic(using=using):
@@ -59,6 +62,8 @@ def apply_callback(
             state=state,
             reason_code=reason_code,
             event_type=event_type,
+            sequence=sequence,
+            occurred_at=occurred_at,
             using=using,
         )
 
@@ -70,6 +75,8 @@ def _apply_callback(
     state: str,
     reason_code: str,
     event_type: str,
+    sequence: int | None,
+    occurred_at: datetime | None,
     using: str,
 ) -> CallbackResult:
     if not isinstance(event_id, str) or not EVENT_PATTERN.fullmatch(event_id):
@@ -86,6 +93,7 @@ def _apply_callback(
         not isinstance(reason_code, str) or not REASON_PATTERN.fullmatch(reason_code)
     ):
         raise CallbackError("invalid callback reason code")
+    _check_transition_metadata(sequence, occurred_at)
 
     existing = CallbackEvent.objects.using(using).filter(event_id=event_id).first()
     if existing is not None:
@@ -110,6 +118,8 @@ def _apply_callback(
         event_type=event_type,
         state=state,
         reason_code=reason_code,
+        sequence=sequence,
+        occurred_at=occurred_at,
     )
     applied = STATE_PRECEDENCE[state] > STATE_PRECEDENCE[delivery.state]
     if applied:
@@ -125,6 +135,8 @@ def record_callback_event(
     event_type: str,
     delivery: EmailDelivery | None,
     reason_code: str = "",
+    sequence: int | None = None,
+    occurred_at: datetime | None = None,
     using: str = DEFAULT_DB_ALIAS,
 ) -> CallbackResult:
     """Deduplicate a callback that carries no delivery-state transition."""
@@ -135,6 +147,7 @@ def record_callback_event(
         raise CallbackError("invalid callback event type")
     if reason_code and not REASON_PATTERN.fullmatch(reason_code):
         raise CallbackError("invalid callback reason code")
+    _check_transition_metadata(sequence, occurred_at)
     with transaction.atomic(using=using):
         existing = CallbackEvent.objects.using(using).filter(event_id=event_id).first()
         delivery_id = delivery.pk if delivery is not None else None
@@ -152,5 +165,14 @@ def record_callback_event(
             event_type=event_type,
             delivery=delivery,
             reason_code=reason_code,
+            sequence=sequence,
+            occurred_at=occurred_at,
         )
         return CallbackResult(event, created=True, applied=False)
+
+
+def _check_transition_metadata(sequence: int | None, occurred_at: datetime | None) -> None:
+    if sequence is not None and (not isinstance(sequence, int) or isinstance(sequence, bool)):
+        raise CallbackError("invalid callback sequence")
+    if occurred_at is not None and not isinstance(occurred_at, datetime):
+        raise CallbackError("invalid callback timestamp")
