@@ -139,7 +139,8 @@ issues that can start now.
 | `R6.2` | DataTalksClub/relay | History import | R6.1 | no | todo |  |
 | `R6.3` | DataTalksClub/relay | Campaign parity for AISL | R1.5 | no | done | https://github.com/DataTalksClub/relay/commit/e183b23fb3cff7a782d1406cb5f84104ff17b51f |
 | `C6.1` | community-base | Remove transitional backends | A6.4 | no | todo |  |
+| `C6.2` | community-base | Relay contacts, subscriptions and tags clients | C1.2b | no | todo |  |
 | `A6.1` | AI-Shipping-Labs/website | Templates into Relay | R6.1, R1.3 | no | todo |  |
-| `A6.2` | AI-Shipping-Labs/website | Contacts and preferences into Relay | R6.3, R1.5 | no | todo |  |
+| `A6.2` | AI-Shipping-Labs/website | Contacts and preferences into Relay | C6.2, R6.3, R1.5 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1625 (groomed; blocked on C6.2) |
 | `A6.3` | AI-Shipping-Labs/website | Switch backends, campaigns and SES events | A6.1, A6.2, R6.2 | no | todo |  |
 | `A6.4` | AI-Shipping-Labs/website | Freeze weekend: AISL production on Relay | A6.3 | yes | todo |  |
