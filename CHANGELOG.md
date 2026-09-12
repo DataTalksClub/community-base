@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.8 - 2026-09-13
+
+- C6.2a: surface the verified email on the double opt-in `RelayVerificationConfirmation` so the adopting site can mirror the confirmation onto its own user.
+
 ## 0.3.7 - 2026-09-12
 
 - C6.2: add the Relay contacts, subscriptions and tags clients (`RelayContactsClient`) with FakeRelay contract coverage; contact-level callbacks record transition `sequence` and `occurred_at` and emit `relay_callback_processed` for site `unsubscribed` and `bounce_state` updates.
