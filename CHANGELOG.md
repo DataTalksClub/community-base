@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.5 - 2026-09-12
+
+- A0.2: clear blank optional integer overrides with audited `service.unset`, and expose restart metadata and save feedback.
+- A1.2: preserve SES reply-to, configuration sets, plain text, backend key declarations and worker context enrichment from later releases.
+- Maintenance release based on `v0.3.0`; excludes later provisional kept-label capabilities.
+
 ## 0.3.0 - 2026-09-05
 
 - C2.1a: Add the shared Studio shell, registry, route checks, assets, search and security controls.

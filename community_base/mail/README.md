@@ -14,11 +14,22 @@ does not mean delivery. Callback transitions are monotonic and callback event ID
 `ambiguous`, and Relay suppression is terminal.
 
 `ses_local` is a transitional AISL migration backend. It renders frontmatter markdown from
-`MAIL_TEMPLATE_DIR`, sends through SES v2 and accepts `extra={"cc": ..., "bcc": ...}` on
-`send()`. A delivery-level `sender` wins over the `SES_FROM_EMAIL` runtime setting. The backend
+`MAIL_TEMPLATE_DIR`, sends through SES v2 with an HTML and a derived plain-text part, and accepts
+`extra={"cc": ..., "bcc": ..., "reply_to": ..., "configuration_set": ...}` on `send()`. A
+delivery-level `sender` wins over the `SES_FROM_EMAIL` runtime setting. The backend
 declares `AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `SES_FROM_EMAIL` in the
 runtime configuration registry. SES event ingress remains site-owned. Phase 6 removes this backend
 after AISL templates and delivery move to Relay.
+
+## Runtime settings
+
+- `SES_FROM_EMAIL`: default From address when a delivery does not name a `sender`. Optional; sends
+  without either value fail in `ses_local`.
+- `AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: the SES sending identity and its
+  IAM credentials.
+
+Sites that declare these keys first keep their own operator-facing group, label and docs link; the
+backend declarations then apply unchanged metadata instead of conflicting.
 
 Mount `community_base.mail.urls` at the site root. It owns the exact recipient-link routes plus
 `POST /internal/mail/callback`. Relay callbacks use HMAC-SHA256 over
@@ -38,8 +49,14 @@ those issues merge.
 
 Hooks:
 
+- `MAIL_CONTEXT_RESOLVER`: callable receiving `delivery` and its persisted `context`; returns the
+  ephemeral context passed to the selected backend. The default accounts resolver creates signed
+  verification, password-reset and email-change links in the worker so bearer tokens are never
+  retained in `EmailDelivery.context_data`.
 - `MAIL_PREFERENCE_RESOLVER`: callable receiving `purpose`, `category`, `to`, and `user`; return
-  true/none to allow, false or a safe reason code to suppress. Default: allow.
+  true/none to allow, false or a safe reason code to suppress. The default accounts resolver
+  suppresses globally unsubscribed users, permanent bounces and categories explicitly set false;
+  users without shared preference fields remain allowed for composability.
 - `MAIL_SEND_RECORDER`: optional callable `(delivery, rendered, result)` for transitional audit
   integration.
 - `MAIL_TEMPLATE_OVERRIDE_LOADER`: optional callable `(template_key) -> (subject, body) | None`.
@@ -50,9 +67,10 @@ Hooks:
 - `MAIL_VERIFY_EMAIL_URL_BUILDER`: optional callable `(delivery) -> str | None` used by
   `ses_local` to resolve short-lived verification links in the worker instead of durable context.
 
-Delivery rows retain the JSON template context needed for durable execution and its canonical hash,
-but never rendered bodies. Callers must pass only retention-approved template inputs; secret-bearing
-values must be resolved by the worker at send time. Recipient addresses, stored context and raw
+Delivery rows retain the non-secret JSON template context needed for durable execution and its
+canonical hash, but never rendered bodies or bearer URLs. Callers must pass only retention-approved
+template inputs; secret-bearing values are resolved by the worker at send time. Recipient addresses,
+stored context and raw
 unsubscribe tokens must never be logged, returned by APIs or placed in job payloads.
 
 The DTC link-bridge contract tests were adapted for the package settings and URL configuration.

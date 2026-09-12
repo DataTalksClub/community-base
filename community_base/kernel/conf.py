@@ -18,6 +18,7 @@ DEFAULTS = {
     "ACCESS_POLICY": "community_base.kernel.access.OpenPolicy",
     "JOBS_BACKEND": "sync",
     "MAIL_BACKEND": "memory",
+    "MAIL_CONTEXT_RESOLVER": "community_base.mail.context.resolve_delivery_context",
     "MAIL_PREFERENCE_RESOLVER": "community_base.mail.preferences.allow_all",
     "MAIL_SEND_RECORDER": None,
     "MAIL_TEMPLATE_DIR": None,

@@ -8,9 +8,8 @@ from community_base.mail.relay import RelayMailError, configured_client
 
 
 def deliver(delivery: EmailDelivery, context) -> None:
-    del context
     try:
-        result = configured_client().send(delivery)
+        result = configured_client().send(delivery, context=context)
     except RelayMailError as error:
         if error.suppressed:
             _update(delivery, EmailDelivery.State.SUPPRESSED, error.reason_code)

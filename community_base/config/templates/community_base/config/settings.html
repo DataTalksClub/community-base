@@ -28,6 +28,7 @@
               <input id="id_{{ setting.key }}" name="{{ setting.key }}" value="{{ setting.display_value }}"{% if setting.is_email %} type="email"{% endif %}>
             {% endif %}
             <span class="cb-badge">{{ setting.source }}</span>
+            {% if setting.requires_restart %}<span class="cb-badge">Requires restart</span>{% endif %}
             <p class="cb-card-meta">{{ setting.description }}</p>
             {% if setting.docs_url %}<a href="{{ setting.docs_url }}">Documentation</a>{% endif %}
           </div>

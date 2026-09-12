@@ -26,7 +26,9 @@ ZOOM_CLIENT_ID = declare(
 ```
 
 Supported `value_type` values are `str`, `int`, `bool`, `json`, and `list`. Metadata flags are
-`secret`, `multiline`, `optional`, `is_email`, `django_settings_fallback`, and `docs_url`.
+`secret`, `multiline`, `optional`, `is_email`, `django_settings_fallback`, `docs_url`, and
+`requires_restart` (default `False`). Restart metadata is advisory: it does not restart processes
+or change runtime resolution. `service.describe(key)` exposes it for API and template consumers.
 `django_settings_fallback=True` reads the key's own Django setting name; a string names a different
 explicit attribute. Conflicting declarations fail during startup.
 
@@ -69,6 +71,22 @@ destroying existing credentials.
 
 Staff users edit groups at `/studio/settings/`, see a source badge for every value, and can import
 or export JSON. Secret fields render empty and preserve the stored value when left blank.
+
+A blank non-secret optional integer removes its database override, restoring the declared
+environment, Django setting or default fallback. Zero remains a valid explicit override. Required
+integers reject blanks. Other optional field types retain their existing blank-value semantics.
+
+`SettingsGroupForm.cleaned_updates()` returns only typed values to save. After `is_valid()`,
+`cleaned_clears()` returns the keys of blank optional non-secret integers to remove. Consumers
+using their own save flow apply both inside one transaction; skipping cleared keys alone preserves
+stale overrides. `service.unset(key, actor_ref, reason="")` removes any declared key override,
+records an audit entry with `new_value=None`, and publishes the cache stamp after commit. It
+returns `True` for a removal and `False` for an absent override. Secret audit values remain redacted.
+
+The shared save view reports the number of overrides cleared. When a changed setting declares
+`requires_restart=True`, it also emits a Django warning message. Its default template labels
+restart settings. Sites can style or present these standard messages in a template override
+without replacing package forms or views.
 
 API routes are registered under `/api/v1/settings`:
 

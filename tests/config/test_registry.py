@@ -1,7 +1,7 @@
 import pytest
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 
-from community_base.config.registry import declare, definition, groups
+from community_base.config.registry import declare, declare_if_absent, definition, groups
 
 
 def test_installed_app_settings_keys_are_discovered():
@@ -23,11 +23,13 @@ def test_declare_preserves_all_metadata():
         django_settings_fallback="TEST_EMAIL_SETTING",
         env_var="TEST_EMAIL_ENV",
         docs_url="docs/testing.md#email",
+        requires_restart=True,
     )
 
     assert definition(declared.key) == declared
     assert declared in groups()["testing"]
     assert declared.secret and declared.multiline and declared.optional and declared.is_email
+    assert declared.requires_restart is True
 
 
 def test_conflicting_declaration_is_rejected():
@@ -88,3 +90,36 @@ def test_email_metadata_validates_values():
 
     with pytest.raises(ValidationError):
         declared.coerce("not-an-email")
+
+
+def test_declare_if_absent_keeps_the_first_definition():
+    first = declare(
+        key="TEST_REGISTRY_ABSENT",
+        group="testing",
+        label="First",
+        description="First declaration wins.",
+        value_type="str",
+        default="",
+    )
+
+    second = declare_if_absent(
+        key="TEST_REGISTRY_ABSENT",
+        group="other",
+        label="Second",
+        description="Different metadata is not a conflict here.",
+        value_type="str",
+        default="changed",
+    )
+
+    assert second == first
+    assert definition("TEST_REGISTRY_ABSENT").group == "testing"
+
+    fresh = declare_if_absent(
+        key="TEST_REGISTRY_ABSENT_NEW",
+        group="other",
+        label="New",
+        description="Absent keys are declared.",
+        value_type="str",
+        default="",
+    )
+    assert definition("TEST_REGISTRY_ABSENT_NEW") == fresh

@@ -25,6 +25,7 @@ class Definition:
     django_settings_fallback: str | None = None
     env_var: str | None = None
     docs_url: str | None = None
+    requires_restart: bool = False
 
     def coerce(self, value: Any) -> Any:
         if self.value_type == "str":
@@ -94,6 +95,7 @@ def declare(
     django_settings_fallback: bool | str = False,
     env_var: str | None = None,
     docs_url: str | None = None,
+    requires_restart: bool = False,
 ) -> Definition:
     if value_type not in VALUE_TYPES:
         raise ImproperlyConfigured(f"Unsupported config value type: {value_type}")
@@ -112,6 +114,7 @@ def declare(
         django_settings_fallback=fallback,
         env_var=env_var or key,
         docs_url=docs_url,
+        requires_restart=requires_restart,
     )
     definition.coerce(default)
     existing = _definitions.get(key)
@@ -119,6 +122,22 @@ def declare(
         raise ImproperlyConfigured(f"Conflicting config declaration: {key}")
     _definitions[key] = definition
     return definition
+
+
+def declare_if_absent(**kwargs) -> Definition:
+    """Declare a runtime key unless any definition already exists.
+
+    Transitional sites commonly declare the operational keys a backend needs
+    (AWS credentials, region) with their own operator-facing group, label and
+    docs link. The first declaration in app import order wins and later
+    declarations of the same key keep it, instead of failing startup over
+    metadata the backend does not depend on.
+    """
+
+    existing = _definitions.get(kwargs["key"])
+    if existing is not None:
+        return existing
+    return declare(**kwargs)
 
 
 def definition(key: str) -> Definition:
