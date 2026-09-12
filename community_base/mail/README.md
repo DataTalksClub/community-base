@@ -47,6 +47,46 @@ The catalog, versioned send, callback and reconciliation endpoints are package-p
 Relay issues R1.3 and R1.4. FakeRelay proves them locally; real conformance is not claimed until
 those issues merge.
 
+## Relay contacts and subscriptions
+
+`RelayContactsClient` (`community_base.mail.relay_contacts`) speaks Relay's contact and
+subscription contracts for the site adoptions (A6.2). It is constructed with a base URL, an API key
+and the Relay client slug; `configured_contacts_client(client)` reads `RELAY_BASE_URL` and
+`RELAY_API_KEY`.
+
+- `upsert_contact(email, audience, ...)`: `POST /api/contacts` with optional `tags`, subscription
+  `status`, `verified`, `email_validation` and `suppression` inputs. `contact_status(email,
+  audience)` reads the same document.
+- `contact_preferences` and `update_contact_preferences`: `GET`/`PUT /api/contacts/preferences`
+  for canonical category preferences.
+- `replace_tags`, `add_tag`, `remove_tag`: `PUT /api/contacts/<id>/tags` and
+  `POST`/`DELETE /api/contacts/<id>/tags/<slug>`. The contact id comes from an upsert or status
+  response.
+- `subscribe`, `unsubscribe`: `POST /api/subscriptions/subscribe|unsubscribe`; unsubscribe takes a
+  `client`, `audience` or `global` scope.
+- `request_verification` and `confirm_verification`: the double opt-in handoff over
+  `POST /api/subscriptions/request-verification|confirm`. Relay delivers the confirm URL through
+  the client-named template; the site hands the token from the message to
+  `confirm_verification`.
+- Errors raise `RelayContactsError` carrying a code, `status`, `retryable`, `ambiguous` and Relay
+  validation field names. A POST timeout is `relay_ack_unknown` and is never auto-resent. Raised
+  errors never contain recipient data.
+
+Callback projection for contact-level events:
+
+- `subscription.changed` and `delivery.bounced` callbacks are recorded on `CallbackEvent` with the
+  transition `sequence` and `occurred_at`, so a site can read contact state in transition order
+  regardless of delivery order. Bounces keep the monotonic delivery projection (`hard_bounced` or
+  `retryable`).
+- the `relay_callback_processed` signal (`community_base.mail.signals`) fires after each verified,
+  deduplicated callback with the projected facts (`event_type`, `reason_code`, `state`,
+  `sequence`, `occurred_at`, `delivery`). Sites connect receivers to update their own
+  `unsubscribed` and `bounce_state` state; the payload carries identifiers and safe reason codes
+  only.
+- contract version 1 `subscription.changed` payloads carry no contact identity. A site correlates
+  contact-level changes through its own records; Relay conformance for this flow: Not run here,
+  needs R6.1.
+
 Hooks:
 
 - `MAIL_CONTEXT_RESOLVER`: callable receiving `delivery` and its persisted `context`; returns the

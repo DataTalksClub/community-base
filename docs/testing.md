@@ -40,8 +40,8 @@ Delivery still occurs only after commit, so transactional mail tests also need
 ## Relay
 
 `FakeRelay` is an in-process transport for the package-pinned task, schedule, transactional mail,
-template catalog, public recipient-link and callback contracts. Inject one instance into either
-Relay client to exercise a complete lifecycle without patching HTTP globally.
+template catalog, contact, subscription, public recipient-link and callback contracts. Inject one
+instance into either Relay client to exercise a complete lifecycle without patching HTTP globally.
 
 ```python
 from community_base.jobs.relay import RelayClient
@@ -55,6 +55,13 @@ The fake exposes `tasks`, `schedules`, `messages`, `templates`, `calls`, `next_r
 `suppress_next()`, `deliver()` and `post_callback()` for assertions and controlled failures.
 `FakeResponse` can provide a specific next HTTP response. `unreachable_relay()` and
 `timing_out_relay()` cover public-link degradation paths.
+
+The contact and subscription endpoints are stateful: `contacts` and `subscriptions` hold the
+projected Relay state, `subscription_changes` records every subscribe/unsubscribe transition so
+tests can build matching `subscription.changed` callbacks, and `verification_sends` captures the
+double opt-in message with its `verification_token` context for the confirm handoff. Validation
+errors mirror Relay's document (`error.code = validation_error` with field maps) including the
+409 for enabling a category on a suppressed contact and the 404 for unknown contact ids.
 
 ## Signed requests
 

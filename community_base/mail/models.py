@@ -109,10 +109,13 @@ class CallbackEvent(models.Model):
         default="",
     )
     reason_code = models.CharField(max_length=128, blank=True, default="")
+    sequence = models.BigIntegerField(null=True, blank=True)
+    occurred_at = models.DateTimeField(null=True, blank=True)
     received_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ("received_at", "id")
+        indexes = [models.Index(fields=("event_type", "occurred_at"), name="cb_mail_cb_type_time")]
 
     def __str__(self) -> str:
         return self.event_id
