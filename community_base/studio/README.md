@@ -49,6 +49,43 @@ Multiple apps may contribute to the same section when its slug, title, order and
 registry merges their destinations and still rejects duplicate destination keys or route claims.
 The config, API, jobs and mail apps use this to populate the built-in Operations section.
 
+Destinations that belong together can render as a nested disclosure group inside their section.
+Groups are declared on the section and merge across apps under the same rules as destinations:
+
+```python
+from community_base.studio.registry import Destination, DestinationGroup, Section, register
+
+register(
+    Section(
+        slug="operations",
+        title="Operations",
+        order=80,
+        icon="settings",
+        groups=(
+            DestinationGroup(
+                key="triggers",
+                title="Triggers",
+                order=30,
+                destinations=(
+                    Destination(
+                        key="webhooks",
+                        title="Webhooks",
+                        url_name="community_base_webhooks",
+                        route_names=("community_base_webhooks", "community_base_webhook_retry"),
+                        order=10,
+                    ),
+                ),
+            ),
+        ),
+    )
+)
+```
+
+Groups sort deterministically by `order`, then `key`, and their destinations sort like flat ones.
+A group is hidden when none of its destinations are visible to the current user, and the shell
+opens the group that contains the active route. Flat registrations stay unchanged; `route_names`
+claims and `studio_routes --check` cover grouped destinations the same way.
+
 Run the route partition check after mounting Studio URLs:
 
 ```console
@@ -125,3 +162,18 @@ writes the committed `community_base/studio/static/community_base/studio.css` fi
 A site that uses utility classes not present in package templates must run its own Tailwind build.
 Use `community_base/studio/assets/tailwind.config.js` as a preset, add the site's template paths to
 `content`, and include `community_base/studio/assets/tailwind.css` as the input source.
+
+## Site extension stylesheets
+
+Set `COMMUNITY_BASE["STUDIO_EXTRA_CSS"]` to a tuple of static paths that the shell loads after its
+own `community_base/studio.css`:
+
+```python
+COMMUNITY_BASE = {
+    "STUDIO_EXTRA_CSS": ("css/studio-site.css",),
+}
+```
+
+Every path is resolved with `{% static %}` from the site's static files. Keep package generic CSS
+and site extension CSS separate: the shell never loads or copies site assets into the package, and
+the extension stylesheet adds site classes instead of overriding the shell's generic ones.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.6 - 2026-09-12
+
+- Studio: add nested destination groups and the `COMMUNITY_BASE["STUDIO_EXTRA_CSS"]` shell stylesheet hook (community-base#220).
+
 ## 0.3.5 - 2026-09-12
 
 - A0.2: clear blank optional integer overrides with audited `service.unset`, and expose restart metadata and save feedback.
