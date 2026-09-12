@@ -95,9 +95,9 @@ Goal: implement the Relay contact and subscription contracts the site adoptions 
 mail transport, catalog, callback and reconciliation clients; this card closes that gap.
 
 Steps
-1. Contact clients for upsert/subscribe and the tag endpoints (`PUT /api/contacts/<id>`,
-   `PUT /api/contacts/<id>/tags`, `POST`/`DELETE .../tags/<slug>`), persisting no recipient
-   data in logs.
+1. Contact clients for upsert/subscribe and the tag endpoints (`POST /api/contacts`,
+   `GET /api/contacts/status`, `PUT /api/contacts/<id>/tags`,
+   `POST`/`DELETE /api/contacts/<id>/tags/<slug>`), persisting no recipient data in logs.
 2. Subscription clients for preference and category reads/writes (`/api/subscriptions/*`)
    and the double opt-in verification handoff used by the link bridge.
 3. Extend the C1.2b callback projection so `subscription.changed` and `delivery.bounced`
