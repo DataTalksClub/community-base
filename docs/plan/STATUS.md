@@ -67,7 +67,7 @@ issues that can start now.
 | `A2.1` | AI-Shipping-Labs/website | Adopt the Studio shell | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1615 |
 | `A2.2` | AI-Shipping-Labs/website | Users pages from the package | A2.1 | no | todo |  |
 | `A2.3` | AI-Shipping-Labs/website | Content sync through the package engine | C2.4 | no | todo |  |
-| `D2.1` | DataTalksClub/website | Mount the Studio shell and re-home DTC Studio pages | C2.4 | no | todo |  |
+| `D2.1` | DataTalksClub/website | Mount the Studio shell and re-home DTC Studio pages | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/377 |
 | `D2.2` | DataTalksClub/website | Content sync per decision #226 | C2.4 | no | todo |  |
 
 ## Phase 3
