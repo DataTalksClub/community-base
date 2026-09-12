@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.6 - 2026-09-12
+
+- C6.2: add the Relay contacts, subscriptions and tags clients (`RelayContactsClient`) with FakeRelay contract coverage; contact-level callbacks record transition `sequence` and `occurred_at` and emit `relay_callback_processed` for site `unsubscribed` and `bounce_state` updates.
+
 ## 0.3.4 - 2026-09-12
 
 - D2.1: add the `STUDIO_AUTHORIZER` hook so a site can replace the default `is_staff` check on shared Studio views.
