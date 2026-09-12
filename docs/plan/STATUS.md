@@ -141,6 +141,6 @@ issues that can start now.
 | `C6.1` | community-base | Remove transitional backends | A6.4 | no | todo |  |
 | `C6.2` | community-base | Relay contacts, subscriptions and tags clients | C1.2b | no | done | https://github.com/DataTalksClub/community-base/pull/226 |
 | `A6.1` | AI-Shipping-Labs/website | Templates into Relay | R6.1, R1.3 | no | todo |  |
-| `A6.2` | AI-Shipping-Labs/website | Contacts and preferences into Relay | C6.2, R6.3, R1.5 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1625 (groomed; blocked on C6.2) |
+| `A6.2` | AI-Shipping-Labs/website | Contacts and preferences into Relay | C6.2, R6.3, R1.5 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1625 |
 | `A6.3` | AI-Shipping-Labs/website | Switch backends, campaigns and SES events | A6.1, A6.2, R6.2 | no | todo |  |
 | `A6.4` | AI-Shipping-Labs/website | Freeze weekend: AISL production on Relay | A6.3 | yes | todo |  |
