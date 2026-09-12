@@ -177,6 +177,13 @@ def studio_title():
     return get("STUDIO_TITLE")
 
 
+@register.simple_tag
+def studio_extra_css():
+    """Return the site extension stylesheets the shell loads after its own."""
+
+    return tuple(get("STUDIO_EXTRA_CSS") or ())
+
+
 @register.inclusion_tag(
     "community_base/studio/includes/impersonation_banner.html", takes_context=True
 )

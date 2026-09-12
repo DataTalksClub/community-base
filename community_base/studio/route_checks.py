@@ -28,6 +28,12 @@ def route_claims() -> dict[str, list[str]]:
         for destination in section.destinations:
             for route_name in destination.route_names:
                 claims[route_name].append(f"destination:{section.slug}/{destination.key}")
+        for group in section.groups:
+            for destination in group.destinations:
+                for route_name in destination.route_names:
+                    claims[route_name].append(
+                        f"destination:{section.slug}/{group.key}/{destination.key}"
+                    )
     for route_name, section_slug in section_only_routes.items():
         claims[route_name].append(f"section:{section_slug}")
     for route_name in routes_without_home:
