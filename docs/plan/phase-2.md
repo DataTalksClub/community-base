@@ -221,28 +221,59 @@ Verification
 Done when
 - [ ] `_docs/design/design-system.md` states that Studio uses the package design (D12)
 
-## D2.2 Content sync per decision #226
+## D2.2a Content sync adoption: articles and people through the package engine
 
-Repository: DataTalksClub/website. Depends on: C2.4. Split into three pull requests.
+Repository: DataTalksClub/website. Depends on: C2.4. Part 1 of 3 of the split, one landing
+per part; product decision #226 (direct upsert, no staged release graph).
 
 Read first
 - `content_sync/` (adapters, webhook), `content/` (models, `services.py` release graph),
   `_docs/specs/03-github-content-and-people.md`, `_docs/specs/open-decisions.md` decision 1.
 
 Steps
-1. D2.2a: install `community_base.content_sync`; write parsers for articles and people; keep the
-   old pipeline running for the other types; compare row counts per type.
-2. D2.2b: parsers for podcast and books; events are excluded (Phase 4 makes them database
-   authored).
-3. D2.2c: parsers for docs, FAQ and podwiki; delete `content_sync/`, the `ContentRelease`,
-   `ActiveContentPath`, `FrozenReleaseChild` models and `content/services.py` release graph;
-   route resolution reads the synced rows directly with the existing draft filter.
+1. Install `community_base.content_sync` (v0.3.0 already pinned): app registration, webhook and
+   staff URL mounts, migrations, `seed_content_sources`.
+2. Write site parsers for articles and people per the package parser contract (`discover` /
+   `upsert` / `soft_delete_missing`, source-scoped).
+3. Keep the old pipeline running for all other types; no model deletions in this part.
 
-Verification per pull request
-- `sync_content --from-disk <checkout>` on a fresh database -> counts per type equal to the old
-  pipeline's counts recorded in D2.2a.
-- `uv run pytest content -q` -> pass; the public URL compatibility test suite
-  (`_docs/compatibility/`) passes.
+Verification
+- `uv run python manage.py sync_content --from-disk <checkout>` on a fresh database: articles and
+  people row counts equal to the old pipeline's counts; record both.
+- `uv run pytest content -q` -> pass; the public URL compatibility suite (`_docs/compatibility/`)
+  passes.
+
+## D2.2b Content sync adoption: podcast and books
+
+Repository: DataTalksClub/website. Depends on: D2.2a. Part 2 of 3 of the split, one landing
+per part.
+
+Steps
+1. Write site parsers for podcast and books and register them with the package engine. Events are
+   excluded (Phase 4 makes them database authored).
+
+Verification
+- `uv run python manage.py sync_content --from-disk <checkout>` on a fresh database: counts per
+  type equal to the old pipeline's counts recorded in D2.2a.
+- `uv run pytest content -q` -> pass; the public URL compatibility suite (`_docs/compatibility/`)
+  passes.
+
+## D2.2c Content sync adoption: docs, FAQ and podwiki, retire the staged pipeline
+
+Repository: DataTalksClub/website. Depends on: D2.2b. Part 3 of 3 of the split, one landing
+per part.
+
+Steps
+1. Write site parsers for docs, FAQ and podwiki.
+2. Delete `content_sync/`, the `ContentRelease`, `ActiveContentPath`, `FrozenReleaseChild` models
+   and `content/services.py` release graph; route resolution reads the synced rows directly with
+   the existing draft filter.
+
+Verification
+- `uv run python manage.py sync_content --from-disk <checkout>` on a fresh database: counts per
+  type equal to the old pipeline's counts recorded in D2.2a.
+- `uv run pytest content -q` -> pass; the public URL compatibility suite (`_docs/compatibility/`)
+  passes.
 
 Done when
 - [ ] `_docs/specs/01-platform-architecture.md` "Content refresh" section rewritten to the direct-upsert workflow
