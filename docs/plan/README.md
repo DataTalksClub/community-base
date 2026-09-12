@@ -17,7 +17,7 @@ site adoption and deployed exit criteria still determine phase completion. Use
 | 3 | `phase-3.md` | Shared accounts and auth, onboarding flows, Slack community, notifications, comments, voting | AISL one weekend, DTC one weekend | 2 | in progress |
 | 4 | `phase-4.md` | Shared events with series and registration on both sites | AISL one weekend, DTC one weekend | 3 | in progress |
 | 5 | `phase-5.md` | Shared curriculum (cohort and self-paced) and coursework | AISL one weekend, DTC one weekend | 4 | in progress |
-| 6 | `phase-6.md` | AISL cutover to Relay for mail, jobs, campaigns, contacts and email-log history | AISL one weekend | 1 proven per D1.3, 5 | not started |
+| 6 | `phase-6.md` | AISL cutover to Relay for mail, jobs, campaigns, contacts and email-log history | AISL one weekend | 1 proven per D1.3, 5 | in progress |
 
 Order during the current campaign: ready package issues first by default. On 2026-09-06 the
 owner additionally assigned site migration planning and released-package bootstrap (A0.1 and
