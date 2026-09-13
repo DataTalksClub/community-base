@@ -166,6 +166,15 @@ Verification
   count; a preference toggle in the account page changes the Relay subscription within one minute
   (development environment).
 
+Implementation notes (recorded at close, 2026-09-13, see website issue 1625)
+- Newsletter subscriber state is carried as the Relay client-scoped subscription status, not as a
+  literal `newsletter` tag; the status is the stronger carrier.
+- `subscription.changed` callbacks are record-only: contract version 1 carries no contact
+  identity, so `unsubscribed` and `bounce_state` still converge through the bounced and
+  suppressed reason codes on `EmailDelivery.recipient_user` until a Relay contract decision.
+- The lead-magnet path keeps the site template because Relay has no download-link concept;
+  revisit if Relay gains that capability.
+
 ## A6.3 Switch backends, campaigns and SES events
 
 Repository: AI-Shipping-Labs/website. Depends on: A6.1, A6.2, R6.2.
