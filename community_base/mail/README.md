@@ -67,7 +67,7 @@ and the Relay client slug; `configured_contacts_client(client)` reads `RELAY_BAS
 - `request_verification` and `confirm_verification`: the double opt-in handoff over
   `POST /api/subscriptions/request-verification|confirm`. Relay delivers the confirm URL through
   the client-named template; the site hands the token from the message to
-  `confirm_verification`.
+  `confirm_verification`, which returns the verified email and the resulting preference state.
 - Errors raise `RelayContactsError` carrying a code, `status`, `retryable`, `ambiguous` and Relay
   validation field names. A POST timeout is `relay_ack_unknown` and is never auto-resent. Raised
   errors never contain recipient data.
