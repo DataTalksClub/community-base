@@ -69,8 +69,8 @@ issues that can start now.
 | `A2.3` | AI-Shipping-Labs/website | Content sync through the package engine | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1617 |
 | `D2.1` | DataTalksClub/website | Mount the Studio shell and re-home DTC Studio pages | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/377 |
 | `D2.2a` | DataTalksClub/website | Content sync adoption: articles and people through the package engine | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/379 (engineering, independent tester PASS and PM acceptance recorded on the issue; merged to website main as 60a25617 + f2b32dd0; dev deploy pending the website#345 / aws-infra#56 blockers) |
-| `D2.2b` | DataTalksClub/website | Content sync adoption: podcast and books | D2.2a | no | todo | https://github.com/DataTalksClub/website/issues/382 |
-| `D2.2c` | DataTalksClub/website | Content sync adoption: docs, FAQ and podwiki, retire the staged pipeline | D2.2b | no | todo | https://github.com/DataTalksClub/website/issues/384 |
+| `D2.2b` | DataTalksClub/website | Content sync adoption: podcast and books | D2.2a | no | done | https://github.com/DataTalksClub/website/issues/382 (closed 2026-09-15 with PM acceptance; merged as website d7e53f5f; dev deploy waiting on a green main CI run — the red quality job is a pre-existing lint regression, website#405) |
+| `D2.2c` | DataTalksClub/website | Content sync adoption: docs, FAQ and podwiki, retire the staged pipeline | D2.2b | no | in-progress | https://github.com/DataTalksClub/website/issues/384 (started 2026-09-15 in website worktree `issue-384` off d7e53f5f) |
 
 ## Phase 3
 
