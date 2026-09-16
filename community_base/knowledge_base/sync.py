@@ -19,6 +19,8 @@ applies each item through :func:`upsert_page`. The contract:
 Studio-authored pages carry no provenance and are never touched by sync.
 """
 
+import hashlib
+
 from django.db import transaction
 
 from community_base.knowledge_base.models import (
@@ -38,6 +40,12 @@ SECTIONS = tuple(value for value, _label in SECTION_CHOICES)
 
 class KnowledgeBaseSyncError(Exception):
     """A sync item violates the page contract (unknown parent, cycle, section)."""
+
+
+def _stable_commit(source_path: str, checksum: str) -> str:
+    """A 40-hex stand-in for checkouts that expose no real git commit."""
+
+    return hashlib.sha256(f"{source_path}\0{checksum}".encode()).hexdigest()[:40]
 
 
 def upsert_page(
@@ -72,6 +80,7 @@ def upsert_page(
         raise KnowledgeBaseSyncError(
             f"Knowledge base page {slug!r} is a wiki page; wiki pages cannot have a parent."
         )
+    commit_sha = commit_sha or _stable_commit(source_path, checksum)
 
     parent = None
     if parent_slug:

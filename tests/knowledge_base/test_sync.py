@@ -122,6 +122,33 @@ def test_unknown_section_is_refused():
         )
 
 
+def test_empty_commit_gets_a_stable_derived_commit():
+    source = make_source()
+    page, action = sync.upsert_page(
+        source,
+        section=SECTION_DOCS,
+        slug="raw",
+        title="Raw",
+        commit_sha="",
+        source_path="docs/raw.md",
+        checksum="a" * 64,
+    )
+    assert action == "created"
+    assert len(page.source_commit_sha) == 40
+
+    again, action = sync.upsert_page(
+        source,
+        section=SECTION_DOCS,
+        slug="raw",
+        title="Raw",
+        commit_sha="",
+        source_path="docs/raw.md",
+        checksum="a" * 64,
+    )
+    assert action == "unchanged"
+    assert again.pk == page.pk
+
+
 def test_delete_missing_is_scoped_to_one_source_and_skips_studio_rows():
     harness = ParserHarness()
     source, _items, _results, _deleted = harness.run_parser(KbFixtureParser(), KB_REPO)
