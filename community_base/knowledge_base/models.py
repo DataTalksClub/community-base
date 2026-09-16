@@ -100,6 +100,10 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
             kwargs["update_fields"] = list(update_fields)
         super().save(*args, **kwargs)
 
+    def get_absolute_url(self) -> str:
+        parts = (*self.ancestor_slugs(), self.slug)
+        return f"/{self.section}/" + "/".join(parts) + "/"
+
     def clean(self):
         super().clean()
         errors: dict[str, str] = {}
@@ -133,10 +137,6 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     @property
     def has_children(self):
         return self.children.exists()
-
-    def get_absolute_url(self) -> str:
-        parts = (*self.ancestor_slugs(), self.slug)
-        return f"/{self.section}/" + "/".join(parts) + "/"
 
     def ancestor_slugs(self) -> list[str]:
         """Return the ancestor slugs from the section root down to the parent.
