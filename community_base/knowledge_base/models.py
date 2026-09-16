@@ -9,10 +9,12 @@ this app owns storage, hierarchy resolution, rendering and the search corpus.
 """
 
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 
 from community_base.curriculum.models import SourceProvenanceMixin, provenance_constraint
-from community_base.curriculum.rendering import render_markdown, strip_leading_title_h1
+from community_base.curriculum.rendering import strip_leading_title_h1
+from community_base.knowledge_base.rendering import render_markdown
 
 SECTION_WIKI = "wiki"
 SECTION_DOCS = "docs"
@@ -30,6 +32,13 @@ STATUS_CHOICES = (
 SLUG_MAX_LENGTH = 300
 TITLE_MAX_LENGTH = 300
 
+# The donor slug alphabets (DTC wiki `[A-Za-z0-9._-]`, docs path segments) both
+# carry dots, so this is one step wider than Django's ``validate_slug``.
+SLUG_PATTERN = r"^[-a-zA-Z0-9_.]+$"
+slug_validator = RegexValidator(
+    SLUG_PATTERN, "Enter a slug: letters, digits, dots, dashes or underscores."
+)
+
 
 class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     """One wiki or documentation page, with its rendered HTML stored alongside.
@@ -43,7 +52,7 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     section = models.CharField(max_length=20, choices=SECTION_CHOICES, default=SECTION_DOCS)
-    slug = models.SlugField(max_length=SLUG_MAX_LENGTH)
+    slug = models.CharField(max_length=SLUG_MAX_LENGTH, validators=[slug_validator])
     title = models.CharField(max_length=TITLE_MAX_LENGTH)
     summary = models.TextField(blank=True, default="")
     body = models.TextField(blank=True, default="")
@@ -69,7 +78,7 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
                 fields=("section", "slug"),
                 name="cb_kb_page_section_slug_unique",
             ),
-            provenance_constraint(name="cb_kb_page_source_complete", identity_fields=()),
+            provenance_constraint(name="cb_kb_page_source_complete"),
         ]
         indexes = [
             models.Index(
@@ -124,3 +133,26 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     @property
     def has_children(self):
         return self.children.exists()
+
+    def get_absolute_url(self) -> str:
+        parts = (*self.ancestor_slugs(), self.slug)
+        return f"/{self.section}/" + "/".join(parts) + "/"
+
+    def ancestor_slugs(self) -> list[str]:
+        """Return the ancestor slugs from the section root down to the parent.
+
+        One query per level; page trees are shallow (the studio detail screen
+        caps its walk at the same depth), so this stays cheap in practice.
+        """
+
+        slugs: list[str] = []
+        seen = {self.pk}
+        current = self
+        while current.parent_id is not None and len(slugs) < 20:
+            current = current.parent
+            if current.pk in seen:
+                break
+            seen.add(current.pk)
+            slugs.append(current.slug)
+        slugs.reverse()
+        return slugs

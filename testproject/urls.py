@@ -15,6 +15,7 @@ urlpatterns = [
     path("", include("community_base.voting.urls")),
     path("events/", include("community_base.events.urls")),
     path("courses/", include("community_base.curriculum.urls")),
+    path("", include("community_base.knowledge_base.urls")),
     path("accounts/community/", include("community_base.community.urls")),
     path("api/", include((accounts_api_urlpatterns, "accounts_api"))),
     path("api/", include(notifications_api_urlpatterns)),

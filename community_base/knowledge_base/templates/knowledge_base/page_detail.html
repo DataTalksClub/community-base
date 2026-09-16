@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ page.title }}{% endblock %}
+{% block meta_description %}{{ page.summary|truncatewords:40 }}{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header">
+    {% if ancestors %}
+    <nav aria-label="Breadcrumb">
+      <a href="{% url 'knowledge_base:docs_home' %}">Documentation</a>
+      {% for ancestor in ancestors %}
+        <a href="{{ ancestor.get_absolute_url }}">{{ ancestor.title }}</a>
+      {% endfor %}
+    </nav>
+    {% endif %}
+    <h1 class="cb-page-title">{{ page.title }}</h1>
+    {% if page.summary %}<p class="cb-card-meta">{{ page.summary }}</p>{% endif %}
+  </header>
+
+  <section class="cb-card">{{ page.body_html|safe }}</section>
+
+  {% if children %}
+  <section class="cb-list">
+    <h2 class="cb-card-title">In this section</h2>
+    <ul class="cb-list">
+      {% for child in children %}
+        <li><a href="{{ child.get_absolute_url }}">{{ child.title }}</a></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if previous or next %}
+  <nav class="cb-pager">
+    {% if previous %}<a class="cb-button" href="{{ previous.get_absolute_url }}">Previous: {{ previous.title }}</a>{% endif %}
+    {% if next %}<a class="cb-button" href="{{ next.get_absolute_url }}">Next: {{ next.title }}</a>{% endif %}
+  </nav>
+  {% endif %}
+</main>
+{% endblock %}

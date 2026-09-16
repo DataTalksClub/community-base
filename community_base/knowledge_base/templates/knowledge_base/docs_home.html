@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Documentation{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header">
+    <h1 class="cb-page-title">Documentation</h1>
+  </header>
+  <nav class="cb-list" aria-label="Documentation pages">
+    <ul class="cb-list">
+      {% for item in tree.roots %}
+        {% include "knowledge_base/_docs_item.html" with item=item %}
+      {% empty %}
+      <p class="cb-empty">No documentation pages yet.</p>
+      {% endfor %}
+    </ul>
+  </nav>
+</main>
+{% endblock %}
