@@ -1,22 +1,25 @@
 import datetime
 
 import pytest
+from django.utils import timezone
 
 from community_base.coursework.leaderboard import completed_project_submissions_prefetch
 from community_base.coursework.models import (
     PeerReview,
     PeerReviewBatch,
+    PeerReviewState,
     ProjectState,
     ProjectStatistics,
     SubmissionReviewState,
 )
-from community_base.coursework.pooling import try_score_batch
+from community_base.coursework.pooling import expire_pooled_reviews, try_score_batch
 from community_base.coursework.projects import submit_project
 from community_base.coursework.review import (
     review_accepts_submission,
     submit_peer_review,
 )
 from community_base.coursework.statistics import calculate_project_statistics
+from community_base.mail.models import EmailDelivery
 from tests.coursework.test_models import coursework_cohort, enrollment_for
 from tests.coursework.test_peer_review import make_criteria
 from tests.coursework.test_projects import lip_links, make_project
@@ -268,3 +271,136 @@ def test_pooled_scored_submissions_appear_in_the_leaderboard_prefetch():
         )
     )
     assert batch_member_ids <= scored_ids
+
+
+# --- C5.2g: notifications and expiry -----------------------------------------------------
+
+
+def test_batch_formation_notifies_assignment_and_pool_ready():
+    cohort = pooled_cohort()
+    project = pooled_project(cohort)
+    submissions = submit_batch_of(project, cohort, 3)
+    batch = PeerReviewBatch.objects.get(project=project)
+
+    assigned = EmailDelivery.objects.filter(purpose="coursework.review_assigned")
+    pool_ready = EmailDelivery.objects.filter(purpose="coursework.pool_ready")
+    # One reviewer email per batch member (grouped), not one per PeerReview row (6 rows, 3
+    # members) -- and one pool-ready email per member.
+    assert assigned.count() == 3
+    assert pool_ready.count() == 3
+    member_emails = {submission.student.email for submission in submissions}
+    assert set(assigned.values_list("recipient_email", flat=True)) == member_emails
+    assert set(pool_ready.values_list("recipient_email", flat=True)) == member_emails
+    for delivery in assigned:
+        assert delivery.context_data["review_count"] == 2
+        assert delivery.context_data["due_date"] is not None
+    for delivery in pool_ready:
+        assert delivery.context_data["due_date"] == batch.due_at.isoformat()
+
+
+def test_review_submission_notifies_the_reviewee():
+    cohort = pooled_cohort()
+    project = pooled_project(cohort)
+    criteria = make_criteria(project)
+    submissions = submit_batch_of(project, cohort, 3)
+    batch = PeerReviewBatch.objects.get(project=project)
+    review = PeerReview.objects.filter(batch=batch).first()
+
+    submit_peer_review(review, {criteria.id: "2"})
+
+    reviewee_email = review.submission_under_evaluation.student.email
+    deliveries = EmailDelivery.objects.filter(
+        purpose="coursework.review_received", recipient_email=reviewee_email
+    )
+    assert deliveries.count() == 1
+    del submissions  # fixture-only; silences an unused-variable lint on the batch setup helper
+
+
+def test_expire_pooled_reviews_releases_reviewee_and_notifies_reviewer():
+    cohort = pooled_cohort()
+    project = pooled_project(cohort)
+    criteria = make_criteria(project)
+    submit_batch_of(project, cohort, 3)
+    batch = PeerReviewBatch.objects.get(project=project)
+    reviews = list(PeerReview.objects.filter(batch=batch))
+
+    # Everyone submits their reviews except one -- the reviewee waiting on that one review
+    # would otherwise stall indefinitely.
+    late_review = reviews[0]
+    for review in reviews[1:]:
+        submit_peer_review(review, {criteria.id: "2"})
+
+    PeerReviewBatch.objects.filter(pk=batch.pk).update(
+        due_at=timezone.now() - datetime.timedelta(minutes=1)
+    )
+
+    result = expire_pooled_reviews(None, {})
+
+    assert result["expired"] == 1
+    assert result["scored_batches"] == 1
+
+    late_review.refresh_from_db()
+    assert late_review.state == PeerReviewState.EXPIRED.value
+
+    reviewer_email = late_review.reviewer.student.email
+    expired_notices = EmailDelivery.objects.filter(
+        purpose="coursework.review_window_expired", recipient_email=reviewer_email
+    )
+    assert expired_notices.count() == 1
+
+    batch.refresh_from_db()
+    assert batch.scored_at is not None
+    late_review.submission_under_evaluation.refresh_from_db()
+    scored = SubmissionReviewState.SCORED.value
+    assert late_review.submission_under_evaluation.review_state == scored
+
+
+def test_expire_pooled_reviews_is_idempotent():
+    cohort = pooled_cohort()
+    project = pooled_project(cohort)
+    submit_batch_of(project, cohort, 3)
+    batch = PeerReviewBatch.objects.get(project=project)
+    PeerReviewBatch.objects.filter(pk=batch.pk).update(
+        due_at=timezone.now() - datetime.timedelta(minutes=1)
+    )
+
+    first = expire_pooled_reviews(None, {})
+    assert first["expired"] == 6  # nobody submitted; every review in the batch expires
+
+    second = expire_pooled_reviews(None, {})
+    assert second["expired"] == 0
+    assert second["scored_batches"] == 0  # already scored by the first run
+
+    expired_notices = EmailDelivery.objects.filter(purpose="coursework.review_window_expired")
+    assert expired_notices.count() == 6  # not doubled by the second run
+
+
+def test_expire_pooled_reviews_ignores_deadline_mode_reviews():
+    """Guard: deadline-mode reviews have no batch and must never be swept here."""
+    from community_base.coursework.review import assign_peer_reviews_for_project
+    from tests.coursework.test_peer_review import close_review_window
+    from tests.coursework.test_projects import make_project as make_dated_project
+
+    dated_cohort = coursework_cohort(slug="dated-expiry")
+    project = make_dated_project(
+        dated_cohort,
+        number_of_peers_to_evaluate=2,
+        submission_due_date=timezone.now() - datetime.timedelta(days=1),
+    )
+    submit_batch_of(project, dated_cohort, 3)
+    assign_peer_reviews_for_project(project)
+    close_review_window(project)
+
+    result = expire_pooled_reviews(None, {})
+
+    assert result["expired"] == 0
+    assert PeerReview.objects.filter(state=PeerReviewState.EXPIRED.value).count() == 0
+
+
+def test_expire_pooled_reviews_handler_and_schedule_are_registered():
+    from community_base.jobs.registry import registered_handler_names, registered_schedules
+
+    names = registered_handler_names()
+    schedules = {item.handler: item.cron for item in registered_schedules()}
+    assert "coursework.expire_pooled_reviews" in names
+    assert schedules["coursework.expire_pooled_reviews"] == "*/15 * * * *"

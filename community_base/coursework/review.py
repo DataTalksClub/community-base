@@ -20,6 +20,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from community_base.coursework import notifications
 from community_base.coursework.hooks import hooks
 from community_base.coursework.models import (
     CriteriaResponse,
@@ -189,6 +190,7 @@ def assign_peer_reviews_for_project(project) -> tuple[ProjectActionStatus, str]:
         _open_peer_review_window(project)
 
     hooks.peer_reviews_assigned(project=project, review_count=len(assignments))
+    notifications.send_review_assigned_notifications(assignments)
     return (
         ProjectActionStatus.OK,
         f"Peer reviews assigned for project {project.id} and state updated to 'PEER_REVIEWING'.",
@@ -356,6 +358,10 @@ def submit_peer_review(
         review.submitted_at = timezone.now()
         review.state = PeerReviewState.SUBMITTED.value
         review.save()
+
+    # Both modes; safe to call on a resubmission too, since mail.send dedupes on the review's
+    # fixed idempotency key.
+    notifications.send_review_received_notification(review)
 
     if review.batch_id is not None:
         # Local import: pooling.py imports from this module (calculate_project_scoring,

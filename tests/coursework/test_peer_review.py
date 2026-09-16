@@ -29,6 +29,7 @@ from community_base.coursework.review import (
     submit_peer_review,
 )
 from community_base.coursework.statistics import calculate_project_statistics
+from community_base.mail.models import EmailDelivery
 from tests.coursework.test_models import coursework_cohort, enrollment_for
 from tests.coursework.test_projects import lip_links, make_project
 
@@ -157,6 +158,16 @@ def test_assign_peer_reviews_builds_required_graph_excluding_volunteers():
             if review.reviewer_id == submission_id
         }
         assert len(targets) == 2
+
+    # C5.2g: one review_assigned email per reviewer, grouped, not one per PeerReview row (8
+    # rows, 4 reviewers); the volunteer never entered the assignment and gets none.
+    deliveries = EmailDelivery.objects.filter(purpose="coursework.review_assigned")
+    assert deliveries.count() == 4
+    assert set(deliveries.values_list("recipient_email", flat=True)) == {
+        submission.student.email for submission in real_submissions
+    }
+    assert all(delivery.context_data["review_count"] == 2 for delivery in deliveries)
+    assert volunteer.email not in set(deliveries.values_list("recipient_email", flat=True))
 
 
 def test_project_flow_assigns_reviews_scores_and_computes_statistics():
