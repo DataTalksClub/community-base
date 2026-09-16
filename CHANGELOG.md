@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 - 2026-09-16
 
 - C7.2: add the `knowledge_base` app (`cb_knowledge_base`): wiki and documentation pages with `content_sync` provenance, the donor docs hierarchy resolution, the lifted donor sanitizer allowlist, a search-corpus service, Studio inspection screens and overridable default public routes for `/wiki/` and `/docs/` (community-base#260).
 
