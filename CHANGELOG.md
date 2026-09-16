@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 - 2026-09-16
+
+- C7.2: ship the knowledge base fixture repository as regular files instead of a mode-160000 gitlink, so git-dependency installs (uv, pip) resolve the package and fresh clones run the fixture tests.
+
+## 0.4.1 - 2026-09-16
+
+- C7.2: ship the knowledge base fixture repository as regular files instead of a mode-160000 gitlink, so git-dependency installs (uv, pip) resolve the package and fresh clones run the fixture tests.
+
 ## 0.4.0 - 2026-09-16
 
 - C4.1e: remove `EventAlias`, `add_alias`, the `event_alias` view and the trailing `<path:alias>/` route (decision D17). An event is addressed only by its canonical URL and a path below `events/` that matches no event returns 404. Breaking for any site that mounted the alias route, created `EventAlias` rows, or resolved superseded paths through them.

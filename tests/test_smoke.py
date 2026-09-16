@@ -1,5 +1,10 @@
+import tomllib
+from pathlib import Path
+
 import community_base
 
 
 def test_version():
-    assert community_base.__version__ == "0.3.8"
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    expected = tomllib.loads(pyproject.read_text())["project"]["version"]
+    assert community_base.__version__ == expected
