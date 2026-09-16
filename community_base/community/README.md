@@ -89,7 +89,10 @@ account becomes a confirmed workspace member. The hook receives `user` as a keyw
 ## Optional Calendly calls
 
 Set `CALENDLY` to `True` to expose the call-host page and webhook. Keep it false on sites that don't
-offer booked community calls.
+offer booked community calls. The flag also controls the Calendly Studio surfaces: the Call hosts
+and Booked calls destinations only register in the Studio sidebar when it is on, and all five
+Calendly Studio routes return 404 when it is off. Slack access and the audit log stay available
+either way.
 
 ```python
 COMMUNITY_BASE = {
