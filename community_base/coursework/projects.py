@@ -122,6 +122,19 @@ def submit_project(
 
     submission.full_clean()
     submission.save()
+
+    if project.uses_pooled_review:
+        # Local import: pooling.py imports review.py, which imports this module
+        # (clean_learning_in_public_links, peer_review_lip_score, project_lip_score); importing
+        # pooling at module level here would be circular. Dispatched after commit so a batch is
+        # never formed from a submission that could still roll back.
+        def _try_form_batch():
+            from community_base.coursework.pooling import try_form_batch
+
+            try_form_batch(project)
+
+        transaction.on_commit(_try_form_batch)
+
     return submission, created
 
 

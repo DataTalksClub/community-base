@@ -29,6 +29,7 @@ from community_base.coursework.models import (
     ProjectState,
     ProjectSubmission,
     ReviewCriteria,
+    SubmissionReviewState,
 )
 from community_base.coursework.projects import (
     clean_learning_in_public_links,
@@ -48,6 +49,14 @@ PROJECT_NOT_COLLECTING_SUBMISSIONS_MESSAGE = (
 FUTURE_SUBMISSION_DUE_DATE_MESSAGE = (
     "The submission due date is in the future. Update the due date to assign peer reviews."
 )
+POOLED_PROJECT_ASSIGNMENT_MESSAGE = (
+    "Project belongs to a self-paced cohort and uses pooled assignment; "
+    "call community_base.coursework.pooling instead of assigning the whole project at once."
+)
+POOLED_PROJECT_SCORING_MESSAGE = (
+    "Project belongs to a self-paced cohort and is scored per pooled batch, not as a whole; "
+    "call community_base.coursework.pooling instead."
+)
 VOLUNTEER_GITHUB_LINK = "https://github.com/DataTalksClub/course-management-platform"
 VOLUNTEER_COMMIT_ID = "volunteer"
 
@@ -59,6 +68,10 @@ class ProjectActionStatus(Enum):
 
 class ProjectCriteriaValidationError(ValidationError):
     """A safe, atomic rejection of criteria outside the current project rubric."""
+
+
+class ReviewWindowClosedError(ValidationError):
+    """The review's project (deadline mode) or batch (pooled mode) has already been scored."""
 
 
 def ceil_to_next_hour(value):
@@ -78,6 +91,9 @@ def _assignment_precondition_failure(
     submissions_count: int,
     num_evaluations: int,
 ) -> tuple[ProjectActionStatus, str] | None:
+    if project.uses_pooled_review:
+        return (ProjectActionStatus.FAIL, POOLED_PROJECT_ASSIGNMENT_MESSAGE)
+
     if project.state != ProjectState.COLLECTING_SUBMISSIONS.value:
         return (ProjectActionStatus.FAIL, PROJECT_NOT_COLLECTING_SUBMISSIONS_MESSAGE)
 
@@ -91,11 +107,28 @@ def _assignment_precondition_failure(
     return None
 
 
+def set_review_state_for_project(project, review_state: str) -> None:
+    """Bulk-mirror a project-wide lifecycle transition onto its real submissions.
+
+    Deadline mode only: keeps ``ProjectSubmission.review_state`` a faithful mirror of
+    ``Project.state`` for every real (non-volunteer-placeholder) submission, exactly matching what
+    readers used to infer from ``Project.state`` alone -- including a submission that received no
+    reviews of its own, which was still counted as part of a ``COMPLETED``/``PEER_REVIEWING``
+    project by every existing reader. Pooled mode never calls this; it sets ``review_state`` per
+    batch instead (``pooling.py``).
+    """
+
+    ProjectSubmission.objects.filter(project=project, volunteer_review_only=False).update(
+        review_state=review_state
+    )
+
+
 def _open_peer_review_window(project) -> None:
     # Closing submissions deterministically starts a fresh seven-day review window.
     project.peer_review_due_date = ceil_to_next_hour(timezone.now() + PEER_REVIEW_WINDOW)
     project.state = ProjectState.PEER_REVIEWING.value
     project.save()
+    set_review_state_for_project(project, SubmissionReviewState.IN_REVIEW.value)
 
 
 def select_random_assignment(
@@ -255,6 +288,45 @@ def save_project_criteria_responses(review, review_criteria, answers_by_criteria
         )
 
 
+def review_accepts_submission(review: PeerReview, project) -> bool:
+    """Whether ``review`` can still be filled in from the learner-facing eval form.
+
+    Deadline mode: identical to today's expression (``project.state == PEER_REVIEWING``),
+    provably unchanged regardless of ``review.optional`` -- exactly what every existing caller
+    already computed inline before this issue.
+
+    Pooled mode: a volunteer/optional review (``review.batch_id is None``, added any time through
+    ``add_volunteer_peer_review`` regardless of mode or state, same as deadline mode today) stays
+    open. A mandatory review's batch gates it: open until ``PeerReviewBatch.scored_at`` is set,
+    matching ``_reject_if_review_window_closed`` below (a late-but-before-scoring submission is
+    accepted and counts; the view should not disable the form for one).
+    """
+    if project.uses_pooled_review:
+        return review.batch_id is None or review.batch.scored_at is None
+    return project.state == ProjectState.PEER_REVIEWING.value
+
+
+def _reject_if_review_window_closed(review: PeerReview) -> None:
+    """Refuse a write once pooled scoring has already locked in the review's batch.
+
+    Pooled reviews only (``review.batch_id is not None``): rejected once the batch has been
+    scored (``PeerReviewBatch.scored_at`` set) -- scoring already computed the median over
+    whatever had arrived, and there is no later pass to pick this up. Accepted any time before
+    that, including past ``due_at``: an ``EXPIRED`` review still counts if it lands before its
+    batch is scored.
+
+    Deliberately does not add an equivalent guard for a deadline-mode project already
+    ``COMPLETED``: nothing stopped that before this change either, and deadline mode must stay
+    provably unchanged by this issue -- tightening it is a separate decision, not a side effect
+    of adding pooling. Filed as a known gap for a future issue rather than fixed here.
+    """
+
+    if review.batch_id is not None and review.batch.scored_at is not None:
+        raise ReviewWindowClosedError(
+            "This review's batch has already been scored; the window is closed."
+        )
+
+
 def submit_peer_review(
     review: PeerReview,
     answers_by_criteria_id,
@@ -266,6 +338,7 @@ def submit_peer_review(
 ) -> PeerReview:
     """Record criteria responses and mark the review SUBMITTED; idempotent per review."""
     project = review.submission_under_evaluation.project
+    _reject_if_review_window_closed(review)
     review_criteria = tuple(project.criteria_for_project())
     validate_project_criteria_answers(review_criteria, answers_by_criteria_id)
 
@@ -283,6 +356,14 @@ def submit_peer_review(
         review.submitted_at = timezone.now()
         review.state = PeerReviewState.SUBMITTED.value
         review.save()
+
+    if review.batch_id is not None:
+        # Local import: pooling.py imports from this module (calculate_project_scoring,
+        # persist_scored_submissions, select_random_assignment); importing it at module level
+        # here would be circular.
+        from community_base.coursework.pooling import try_score_batch
+
+        try_score_batch(review.batch)
     return review
 
 
@@ -519,6 +600,8 @@ def calculate_project_scoring(project, peer_reviews) -> ProjectScoringResult:
 
 def _validate_project_scoreable(project) -> str | None:
     """Return an error message if the project can't be scored, else None."""
+    if project.uses_pooled_review:
+        return POOLED_PROJECT_SCORING_MESSAGE
     if project.points_to_pass == 0:
         return (
             "Project has no points to pass. Update the cohort's `project_passing_score` "
@@ -559,7 +642,14 @@ def _replace_project_evaluation_scores(submission_ids, all_scores) -> None:
     ProjectEvaluationScore.objects.bulk_create(all_scores)
 
 
-def _complete_scored_project(project, calculation: ProjectScoringResult) -> None:
+def persist_scored_submissions(calculation: ProjectScoringResult) -> None:
+    """Persist scored submission fields and their evaluation-score rows.
+
+    Shared by deadline mode's whole-project completion (below) and pooled mode's per-batch
+    completion (``pooling.try_score_batch``); neither touches ``review_state`` here, since the
+    two modes maintain it with different scopes (deadline mode mirrors the whole project's real
+    submissions, pooled mode mirrors one batch's members) and each sets it separately.
+    """
     ProjectSubmission.objects.bulk_update(
         calculation.submissions_to_update,
         [
@@ -576,8 +666,13 @@ def _complete_scored_project(project, calculation: ProjectScoringResult) -> None
     submission_ids = [submission.id for submission in calculation.submissions_to_update]
     _replace_project_evaluation_scores(submission_ids, calculation.evaluation_scores)
 
+
+def _complete_scored_project(project, calculation: ProjectScoringResult) -> None:
+    persist_scored_submissions(calculation)
+
     project.state = ProjectState.COMPLETED.value
     project.save()
+    set_review_state_for_project(project, SubmissionReviewState.SCORED.value)
     # Donor parity: the leaderboard refresh runs inside the scoring transaction.
     hooks.project_leaderboard_updater(project=project)
 

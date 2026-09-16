@@ -11,6 +11,7 @@ from community_base.coursework.models import (
     ProjectStatistics,
     ProjectSubmission,
     Submission,
+    SubmissionReviewState,
 )
 
 HOMEWORK_STAT_FIELDS = [
@@ -108,13 +109,33 @@ def calculate_homework_statistics(homework: Homework, force=False) -> HomeworkSt
 
 
 def calculate_raw_project_statistics(project: Project):
-    submission_rows = ProjectSubmission.objects.filter(project=project).values(*PROJECT_STAT_FIELDS)
+    # C5.2f: scope to review_state=SCORED, not every submission of the project. For deadline
+    # mode this is a no-op change (calculate_project_statistics below still requires the whole
+    # project COMPLETED before this runs, and every real submission mirrors SCORED at that same
+    # moment -- see review.set_review_state_for_project). For a pooled project this is what
+    # makes the statistic meaningful before every submission has been through a batch: it
+    # reflects only the submissions actually scored so far, not zeroes from ones still waiting.
+    submission_rows = ProjectSubmission.objects.filter(
+        project=project, review_state=SubmissionReviewState.SCORED.value
+    ).values(*PROJECT_STAT_FIELDS)
     submissions_data = list(submission_rows)
     return _calculate_field_distributions(submissions_data, PROJECT_STAT_FIELDS)
 
 
 def calculate_project_statistics(project: Project, force=False) -> ProjectStatistics:
-    if project.state != ProjectState.COMPLETED.value:
+    """Compute (or recompute) one project's score distributions.
+
+    Deadline mode: unchanged, requires the whole project ``COMPLETED`` (one operator action
+    closes every submission's review at once, so "statistics ready" and "project done" are the
+    same moment).
+
+    Pooled mode: no such moment exists, so this is a live statistic instead -- callable any time,
+    computed over whichever submissions have been scored by a batch so far
+    (``calculate_raw_project_statistics`` above), and expected to be recalculated again as later
+    batches complete. Never requires ``Project.state == COMPLETED``, which a pooled project never
+    reaches (``Project.uses_pooled_review``).
+    """
+    if not project.uses_pooled_review and project.state != ProjectState.COMPLETED.value:
         raise ValueError(f"Cannot calculate statistics for uncompleted project {project}")
 
     stats, created = ProjectStatistics.objects.get_or_create(project=project)
