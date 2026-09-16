@@ -27,7 +27,7 @@ issues that can start now.
 | `D0.1` | DataTalksClub/website | Add the package and replace the settings frameworks | D0.1d | no | todo | https://github.com/DataTalksClub/website/issues/407 |
 | `D0.1a` | DataTalksClub/website | Install the released kernel and local development tools | C2.4 | no | done | https://github.com/DataTalksClub/website/commit/f8f68c46e84353f59229cbdc113a85a43f5ca246 |
 | `D0.1b` | DataTalksClub/website | Inventory settings contracts and prove package parity | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/355 |
-| `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | blocked | https://github.com/DataTalksClub/website/issues/408 — merged as website 3fb9db07; dev deploy blocked on a fully green main CI run (website#345: the corpus-bound django test clusters are fixed, merged as website fc534fcf; the Playwright lane remains in flight); worker self-check IAM grant merged as aws-infra 3acefe43 but not yet effective: the protected development apply is blocked on the sandbox-account trust-policy bootstrap (aws-infra#56) |
+| `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | blocked | https://github.com/DataTalksClub/website/issues/408 — merged as website 3fb9db07; dev deploy waits on a fully green main CI run (website#345: the 2026-09-16 scheduled full regression is red on django, migrations, quality and playwright); the aws-infra#49 worker self-check grant is effective since 2026-09-13 (protected apply fec7f1fb green), and aws-infra#56 (terraform-plan identity trust; needs human sandbox-account IAM access) blocks only future aws-infra applies, not this deploy |
 | `D0.1d` | DataTalksClub/website | Retire old settings storage after the rollback window | D0.1c | no | todo | https://github.com/DataTalksClub/website/issues/385 |
 | `D0.2` | DataTalksClub/website | Site CI guard and pin bump workflow | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/354 |
 
@@ -50,7 +50,7 @@ issues that can start now.
 | `D1.1` | DataTalksClub/website | Replace DTC jobs with the package jobs app (relay backend) | C1.5, R1.1, R1.2 | no | done | https://github.com/DataTalksClub/website/issues/350 |
 | `D1.2a` | DataTalksClub/website | Install the mail app, move PendingUnsubscribe, commit the purpose templates | D1.1, R1.3, R1.4, R1.5 | no | done | https://github.com/DataTalksClub/website/issues/368 |
 | `D1.2b` | DataTalksClub/website | Send through the package mail app with the outbox idempotency keys | D1.2a | no | done | https://github.com/DataTalksClub/website/issues/370 |
-| `D1.2ca` | DataTalksClub/website | Send the remaining datamailer mail through the package mail app and retire the datamailer client | D1.2b | no | blocked | https://github.com/DataTalksClub/website/issues/409 — website#372 branch issue-372 gates green; dev deploy blocked on a fully green main CI run (website#345: the corpus-bound django test clusters are fixed, merged as website fc534fcf; the Playwright lane remains in flight); worker self-check IAM grant merged as aws-infra 3acefe43 but not yet effective: the protected development apply is blocked on the sandbox-account trust-policy bootstrap (aws-infra#56) |
+| `D1.2ca` | DataTalksClub/website | Send the remaining datamailer mail through the package mail app and retire the datamailer client | D1.2b | no | blocked | https://github.com/DataTalksClub/website/issues/409 — website#372 branch issue-372 gates green; dev deploy waits on the same fully green main CI run as D0.1c (website#345: 2026-09-16 scheduled full regression red); the worker self-check grant is effective since 2026-09-13; aws-infra#56 (human sandbox-account IAM fix) blocks only future aws-infra applies, not this deploy |
 | `D1.2cb` | DataTalksClub/website | Retire email_app and the data app, move the bridge settings | D1.2ca | no | todo | https://github.com/DataTalksClub/website/issues/372 (D1.2c umbrella spans D1.2ca and D1.2cb) |
 | `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2cb | yes | todo | https://github.com/DataTalksClub/website/issues/410 |
 | `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | done | https://github.com/AI-Shipping-Labs/website/commit/b8d0eb8096668c4b1478840dd3e1c5c4051834c6 |
@@ -89,12 +89,17 @@ issues that can start now.
 | `C3.5b` | community-base | Comments | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/90 |
 | `C3.5c` | community-base | Voting | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/93 |
 | `C3.6` | community-base | Identity and community capability checkpoint | C3.1e, C3.2, C3.3, C3.4, C3.5a, C3.5b, C3.5c | no | done | https://github.com/DataTalksClub/community-base/pull/96 |
-| `C3.7` | community-base | Identity donor compatibility checkpoint | C3.6, A3.2, D3.1 | no | todo | https://github.com/DataTalksClub/community-base/issues/270 |
+| `C3.7` | community-base | Identity donor compatibility checkpoint | C3.6, A3.2, D3.1e | no | todo | https://github.com/DataTalksClub/community-base/issues/270 |
 | `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2a | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1579 accepted at website 0b1c7eff, dev deploy green; human checks AC13/AC14 pending |
 | `A3.2` | AI-Shipping-Labs/website | Extension models for the remaining site-only user fields | A3.1 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1692 |
 | `A3.3` | AI-Shipping-Labs/website | Freeze weekend: adopt shared accounts, questionnaires, community, notifications, comments, voting | C5.3, C3.7, A3.2 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1693 |
-| `D3.1` | DataTalksClub/website | Extension models and user model rename | C5.2a | no | in-progress | https://github.com/DataTalksClub/website/issues/334 |
-| `D3.2` | DataTalksClub/website | Freeze weekend: adopt shared accounts and onboarding | C5.3, C3.7, D3.1 | yes | todo | https://github.com/DataTalksClub/website/issues/411 |
+| `D3.1a` | DataTalksClub/website | Additive extension schema (courses.LearnerProfile + accounts_ext) | C5.2a | no | in-progress | https://github.com/DataTalksClub/website/issues/390 — engineer lane claimed 2026-09-16 evening (worktree issue-390 off d7b3f10a; no pull request yet) |
+| `D3.1b` | DataTalksClub/website | Switch course-platform readers to courses.LearnerProfile | D3.1a | no | todo | https://github.com/DataTalksClub/website/issues/391 |
+| `D3.1c` | DataTalksClub/website | Switch identity-window readers to accounts_ext.IdentityState | D3.1b | no | todo | https://github.com/DataTalksClub/website/issues/392 |
+| `D3.1d` | DataTalksClub/website | Remove the twelve moved fields from CustomUser (contract) | D3.1c | no | todo | https://github.com/DataTalksClub/website/issues/393 |
+| `D3.1e` | DataTalksClub/website | Rename CustomUser to User (RenameModel, AUTH_USER_MODEL) | D3.1d | no | todo | https://github.com/DataTalksClub/website/issues/394 |
+| `D3.1f` | DataTalksClub/website | Add the AISL-origin reconciliation fields (schema only) | D3.1d | no | skipped | https://github.com/DataTalksClub/website/issues/395 (dropped by owner decision 2026-09-15: schema-only prep with zero readers; D3.2 owns the fields when scoped) |
+| `D3.2` | DataTalksClub/website | Freeze weekend: adopt shared accounts and onboarding | C5.3, C3.7, D3.1e | yes | todo | https://github.com/DataTalksClub/website/issues/411 |
 
 ## Phase 4
 
