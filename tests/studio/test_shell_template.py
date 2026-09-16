@@ -78,3 +78,19 @@ def test_shell_loads_no_extension_stylesheet_by_default():
     html = render_to_string("community_base/studio/base.html", {"request": shell_request()})
 
     assert "site-studio.css" not in html
+
+
+def test_sidebar_shows_no_calendly_destination_while_the_flag_is_off():
+    html = render_to_string("community_base/studio/base.html", {"request": shell_request()})
+
+    assert "Call hosts" not in html
+    assert "Booked calls" not in html
+
+
+def test_sidebar_lists_calendly_destinations_once_the_flag_turns_on(settings):
+    settings.COMMUNITY_BASE = {"CALENDLY": True}
+
+    html = render_to_string("community_base/studio/base.html", {"request": shell_request()})
+
+    assert "Call hosts" in html
+    assert "Booked calls" in html

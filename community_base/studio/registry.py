@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 
 from django.urls import NoReverseMatch, Resolver404, resolve, reverse
 
+from community_base.kernel import conf
+
 
 @dataclass(frozen=True)
 class Destination:
@@ -13,6 +15,7 @@ class Destination:
     route_names: tuple[str, ...]
     order: int
     superuser_only: bool = False
+    feature_flag: str = ""
 
 
 @dataclass(frozen=True)
@@ -155,6 +158,16 @@ def route_name_for(target) -> str:
         return ""
 
 
+def _visible(destination: Destination, is_superuser: bool) -> bool:
+    """Render a destination only when its staff scope and feature flag allow it."""
+
+    if destination.superuser_only and not is_superuser:
+        return False
+    if destination.feature_flag and not conf.get(destination.feature_flag):
+        return False
+    return True
+
+
 def active_state(request) -> dict:
     """Build render-ready sections and active state from the resolved route."""
 
@@ -167,7 +180,7 @@ def active_state(request) -> dict:
     for section in sections():
         rendered_destinations = []
         for destination in section.destinations:
-            if destination.superuser_only and not is_superuser:
+            if not _visible(destination, is_superuser):
                 continue
             is_active = route_name in destination.route_names
             if is_active:
@@ -185,7 +198,7 @@ def active_state(request) -> dict:
             rendered_group_destinations = []
             group_active = False
             for destination in group.destinations:
-                if destination.superuser_only and not is_superuser:
+                if not _visible(destination, is_superuser):
                     continue
                 is_active = route_name in destination.route_names
                 if is_active:

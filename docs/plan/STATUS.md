@@ -158,4 +158,4 @@ issues that can start now.
 | `C7.2` | community-base | Shared knowledge base app: wiki and docs | C2.4 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.4.1 |
 | `D7.1` | DataTalksClub/website | DTC wiki and docs onto the shared app | C7.2 | no | todo | https://github.com/DataTalksClub/website/issues/406 |
 | `A7.1` | AI-Shipping-Labs/website | AISL gains wiki and docs | C7.2 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1685 |
-| `C7.3` | community-base | Gate Calendly Studio surfaces behind the Calendly flag |  | no | todo | https://github.com/DataTalksClub/community-base/issues/261 |
+| `C7.3` | community-base | Gate Calendly Studio surfaces behind the Calendly flag |  | no | in-progress | https://github.com/DataTalksClub/community-base/issues/261 |

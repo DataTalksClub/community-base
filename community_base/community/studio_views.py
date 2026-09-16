@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from community_base.community.models import (
@@ -9,6 +10,7 @@ from community_base.community.models import (
     UnmatchedBookedCall,
 )
 from community_base.community.studio_forms import CallHostForm
+from community_base.kernel import conf
 from community_base.kernel.decorators import staff_required
 from community_base.studio.utils import studio_pagination_context
 
@@ -49,6 +51,8 @@ def audit_list(request):
 
 @staff_required
 def call_host_list(request):
+    if not conf.get("CALENDLY"):
+        raise Http404
     return render(
         request,
         "community_base/community/studio/call_host_list.html",
@@ -71,16 +75,22 @@ def _call_host_form(request, instance=None):
 
 @staff_required
 def call_host_create(request):
+    if not conf.get("CALENDLY"):
+        raise Http404
     return _call_host_form(request)
 
 
 @staff_required
 def call_host_edit(request, host_id):
+    if not conf.get("CALENDLY"):
+        raise Http404
     return _call_host_form(request, get_object_or_404(CallHost, pk=host_id))
 
 
 @staff_required
 def booked_call_list(request):
+    if not conf.get("CALENDLY"):
+        raise Http404
     rows = BookedCall.objects.select_related("host", "member")
     return render(
         request,
@@ -91,6 +101,8 @@ def booked_call_list(request):
 
 @staff_required
 def unmatched_call_list(request):
+    if not conf.get("CALENDLY"):
+        raise Http404
     rows = UnmatchedBookedCall.objects.select_related("member")
     return render(
         request,
