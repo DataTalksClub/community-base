@@ -225,6 +225,89 @@ Docs
 - `docs/plan/evidence/c5.1e-shared-curriculum-adoption.md` (already written; update only if a
   step above produces evidence that changes its conclusions).
 
+## C5.1f Pre-work checklist items
+
+Repository: community-base. Depends on: C5.1e.
+
+Goal: a learner who has enrolled sees a pre-course checklist (read the docs, set up the
+environment, install tools) as a real module in their course journey, not a static page.
+Package capability only in this issue -- no site wiring (owner instruction; see "What this issue
+does not do" below).
+
+Read first
+- `community_base/curriculum/models.py` (`Unit`, `UnitProgress`, `Course._countable_units`).
+- `community_base/curriculum/services.py` (`is_completed`, `mark_completed`, `unmark_completed`,
+  `completed_unit_ids` -- the existing per-unit completion pattern this issue reuses).
+- `community_base/curriculum/studio_forms.py` `UnitForm` (kind is already a plain `ModelForm`
+  field; a new choice needs no Studio form change).
+- `community_base/onboarding/models.py` -- confirmed out of scope: `OnboardingFlow` is one flow
+  per member (account-level, kind `profile|questionnaire|ai_chat|plan|custom`), not per-course or
+  per-cohort, so it cannot carry a course's pre-work checklist.
+
+Design: no new model. A pre-work checklist is an ordinary `Module` (for example a course's first
+module, titled "Before you start") whose `Unit` rows use a new `kind`. This reuses `Unit`'s
+existing shape end to end: `title` is the item's short title, `body`/`body_html` carries the
+description and an optional link (rendered markdown, consistent with every other unit), and
+`UnitProgress` (via `services.is_completed`/`mark_completed`/`unmark_completed`) already gives
+per-learner, per-item completable/checkable state with no parallel tracking model. `is_bonus`
+(already meaning "optional, not required") doubles as the item's required/optional flag --
+introducing a separate `is_required` field would duplicate that meaning on the same row.
+
+A dedicated `ChecklistItem` model was considered and rejected for this first slice: it would
+duplicate `Unit`'s title/body/sort_order/is_bonus fields and `UnitProgress`'s completion
+tracking for no behavioral gain, contradicting the instruction to reuse `UnitProgress`'s pattern
+rather than invent a parallel one.
+
+Steps
+1. `models.py`: add `UNIT_KIND_CHECKLIST_ITEM = "checklist_item"` to `UNIT_KINDS`
+   (`("checklist_item", "Checklist item")`). No new field, no new constraint.
+2. `Course._countable_units()`: exclude `kind=UNIT_KIND_CHECKLIST_ITEM` alongside the existing
+   `is_bonus` exclusions, and update its docstring. Pre-work items are a separate readiness
+   checklist, not lesson/homework/event course progress; without this exclusion a required
+   checklist item would silently change existing `total_units()`/`completed_units()` percentages.
+3. `services.py`: add `get_checklist_items(module) -> list[Unit]` (units of `module` with
+   `kind=UNIT_KIND_CHECKLIST_ITEM`, ordered) and a frozen dataclass `ChecklistItemState(unit,
+   is_required, is_completed)` plus `get_checklist_state(user, module) -> list[ChecklistItemState]`
+   built on the existing `completed_unit_ids` batched read.
+4. Migration: `uv run python testproject/manage.py makemigrations curriculum` (new migration
+   file; `curriculum`'s only migration remains untagged but this is a pure additive choices
+   change, not the kind of rewrite C5.1e regenerated in place).
+5. No parser change: `parsers_aisl.py` `_UNIT_KINDS` and the DTC parser's accepted kind set stay
+   `{lesson, homework, event}`. Checklist items are Studio/API-authored only in this slice;
+   teaching either import format to emit them is separate follow-up work, not this issue.
+6. No public template, public view, or public API change. `views.py`/`api_views.py` already
+   render units generically with no kind-specific branching, so a checklist-kind unit renders
+   like any other unit if a caller reaches one -- acceptable for this package-only slice since
+   neither site's real course pages can reach `cb_curriculum.Unit` at all yet (see the phase
+   exit criteria: `A5.1`/`A5.2`/`D5.1`/`D5.2` are still `todo`; only when a site adopts the
+   package's curriculum app do learner-facing checklist templates/views become that site's own
+   follow-up work).
+
+What this issue does not do
+- No dtc-website or ai-shipping-labs template, view, or registration-flow change (each site's
+  own process and review, once curriculum is adopted there).
+- No Studio dedicated checklist page (the generic Unit Studio form already covers authoring).
+- No import-pipeline support for checklist items.
+
+Verification
+- `uv run pytest tests/curriculum` -> pass.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- `uv run pytest tests/test_boundaries.py` -> pass (no site imports).
+- New tests: `Course.total_units()`/`completed_units()` unaffected by adding checklist items to a
+  module; `get_checklist_state` reflects `UnitProgress` completion and `is_bonus` as
+  required/optional; a required and an optional checklist item both toggle independently via the
+  existing `mark_completed`/`unmark_completed` services.
+
+Done when
+- [ ] `Unit.kind` accepts `checklist_item`.
+- [ ] `Course._countable_units()` excludes checklist items from the progress denominator.
+- [ ] `get_checklist_items`/`get_checklist_state` exist and are tested.
+- [ ] No parser, public template, public view, or public API behavior changed for existing kinds.
+
+Docs
+- `community_base/curriculum/README.md`: document the new kind and the checklist services under
+  the existing `Unit`/`UnitProgress` rows.
+
 ## C5.2a Coursework models
 
 Repository: community-base. Depends on: C5.1d.
