@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from community_base.events.models import Event, EventFeedback, EventRegistration
 from community_base.events.routing import event_url
-from community_base.events.services import add_alias, reserve_public_id
+from community_base.events.services import reserve_public_id
 from community_base.events.tokens import generate_registration_token
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -63,14 +63,12 @@ def test_event_detail_uses_configured_canonical_style(client, settings, style, e
     assert redirected.url == expected
 
 
-def test_event_alias_redirects_to_current_canonical_route(client):
-    item = event()
-    add_alias(item, "/events/legacy/portable")
+def test_superseded_path_below_events_returns_404(client):
+    event()
 
     response = client.get("/events/legacy/portable/")
 
-    assert response.status_code == 301
-    assert response.url == "/events/portable-event/"
+    assert response.status_code == 404
 
 
 def test_list_renders_only_public_events(client):

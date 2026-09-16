@@ -13,7 +13,7 @@ from community_base.events.anonymous_registration import (
 from community_base.events.feedback import submit_feedback
 from community_base.events.forms import AnonymousEventRegistrationForm, EventFeedbackForm
 from community_base.events.integrations.calendar import generate_ics
-from community_base.events.models import Event, EventAlias, EventRegistration
+from community_base.events.models import Event, EventRegistration
 from community_base.events.registration import register_for_event, unregister_from_event
 from community_base.events.routing import event_url
 from community_base.events.services import can_register_for_event
@@ -290,14 +290,3 @@ def event_calendar(request, slug, public_id=None):
     )
     response["Content-Disposition"] = f'attachment; filename="{event.slug}.ics"'
     return _private(response) if request.user.is_authenticated else response
-
-
-@require_GET
-def event_alias(request, alias):
-    path = request.path.rstrip("/")
-    event_alias = get_object_or_404(
-        EventAlias.objects.select_related("event"),
-        source_path=path,
-        event__status__in=PUBLIC_STATUSES,
-    )
-    return redirect(event_url(event_alias.event), permanent=True)

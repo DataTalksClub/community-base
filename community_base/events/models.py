@@ -31,13 +31,6 @@ SERIES_CADENCES = (("weekly", "Weekly"), ("none", "No fixed cadence"))
 WEEKDAYS = tuple(
     enumerate(("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
 )
-ALIAS_KINDS = (
-    ("legacy_date_path", "Legacy date/title path"),
-    ("legacy_uuid", "Legacy UUID path"),
-    ("legacy_path", "Legacy path"),
-    ("title_slug", "Previous title slug"),
-    ("reviewed", "Reviewed alias"),
-)
 
 
 class TimestampedModel(models.Model):
@@ -232,43 +225,6 @@ class EventHost(models.Model):
 
     def __str__(self):
         return f"{self.event} - {self.host} ({self.role})"
-
-
-class EventAlias(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    event = models.ForeignKey(Event, on_delete=models.PROTECT, related_name="aliases")
-    source_path = models.CharField(max_length=1024, unique=True)
-    kind = models.CharField(max_length=24, choices=ALIAS_KINDS)
-    reason = models.CharField(max_length=255)
-    source_repository = models.CharField(max_length=255, blank=True, default="")
-    source_revision = models.CharField(max_length=64, blank=True, default="")
-    source_key = models.CharField(max_length=512, blank=True, default="")
-    activated_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ("source_path",)
-        constraints = (
-            models.CheckConstraint(
-                condition=Q(source_path__startswith="/events/")
-                & ~Q(source_path__contains="?")
-                & ~Q(source_path__contains="#"),
-                name="events_alias_path_shape",
-            ),
-        )
-
-    def __str__(self):
-        return self.source_path
-
-    def clean(self):
-        super().clean()
-        if (
-            not self.source_path.startswith("/events/")
-            or "?" in self.source_path
-            or "#" in self.source_path
-        ):
-            raise ValidationError(
-                {"source_path": "Event aliases must be clean paths below /events/."}
-            )
 
 
 class EventPublicIdSequence(models.Model):

@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
-from community_base.events.models import Event, EventAlias, EventPublicIdSequence, EventSeries
+from community_base.events.models import Event, EventPublicIdSequence, EventSeries
 from community_base.events.registration import enroll_series_registrants_in_event
 from community_base.events.signals import event_cancelled, event_published, event_rescheduled
 from community_base.kernel.access import can_access
@@ -64,21 +64,6 @@ def reserve_public_id(event, public_id):
         sequence.next_public_id = public_id + 1
         sequence.save(update_fields=("next_public_id", "updated_at"))
     return public_id
-
-
-def add_alias(event, source_path, *, kind="reviewed", reason="Reviewed legacy path", **source):
-    alias = EventAlias(
-        event=event,
-        source_path=str(source_path),
-        kind=kind,
-        reason=str(reason)[:255],
-        source_repository=str(source.get("source_repository", ""))[:255],
-        source_revision=str(source.get("source_revision", ""))[:64],
-        source_key=str(source.get("source_key", ""))[:512],
-    )
-    alias.full_clean()
-    alias.save()
-    return alias
 
 
 def _after_commit(signal, event, **values):

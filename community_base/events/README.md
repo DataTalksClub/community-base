@@ -43,8 +43,8 @@ event API definitions.
 ## Public routes and templates
 
 Set `COMMUNITY_BASE["EVENT_URL_STYLE"]` to `slug` or `public_id`, and keep both route forms mounted
-so requests to the other form receive a permanent redirect to the configured canonical URL.
-Use `EventAlias` rows to preserve reviewed historical paths.
+so requests to the other form receive a permanent redirect to the configured canonical URL. An
+event is addressed by its canonical URL only; superseded paths return 404.
 
 The package owns these stable URL names:
 
