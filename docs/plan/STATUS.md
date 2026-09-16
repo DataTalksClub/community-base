@@ -105,7 +105,7 @@ issues that can start now.
 | `C4.1b` | community-base | Registration, reminders and feedback | C4.1a | no | done | https://github.com/DataTalksClub/community-base/pull/103 |
 | `C4.1c` | community-base | Event integrations and job handlers | C4.1b | no | done | https://github.com/DataTalksClub/community-base/pull/107 |
 | `C4.1d` | community-base | Event pages, Studio and APIs | C4.1c | no | done | https://github.com/DataTalksClub/community-base/pull/110 |
-| `C4.1e` | community-base | Remove event aliases and legacy path compatibility | C4.1d | no | in-progress | https://github.com/DataTalksClub/community-base/issues/259 |
+| `C4.1e` | community-base | Remove event aliases and legacy path compatibility | C4.1d | no | in-progress | https://github.com/DataTalksClub/community-base/pull/264 |
 | `C4.2` | community-base | Events capability checkpoint | C4.1d, C4.1e | no | done | https://github.com/DataTalksClub/community-base/pull/113 |
 | `C4.3` | community-base | Events donor compatibility checkpoint | C4.2, A4.1 | no | todo |  |
 | `A4.2` | AI-Shipping-Labs/website | Freeze weekend: adopt shared events | C5.3, C4.3, A4.1 | yes | todo |  |
