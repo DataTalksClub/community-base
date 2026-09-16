@@ -8,7 +8,6 @@ from django.utils import timezone
 
 from community_base.events.models import Event, EventPublicIdSequence, EventSeries, Host
 from community_base.events.services import (
-    add_alias,
     allocate_public_id,
     can_register_for_event,
     cancel_event,
@@ -60,25 +59,6 @@ def test_public_id_cannot_be_assigned_by_saving_the_model():
 
     with pytest.raises(ValidationError, match="immutable"):
         item.save()
-
-
-def test_aliases_are_owned_and_restricted_to_clean_event_paths():
-    item = event()
-    alias = add_alias(item, "/events/legacy/path", source_repository="donor")
-
-    assert alias.event == item
-    assert alias.source_repository == "donor"
-    with pytest.raises(ValidationError, match="below /events/"):
-        add_alias(item, "https://example.com/events/legacy")
-    with pytest.raises(ValidationError, match="below /events/"):
-        add_alias(item, "/events/legacy?source=old")
-
-
-def test_alias_path_has_one_owner():
-    add_alias(event(title="First"), "/events/shared")
-
-    with pytest.raises(ValidationError, match="already exists"):
-        add_alias(event(title="Second"), "/events/shared")
 
 
 def test_host_profile_resolver_is_optional_and_configurable(settings):

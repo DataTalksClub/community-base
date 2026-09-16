@@ -18,5 +18,4 @@ urlpatterns = [
     path("<slug:slug>/calendar.ics", views.event_calendar, name="event_calendar"),
     path("<int:public_id>/<slug:slug>/", views.event_detail, name="event_detail"),
     path("<slug:slug>/", views.event_detail, name="event_detail"),
-    path("<path:alias>/", views.event_alias, name="event_alias"),
 ]
