@@ -362,9 +362,14 @@ commit, not a stale snapshot. It can also be run by hand against a non-default r
 3. The workflow checks out `DataTalksClub/website` and `AI-Shipping-Labs/website` (default branch,
    or the ref input), links the in-progress package into each with that site's own P1 tool
    (`scripts/community_base_link.py` / `make core-link`), and runs that site's real Django check
-   and test commands, in a disposable checkout that is discarded when the job ends.
-4. Verify: both jobs in the run are green. A red job names the site and step; open its log for the
-   failing test names.
+   and test commands, in a disposable checkout that is discarded when the job ends. Each job runs
+   the site suite twice in the same checkout: once against the site's own pinned package release
+   (the baseline) and once against the in-progress package.
+4. Verify: both jobs in the run are green. The verdict is the failure-set comparison, not either
+   suite alone: a job fails only when the linked run has failures the baseline run does not
+   (`comm -13` of the normalized `FAIL:`/`ERROR:` sets). A site whose default branch is red on
+   its own pin keeps the job green as long as the in-progress package adds nothing new; its
+   pre-existing failures stay visible in the job log and are reported to the site's own process.
 5. D15 exempts only this package's own CI running against a disposable site checkout it never
    commits or pushes to. D0.2 is unchanged: each site's own CI still fails closed against a
    local/path/branch package source, and a site pull request still never points at this package's
