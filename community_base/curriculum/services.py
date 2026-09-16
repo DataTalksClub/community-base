@@ -9,6 +9,7 @@ from django.utils import timezone
 from community_base.curriculum.models import (
     SOURCE_AUTO_PROGRESS,
     SOURCE_MANUAL,
+    UNIT_KIND_CHECKLIST_ITEM,
     Cohort,
     Course,
     Enrollment,
@@ -227,3 +228,38 @@ def get_next_unit_for_user(course: Course, user):
         if unit.pk not in completed:
             return unit
     return None
+
+
+def get_checklist_items(module: Module) -> list[Unit]:
+    """Return ``module``'s checklist items (``kind=checklist_item``) in reading order."""
+
+    return list(module.units.filter(kind=UNIT_KIND_CHECKLIST_ITEM).order_by("sort_order", "pk"))
+
+
+@dataclass(frozen=True)
+class ChecklistItemState:
+    """One checklist item with its per-learner completion state.
+
+    ``is_required`` mirrors the unit's ``is_bonus`` flag: a required item has
+    ``is_bonus=False``, an optional item has ``is_bonus=True`` -- the same field the rest of
+    curriculum already uses for "optional, tracked and displayed but not required".
+    """
+
+    unit: Unit
+    is_required: bool
+    is_completed: bool
+
+
+def get_checklist_state(user, module: Module) -> list[ChecklistItemState]:
+    """Return ``module``'s checklist items with ``user``'s completion state for each."""
+
+    items = get_checklist_items(module)
+    completed = completed_unit_ids(user, items)
+    return [
+        ChecklistItemState(
+            unit=item,
+            is_required=not item.is_bonus,
+            is_completed=item.pk in completed,
+        )
+        for item in items
+    ]

@@ -39,10 +39,12 @@ COHORT_MODES = (
 UNIT_KIND_LESSON = "lesson"
 UNIT_KIND_HOMEWORK = "homework"
 UNIT_KIND_EVENT = "event"
+UNIT_KIND_CHECKLIST_ITEM = "checklist_item"
 UNIT_KINDS = (
     (UNIT_KIND_LESSON, "Lesson"),
     (UNIT_KIND_HOMEWORK, "Homework"),
     (UNIT_KIND_EVENT, "Event"),
+    (UNIT_KIND_CHECKLIST_ITEM, "Checklist item"),
 )
 SOURCE_MANUAL = "manual"
 SOURCE_AUTO_PROGRESS = "auto_progress"
@@ -222,11 +224,15 @@ class Course(SourceProvenanceMixin, models.Model):
 
         Every unit counts, including ``kind=event`` units, except a unit (or its module, or
         that module's parent module) marked ``is_bonus`` -- tracked and displayed, but
-        excluded from the denominator (owner decision, community-base#252).
+        excluded from the denominator (owner decision, community-base#252). ``kind=checklist_item``
+        units are excluded outright: a pre-work checklist is a separate readiness track, not
+        lesson/homework/event course progress, regardless of whether an individual item is
+        marked required (``is_bonus=False``) or optional (``is_bonus=True``).
         """
 
         return (
             Unit.objects.filter(module__course=self)
+            .exclude(kind=UNIT_KIND_CHECKLIST_ITEM)
             .exclude(is_bonus=True)
             .exclude(module__is_bonus=True)
             .exclude(module__parent__is_bonus=True)
