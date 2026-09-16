@@ -21,16 +21,20 @@ def make_page(*, section="docs", slug="page", title="Page", body="", parent=None
 
 
 def make_tree():
-    index = make_page(
-        slug="index", title="Documentation", body="Welcome.", nav_order=1
-    )
+    index = make_page(slug="index", title="Documentation", body="Welcome.", nav_order=1)
     setup = make_page(
         slug="setup", title="Setup", body="Install the CLI.", parent=index, nav_order=10
     )
     advanced = make_page(
-        slug="advanced", title="Advanced usage", body="Power-user flags.", parent=index, nav_order=20
+        slug="advanced",
+        title="Advanced usage",
+        body="Power-user flags.",
+        parent=index,
+        nav_order=20,
     )
-    make_page(section=SECTION_WIKI, slug="billing-faq", title="Billing FAQ", body="**billing** help")
+    make_page(
+        section=SECTION_WIKI, slug="billing-faq", title="Billing FAQ", body="**billing** help"
+    )
     return index, setup, advanced
 
 

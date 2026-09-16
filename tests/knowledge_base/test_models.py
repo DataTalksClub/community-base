@@ -12,7 +12,9 @@ pytestmark = pytest.mark.django_db
 
 
 def make_page(*, section=SECTION_DOCS, slug="page", title="Page", body="", parent=None, **fields):
-    page = KnowledgeBasePage(section=section, slug=slug, title=title, body=body, parent=parent, **fields)
+    page = KnowledgeBasePage(
+        section=section, slug=slug, title=title, body=body, parent=parent, **fields
+    )
     page.full_clean()
     page.save()
     return page

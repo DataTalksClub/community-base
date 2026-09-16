@@ -125,6 +125,7 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
 | `community_base.events` | `events` | as in AISL | AISL `events` | 4 |
 | `community_base.curriculum` | `cb_curriculum` | `Course`, `Cohort`, `Module`, `Unit`, `Enrollment`, `UnitProgress`, `Certificate` | AISL `content` course models, DTC `courses` provenance and cohort split | 5 |
 | `community_base.coursework` | `cb_coursework` | `Homework`, `Question`, `Submission`, `Answer`, `Project`, `ProjectSubmission`, `ReviewCriteria`, `PeerReview`, `Leaderboard*` | DTC `courses` | 5 |
+| `community_base.knowledge_base` | `cb_knowledge_base` | `KnowledgeBasePage` | DTC wiki + docs projections (hierarchy, sanitizer allowlist); new model (D16) | 7 |
 
 Label rules:
 
@@ -148,7 +149,7 @@ community-base/
     __init__.py             __version__
     kernel/  config/  api/  jobs/  mail/  accounts/  questionnaires/  onboarding/
     community/  content_sync/  studio/  events/  notifications/  comments/  voting/
-    curriculum/  coursework/
+    curriculum/  coursework/  knowledge_base/
     templates/community_base/...      shared templates, namespaced
     static/community_base/...         Studio Tailwind bundle and JS
   testproject/
