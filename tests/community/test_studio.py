@@ -81,7 +81,31 @@ def test_access_studio_never_projects_invite_url(client, settings):
     assert secret.encode() not in response.content
 
 
-def test_staff_can_create_and_edit_call_host(client):
+def test_calendly_flag_gates_the_calendly_studio_routes(client, settings):
+    staff = account("staff@example.com", is_staff=True)
+    host = CallHost.objects.create(
+        name="Ada",
+        slug="ada",
+        booking_url="https://calendly.com/ada/community",
+    )
+    client.force_login(staff)
+    routes = (
+        reverse("community_studio_call_host_list"),
+        reverse("community_studio_call_host_create"),
+        reverse("community_studio_call_host_edit", args=(host.pk,)),
+        reverse("community_studio_booked_call_list"),
+        reverse("community_studio_unmatched_call_list"),
+    )
+
+    settings.COMMUNITY_BASE = {"CALENDLY": False}
+    assert [client.get(url).status_code for url in routes] == [404] * len(routes)
+
+    settings.COMMUNITY_BASE = {"CALENDLY": True}
+    assert [client.get(url).status_code for url in routes] == [200] * len(routes)
+
+
+def test_staff_can_create_and_edit_call_host(client, settings):
+    settings.COMMUNITY_BASE = {"CALENDLY": True}
     staff = account("staff@example.com", is_staff=True)
     client.force_login(staff)
     create_url = reverse("community_studio_call_host_create")

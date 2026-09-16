@@ -10,6 +10,7 @@ from community_base.studio.registry import (
     register,
     sections,
 )
+from community_base.studio.route_checks import route_claims
 
 
 def destination(key="items", routes=("studio_item_list", "studio_item_detail"), order=10):
@@ -236,3 +237,45 @@ def test_superuser_group_destinations_follow_destination_rules():
     superuser_state = active_state(superuser_request)
     security = next(row for row in superuser_state["sections"] if row["section"].slug == "security")
     assert [item["destination"].key for item in security["groups"][0]["destinations"]] == ["keys"]
+
+
+def test_community_calendly_destinations_stay_hidden_while_the_flag_is_off():
+    request = SimpleNamespace(
+        resolver_match=SimpleNamespace(url_name="studio_dashboard"),
+        user=SimpleNamespace(is_superuser=False),
+    )
+
+    community = next(
+        row for row in active_state(request)["sections"] if row["section"].slug == "community"
+    )
+
+    keys = [item["destination"].key for item in community["destinations"]]
+    assert "community-call-hosts" not in keys
+    assert "community-booked-calls" not in keys
+    claims = route_claims()
+    for route_name in (
+        "community_studio_call_host_list",
+        "community_studio_call_host_create",
+        "community_studio_call_host_edit",
+        "community_studio_booked_call_list",
+        "community_studio_unmatched_call_list",
+    ):
+        assert claims[route_name] == ["destination:community/community-call-hosts"] or claims[
+            route_name
+        ] == ["destination:community/community-booked-calls"]
+
+
+def test_community_calendly_destinations_render_when_the_flag_is_on(settings):
+    settings.COMMUNITY_BASE = {"CALENDLY": True}
+    request = SimpleNamespace(
+        resolver_match=SimpleNamespace(url_name="studio_dashboard"),
+        user=SimpleNamespace(is_superuser=False),
+    )
+
+    community = next(
+        row for row in active_state(request)["sections"] if row["section"].slug == "community"
+    )
+
+    keys = [item["destination"].key for item in community["destinations"]]
+    assert "community-call-hosts" in keys
+    assert "community-booked-calls" in keys

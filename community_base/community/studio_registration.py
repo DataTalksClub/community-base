@@ -33,6 +33,7 @@ def register_studio():
                         "community_studio_call_host_edit",
                     ),
                     order=30,
+                    feature_flag="CALENDLY",
                 ),
                 Destination(
                     key="community-booked-calls",
@@ -43,6 +44,7 @@ def register_studio():
                         "community_studio_unmatched_call_list",
                     ),
                     order=40,
+                    feature_flag="CALENDLY",
                 ),
             ),
         )
