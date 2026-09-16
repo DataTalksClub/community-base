@@ -238,10 +238,17 @@ def projects_eval_view(request, course_slug: str, cohort_identifier: str, projec
 
     cohort = _cohort_or_404(course_slug, cohort_identifier)
     project = get_object_or_404(Project, cohort=cohort, slug=project_slug)
+    # Pooled mode has no single peer-reviewing phase (C5.2f): the section stays open at the
+    # project level -- individual reviews gate through review_accepts_submission instead -- until
+    # an operator closes the project outright.
+    if project.uses_pooled_review:
+        eval_closed = project.state == ProjectState.CLOSED.value
+    else:
+        eval_closed = project.state != ProjectState.PEER_REVIEWING.value
     context = {
         **_page_context(cohort),
         "project": project,
-        "eval_closed": project.state != ProjectState.PEER_REVIEWING.value,
+        "eval_closed": eval_closed,
     }
     if not request.user.is_authenticated:
         return render(request, "coursework/eval.html", {**context, "is_authenticated": False})
@@ -271,6 +278,10 @@ def _eval_submit_context(request, cohort, project, review) -> dict:
     criteria = list(project.criteria_for_project())
     responses = {response.criteria_id: response for response in review.criteria_responses.all()}
     vote_counts = votes.get_project_vote_counts(request.user, cohort)
+    # C5.2f: gates per review, not per project, for a pooled project (its batch, if any, not a
+    # project-wide PEER_REVIEWING phase). Provably identical to the prior expression for a dated
+    # cohort -- see peer_reviews.review_accepts_submission.
+    accepting_submissions = peer_reviews.review_accepts_submission(review, project)
     return {
         **_page_context(cohort),
         "project": project,
@@ -279,8 +290,8 @@ def _eval_submit_context(request, cohort, project, review) -> dict:
         "criteria_response_pairs": [
             (criterion, responses.get(criterion.id)) for criterion in criteria
         ],
-        "accepting_submissions": project.state == ProjectState.PEER_REVIEWING.value,
-        "disabled": project.state != ProjectState.PEER_REVIEWING.value,
+        "accepting_submissions": accepting_submissions,
+        "disabled": not accepting_submissions,
         "disable_learning_in_public": (
             enrollment.disable_learning_in_public if enrollment is not None else False
         ),
@@ -321,7 +332,7 @@ def projects_eval_submit(
         )
 
     if request.method == "POST":
-        if project.state != ProjectState.PEER_REVIEWING.value:
+        if not peer_reviews.review_accepts_submission(review, project):
             messages.error(request, "Peer review is closed for this project.")
         else:
             answers_by_criteria_id = {

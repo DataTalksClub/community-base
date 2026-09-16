@@ -14,6 +14,7 @@ from community_base.coursework.models import (
     ProjectSubmission,
     ReviewCriteria,
     ReviewCriteriaTypes,
+    SubmissionReviewState,
 )
 from community_base.coursework.projects import submit_project
 from community_base.coursework.review import (
@@ -28,6 +29,7 @@ from community_base.coursework.review import (
     submit_peer_review,
 )
 from community_base.coursework.statistics import calculate_project_statistics
+from community_base.mail.models import EmailDelivery
 from tests.coursework.test_models import coursework_cohort, enrollment_for
 from tests.coursework.test_projects import lip_links, make_project
 
@@ -80,6 +82,22 @@ def submit_all_reviews(project, skip=None, links=("https://example.com/watch",))
             time_spent_reviewing=1.5,
             note_to_peer="well done",
         )
+
+
+def test_assign_and_score_refuse_a_pooled_project():
+    cohort = coursework_cohort(slug="pooled-guard", mode="self_paced")
+    project = make_project(cohort)
+
+    assign_status, assign_message = assign_peer_reviews_for_project(project)
+    assert assign_status is ProjectActionStatus.FAIL
+    assert "pooled assignment" in assign_message
+    assert PeerReview.objects.count() == 0
+
+    score_status, score_message = score_project(project)
+    assert score_status is ProjectActionStatus.FAIL
+    assert "pooled batch" in score_message
+    project.refresh_from_db()
+    assert project.state == ProjectState.COLLECTING_SUBMISSIONS.value
 
 
 def test_assign_peer_reviews_preconditions():
@@ -141,6 +159,16 @@ def test_assign_peer_reviews_builds_required_graph_excluding_volunteers():
         }
         assert len(targets) == 2
 
+    # C5.2g: one review_assigned email per reviewer, grouped, not one per PeerReview row (8
+    # rows, 4 reviewers); the volunteer never entered the assignment and gets none.
+    deliveries = EmailDelivery.objects.filter(purpose="coursework.review_assigned")
+    assert deliveries.count() == 4
+    assert set(deliveries.values_list("recipient_email", flat=True)) == {
+        submission.student.email for submission in real_submissions
+    }
+    assert all(delivery.context_data["review_count"] == 2 for delivery in deliveries)
+    assert volunteer.email not in set(deliveries.values_list("recipient_email", flat=True))
+
 
 def test_project_flow_assigns_reviews_scores_and_computes_statistics():
     cohort = coursework_cohort()
@@ -155,9 +183,17 @@ def test_project_flow_assigns_reviews_scores_and_computes_statistics():
 
     with pytest.raises(ValueError):
         calculate_project_statistics(project)
+    for submission in submissions:
+        submission.refresh_from_db()
+        assert submission.review_state == SubmissionReviewState.AWAITING_ASSIGNMENT.value
 
     status, _message = assign_peer_reviews_for_project(project)
     assert status is ProjectActionStatus.OK
+    # C5.2f: review_state mirrors Project.state in bulk at the same transition, for every real
+    # submission -- not just the ones that end up with reviews.
+    for submission in submissions:
+        submission.refresh_from_db()
+        assert submission.review_state == SubmissionReviewState.IN_REVIEW.value
     submit_all_reviews(project)
 
     close_review_window(project)
@@ -168,6 +204,7 @@ def test_project_flow_assigns_reviews_scores_and_computes_statistics():
 
     for submission in submissions:
         submission.refresh_from_db()
+        assert submission.review_state == SubmissionReviewState.SCORED.value
         assert submission.project_score == 12
         assert submission.peer_review_score == 6
         assert submission.project_learning_in_public_score == 2

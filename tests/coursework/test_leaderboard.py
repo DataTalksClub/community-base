@@ -10,12 +10,14 @@ from django.utils import timezone
 from community_base.accounts.models import User
 from community_base.coursework.enrollment_flags import set_learning_in_public_disabled
 from community_base.coursework.leaderboard import (
+    completed_project_submissions_prefetch,
     current_student_leaderboard_enrollment,
     ensure_enrollment,
     file_leaderboard_complaint,
     get_leaderboard_data,
     leaderboard_context,
     resolve_leaderboard_complaint,
+    serialize_leaderboard_enrollment,
     set_enrollment_preference,
     update_leaderboard,
 )
@@ -391,3 +393,49 @@ def test_score_homework_submissions_scores_updates_leaderboard_and_statistics():
     assert good_enrollment.total_score == 2
     assert good_enrollment.position_on_leaderboard == 1
     assert HomeworkStatistics.objects.filter(homework=hw).exists()
+
+
+def test_completed_project_submissions_prefetch_reflects_real_deadline_flow():
+    """C5.2f: the prefetch now filters on review_state, not Project.state.
+
+    Proves the switch is a no-op for a dated cohort by driving the real
+    assign -> submit -> score pipeline (not a fixture that sets Project.state directly) and
+    checking the exact output the leaderboard score breakdown renders.
+    """
+
+    from community_base.coursework.review import (
+        assign_peer_reviews_for_project,
+        score_project,
+    )
+    from tests.coursework.test_peer_review import (
+        close_review_window,
+        make_criteria,
+        make_submissions,
+        submit_all_reviews,
+    )
+    from tests.coursework.test_projects import make_project
+
+    cohort = coursework_cohort(slug="lb-parity")
+    cohort.project_passing_score = 1
+    cohort.save()
+    project = make_project(
+        cohort,
+        number_of_peers_to_evaluate=2,
+        submission_due_date=timezone.now() - datetime.timedelta(days=1),
+    )
+    make_criteria(project)
+    submissions = make_submissions(project, cohort, 3)
+
+    assign_peer_reviews_for_project(project)
+    submit_all_reviews(project)
+    close_review_window(project)
+    status, _message = score_project(project)
+    assert status.value == "OK"
+
+    prefetch = completed_project_submissions_prefetch()
+    enrollment = (
+        Enrollment.objects.filter(id=submissions[0].enrollment_id).prefetch_related(prefetch).get()
+    )
+    data = serialize_leaderboard_enrollment(enrollment)
+    assert len(data["passed_projects"]) == 1
+    assert data["passed_projects"][0]["slug"] == project.slug

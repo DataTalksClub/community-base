@@ -484,9 +484,361 @@ Verification
 - `testproject`: the coursework Studio flows cover homework rescoring, peer review
   administration and leaderboard recompute on imported data.
 
+## C5.2f Peer review assessment modes: per-submission lifecycle, pooled batch formation and assignment
+
+Repository: community-base. Depends on: C5.2e.
+
+Design settled in issue DataTalksClub/community-base#256 (owner correction and pooled-deadline
+decision comments). Read those before changing code; they override the issue body's first draft.
+
+Read first
+- `community_base/coursework/models.py` (`Project`, `ProjectState`, `ProjectSubmission`,
+  `PeerReview`, `PeerReviewState`).
+- `community_base/coursework/review.py` (`assign_peer_reviews_for_project`, `score_project`,
+  `select_random_assignment`, `group_peer_reviews`, `score_submission`).
+- `community_base/coursework/views.py` (`project_view`, `projects_eval_view`,
+  `_eval_submit_context`, `projects_eval_submit`) for every place that reads `Project.state`.
+- `community_base/coursework/leaderboard.py` (`completed_project_submissions_prefetch`).
+- `community_base/coursework/statistics.py` (`calculate_project_statistics`).
+- `community_base/curriculum/models.py` `Cohort.mode` and the `cb_cohort_self_paced_unique`
+  constraint (one self-paced cohort per course).
+- For reference only, do not copy verbatim: `~/git/ai-shipping-labs/content/services/peer_review_service.py`
+  `form_batches_for_course` (round-robin batch assignment) and
+  `check_and_update_submission_status` (per-submission completion check). It has no criteria
+  model, no volunteer reviewers and no statistics; do not narrow the package to match it.
+
+Design decision: state means something different in pooling mode, not a parallel model
+
+A cohort-wide `CLOSED -> COLLECTING_SUBMISSIONS -> PEER_REVIEWING -> COMPLETED` lifecycle
+describes every submission in a project moving through the same phase together. A pool has no
+such moment: submissions arrive continuously and are assigned to review batches independently,
+so one learner can be reviewing while another is still waiting to submit. `Project.state` keeps
+its current four values and current meaning for a `cohort.mode == "cohort"` project (dated,
+deadline-driven, unchanged). For a `cohort.mode == "self_paced"` project, `Project.state` narrows
+to a binary switch the two values it already has for "open": it starts and stays
+`COLLECTING_SUBMISSIONS` (submissions accepted at any time) until an operator sets it to `CLOSED`
+(no more submissions or pool formation accepted); `PEER_REVIEWING` and `COMPLETED` are never set
+on a pooled project and must be rejected if attempted. `assign_peer_reviews_for_project` and
+`score_project` (the deadline-only, whole-project functions) gain a precondition that refuses to
+run against a `self_paced` cohort's project, so a Studio operator cannot invoke the wrong mode by
+accident.
+
+Per-submission progress -- which the cohort-wide states cannot express for a pool -- moves to a
+new `ProjectSubmission.review_state` field (`AWAITING_ASSIGNMENT`, `IN_REVIEW`, `SCORED`), the
+same three phases as before but scoped to the learner instead of the project. This field is
+maintained for both modes (a cheap, denormalized projection, the same pattern
+`Enrollment.total_score`/`position_on_leaderboard` already use over per-submission rows): a
+deadline-mode project's `assign_peer_reviews_for_project` and `score_project` set it in bulk for
+every submission at the same moment they flip `Project.state`, so deadline-mode behaviour is
+unchanged in substance, only mirrored onto the new field. A pooled project's batch-formation and
+batch-scoring functions (this issue) set it per batch instead.
+
+Every reader that keyed off `Project.state` to learn whether one submission's peer review is
+finished switches to `ProjectSubmission.review_state == SCORED` instead, which is correct and a
+no-op change for deadline mode (a submission only reaches `SCORED` at the exact moment
+`Project.state` reaches `COMPLETED` today) and is now also correct for pooled mode:
+`leaderboard.completed_project_submissions_prefetch` filters on `review_state=SCORED` instead of
+`project__state=COMPLETED`; `statistics.calculate_project_statistics` computes over currently
+`SCORED` submissions for a pooled project (a live, incrementally recomputed statistic) instead of
+requiring `Project.state == COMPLETED`, and keeps its current whole-project gate for deadline
+mode. `views.py`'s `eval_closed`, `_eval_submit_context`'s `accepting_submissions`/`disabled`, and
+`projects_eval_submit`'s POST guard, which today hard-require `Project.state ==
+PEER_REVIEWING`, switch to a per-review check (`review.state == TO_REVIEW` and, for a pooled
+review, its batch not yet scored) for a pooled project, and keep the existing project-state check
+for a deadline-mode project. `project_view`'s `accepting_submissions` needs no change: for a
+pooled project it already evaluates correctly against the narrowed two-value meaning above.
+
+Pooling architecture: batches, not a per-submission queue
+
+A batch is the unit that must resolve together, not each submission independently. Within one
+project, `select_random_assignment` builds a full round-robin graph over the batch: every member
+reviews `number_of_peers_to_evaluate` others and is reviewed by the same number, all created in
+one event with one shared due date. Scoring one member early, before their own outgoing reviews
+(a different, independent set of assignments within the same batch) are resolved, would compute
+`peer_review_score`/`reviewed_enough_peers` from incomplete data with no later recompute. So the
+batch, not the individual submission, is the scoring unit -- symmetric with deadline mode, where
+the whole project is the scoring unit for the same reason.
+
+New model `PeerReviewBatch`: `project` (FK, CASCADE), `formed_at` (auto-now-add), `due_at`
+(`formed_at + project.pooled_review_window_days` at creation, no default needed: a new table has
+no existing rows to backfill), `scored_at` (nullable, set once, guards against double-scoring a
+race between the happy-path trigger and the expiry sweep). `PeerReview.batch` (FK, nullable,
+CASCADE) links a pooled review to its batch; null for every deadline-mode review.
+
+New field `Project.pooled_review_window_days` (`PositiveIntegerField`, `default=7`). Per-project,
+not per-cohort or per-course: every other assignment knob
+(`number_of_peers_to_evaluate`, `points_for_peer_review`, `learning_in_public_cap_review`)
+already lives on `Project`, and a self-paced cohort's course-level uniqueness
+(`cb_cohort_self_paced_unique`) means "per cohort" and "per course" already collapse to the same
+thing for pooled courses, so a project-level field is the finer-grained option and costs nothing
+extra. Meaningful only when `project.cohort.mode == "self_paced"`; ignored otherwise.
+
+No new mode field on `Project` or `Cohort`. Assessment mode is derived from the already-explicit
+`Cohort.mode` (`cohort` | `self_paced`, landed in C5.1e) via a new `Project.uses_pooled_review`
+property. This is what makes mode selection "explicit" per the issue: `Cohort.mode` is a
+deliberate value an operator sets, not inferred from whether a submission happens to have a
+cohort (the AISL donor's approach). A second field on `Project` would risk disagreeing with its
+own cohort's mode for no benefit.
+
+Steps
+1. Migration: `ProjectSubmission.review_state` (choices `AW`/`IR`/`SC`, default `AW`), plus a
+   data migration backfilling existing rows from their project's current `Project.state`
+   (`COMPLETED` -> `SC`, `PEER_REVIEWING` -> `IR`, else `AW`) so leaderboard and statistics stay
+   correct immediately after the migration. `Project.pooled_review_window_days`
+   (`PositiveIntegerField`, `default=7`). `PeerReviewState` gains `EXPIRED = "EX"` (used by
+   C5.2g; add it here so the migration lands once). New `PeerReviewBatch` model and
+   `PeerReview.batch` nullable FK.
+2. `Project.uses_pooled_review` property (`cohort.mode == "self_paced"`).
+3. Guard `assign_peer_reviews_for_project` and `score_project` to fail with a clear message
+   against a pooled project (new precondition, same `ProjectActionStatus.FAIL` shape as the
+   existing preconditions); both set `ProjectSubmission.review_state` for every touched
+   submission alongside the existing `Project.state` transition.
+4. New module `community_base/coursework/pooling.py`: `try_form_batch(project)` -- when a
+   pooled project's `AWAITING_ASSIGNMENT` submission count (`volunteer_review_only=False`)
+   reaches `number_of_peers_to_evaluate + 1`, take the oldest that many by `submitted_at`, create
+   one `PeerReviewBatch`, reuse `select_random_assignment` for the review graph (seeded per
+   project and batch sequence, not the single global `ASSIGNMENT_SEED`, since pooling forms many
+   batches per project and a single reused seed would repeat the same relative pairing pattern
+   every time), set `review_state=IN_REVIEW` on the batch's submissions. Run under
+   `transaction.atomic()` with a row lock on the project (mirrors `assign_peer_reviews_for_project`)
+   to serialize concurrent submissions racing to form the same batch. Dispatch
+   `try_form_batch` after commit from `projects.submit_project` when the project is pooled.
+5. `pooling.py`: `try_score_batch(batch)` -- scores every submission in the batch
+   (`score_submission` from `review.py`, reused as-is; it is already submission-scoped) once
+   every review in the batch is resolved (`SUBMITTED` or `EXPIRED`, added in C5.2g), sets
+   `review_state=SCORED` and `batch.scored_at`; idempotent (no-op if `scored_at` is already set).
+   Called from `submit_peer_review` (happy path, batch finishes before its due date) and from the
+   C5.2g expiry sweep (timeout path). Extend `submit_peer_review` to reject a submission whose
+   review's batch already has `scored_at` set (the review window for that batch is closed), and,
+   while touching this function, add the same guard for deadline mode against a `COMPLETED`
+   project (an existing gap: nothing today stops a late `CriteriaResponse` write after
+   `score_project` has already run and will never re-aggregate it).
+6. `views.py`: replace the three `Project.state == PEER_REVIEWING` reads listed above with a
+   per-review check that branches on `project.uses_pooled_review`.
+7. `leaderboard.completed_project_submissions_prefetch`: filter `review_state="SC"` instead of
+   `project__state=ProjectState.COMPLETED.value`.
+8. `statistics.calculate_project_statistics`: for a pooled project, compute over
+   `review_state="SC"` submissions without requiring `Project.state == COMPLETED`; keep the
+   existing gate for deadline mode.
+
+Verification
+- `uv run pytest tests/coursework` -> pass; a pooled project accumulates submissions, forms a
+  batch at `n+1`, assigns a full round-robin graph, and scores the batch once every review in it
+  is submitted, without ever moving `Project.state` off `COLLECTING_SUBMISSIONS`.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- `uv run pytest tests/test_boundaries.py` -> pass.
+- `testproject`: a deadline-mode project's existing assign/score flow is unchanged (same
+  `Project.state` transitions, `ProjectSubmission.review_state` now mirrors them); calling
+  `assign_peer_reviews_for_project` or `score_project` against a pooled project fails cleanly.
+
+Done when
+- [ ] `ProjectSubmission.review_state`, `Project.pooled_review_window_days`,
+  `PeerReviewState.EXPIRED`, `PeerReviewBatch` and `PeerReview.batch` exist with database-level
+  defaults (or null, for the two nullable FKs) and a data migration backfills existing
+  submissions.
+- [ ] `Project.state` never reaches `PEER_REVIEWING` or `COMPLETED` for a `self_paced` cohort's
+  project; `assign_peer_reviews_for_project` and `score_project` refuse to run against one.
+- [ ] `leaderboard.py` and `statistics.py` read `review_state`, not `project.state`, for
+  per-submission completion.
+- [ ] A pooled batch scores exactly once even if the happy-path trigger and the C5.2g expiry
+  sweep race (guarded by `scored_at`).
+
+Docs
+- `community_base/coursework/README.md` (create it; none exists today) documenting both
+  assessment modes, the batch model and the state-meaning split, since this is the first
+  coursework issue an executor cannot understand from the models alone.
+
+## C5.2g Pooled review expiry and coursework email notifications
+
+Repository: community-base. Depends on: C5.2f.
+
+Design settled in issue DataTalksClub/community-base#256, owner decision comment "pooled review
+deadline" (2026-09-16): one week, configurable (`Project.pooled_review_window_days` from C5.2f),
+clock starts at assignment (batch `formed_at`), not submission.
+
+Read first
+- `community_base/coursework/reminders.py` (existing deadline-reminder shape: `send()` with a
+  stable idempotency key, `category="coursework"`).
+- `community_base/events/jobs.py` (schedule() call shape, P12 in `docs/03-playbooks.md`).
+- `community_base/coursework/pooling.py` (from C5.2f: `try_score_batch`).
+- `community_base/mail/__init__.py` `send()` signature.
+
+Design decision: what happens when a pooled review window expires, to both parties
+
+No silent stall for either side, and no automatic reassignment (reassigning to a third pool
+member just recreates the same indefinite-wait risk one hop later, and the owner's own framing
+treats releasing the reviewee as the safety valve).
+
+Reviewee: the moment every review in their batch is resolved -- submitted or expired, whichever
+comes first, per review -- `try_score_batch` scores the batch (C5.2f). `score_submission`'s
+existing fallback (`calculate_median_score`, used today when a deadline-mode submission has zero
+submitted reviews) already handles scoring with fewer than the configured review count: the
+median of however many responses exist, including one. No new scoring path is needed. A pooled
+learner is therefore never blocked longer than `pooled_review_window_days` past their batch's
+`formed_at`, matching what the deadline exists to guarantee.
+
+Reviewer who did not deliver: their `PeerReview` row moves `TO_REVIEW` -> `EXPIRED` (new
+`PeerReviewState` value, added in C5.2f's migration) rather than staying `TO_REVIEW` forever,
+which would otherwise keep showing as an open task and would need special-casing everywhere
+`PeerReviewState.TO_REVIEW` is read. An `EXPIRED` review does not count toward the reviewee's
+`peer_review_score` (`group_peer_reviews`/`mandatory_reviews_count` already only count
+`SUBMITTED`; no change needed there). The reviewer is not let off silently either: their own
+`reviewed_enough_peers` (computed from reviews *they gave*, a separate axis from reviews they
+received) can come out `False` if the expired review was mandatory, which already, through the
+existing `passed = project_score >= points_to_pass AND reviewed_enough_peers` formula, can cost
+them passing their own project -- the existing mechanism, no new punitive field. They also get an
+email telling them the window closed.
+
+Late submission: accepted only until the batch scores (`batch.scored_at` set, guarded in C5.2f's
+`submit_peer_review` change); rejected after, since scoring has already locked in the median over
+whatever arrived and there is no later rescoring pass to pick it up (deadline mode has the same
+property: one scoring pass, no re-open). An `EXPIRED` review therefore can still be submitted and
+still counts, right up until its batch is scored; once scored, it is locked, matching deadline
+mode's existing single-pass precedent rather than inventing a new rule.
+
+Steps
+1. `community_base/coursework/pooling.py`: `expire_pooled_reviews()`, a durable job handler
+   (`coursework.expire_pooled_reviews`) that finds `PeerReview` rows with `state=TO_REVIEW`,
+   `batch__scored_at__isnull=True`, `batch__due_at__lt=now`, marks them `EXPIRED`, and for each
+   affected batch calls `try_score_batch` once all its reviews are resolved. Schedule every 15
+   minutes (`events.plan_reminders`'s cadence, P12).
+2. New module `community_base/coursework/notifications.py` for event-driven sends (as opposed to
+   `reminders.py`'s scheduled deadline scans): `send_review_assigned_notifications(reviews)`
+   groups newly created reviews by reviewer and sends one `coursework.review_assigned` email per
+   learner per assignment event (not one per review row, avoiding an N-email burst for a learner
+   assigned several reviews at once); `send_pool_ready_notification(batch, submission)` sends
+   `coursework.pool_ready` to a batch member once their batch forms; `send_review_received_notification(review)`
+   sends `coursework.review_received` to the reviewee when one review lands (both modes);
+   `send_review_expired_notification(review)` sends `coursework.review_window_expired` to the
+   reviewer whose assignment expired. Each uses `send()` with a stable idempotency key
+   (`coursework.<purpose>:<row id>`) exactly like `reminders.py`'s existing three purposes; no
+   parallel send mechanism.
+3. Wire the calls: `assign_peer_reviews_for_project` and `pooling.try_form_batch` call
+   `send_review_assigned_notifications`; `try_form_batch` also calls
+   `send_pool_ready_notification` for every batch member; `submit_peer_review` calls
+   `send_review_received_notification`; `expire_pooled_reviews` calls
+   `send_review_expired_notification`.
+4. Extend `reminders.send_peer_review_deadline_reminders` to also select pooled reviews
+   approaching expiry (`state=TO_REVIEW`, `batch__due_at` inside the reminder window), reusing
+   the existing `coursework.peer_review_deadline` purpose and idempotency-key shape keyed by
+   review id and due date, instead of adding a parallel "expiry approaching" job.
+
+Verification
+- `uv run pytest tests/coursework` -> pass; a batch whose window expires with 2 of 3 reviews in
+  scores on the median of the 2, the third review moves to `EXPIRED`, and the reviewee is never
+  left in `IN_REVIEW` past `due_at`; a late submission before scoring counts, one after scoring
+  is rejected.
+- `uv run pytest tests/mail` (or wherever purpose-registration is asserted) -> the four new
+  purposes and the extended deadline-reminder query are covered.
+- `testproject`: `manage.py jobs_ingress_selftest`-equivalent smoke for
+  `coursework.expire_pooled_reviews` under the configured jobs backend.
+
+Done when
+- [ ] Every pooled `PeerReview` past `due_at` and still `TO_REVIEW` becomes `EXPIRED` within one
+  scheduler tick, and its batch scores as soon as it is fully resolved.
+- [ ] Four new mail purposes exist, each idempotent per row id, reusing `mail.send()`.
+- [ ] The existing three `reminders.py` purposes are unchanged; the peer-review deadline
+  reminder now also covers pooled `due_at`.
+
+Docs
+- `community_base/coursework/README.md` (from C5.2f): notification purposes and the expiry job.
+
+## C5.2h Certificate eligibility, learner-requested issuance, and banner-generator artifact seam
+
+Repository: community-base. Depends on: C5.2f.
+
+Read first
+- `community_base/coursework/certificates.py` (`issue_certificate`, today staff/API-key only:
+  `coursework/studio_views.py::certificate_issue`, `curriculum/api_views.py::issue_certificate`).
+  There is no eligibility check and no automatic issuance anywhere in the package today; both
+  exist only in the AISL donor (`content/services/peer_review_service.py`
+  `check_certificate_eligibility`, `issue_certificates_for_course`), which never got ported.
+  "Certificate on request rather than automatic" is therefore a package feature addition, not a
+  behaviour change within the package -- the behaviour change is on the AISL site, which retires
+  its own local automatic issuance in A5.1.
+  Its `pdf_url` field is never populated by anything (grep confirms only the model and its
+  migration reference it); the package's `curriculum.Certificate.url` field is already
+  generically named and needs no rename regardless of the artifact-format answer below.
+- `community_base/events/integrations/hooks.py` and `community_base/events/settings_keys.py`:
+  the established pattern for a site-supplied external-service seam the package must not import
+  directly (`EVENT_BANNER_GENERATOR`, resolved through `community_base.kernel.hooks.Hook`
+  /`_callback`, default `None`). Use the same shape for the certificate artifact generator rather
+  than inventing a new configuration mechanism.
+- `community_base/coursework/api_views.py` for the session-authenticated member-API route shape
+  (`update_enrollment_preference`).
+- `community_base/curriculum/models.py` `UnitProgress`, `Cohort.effective_modules`,
+  `Cohort.min_projects_to_pass`.
+
+Open questions for the owner (do not decide these; implement whichever answer comes back)
+1. Learners who already meet the certificate conditions under AISL's current automatic issuance:
+   recommend leaving their existing `CourseCertificate` rows alone (grandfathered) and applying
+   the new request-based rule only going forward, per the issue's own suggested default. Since
+   nothing today populates an artifact for any of them (`pdf_url` is unconditionally empty),
+   recommend their certificate page keeps working with no artifact unless the learner chooses to
+   request one under the new flow, in which case the request should succeed immediately (they
+   already qualify) and simply attach the generated artifact to their existing certificate row
+   rather than being refused as "already issued". This is an AISL-side migration decision
+   (A5.1), but the package's request endpoint should not special-case "already has a certificate"
+   as a rejection, so it needs the answer before A5.1 can rely on it.
+2. Certificate artifact format: PDF, image, or both. `Certificate.url` is a single URL field
+   either way, so the model needs no change for either answer; the banner-generator seam
+   (`COURSEWORK_CERTIFICATE_GENERATOR` below) is designed to return one URL and one `format`
+   value so it does not need redesigning once this is answered, but the site adapter's own call
+   to banner-generator (a site concern, outside the package) does differ by answer.
+
+Steps
+1. `certificates.py`: `certificate_eligibility(enrollment) -> CertificateEligibility` (`eligible:
+   bool`, `reasons: list[str]`), generalizing the donor's four conditions to the package's model:
+   every unit in `cohort.effective_modules()` completed (`UnitProgress`); at least
+   `cohort.min_projects_to_pass` submissions with `passed=True`
+   (`ProjectSubmission.volunteer_review_only=False`); for a pooled project, the learner's own
+   `reviewed_enough_peers` also true on those submissions (their outgoing reviews, not just
+   incoming). Mode-agnostic: works the same for a cohort or a self-paced course, since the
+   package never had a mode-specific automatic-issuance path to preserve.
+2. `COURSEWORK_CERTIFICATE_GENERATOR` setting in `kernel/conf.py` `DEFAULTS` (default `None`),
+   `community_base/coursework/integrations.py` mirroring
+   `events/integrations/hooks.py::generate_banner` exactly: `generate_certificate_artifact(enrollment,
+   certificate)` resolves the configured callable, raises `ImproperlyConfigured` if unset
+   (matching `process_recording`'s precedent -- a learner-triggered request with no generator
+   configured is an operator error worth surfacing loudly, not a silent no-op like
+   `generate_banner`'s), validates the returned URL with the existing `_safe_url` shape. The
+   site's callable owns its own endpoint and token entirely (for AISL: `BANNER_GENERATOR_FUNCTION_URL`/
+   `BANNER_GENERATOR_AUTH_TOKEN` read through AISL's own `IntegrationSetting`/`get_config`); the
+   package never sees them, satisfying "must not import from any site application."
+3. `request_certificate(enrollment)` service: checks `certificate_eligibility`; if eligible,
+   calls `generate_certificate_artifact`, then the existing `issue_certificate(enrollment,
+   url=...)`. Member API route `POST courses/<slug:course_slug>/cohorts/<slug:cohort_slug>/certificate-request`,
+   `authentication="session"` (same shape as `update_enrollment_preference`), returning the
+   eligibility reasons on refusal.
+4. Studio: an eligibility column/badge on the existing `certificates.html` list
+   (`coursework_studio_certificates`) so staff can see who qualifies without issuing for them.
+
+Verification
+- `uv run pytest tests/coursework` -> pass; an ineligible enrollment's request is refused with
+  reasons; an eligible one calls the configured generator and issues a certificate with its
+  returned URL; an unconfigured generator raises `ImproperlyConfigured` rather than issuing a
+  certificate with no artifact.
+- `uv run pytest tests/test_boundaries.py` -> pass (no site imports; the generator is reached
+  only through the `COURSEWORK_CERTIFICATE_GENERATOR` dotted-path hook).
+
+Done when
+- [ ] `certificate_eligibility` reuses existing package fields (`min_projects_to_pass`,
+  `passed`, `reviewed_enough_peers`, `UnitProgress`) with no site-specific rule baked in.
+- [ ] `COURSEWORK_CERTIFICATE_GENERATOR` follows the `EVENT_BANNER_GENERATOR` pattern exactly:
+  declared in `kernel/conf.py`, resolved through a dotted path, package-side code never
+  references an endpoint URL or token.
+- [ ] The two owner questions above are posted back to issue #256 and answered before A5.1 (map
+  AISL courses) starts, since A5.1 needs the already-qualified-learners answer to write its data
+  migration.
+
+Docs
+- `community_base/coursework/README.md` (from C5.2f): eligibility rule, the request endpoint,
+  and the `COURSEWORK_CERTIFICATE_GENERATOR` seam with a worked example matching
+  `events/README.md`'s style.
+
 ## C5.3 Release 0.6.0
 
-Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e. Playbook P15.
+Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.
 
 This is the single adoption-ready domain release. Do not publish provisional `v0.4.0` or
 `v0.5.0` releases containing kept-label migrations.

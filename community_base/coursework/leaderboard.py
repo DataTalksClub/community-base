@@ -20,9 +20,9 @@ from community_base.coursework.hooks import hooks as coursework_hooks
 from community_base.coursework.models import (
     HomeworkState,
     LeaderboardComplaint,
-    ProjectState,
     ProjectSubmission,
     Submission,
+    SubmissionReviewState,
 )
 from community_base.coursework.random_names import ensure_display_name
 from community_base.curriculum.models import Enrollment
@@ -126,8 +126,12 @@ def current_student_leaderboard_enrollment(cohort, user) -> CurrentLeaderboardSt
 
 
 def completed_project_submissions_prefetch():
+    # C5.2f: review_state is a per-submission mirror maintained for both assessment modes
+    # (review.set_review_state_for_project for deadline mode, pooling.try_score_batch for
+    # pooled mode), so this filter is correct and unchanged in substance for a dated cohort: a
+    # submission only reaches SCORED at the exact moment its project reaches COMPLETED today.
     submissions = ProjectSubmission.objects.filter(
-        project__state=ProjectState.COMPLETED.value,
+        review_state=SubmissionReviewState.SCORED.value,
         volunteer_review_only=False,
     )
     submissions = submissions.select_related("project")
