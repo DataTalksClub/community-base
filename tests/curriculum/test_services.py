@@ -5,11 +5,14 @@ from django.utils import timezone
 
 from community_base.curriculum.models import CohortModule, Enrollment, UnitProgress
 from community_base.curriculum.services import (
+    ChecklistItemState,
     DripDecision,
     completed_unit_ids,
     decide_unit_drip,
     ensure_enrollment,
     get_all_units_ordered,
+    get_checklist_items,
+    get_checklist_state,
     get_next_unit,
     get_next_unit_for_user,
     get_prev_unit,
@@ -299,6 +302,26 @@ def test_course_counters_exclude_bonus_but_include_events():
 
 
 @pytest.mark.django_db
+def test_course_counters_exclude_checklist_items_regardless_of_is_bonus():
+    course = make_course()
+    module = make_module(course)
+    make_unit(module, slug="lesson", title="Lesson")
+    make_unit(module, slug="required-checklist", title="Read the docs", kind="checklist_item")
+    make_unit(
+        module,
+        slug="optional-checklist",
+        title="Optional setup",
+        kind="checklist_item",
+        is_bonus=True,
+    )
+
+    # Only the lesson counts: checklist items never enter the course-progress
+    # denominator, whether marked required (is_bonus=False) or optional (is_bonus=True).
+    assert course.total_units() == 1
+    assert course._countable_units().count() == 1
+
+
+@pytest.mark.django_db
 def test_course_get_syllabus_orders_cohorts_and_uses_placements():
     course = make_course()
     late = make_cohort(course, slug="2027", title="2027")
@@ -331,3 +354,77 @@ def test_instructor_related_courses():
     course.instructors.add(host, through_defaults={"position": 0})
 
     assert list(host.courses.all()) == [course]
+
+
+@pytest.mark.django_db
+class TestChecklist:
+    def pre_work_module(self):
+        course = make_course()
+        module = make_module(course, slug="before-you-start", title="Before you start")
+        read_docs = make_unit(
+            module, slug="read-docs", title="Read the docs", kind="checklist_item"
+        )
+        install_tools = make_unit(
+            module,
+            slug="install-tools",
+            title="Install tools",
+            kind="checklist_item",
+            sort_order=1,
+        )
+        optional_setup = make_unit(
+            module,
+            slug="optional-setup",
+            title="Optional setup",
+            kind="checklist_item",
+            is_bonus=True,
+            sort_order=2,
+        )
+        # A lesson unit in the same module must never show up as a checklist item.
+        make_unit(module, slug="intro-lesson", title="Intro lesson")
+        return module, read_docs, install_tools, optional_setup
+
+    def test_get_checklist_items_excludes_other_kinds_and_is_ordered(self):
+        module, read_docs, install_tools, optional_setup = self.pre_work_module()
+
+        assert get_checklist_items(module) == [read_docs, install_tools, optional_setup]
+
+    def test_get_checklist_state_reflects_required_and_completion(self, django_user_model):
+        module, read_docs, install_tools, optional_setup = self.pre_work_module()
+        user = django_user_model.objects.create_user(email="checklist@example.com")
+
+        state = get_checklist_state(user, module)
+
+        assert state == [
+            ChecklistItemState(unit=read_docs, is_required=True, is_completed=False),
+            ChecklistItemState(unit=install_tools, is_required=True, is_completed=False),
+            ChecklistItemState(unit=optional_setup, is_required=False, is_completed=False),
+        ]
+
+        mark_completed(user, read_docs)
+        unmark_completed(user, install_tools)  # already incomplete; asserts it stays a no-op
+
+        state = get_checklist_state(user, module)
+        assert state[0] == ChecklistItemState(unit=read_docs, is_required=True, is_completed=True)
+        assert state[1].is_completed is False
+        assert state[2].is_completed is False
+
+    def test_get_checklist_state_anonymous_user_all_incomplete(self):
+        module, read_docs, install_tools, optional_setup = self.pre_work_module()
+
+        state = get_checklist_state(None, module)
+
+        assert [item.is_completed for item in state] == [False, False, False]
+
+    def test_checklist_items_use_the_shared_unit_progress_toggle(self, django_user_model):
+        """Reuses mark_completed/unmark_completed/is_completed -- no parallel tracking model."""
+
+        module, read_docs, _install_tools, _optional_setup = self.pre_work_module()
+        user = django_user_model.objects.create_user(email="toggle@example.com")
+
+        assert is_completed(user, read_docs) is False
+        mark_completed(user, read_docs)
+        assert is_completed(user, read_docs) is True
+        assert UnitProgress.objects.filter(user=user, unit=read_docs).exists()
+
+        assert unmark_completed(user, read_docs) is True
+        assert is_completed(user, read_docs) is False

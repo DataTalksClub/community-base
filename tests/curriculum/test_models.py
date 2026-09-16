@@ -368,6 +368,14 @@ def test_unit_kind_event_with_session_position():
     assert unit.session_position == 4
 
 
+def test_unit_kind_checklist_item():
+    course = make_course()
+    module = make_module(course)
+    unit = make_unit(module, kind="checklist_item")
+
+    assert unit.kind == "checklist_item"
+
+
 def test_unit_effective_available_after_days_cascade():
     course = make_course()
     parent = make_module(course, slug="week-1", title="Week 1", available_after_days=21)

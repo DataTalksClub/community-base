@@ -29,7 +29,7 @@ uv run python manage.py migrate
 | `Course` | Reusable course; tags, testimonials, links, access levels, provenance. |
 | `Cohort` | One delivery of a course: `mode="cohort"` (dated) or `mode="self_paced"` (one per course). |
 | `Module` | Ordered module, owned by the course (shared across every cohort). `parent` makes it a submodule of another module -- maximum two module levels. A module holds either child modules or direct units, never both. `is_bonus` and `available_after_days` (a drip offset for a top-level module, cascading to its units unless they override it) round it out. |
-| `Unit` | Lesson, owned by its module. `kind` is `lesson` (default), `homework` or `event`; `event` units carry `session_position` (1-indexed, not a foreign key -- the site resolves the real event per viewer, against the viewer's own cohort, at render time) instead of embedding cohort-specific data in shared curriculum. `is_bonus` excludes a unit from the progress denominator while it is still tracked and displayed. |
+| `Unit` | Lesson, owned by its module. `kind` is `lesson` (default), `homework`, `event` or `checklist_item`; `event` units carry `session_position` (1-indexed, not a foreign key -- the site resolves the real event per viewer, against the viewer's own cohort, at render time) instead of embedding cohort-specific data in shared curriculum. `is_bonus` excludes a unit from the progress denominator while it is still tracked and displayed. |
 | `CohortModule` | Optional per-cohort placement of a top-level module: `cohort`, `module`, `sort_order`. A cohort with no placements shows the course's full module tree in module order -- the common case, requiring zero extra rows. A cohort with placements shows exactly that curated subset and order instead, for courses whose cohorts genuinely differ (two cohorts of the same course each placing a different module that represents an alternative treatment of one topic, for example). |
 | `Enrollment` | User-cohort enrollment with soft-delete history. |
 | `UnitProgress` | Per-user unit completion. |
@@ -45,7 +45,30 @@ shape: for each top-level module, in `sort_order`, either its own units (a modul
 children) or each child module's units in order (a module with children) -- never both, since a
 module never mixes children and direct units. `is_bonus` (on the unit, its module, or that
 module's parent module) excludes a unit from the progress denominator; `kind="event"` units
-still count.
+still count; `kind="checklist_item"` units never count, whether or not they are marked
+`is_bonus`.
+
+## Pre-work checklists
+
+A course's pre-work checklist (read the docs, set up the environment, install tools, before the
+cohort starts) is an ordinary `Module` whose `Unit` rows use `kind="checklist_item"` -- no
+separate model. `title` is the item's short title, `body`/`body_html` its description and any
+link, and `UnitProgress` (via the existing `is_completed`/`mark_completed`/`unmark_completed`
+services) tracks per-learner completion exactly like any other unit. `is_bonus` doubles as the
+item's required/optional flag: `is_bonus=False` (the default) means required, `is_bonus=True`
+means optional. Checklist items are excluded from `Course.total_units()`/`completed_units()` --
+a pre-work checklist is a separate readiness track, not lesson/homework/event course progress.
+
+```python
+from community_base.curriculum.services import get_checklist_state
+
+for item in get_checklist_state(user, pre_work_module):
+    item.unit, item.is_required, item.is_completed
+```
+
+`services.get_checklist_items(module)` returns the raw ordered `Unit` rows without a user's
+completion state. Neither the AISL nor the DTC content-sync parser emits `checklist_item` units
+yet; today they are Studio- or API-authored only.
 
 Rows synced from a repository carry complete provenance (`source_content_id`, `source_path`,
 `source_commit_sha`, `source_checksum`); Studio-managed rows carry none.
