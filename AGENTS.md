@@ -91,6 +91,13 @@ from the phase files by `scripts/plan.py`; only the `Status` and `Link` columns 
 Optionally mirror an issue as a GitHub issue in its repository (label `community-base`) and put
 that URL in `Link` until the pull request exists. STATUS.md remains the source of truth.
 
+## After changing this package
+
+Both site repositories consume `community-base`. After any change here, run
+the test suite in both `../dtc-website` and `../ai-shipping-labs` (not just
+this package's own tests) before considering the change done — a change that
+passes here can still break one of the two consumers.
+
 ## Conventions
 
 - `uv` for every Python command. Never `pip`.
