@@ -12,6 +12,10 @@
 
 - Curriculum's events-dependent API and Studio surfaces register only when the package events app is installed, so a site can install `community_base.curriculum` for the knowledge base provenance models without owning the package events tables (A7.1).
 
+## 0.4.4 - 2026-09-16
+
+- Curriculum's events-dependent API and Studio surfaces register only when the package events app is installed, so a site can install `community_base.curriculum` for the knowledge base provenance models without owning the package events tables (A7.1).
+
 ## 0.4.2 - 2026-09-16
 
 - Restore the `requires_restart` declaration metadata that `declare()` accepted at v0.3.9 and a merge resolution dropped: sites declaring restart-affecting keys failed startup against v0.4.0 and v0.4.1.
