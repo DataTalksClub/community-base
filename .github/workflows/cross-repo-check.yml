@@ -22,6 +22,19 @@ name: Cross-repo consumer check
 # repository. Note: this workflow reporting failure does not by itself make
 # it a required GitHub branch-protection check on this repository's pull
 # requests; that is a separate repository-settings change.
+#
+# Verdict: each job runs the site suite twice in the same disposable
+# checkout — once against the site's own pinned package release
+# (the baseline) and once against the in-progress package — and fails only
+# when the linked run has failures the baseline run does not. A site whose
+# default branch already fails tests on its own pin (its own process owns
+# that redness) stays visible in the job log without permanently red runs
+# here, while a package change that breaks a consumer still fails the job.
+# The comparison artifacts (suite logs and failure sets) are written to the
+# workflow workspace root, outside both site checkouts: sites scan their
+# untracked files in tests (for example DataTalksClub's cadmin reference
+# allowlist walks `git ls-files --others`), and a stray log inside the
+# checkout would fail those scanners asymmetrically.
 
 on:
   push:
@@ -41,7 +54,7 @@ jobs:
   dtc-website:
     name: "DataTalksClub/website: real test suite against this package"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Check out community-base (the change under test)
         uses: actions/checkout@v4
@@ -62,6 +75,26 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Django checks against the pinned baseline
+        working-directory: dtc-website
+        run: uv run python scripts/ci.py django-check
+
+      - name: Baseline test suite with the pinned package
+        # Expected to fail whenever the site's default branch is already red
+        # on its own pin; the verdict step below decides, not this step.
+        working-directory: dtc-website
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run python scripts/ci.py test-django-full 2>&1 | tee "$GITHUB_WORKSPACE/baseline-suite.log"
+
+      - name: Record the baseline failure set
+        working-directory: dtc-website
+        if: always()
+        run: |
+          { grep -E "^(FAIL|ERROR): " "$GITHUB_WORKSPACE/baseline-suite.log" || true; } | sed -E 's/ \(.*//' | sort -u > "$GITHUB_WORKSPACE/baseline-failures.txt"
+          echo "Baseline failures: $(wc -l < "$GITHUB_WORKSPACE/baseline-failures.txt")"
+
       - name: Link the in-progress package (dtc-website playbook P1)
         working-directory: dtc-website
         run: uv run python scripts/community_base_link.py link
@@ -70,9 +103,30 @@ jobs:
         working-directory: dtc-website
         run: uv run python scripts/ci.py django-check
 
-      - name: Full Django test suite against the in-progress package
+      - name: Test suite against the in-progress package
         working-directory: dtc-website
-        run: uv run python scripts/ci.py test-django-full
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run python scripts/ci.py test-django-full 2>&1 | tee "$GITHUB_WORKSPACE/linked-suite.log"
+
+      - name: Record the linked failure set
+        working-directory: dtc-website
+        if: always()
+        run: |
+          { grep -E "^(FAIL|ERROR): " "$GITHUB_WORKSPACE/linked-suite.log" || true; } | sed -E 's/ \(.*//' | sort -u > "$GITHUB_WORKSPACE/linked-failures.txt"
+          echo "Linked failures: $(wc -l < "$GITHUB_WORKSPACE/linked-failures.txt")"
+
+      - name: Verdict — the in-progress package adds no new failures
+        working-directory: dtc-website
+        run: |
+          comm -13 "$GITHUB_WORKSPACE/baseline-failures.txt" "$GITHUB_WORKSPACE/linked-failures.txt" > "$GITHUB_WORKSPACE/new-failures.txt" || true
+          if [ -s "$GITHUB_WORKSPACE/new-failures.txt" ]; then
+            echo "The in-progress package introduces failures the site does not have on its own pin:"
+            cat "$GITHUB_WORKSPACE/new-failures.txt"
+            exit 1
+          fi
+          echo "No new failures beyond the site's pinned baseline."
 
       - name: Restore the pinned dependency
         if: always()
@@ -82,7 +136,7 @@ jobs:
   ai-shipping-labs:
     name: "AI-Shipping-Labs/website: real test suite against this package"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       SECRET_KEY: "cross-repo-check-only-not-a-real-secret"
     steps:
@@ -104,6 +158,35 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ai-shipping-labs/package-lock.json
+
+      - name: Build the static bundle (site Makefile css-build)
+        # The site's own CI builds CSS before testing; the Tailwind source
+        # contract test reads the compiled bundle from the checkout.
+        working-directory: ai-shipping-labs
+        run: make css-build
+
+      - name: System checks against the pinned baseline
+        working-directory: ai-shipping-labs
+        run: uv run python manage.py check
+
+      - name: Baseline test suite with the pinned package
+        working-directory: ai-shipping-labs
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          make test 2>&1 | tee "$GITHUB_WORKSPACE/baseline-suite.log"
+
+      - name: Record the baseline failure set
+        working-directory: ai-shipping-labs
+        if: always()
+        run: |
+          { grep -E "^(FAIL|ERROR): " "$GITHUB_WORKSPACE/baseline-suite.log" || true; } | sed -E 's/ \(.*//' | sort -u > "$GITHUB_WORKSPACE/baseline-failures.txt"
+          echo "Baseline failures: $(wc -l < "$GITHUB_WORKSPACE/baseline-failures.txt")"
 
       - name: Link the in-progress package (AISL playbook P1, `make core-link`)
         working-directory: ai-shipping-labs
@@ -113,9 +196,30 @@ jobs:
         working-directory: ai-shipping-labs
         run: uv run python manage.py check
 
-      - name: Full Django test suite against the in-progress package
+      - name: Test suite against the in-progress package
         working-directory: ai-shipping-labs
-        run: make test
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          make test 2>&1 | tee "$GITHUB_WORKSPACE/linked-suite.log"
+
+      - name: Record the linked failure set
+        working-directory: ai-shipping-labs
+        if: always()
+        run: |
+          { grep -E "^(FAIL|ERROR): " "$GITHUB_WORKSPACE/linked-suite.log" || true; } | sed -E 's/ \(.*//' | sort -u > "$GITHUB_WORKSPACE/linked-failures.txt"
+          echo "Linked failures: $(wc -l < "$GITHUB_WORKSPACE/linked-failures.txt")"
+
+      - name: Verdict — the in-progress package adds no new failures
+        working-directory: ai-shipping-labs
+        run: |
+          comm -13 "$GITHUB_WORKSPACE/baseline-failures.txt" "$GITHUB_WORKSPACE/linked-failures.txt" > "$GITHUB_WORKSPACE/new-failures.txt" || true
+          if [ -s "$GITHUB_WORKSPACE/new-failures.txt" ]; then
+            echo "The in-progress package introduces failures the site does not have on its own pin:"
+            cat "$GITHUB_WORKSPACE/new-failures.txt"
+            exit 1
+          fi
+          echo "No new failures beyond the site's pinned baseline."
 
       - name: Restore the pinned dependency
         if: always()
