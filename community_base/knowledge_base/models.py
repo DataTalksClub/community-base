@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
 
-from community_base.curriculum.models import SourceProvenanceMixin, provenance_constraint
+from community_base.content_sync.provenance import SourceProvenanceMixin, provenance_constraint
 from community_base.curriculum.rendering import strip_leading_title_h1
 from community_base.knowledge_base.rendering import render_markdown
 

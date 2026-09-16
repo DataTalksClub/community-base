@@ -24,6 +24,14 @@
 
 - Import the events `Host` lazily in the curriculum importer so the sync parsers register on sites that install curriculum without the package events app (A7.1).
 
+## 0.4.6 - 2026-09-16
+
+- Move `SourceProvenanceMixin` and `provenance_constraint` to the app-neutral `community_base.content_sync.provenance` (`curriculum.models` re-exports them): the knowledge base no longer imports curriculum models, so a site can install it without the package curriculum or events apps (A7.1).
+
+## 0.4.6 - 2026-09-16
+
+- Move `SourceProvenanceMixin` and `provenance_constraint` to the app-neutral `community_base.content_sync.provenance` (`curriculum.models` re-exports them): the knowledge base no longer imports curriculum models, so a site can install it without the package curriculum or events apps (A7.1).
+
 ## 0.4.2 - 2026-09-16
 
 - Restore the `requires_restart` declaration metadata that `declare()` accepted at v0.3.9 and a merge resolution dropped: sites declaring restart-affecting keys failed startup against v0.4.0 and v0.4.1.
