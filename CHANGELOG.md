@@ -4,6 +4,10 @@
 
 - Restore the `requires_restart` declaration metadata that `declare()` accepted at v0.3.9 and a merge resolution dropped: sites declaring restart-affecting keys failed startup against v0.4.0 and v0.4.1.
 
+## 0.4.2 - 2026-09-16
+
+- Restore the `requires_restart` declaration metadata that `declare()` accepted at v0.3.9 and a merge resolution dropped: sites declaring restart-affecting keys failed startup against v0.4.0 and v0.4.1.
+
 ## 0.4.1 - 2026-09-16
 
 - C7.2: ship the knowledge base fixture repository as regular files instead of a mode-160000 gitlink, so git-dependency installs (uv, pip) resolve the package and fresh clones run the fixture tests.
