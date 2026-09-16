@@ -2,8 +2,8 @@
 
 Goal: one events app with series, registration, series registration, reminders, feedback, ICS,
 Zoom and banners on both sites. Events are authored in Studio and stored in the database on both
-sites (decision D7). DTC keeps its numeric public ids, aliases, Q&A sessions and historical
-registration aggregates as extensions.
+sites (decision D7). DTC keeps its numeric public ids, Q&A sessions and historical registration
+aggregates as extensions. Neither site keeps legacy path aliases (decision D17, issue C4.1e).
 
 Freeze: AISL one weekend (A4.2), DTC one weekend (D4.2).
 
@@ -41,15 +41,14 @@ Read first
 
 Steps
 1. Record the donor commit, model and test baseline. Build the target `Event`, `EventSeries`,
-   `Host`, host-assignment and alias models with a provisional kept-label migration.
-2. Add `Event.public_id` with concurrency-safe allocation and `EventAlias(event, source_path,
-   kind, reason)` for DTC compatibility.
+   `Host` and host-assignment models with a provisional kept-label migration.
+2. Add `Event.public_id` with concurrency-safe allocation.
 3. Add `Host.kind`, `Host.external_ref` and `HOST_PROFILE_RESOLVER(host) -> url | None`.
 4. Lift framework-independent event, series and host domain services. Replace tier checks with
    `community_base.kernel.access.can_access` and cross-domain writes with events.
 
 Verification
-- Package tests cover event status, public identity, alias uniqueness, series cadence, host roles,
+- Package tests cover event status, public identity, series cadence, host roles,
   access and domain transitions without importing a site app.
 - Fresh migrations, reversal, drift and boundary checks pass. Donor equivalence remains C4.3.
 
@@ -122,7 +121,7 @@ Steps
    claims for C4.3 after A4.1.
 
 Verification
-- Both URL styles, aliases, public templates, Studio routes and APIs pass package tests.
+- Both URL styles, public templates, Studio routes and APIs pass package tests.
 - Full package, boundary, fresh-migration and installed-wheel checks pass.
 
 ## C4.1e Remove event aliases and legacy path compatibility
@@ -208,7 +207,7 @@ Read first
   `_docs/architecture/event-qna-integration.md`, `_docs/compatibility/`.
 
 Steps
-1. Export current events, aliases, Q&A sessions and historical aggregates (P5 step 1).
+1. Export current events, Q&A sessions and historical aggregates (P5 step 1).
 2. Create `event_qna` app: models from `events/qna/` with `session.event` as a `OneToOneField`
    to `events.Event` (integer pk now); views and Studio pages unchanged otherwise.
    `historical_registrations` app for the aggregate models keyed by `event_id`.
@@ -233,7 +232,7 @@ Repository: DataTalksClub/website. Depends on: D4.1. Freeze required: yes. Playb
 (and production if DTC is live by then).
 
 Checks
-- `/events` list and one detail by `public_id` render; an alias path redirects one hop;
+- `/events` list and one detail by `public_id` render;
 - anonymous registration on a free event -> verification email delivered through Relay ->
   confirm link -> `confirmed`.
 

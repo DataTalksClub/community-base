@@ -20,14 +20,14 @@ issues that can start now.
 | `C0.3` | community-base | Config app: registry, storage, cache, Studio page, import and export | C0.4 | no | done | https://github.com/DataTalksClub/community-base/pull/13 |
 | `C0.4` | community-base | API app: keys with scopes, bearer auth, OpenAPI, route registry | C0.2 | no | done | https://github.com/DataTalksClub/community-base/pull/11 |
 | `C0.5` | community-base | First release | C0.2, C0.3, C0.4 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.1.0 |
-| `C0.6` | community-base | Owner-scoped exception to D1 for a required, always-latest cross-repo check |  | no | in-progress | local commit, not pushed; no pull request opened yet |
+| `C0.6` | community-base | Owner-scoped exception to D1 for a required, always-latest cross-repo check |  | no | in-progress | https://github.com/DataTalksClub/community-base/issues/269 — local commit, not pushed; no pull request opened yet |
 | `A0.1` | AI-Shipping-Labs/website | Add the package dependency and the local link targets | C2.4 | no | done | https://github.com/AI-Shipping-Labs/website/commit/2d567da34b493eb9e6901540c1bf5a0a5d1913d7 |
 | `A0.2` | AI-Shipping-Labs/website | Replace the settings framework with the package config app | A0.1 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1584 (closed 2026-09-13 with PM acceptance; Deploy Dev 34699777409 green at head 1638e419) |
 | `A0.3` | AI-Shipping-Labs/website | Access policy hook | A0.1 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1582 |
-| `D0.1` | DataTalksClub/website | Add the package and replace the settings frameworks | D0.1d | no | todo |  |
+| `D0.1` | DataTalksClub/website | Add the package and replace the settings frameworks | D0.1d | no | todo | https://github.com/DataTalksClub/website/issues/407 |
 | `D0.1a` | DataTalksClub/website | Install the released kernel and local development tools | C2.4 | no | done | https://github.com/DataTalksClub/website/commit/f8f68c46e84353f59229cbdc113a85a43f5ca246 |
 | `D0.1b` | DataTalksClub/website | Inventory settings contracts and prove package parity | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/355 |
-| `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | blocked | merged as website 3fb9db07; dev deploy blocked on a fully green main CI run (website#345: the corpus-bound django test clusters are fixed, merged as website fc534fcf; the Playwright lane remains in flight); worker self-check IAM grant merged as aws-infra 3acefe43 but not yet effective: the protected development apply is blocked on the sandbox-account trust-policy bootstrap (aws-infra#56) |
+| `D0.1c` | DataTalksClub/website | Copy settings and switch readers and writers | D0.1b | no | blocked | https://github.com/DataTalksClub/website/issues/408 — merged as website 3fb9db07; dev deploy blocked on a fully green main CI run (website#345: the corpus-bound django test clusters are fixed, merged as website fc534fcf; the Playwright lane remains in flight); worker self-check IAM grant merged as aws-infra 3acefe43 but not yet effective: the protected development apply is blocked on the sandbox-account trust-policy bootstrap (aws-infra#56) |
 | `D0.1d` | DataTalksClub/website | Retire old settings storage after the rollback window | D0.1c | no | todo | https://github.com/DataTalksClub/website/issues/385 |
 | `D0.2` | DataTalksClub/website | Site CI guard and pin bump workflow | D0.1a | no | done | https://github.com/DataTalksClub/website/issues/354 |
 
@@ -50,9 +50,9 @@ issues that can start now.
 | `D1.1` | DataTalksClub/website | Replace DTC jobs with the package jobs app (relay backend) | C1.5, R1.1, R1.2 | no | done | https://github.com/DataTalksClub/website/issues/350 |
 | `D1.2a` | DataTalksClub/website | Install the mail app, move PendingUnsubscribe, commit the purpose templates | D1.1, R1.3, R1.4, R1.5 | no | done | https://github.com/DataTalksClub/website/issues/368 |
 | `D1.2b` | DataTalksClub/website | Send through the package mail app with the outbox idempotency keys | D1.2a | no | done | https://github.com/DataTalksClub/website/issues/370 |
-| `D1.2ca` | DataTalksClub/website | Send the remaining datamailer mail through the package mail app and retire the datamailer client | D1.2b | no | blocked | website#372 branch issue-372 gates green; dev deploy blocked on a fully green main CI run (website#345: the corpus-bound django test clusters are fixed, merged as website fc534fcf; the Playwright lane remains in flight); worker self-check IAM grant merged as aws-infra 3acefe43 but not yet effective: the protected development apply is blocked on the sandbox-account trust-policy bootstrap (aws-infra#56) |
+| `D1.2ca` | DataTalksClub/website | Send the remaining datamailer mail through the package mail app and retire the datamailer client | D1.2b | no | blocked | https://github.com/DataTalksClub/website/issues/409 — website#372 branch issue-372 gates green; dev deploy blocked on a fully green main CI run (website#345: the corpus-bound django test clusters are fixed, merged as website fc534fcf; the Playwright lane remains in flight); worker self-check IAM grant merged as aws-infra 3acefe43 but not yet effective: the protected development apply is blocked on the sandbox-account trust-policy bootstrap (aws-infra#56) |
 | `D1.2cb` | DataTalksClub/website | Retire email_app and the data app, move the bridge settings | D1.2ca | no | todo | https://github.com/DataTalksClub/website/issues/372 (D1.2c umbrella spans D1.2ca and D1.2cb) |
-| `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2cb | yes | todo |  |
+| `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2cb | yes | todo | https://github.com/DataTalksClub/website/issues/410 |
 | `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | done | https://github.com/AI-Shipping-Labs/website/commit/b8d0eb8096668c4b1478840dd3e1c5c4051834c6 |
 | `A1.2` | AI-Shipping-Labs/website | Adopt the package mail app on the ses_local backend | C1.5, A1.1 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1610 (closed 2026-09-12 with dev deploy green; canonical final check unmet, remainder filed as https://github.com/AI-Shipping-Labs/website/issues/1629) |
 
@@ -66,7 +66,7 @@ issues that can start now.
 | `C2.3` | community-base | Content sync engine | C1.5, C2.1a | no | done | https://github.com/DataTalksClub/community-base/pull/52 |
 | `C2.4` | community-base | Release 0.3.0 | C2.1b, C2.2, C2.3 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.3.0 |
 | `A2.1` | AI-Shipping-Labs/website | Adopt the Studio shell | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1615 |
-| `A2.2` | AI-Shipping-Labs/website | Users pages from the package | A2.1 | no | todo |  |
+| `A2.2` | AI-Shipping-Labs/website | Users pages from the package | A2.1 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1691 |
 | `A2.3` | AI-Shipping-Labs/website | Content sync through the package engine | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1617 |
 | `D2.1` | DataTalksClub/website | Mount the Studio shell and re-home DTC Studio pages | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/377 |
 | `D2.2a` | DataTalksClub/website | Content sync adoption: articles and people through the package engine | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/379 (engineering, independent tester PASS and PM acceptance recorded on the issue; merged to website main as 60a25617 + f2b32dd0; dev deploy pending the website#345 / aws-infra#56 blockers) |
@@ -89,28 +89,28 @@ issues that can start now.
 | `C3.5b` | community-base | Comments | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/90 |
 | `C3.5c` | community-base | Voting | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/93 |
 | `C3.6` | community-base | Identity and community capability checkpoint | C3.1e, C3.2, C3.3, C3.4, C3.5a, C3.5b, C3.5c | no | done | https://github.com/DataTalksClub/community-base/pull/96 |
-| `C3.7` | community-base | Identity donor compatibility checkpoint | C3.6, A3.2, D3.1 | no | todo |  |
+| `C3.7` | community-base | Identity donor compatibility checkpoint | C3.6, A3.2, D3.1 | no | todo | https://github.com/DataTalksClub/community-base/issues/270 |
 | `A3.1` | AI-Shipping-Labs/website | Move tier and Stripe fields off the user model | C5.2a | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1579 accepted at website 0b1c7eff, dev deploy green; human checks AC13/AC14 pending |
-| `A3.2` | AI-Shipping-Labs/website | Extension models for the remaining site-only user fields | A3.1 | no | todo |  |
-| `A3.3` | AI-Shipping-Labs/website | Freeze weekend: adopt shared accounts, questionnaires, community, notifications, comments, voting | C5.3, C3.7, A3.2 | yes | todo |  |
+| `A3.2` | AI-Shipping-Labs/website | Extension models for the remaining site-only user fields | A3.1 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1692 |
+| `A3.3` | AI-Shipping-Labs/website | Freeze weekend: adopt shared accounts, questionnaires, community, notifications, comments, voting | C5.3, C3.7, A3.2 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1693 |
 | `D3.1` | DataTalksClub/website | Extension models and user model rename | C5.2a | no | in-progress | https://github.com/DataTalksClub/website/issues/334 |
-| `D3.2` | DataTalksClub/website | Freeze weekend: adopt shared accounts and onboarding | C5.3, C3.7, D3.1 | yes | todo |  |
+| `D3.2` | DataTalksClub/website | Freeze weekend: adopt shared accounts and onboarding | C5.3, C3.7, D3.1 | yes | todo | https://github.com/DataTalksClub/website/issues/411 |
 
 ## Phase 4
 
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
-| `A4.1` | AI-Shipping-Labs/website | Cut the seams in AISL events | C5.2a, A3.2 | no | todo |  |
+| `A4.1` | AI-Shipping-Labs/website | Cut the seams in AISL events | C5.2a, A3.2 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1694 |
 | `C4.1a` | community-base | Events models and domain services | C3.6 | no | done | https://github.com/DataTalksClub/community-base/pull/100 |
 | `C4.1b` | community-base | Registration, reminders and feedback | C4.1a | no | done | https://github.com/DataTalksClub/community-base/pull/103 |
 | `C4.1c` | community-base | Event integrations and job handlers | C4.1b | no | done | https://github.com/DataTalksClub/community-base/pull/107 |
 | `C4.1d` | community-base | Event pages, Studio and APIs | C4.1c | no | done | https://github.com/DataTalksClub/community-base/pull/110 |
 | `C4.1e` | community-base | Remove event aliases and legacy path compatibility | C4.1d | no | done | https://github.com/DataTalksClub/community-base/pull/264 |
 | `C4.2` | community-base | Events capability checkpoint | C4.1d, C4.1e | no | done | https://github.com/DataTalksClub/community-base/pull/113 |
-| `C4.3` | community-base | Events donor compatibility checkpoint | C4.2, A4.1 | no | todo |  |
-| `A4.2` | AI-Shipping-Labs/website | Freeze weekend: adopt shared events | C5.3, C4.3, A4.1 | yes | todo |  |
-| `D4.1` | DataTalksClub/website | Database-authored events in DTC | C5.3 | no | todo |  |
-| `D4.2` | DataTalksClub/website | Freeze weekend: DTC events cutover | D4.1 | yes | todo |  |
+| `C4.3` | community-base | Events donor compatibility checkpoint | C4.2, A4.1 | no | todo | https://github.com/DataTalksClub/community-base/issues/271 |
+| `A4.2` | AI-Shipping-Labs/website | Freeze weekend: adopt shared events | C5.3, C4.3, A4.1 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1695 |
+| `D4.1` | DataTalksClub/website | Database-authored events in DTC | C5.3 | no | todo | https://github.com/DataTalksClub/website/issues/412 |
+| `D4.2` | DataTalksClub/website | Freeze weekend: DTC events cutover | D4.1 | yes | todo | https://github.com/DataTalksClub/website/issues/413 |
 
 ## Phase 5
 
@@ -121,7 +121,7 @@ issues that can start now.
 | `C5.1c` | community-base | Curriculum public pages and member APIs | C5.1b | no | done | https://github.com/DataTalksClub/community-base/pull/121 |
 | `C5.1d` | community-base | Curriculum Studio and staff APIs | C5.1c | no | done | https://github.com/DataTalksClub/community-base/pull/123 |
 | `C5.1e` | community-base | Curriculum ownership: course-owned modules, cohort placement, and nesting | C5.1d | no | done | https://github.com/DataTalksClub/community-base/pull/254 |
-| `C5.1f` | community-base | Pre-work checklist items | C5.1e | no | in-progress | local commit, not pushed; no pull request opened yet |
+| `C5.1f` | community-base | Pre-work checklist items | C5.1e | no | in-progress | https://github.com/DataTalksClub/community-base/issues/272 — local commit, not pushed; no pull request opened yet |
 | `C5.2a` | community-base | Coursework models | C5.1d | no | done | https://github.com/DataTalksClub/community-base/pull/126 |
 | `C5.2b` | community-base | Homework scoring and statistics | C5.2a | no | done | https://github.com/DataTalksClub/community-base/pull/128 |
 | `C5.2c` | community-base | Projects and peer review | C5.2b | no | done | https://github.com/DataTalksClub/community-base/pull/132 |
@@ -129,26 +129,26 @@ issues that can start now.
 | `C5.2db` | community-base | Registration campaigns and course registrations | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/138 |
 | `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | done | https://github.com/DataTalksClub/community-base/pull/146 |
 | `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2dc | no | done | https://github.com/DataTalksClub/community-base/pull/159 |
-| `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e | no | todo |  |
-| `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3 | no | todo |  |
-| `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo |  |
-| `D5.1` | DataTalksClub/website | Map DTC course platform data to the shared apps | C5.3 | no | todo |  |
-| `D5.2` | DataTalksClub/website | Freeze weekend: DTC courses cutover and self-paced mode | D5.1 | yes | todo |  |
+| `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e | no | todo | https://github.com/DataTalksClub/community-base/issues/273 |
+| `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1696 |
+| `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1697 |
+| `D5.1` | DataTalksClub/website | Map DTC course platform data to the shared apps | C5.3 | no | todo | https://github.com/DataTalksClub/website/issues/414 |
+| `D5.2` | DataTalksClub/website | Freeze weekend: DTC courses cutover and self-paced mode | D5.1 | yes | todo | https://github.com/DataTalksClub/website/issues/415 |
 
 ## Phase 6
 
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
-| `R6.1` | DataTalksClub/relay | AISL tenant and SES identity in Relay production | D1.3, D5.2 | no | todo |  |
-| `R6.2` | DataTalksClub/relay | History import | R6.1 | no | todo |  |
+| `R6.1` | DataTalksClub/relay | AISL tenant and SES identity in Relay production | D1.3, D5.2 | no | todo | https://github.com/DataTalksClub/relay/issues/25 |
+| `R6.2` | DataTalksClub/relay | History import | R6.1 | no | todo | https://github.com/DataTalksClub/relay/issues/26 |
 | `R6.3` | DataTalksClub/relay | Campaign parity for AISL | R1.5 | no | done | https://github.com/DataTalksClub/relay/commit/e183b23fb3cff7a782d1406cb5f84104ff17b51f |
-| `C6.1` | community-base | Remove transitional backends | A6.4 | no | todo |  |
+| `C6.1` | community-base | Remove transitional backends | A6.4 | no | todo | https://github.com/DataTalksClub/community-base/issues/274 |
 | `C6.2` | community-base | Relay contacts, subscriptions and tags clients | C1.2b | no | done | https://github.com/DataTalksClub/community-base/pull/226 |
 | `C6.2a` | community-base | Relay verification confirmation scope | C6.2 | no | done | https://github.com/DataTalksClub/community-base/pull/240 |
-| `A6.1` | AI-Shipping-Labs/website | Templates into Relay | R6.1, R1.3 | no | todo |  |
+| `A6.1` | AI-Shipping-Labs/website | Templates into Relay | R6.1, R1.3 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1698 |
 | `A6.2` | AI-Shipping-Labs/website | Contacts and preferences into Relay | C6.2, R6.3, R1.5 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1625 (closed by merge cc8c900d; dev deploy green on run 34735978832 attempt 2 after a transient one-test timeout on attempt 1) |
-| `A6.3` | AI-Shipping-Labs/website | Switch backends, campaigns and SES events | A6.1, A6.2, R6.2 | no | todo |  |
-| `A6.4` | AI-Shipping-Labs/website | Freeze weekend: AISL production on Relay | A6.3 | yes | todo |  |
+| `A6.3` | AI-Shipping-Labs/website | Switch backends, campaigns and SES events | A6.1, A6.2, R6.2 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1699 |
+| `A6.4` | AI-Shipping-Labs/website | Freeze weekend: AISL production on Relay | A6.3 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1700 |
 
 ## Phase 7
 
