@@ -1,0 +1,10 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}{{ page.title }}{% endblock %}
+{% block studio_content %}
+<h1>{{ page.title }}</h1>
+<p>{{ page.get_section_display }} / {{ page.slug }}{% if page.parent %} under {{ page.parent.title }}{% endif %} - order {{ page.nav_order }} - {{ page.status }} - {% if page.source_checksum %}repo{% else %}manual{% endif %}</p>
+{% if ancestors %}<nav><ul>{% for ancestor in ancestors %}<li><a href="{% url 'knowledge_base_studio_page_detail' ancestor.pk %}">{{ ancestor.title }}</a></li>{% endfor %}</ul></nav>{% endif %}
+{% if children %}<h2>Children</h2><ul>{% for child in children %}<li><a href="{% url 'knowledge_base_studio_page_detail' child.pk %}">{{ child.title }}</a> (order {{ child.nav_order }})</li>{% endfor %}</ul>{% endif %}
+{% if page.summary %}<h2>Summary</h2><p>{{ page.summary }}</p>{% endif %}
+<h2>Body</h2>{{ page.body_html }}
+{% endblock %}
