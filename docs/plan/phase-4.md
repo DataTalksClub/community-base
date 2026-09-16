@@ -216,14 +216,14 @@ Steps
    `community_base.events` with `EVENT_URL_STYLE="public_id"`; rebuild tables (P5 steps 2 to 4).
 4. Import command: old `Event` rows -> shared `Event` with `public_id` preserved, `slug`
    preserved, speakers -> `Host(kind=speaker, external_ref=<people short>)`, lifecycle mapped to
-   `status`; `EventAlias` rows preserved; Q&A sessions and aggregates re-linked by `public_id`.
+   `status`; Q&A sessions and aggregates re-linked by `public_id`.
 5. Studio: DTC event pages come from the package; Q&A and historical totals register under the
    `Events` section.
 6. Public detail keeps speaker links through `HOST_PROFILE_RESOLVER`; description bridge from
    `_docs/event-description-bridge.md` becomes the description field content.
 
 Verification
-- Row counts before and after import equal for events, aliases, Q&A sessions, aggregates.
+- Row counts before and after import equal for events, Q&A sessions, aggregates.
 - `uv run pytest events event_qna historical_registrations -q` -> pass; compatibility route
   test passes; Playwright core events tests pass.
 
