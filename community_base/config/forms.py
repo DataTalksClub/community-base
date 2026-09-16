@@ -46,12 +46,26 @@ class SettingsGroupForm(forms.Form):
 
     def cleaned_updates(self) -> dict:
         updates = {}
+        cleared = self.cleaned_clears()
         for item in self.config_definitions:
             value = self.cleaned_data[item.key]
             if item.secret and not value:
                 continue
+            if item.key in cleared:
+                continue
             updates[item.key] = item.coerce(value)
         return updates
+
+    def cleaned_clears(self) -> tuple[str, ...]:
+        """Optional blank integers remove their override; blank secrets keep it."""
+        return tuple(
+            item.key
+            for item in self.config_definitions
+            if item.optional
+            and item.value_type == "int"
+            and not item.secret
+            and self.cleaned_data[item.key] is None
+        )
 
 
 class SettingsImportForm(forms.Form):

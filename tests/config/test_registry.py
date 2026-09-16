@@ -28,11 +28,13 @@ def test_declare_preserves_all_metadata():
         django_settings_fallback="TEST_EMAIL_SETTING",
         env_var="TEST_EMAIL_ENV",
         docs_url="docs/testing.md#email",
+        requires_restart=True,
     )
 
     assert definition(declared.key) == declared
     assert declared in groups()["testing"]
     assert declared.secret and declared.multiline and declared.optional and declared.is_email
+    assert declared.requires_restart is True
 
 
 def test_conflicting_declaration_is_rejected():

@@ -133,6 +133,7 @@ def describe(key: str) -> dict[str, Any]:
         "optional": item.optional,
         "is_email": item.is_email,
         "docs_url": item.docs_url,
+        "requires_restart": item.requires_restart,
     }
 
 
