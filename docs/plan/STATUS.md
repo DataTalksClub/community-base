@@ -105,7 +105,8 @@ issues that can start now.
 | `C4.1b` | community-base | Registration, reminders and feedback | C4.1a | no | done | https://github.com/DataTalksClub/community-base/pull/103 |
 | `C4.1c` | community-base | Event integrations and job handlers | C4.1b | no | done | https://github.com/DataTalksClub/community-base/pull/107 |
 | `C4.1d` | community-base | Event pages, Studio and APIs | C4.1c | no | done | https://github.com/DataTalksClub/community-base/pull/110 |
-| `C4.2` | community-base | Events capability checkpoint | C4.1d | no | done | https://github.com/DataTalksClub/community-base/pull/113 |
+| `C4.1e` | community-base | Remove event aliases and legacy path compatibility | C4.1d | no | todo | https://github.com/DataTalksClub/community-base/issues/259 |
+| `C4.2` | community-base | Events capability checkpoint | C4.1d, C4.1e | no | done | https://github.com/DataTalksClub/community-base/pull/113 |
 | `C4.3` | community-base | Events donor compatibility checkpoint | C4.2, A4.1 | no | todo |  |
 | `A4.2` | AI-Shipping-Labs/website | Freeze weekend: adopt shared events | C5.3, C4.3, A4.1 | yes | todo |  |
 | `D4.1` | DataTalksClub/website | Database-authored events in DTC | C5.3 | no | todo |  |
@@ -148,3 +149,13 @@ issues that can start now.
 | `A6.2` | AI-Shipping-Labs/website | Contacts and preferences into Relay | C6.2, R6.3, R1.5 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1625 (closed by merge cc8c900d; dev deploy green on run 34735978832 attempt 2 after a transient one-test timeout on attempt 1) |
 | `A6.3` | AI-Shipping-Labs/website | Switch backends, campaigns and SES events | A6.1, A6.2, R6.2 | no | todo |  |
 | `A6.4` | AI-Shipping-Labs/website | Freeze weekend: AISL production on Relay | A6.3 | yes | todo |  |
+
+## Phase 7
+
+| Issue | Repository | Title | Depends on | Freeze | Status | Link |
+|---|---|---|---|---|---|---|
+| `C7.1` | community-base | Site convergence umbrella |  | no | todo | https://github.com/DataTalksClub/community-base/issues/258 |
+| `C7.2` | community-base | Shared knowledge base app: wiki and docs | C2.4 | no | todo | https://github.com/DataTalksClub/community-base/issues/260 |
+| `D7.1` | DataTalksClub/website | DTC wiki and docs onto the shared app | C7.2 | no | todo | https://github.com/DataTalksClub/website/issues/406 |
+| `A7.1` | AI-Shipping-Labs/website | AISL gains wiki and docs | C7.2 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1685 |
+| `C7.3` | community-base | Gate Calendly Studio surfaces behind the Calendly flag |  | no | todo | https://github.com/DataTalksClub/community-base/issues/261 |

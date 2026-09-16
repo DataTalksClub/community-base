@@ -30,3 +30,12 @@ issue C2.1 changes to a markup-only shell with a per-site stylesheet; everything
 D15 does not make `cross-repo-check.yml`'s result a required GitHub branch-protection check on
 this repository's pull requests; enabling that is a repository setting change, left to the owner
 or orchestrator, not to this decision.
+
+Taken by the owner on 2026-09-16, from the comparison recorded in
+`docs/plan/evidence/site-convergence-analysis-2026-09-16.md`.
+
+| # | Decision | Consequence for the plan |
+|---|---|---|
+| D16 | A wiki and a documentation section are shared capabilities, not DTC-only content types. AISL gains both so the two sites run the same implementation. | A package knowledge-base app owns the models, rendering and Studio screens; each site keeps its own parsers, routes and public templates. Phase 7 issues `C7.1`, `A7.1` and `D7.1`. |
+| D17 | Neither site carries legacy URL or schema compatibility for its own history. Both products are new. AISL is in production, so its legacy constructs are removed through a staged rollout, not kept. | `events.EventAlias` and the alias route are removed from the package (`C4.1e`). DTC already dropped the model on 2026-09-11. No new alias, redirect-table or legacy-path model enters a shared app without a decision that names the history it preserves. |
+| D18 | Confirms the public-pages clause of D12. Public templates and design systems stay site-owned and are never shared. | The package ships no public page markup beyond overridable defaults. The Studio clause of D12 is unchanged and still stands as written. |

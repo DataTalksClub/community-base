@@ -125,9 +125,49 @@ Verification
 - Both URL styles, aliases, public templates, Studio routes and APIs pass package tests.
 - Full package, boundary, fresh-migration and installed-wheel checks pass.
 
+## C4.1e Remove event aliases and legacy path compatibility
+
+Repository: community-base. Depends on: C4.1d. Decision D17.
+
+Goal: an event is addressed by its canonical URL only. The package keeps no table of superseded
+paths and no catch-all redirect route.
+
+Read first
+- `community_base/events/models.py` (`EventAlias`, `ALIAS_KINDS`, the `events_alias_path_shape`
+  constraint), `services.py` (`add_alias`), `urls.py` (the `<path:alias>/` route),
+  `views.py` (`event_alias`), `README.md`.
+- `~/git/dtc-website/events/migrations/0007_delete_eventalias.py` for the donor's own removal and
+  its stated reason.
+
+Steps
+1. Delete the `EventAlias` model, `ALIAS_KINDS`, the alias check constraint and `add_alias`.
+2. Delete the `event_alias` view and the trailing `<path:alias>/` route. A superseded path becomes
+   a 404, which is what the route already returned for an unknown alias.
+3. Delete alias rows and the table in an appended migration. The events migrations are still
+   provisional, so this may also be folded into the provisional set rather than appended.
+4. Remove alias wording from `community_base/events/README.md`, including the sentence telling
+   sites to use `EventAlias` rows to preserve reviewed historical paths.
+5. Remove alias tests and the alias arm of the URL-style redirect tests. Keep the canonical
+   slug and `public_id` redirect behavior, which is not alias-driven.
+
+Verification
+- `grep -rn "EventAlias\|add_alias\|ALIAS_KINDS\|event_alias" community_base/ docs/` returns
+  nothing outside this issue's own changelog entry.
+- Fresh-database migrations and the package events tests pass.
+- `uv run python -m pytest tests/events` passes.
+- A request to a path below `/events/` that matches no event returns 404, not a 500.
+
+Done when
+- [ ] no alias model, route, view, service, template or test remains in the package
+- [ ] `docs/00-analysis.md` no longer lists aliases as the DTC events extension to preserve
+- [ ] CHANGELOG records the removal as a breaking change for any site that mounted the route
+
+Docs
+- `community_base/events/README.md`, `docs/00-analysis.md`, `CHANGELOG.md`.
+
 ## C4.2 Events capability checkpoint
 
-Repository: community-base. Depends on: C4.1d.
+Repository: community-base. Depends on: C4.1d, C4.1e.
 
 Goal: prove package-local events behavior without tagging the provisional kept-label migration.
 
