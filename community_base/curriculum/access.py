@@ -41,7 +41,7 @@ def _course_for(obj):
     if isinstance(obj, Course):
         return obj
     if isinstance(obj, Unit):
-        return obj.module.cohort.course
+        return obj.module.course
     raise TypeError(f"Unsupported curriculum access object: {type(obj).__name__}")
 
 

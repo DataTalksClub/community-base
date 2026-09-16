@@ -44,17 +44,25 @@ class UnitGraph:
     is_preview: bool = False
     required_level: int | None = None
     sort_order: int = 0
+    kind: str = "lesson"
+    session_position: int | None = None
+    is_bonus: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class ModuleGraph:
+    """One module, course-owned. Either ``children`` or ``units`` is non-empty, never both."""
+
     content_id: str | None
     slug: str
     title: str
     source_path: str
     overview: str = ""
     sort_order: int = 0
+    is_bonus: bool = False
+    available_after_days: int | None = None
     units: tuple[UnitGraph, ...] = field(default=())
+    children: tuple[ModuleGraph, ...] = field(default=())
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +78,11 @@ class CohortGraph:
     hashtag: str = ""
     visible: bool = True
     source_path: str | None = None
-    modules: tuple[ModuleGraph, ...] = field(default=())
+    # Ordered top-level module identifiers (content_id, or slug when content_id is
+    # None) this cohort places. ``None`` means "the full course tree, in module
+    # order" -- every AI Shipping Labs course today. A non-empty tuple curates a
+    # subset or order, DataTalks.Club's case.
+    module_refs: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +105,10 @@ class CourseGraph:
     hashtag: str = ""
     visible: bool = True
     instructors: tuple[InstructorGraph, ...] = field(default=())
+    # The one module tree, owned by the course. Top-level modules in display
+    # order; each may carry ``children`` (submodules, max depth two) or
+    # ``units`` directly, never both.
+    modules: tuple[ModuleGraph, ...] = field(default=())
     cohorts: tuple[CohortGraph, ...] = field(default=())
 
 
@@ -106,3 +122,36 @@ class ParsedCurriculum:
 
 class CurriculumParseError(ValueError):
     """A repository layout does not satisfy the curriculum source contract."""
+
+
+def validate_module_tree(modules: tuple[ModuleGraph, ...], *, where: str, depth: int = 1) -> None:
+    """Validate a course's module tree once, shared by both parsers.
+
+    Enforces: a module has either ``children`` or ``units``, never both, naming the
+    offending directory (``where``); nesting does not exceed two module levels; sibling
+    module slugs (and sibling unit slugs) are unique within their own parent, not globally
+    -- so two submodules under different parents may each contain a unit slugged the same.
+    """
+
+    seen_module_slugs: set[str] = set()
+    for module in modules:
+        if module.slug in seen_module_slugs:
+            raise CurriculumParseError(f"{where}: duplicate module slug {module.slug!r}")
+        seen_module_slugs.add(module.slug)
+        module_where = f"{module.source_path or where}"
+        if module.children and module.units:
+            raise CurriculumParseError(
+                f"{module_where}: has both child modules and direct units; "
+                "a module must have only one"
+            )
+        if module.children:
+            if depth >= 2:
+                raise CurriculumParseError(
+                    f"{module_where}: exceeds the maximum module depth of two levels"
+                )
+            validate_module_tree(module.children, where=module_where, depth=depth + 1)
+        seen_unit_slugs: set[str] = set()
+        for unit in module.units:
+            if unit.slug in seen_unit_slugs:
+                raise CurriculumParseError(f"{module_where}: duplicate unit slug {unit.slug!r}")
+            seen_unit_slugs.add(unit.slug)

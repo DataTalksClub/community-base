@@ -10,6 +10,7 @@ from community_base.content_sync.models import ContentSource
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 AISL_CONTENT = FIXTURES / "aisl-content"
+AISL_CONTENT_NESTED = FIXTURES / "aisl-content-nested"
 DTC_REPO = FIXTURES / "dtc-repo"
 
 

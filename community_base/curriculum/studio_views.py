@@ -2,6 +2,7 @@
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -107,6 +108,9 @@ def course_detail(request, course_id):
         {
             "course": course,
             "cohorts": course.cohorts.order_by("start_date", "pk"),
+            "modules": Module.objects.filter(course=course, parent__isnull=True)
+            .prefetch_related("children__units", "units")
+            .order_by("sort_order", "pk"),
             "instructor_links": CourseInstructor.objects.filter(course=course).order_by(
                 "position", "pk"
             ),
@@ -225,7 +229,7 @@ def cohort_detail(request, cohort_id):
         "community_base/curriculum/studio/cohort_detail.html",
         {
             "cohort": cohort,
-            "modules": cohort.modules.order_by("sort_order", "pk"),
+            "modules": cohort.effective_modules(),
             "enrollments": cohort.enrollments.select_related("user").order_by("-enrolled_at"),
             "source_locked": _source_locked(cohort),
         },
@@ -272,17 +276,23 @@ def cohort_delete(request, cohort_id):
 
 
 @staff_required
-def module_create(request, cohort_id):
-    cohort = get_object_or_404(Cohort, pk=cohort_id)
+def module_create(request, course_id):
+    course = get_object_or_404(Course, pk=course_id)
     form = ModuleForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            module = form.save(commit=False)
-            module.cohort = cohort
-            module.save()
-        _audit(request, "curriculum.module.created", module)
-        messages.success(request, "Module created.")
-        return redirect("curriculum_studio_cohort_detail", cohort_id=cohort.pk)
+        module = form.save(commit=False)
+        module.course = course
+        try:
+            with transaction.atomic():
+                module.full_clean()
+                module.save()
+        except ValidationError as error:
+            for message in error.messages:
+                form.add_error(None, message)
+        else:
+            _audit(request, "curriculum.module.created", module)
+            messages.success(request, "Module created.")
+            return redirect("curriculum_studio_course_detail", course_id=course.pk)
     return render(
         request,
         "community_base/curriculum/studio/form.html",
@@ -298,13 +308,13 @@ def module_edit(request, module_id):
         ModuleForm,
         instance=module,
         locked_redirect=lambda: redirect(
-            "curriculum_studio_cohort_detail", cohort_id=module.cohort_id
+            "curriculum_studio_course_detail", course_id=module.course_id
         ),
     )
     if isinstance(result, Module):
         _audit(request, "curriculum.module.updated", result)
         messages.success(request, "Module updated.")
-        return redirect("curriculum_studio_cohort_detail", cohort_id=result.cohort_id)
+        return redirect("curriculum_studio_course_detail", course_id=result.course_id)
     return render(
         request,
         "community_base/curriculum/studio/form.html",
@@ -321,11 +331,11 @@ def module_edit(request, module_id):
 @require_POST
 def module_delete(request, module_id):
     module = get_object_or_404(Module, pk=module_id)
-    cohort_id = module.cohort_id
+    course_id = module.course_id
     module.delete()
     _audit(request, "curriculum.module.deleted", type("Target", (), {"pk": module_id})())
     messages.success(request, "Module deleted.")
-    return redirect("curriculum_studio_cohort_detail", cohort_id=cohort_id)
+    return redirect("curriculum_studio_course_detail", course_id=course_id)
 
 
 @staff_required
@@ -333,13 +343,19 @@ def unit_create(request, module_id):
     module = get_object_or_404(Module, pk=module_id)
     form = UnitForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            unit = form.save(commit=False)
-            unit.module = module
-            unit.save()
-        _audit(request, "curriculum.unit.created", unit)
-        messages.success(request, "Unit created.")
-        return redirect("curriculum_studio_cohort_detail", cohort_id=module.cohort_id)
+        unit = form.save(commit=False)
+        unit.module = module
+        try:
+            with transaction.atomic():
+                unit.full_clean()
+                unit.save()
+        except ValidationError as error:
+            for message in error.messages:
+                form.add_error(None, message)
+        else:
+            _audit(request, "curriculum.unit.created", unit)
+            messages.success(request, "Unit created.")
+            return redirect("curriculum_studio_course_detail", course_id=module.course_id)
     return render(
         request,
         "community_base/curriculum/studio/form.html",
@@ -355,13 +371,13 @@ def unit_edit(request, unit_id):
         UnitForm,
         instance=unit,
         locked_redirect=lambda: redirect(
-            "curriculum_studio_cohort_detail", cohort_id=unit.module.cohort_id
+            "curriculum_studio_course_detail", course_id=unit.module.course_id
         ),
     )
     if isinstance(result, Unit):
         _audit(request, "curriculum.unit.updated", result)
         messages.success(request, "Unit updated.")
-        return redirect("curriculum_studio_cohort_detail", cohort_id=result.module.cohort_id)
+        return redirect("curriculum_studio_course_detail", course_id=result.module.course_id)
     return render(
         request,
         "community_base/curriculum/studio/form.html",
@@ -373,11 +389,11 @@ def unit_edit(request, unit_id):
 @require_POST
 def unit_delete(request, unit_id):
     unit = get_object_or_404(Unit, pk=unit_id)
-    cohort_id = unit.module.cohort_id
+    course_id = unit.module.course_id
     unit.delete()
     _audit(request, "curriculum.unit.deleted", type("Target", (), {"pk": unit_id})())
     messages.success(request, "Unit deleted.")
-    return redirect("curriculum_studio_cohort_detail", cohort_id=cohort_id)
+    return redirect("curriculum_studio_course_detail", course_id=course_id)
 
 
 # --- enrollments and certificates ---

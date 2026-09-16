@@ -124,6 +124,107 @@ Verification
 - `testproject`: import the AISL content fixture and a DTC curriculum fixture -> both render;
   drip lock respected for a cohort started today with `available_after_days=7`.
 
+## C5.1e Curriculum ownership: course-owned modules, cohort placement, and nesting
+
+Repository: community-base. Depends on: C5.1d.
+
+Design: `docs/plan/evidence/c5.1e-shared-curriculum-adoption.md`. Evidence for the ownership
+finding is posted on `community-base#253`
+(https://github.com/DataTalksClub/community-base/issues/253#issuecomment-5697834824). This issue
+implements `community-base#252` (nesting, `kind`, `is_bonus`) directly on the corrected
+course-owned shape rather than on the cohort-owned `Module` merged in C5.1a-C5.2e, per the
+owner's decision recorded on both issues: `community_base.curriculum` has never been tagged
+(latest release `v0.3.9`; `C5.3` is still `todo`), so this is a pre-release correction, not a
+migration of a shipped contract, and breaking the merged-but-unreleased shape is accepted.
+
+Goal: `Module.course` FK (replacing `Module.cohort`), `Module.parent` (nullable self-FK, max
+depth two), `Module.is_bonus`, `Module.available_after_days`; `Unit.kind`
+(`lesson`/`homework`/`event`), `Unit.session_position`, `Unit.is_bonus`; a new optional
+`CohortModule` placement model; `Cohort.curriculum_format` deleted. A cohort with no
+`CohortModule` rows shows the full course tree in module order (AI Shipping Labs' case, zero
+extra rows); `CohortModule` rows curate a subset or order for a cohort that needs it
+(DataTalks.Club's case).
+
+Read first
+- `docs/plan/evidence/c5.1e-shared-curriculum-adoption.md` (this issue's design, in full).
+- `community_base/curriculum/models.py`, `parsers_aisl.py`, `parsers_dtc.py`, `source.py`,
+  `importing.py`, `views.py`, `services.py`, `api_views.py`, `studio_views.py`, `studio_forms.py`.
+- `~/git/ai-shipping-labs/content/models/course.py` (the model this design targets: `Module`
+  line 318 has `course` FK line 321 and `sort_order` line 326; `Unit` line 374 has `module` FK
+  line 377, `sort_order` line 382, `available_after_days` line 417).
+- `AI-Shipping-Labs/website#1674` (the site's local, in-flight implementation of `#252` against
+  its own model; field names must match exactly, see design doc section 7).
+- `community_base/coursework/*.py` only imports `Cohort`, `Course`, `Enrollment`, `Certificate`
+  from `curriculum.models` (verified by grep in the design doc) — confirm this still holds before
+  starting; if it has changed, the coursework blast-radius claim in the design doc is wrong and
+  this issue's steps need to account for it before touching `Module`/`Unit`.
+
+Steps
+1. Model changes per design doc section 2: `Module.course` FK (drop `Module.cohort`),
+   `Module.parent`/`is_bonus`/`available_after_days`; `Unit.kind`/`session_position`/`is_bonus`;
+   new `CohortModule` model; delete `Cohort.curriculum_format`. Regenerate
+   `community_base/curriculum/migrations/0001_initial.py` in place (untagged, so append-only does
+   not apply yet, per `docs/02-architecture.md` rule 5) rather than adding a second migration.
+   Every new non-nullable column ships with `db_default` (`Unit.kind` default `"lesson"`,
+   `is_bonus` fields default `False`); nullable columns (`Module.parent`,
+   `Module.available_after_days`, `Unit.session_position`) need none.
+2. Slug uniqueness by construction: `cb_module_course_parent_slug_unique` on
+   `(course, parent, slug)`, replacing `cb_module_cohort_slug_unique`.
+3. Source graph rewrite (`source.py`): `CourseGraph.modules` becomes the owned tree (recursive
+   via a `children` field on `ModuleGraph`); `CohortGraph.modules` (owned subtree) becomes
+   `CohortGraph.module_refs: tuple[str, ...] | None` (ordered top-level module identifiers a
+   cohort places; `None` means the full course tree in module order).
+4. `parsers_aisl.py`: parse nested module directories recursively
+   (`01-module/01-submodule/01-unit.md`), numeric prefix stripped from the slug at every level,
+   mixed children-and-units rejected at import time naming the offending directory. AISL's single
+   self-paced cohort always emits `module_refs=None`.
+5. `parsers_dtc.py`: same recursive nesting for shared (course-owned) module manifests; a
+   cohort's `flow` entries populate `module_refs` when present.
+6. `importing.py`: `_module`/`_unit` upserts key off `course` instead of `cohort`; add
+   `_cohort_module` upsert for `CohortModule` rows when a cohort's graph carries `module_refs`.
+7. `services.py`: rewrite `get_all_units_ordered`, `get_next_unit`, `get_prev_unit`,
+   `decide_unit_drip` to the depth-first order and `available_after_days` cascade
+   (`Unit.available_after_days` -> leaf `Module.available_after_days` -> parent
+   `Module.available_after_days`) specified in `#252`/`#1674`. Progress helpers exclude
+   `is_bonus` (module or unit) from the denominator and include `kind="event"`.
+8. `views.py`/`api_views.py`/`studio_views.py`/`studio_forms.py`: switch every
+   `cohort.modules`/`Module.objects.filter(cohort=...)` to `course.modules.filter(parent=None)`
+   (default) or a `CohortModule`-driven query (curated). Public URLs drop the cohort segment for
+   module/unit pages (`/courses/<slug>/<module_slug>[/<unit_slug>]`), matching AI Shipping Labs'
+   real site paths (confirmed in `#1674`).
+9. Update `tests/curriculum/` fixtures and the 113 existing tests
+   (`test_models.py` 20, `test_import.py` 10, `test_services.py` 23, `test_views.py` 22,
+   `test_studio.py` 10, `test_staff_api.py` 10, `test_sync.py` 7, `test_access.py` 11) for the new
+   ownership shape; add nesting-specific tests per the task's quality bar, including two
+   submodules under one module each containing a unit slugged `section-overview`, both syncing
+   cleanly.
+10. Update `community_base/curriculum/README.md` for the new model table, the `CohortModule`
+    placement default, and the dropped `Cohort.curriculum_format`.
+
+Verification
+- `uv run pytest tests/curriculum` -> pass.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- `uv run pytest tests/test_boundaries.py` -> pass (no site imports).
+- `testproject`: import an AISL course.yaml fixture with a nested `01-module/01-submodule/`
+  directory and a DTC course-repository fixture with cohort-curated module placement -> both
+  render; two submodules each containing a unit slugged `section-overview` sync cleanly with no
+  collision; a course with no `CohortModule` rows shows its full tree in module order.
+
+Done when
+- [ ] `Module.course` FK replaces `Module.cohort`; `Cohort.curriculum_format` is deleted.
+- [ ] `Module.parent`, `Module.is_bonus`, `Module.available_after_days`, `Unit.kind`,
+  `Unit.session_position`, `Unit.is_bonus` exist with database-level defaults where non-nullable.
+- [ ] `CohortModule` exists; a cohort with no placement rows shows the full course tree.
+- [ ] Both parsers import nested module directories with numeric-prefix ordering.
+- [ ] Depth-first reading order implemented once, used by navigation and progress.
+- [ ] `docs/plan/phase-5.md` C5.1a-d's donor table note is not needed (no other doc references
+  `Module.cohort` outside this issue's own changes) -- confirmed by grep before closing.
+
+Docs
+- `community_base/curriculum/README.md`.
+- `docs/plan/evidence/c5.1e-shared-curriculum-adoption.md` (already written; update only if a
+  step above produces evidence that changes its conclusions).
+
 ## C5.2a Coursework models
 
 Repository: community-base. Depends on: C5.1d.
@@ -302,7 +403,7 @@ Verification
 
 ## C5.3 Release 0.6.0
 
-Repository: community-base. Depends on: C3.7, C4.3, C5.2e. Playbook P15.
+Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e. Playbook P15.
 
 This is the single adoption-ready domain release. Do not publish provisional `v0.4.0` or
 `v0.5.0` releases containing kept-label migrations.

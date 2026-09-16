@@ -2,7 +2,7 @@ import pytest
 from django.test import override_settings
 
 from community_base.curriculum.access import can_access, gated_reason, purchase_grants
-from tests.curriculum.test_models import make_cohort, make_course, make_module, make_unit
+from tests.curriculum.test_models import make_course, make_module, make_unit
 
 _HOOK_CALLS = []
 
@@ -32,7 +32,7 @@ def paid_course(**values):
 
 def paid_unit(**unit_values):
     course = paid_course()
-    module = make_module(make_cohort(course))
+    module = make_module(course)
     return make_unit(module, **unit_values)
 
 
@@ -104,7 +104,7 @@ class TestUnitAccess:
 
     def test_registered_level_requires_authentication(self, django_user_model):
         course = make_course(slug="reg-course", title="Reg", default_unit_required_level=5)
-        unit = make_unit(make_module(make_cohort(course)))
+        unit = make_unit(make_module(course))
 
         assert can_access(None, unit) is False
         user = django_user_model.objects.create_user(email="x@example.com")

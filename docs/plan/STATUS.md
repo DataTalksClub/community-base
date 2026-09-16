@@ -118,6 +118,7 @@ issues that can start now.
 | `C5.1b` | community-base | Curriculum import | C5.1a | no | done | https://github.com/DataTalksClub/community-base/pull/119 |
 | `C5.1c` | community-base | Curriculum public pages and member APIs | C5.1b | no | done | https://github.com/DataTalksClub/community-base/pull/121 |
 | `C5.1d` | community-base | Curriculum Studio and staff APIs | C5.1c | no | done | https://github.com/DataTalksClub/community-base/pull/123 |
+| `C5.1e` | community-base | Curriculum ownership: course-owned modules, cohort placement, and nesting | C5.1d | no | todo |  |
 | `C5.2a` | community-base | Coursework models | C5.1d | no | done | https://github.com/DataTalksClub/community-base/pull/126 |
 | `C5.2b` | community-base | Homework scoring and statistics | C5.2a | no | done | https://github.com/DataTalksClub/community-base/pull/128 |
 | `C5.2c` | community-base | Projects and peer review | C5.2b | no | done | https://github.com/DataTalksClub/community-base/pull/132 |
@@ -125,7 +126,7 @@ issues that can start now.
 | `C5.2db` | community-base | Registration campaigns and course registrations | C5.2c | no | done | https://github.com/DataTalksClub/community-base/pull/138 |
 | `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | done | https://github.com/DataTalksClub/community-base/pull/146 |
 | `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2dc | no | done | https://github.com/DataTalksClub/community-base/pull/159 |
-| `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e | no | todo |  |
+| `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e | no | todo |  |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3 | no | todo |  |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo |  |
 | `D5.1` | DataTalksClub/website | Map DTC course platform data to the shared apps | C5.3 | no | todo |  |

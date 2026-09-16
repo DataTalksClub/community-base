@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 def paid_setup(required_level=10):
     course = make_course(slug="paid", title="Paid Course", required_level=required_level)
     cohort = make_cohort(course)
-    module = make_module(cohort)
+    module = make_module(course)
     unit = make_unit(module)
     return course, cohort, module, unit
 
@@ -54,11 +54,9 @@ def test_paid_course_detail_shows_gate_for_anonymous(client):
 
 
 def test_unit_gated_for_paid_course(client):
-    _course, _cohort, _module, unit = paid_setup()
+    _course, cohort, module, unit = paid_setup()
 
-    response = client.get(
-        f"/courses/paid/{unit.module.cohort.slug}/{unit.module.slug}/{unit.slug}/"
-    )
+    response = client.get(f"/courses/paid/{cohort.slug}/{module.slug}/{unit.slug}/")
 
     assert response.status_code == 403
     assert "Sign in" in response.content.decode()
@@ -77,7 +75,7 @@ def test_unit_open_for_enrolled_learner_on_open_course(client, django_user_model
     user = django_user_model.objects.create_user(email="learner@example.com")
     course = make_course()
     cohort = make_cohort(course)
-    module = make_module(cohort)
+    module = make_module(course)
     unit = make_unit(module)
     ensure_enrollment(user, cohort)
     client.force_login(user)
@@ -93,7 +91,7 @@ def test_drip_locks_unit_for_cohort_started_today(client, django_user_model):
     cohort = make_cohort(course)
     cohort.start_date = timezone.now().date()
     cohort.save()
-    module = make_module(cohort)
+    module = make_module(course)
     dripped = make_unit(module, slug="day-7", title="Day 7", available_after_days=7)
     open_unit = make_unit(module, slug="day-1", title="Day 1")
     ensure_enrollment(user, cohort)
@@ -113,7 +111,7 @@ def test_drip_opens_after_available_date(client, django_user_model):
     cohort = make_cohort(course)
     cohort.start_date = datetime.date.today() - datetime.timedelta(days=8)
     cohort.save()
-    module = make_module(cohort)
+    module = make_module(course)
     unit = make_unit(module, slug="day-7", title="Day 7", available_after_days=7)
     ensure_enrollment(user, cohort)
     client.force_login(user)
@@ -126,7 +124,7 @@ def test_drip_opens_after_available_date(client, django_user_model):
 def test_module_overview_lists_lessons(client):
     course = make_course()
     cohort = make_cohort(course)
-    module = make_module(cohort)
+    module = make_module(course)
     make_unit(module)
 
     response = client.get(f"/courses/{course.slug}/{cohort.slug}/{module.slug}/")
@@ -238,8 +236,8 @@ def test_api_courses_lists_with_lock_flags(client, django_user_model):
 def test_api_course_detail_with_progress(client, django_user_model):
     user = django_user_model.objects.create_user(email="api@example.com")
     course = make_course()
-    cohort = make_cohort(course)
-    module = make_module(cohort)
+    make_cohort(course)
+    module = make_module(course)
     unit = make_unit(module)
     client.force_login(user)
 
@@ -262,7 +260,7 @@ def test_api_unit_detail_and_complete_toggle(client, django_user_model):
     user = django_user_model.objects.create_user(email="toggle@example.com")
     course = make_course()
     cohort = make_cohort(course)
-    module = make_module(cohort)
+    module = make_module(course)
     unit = make_unit(module)
     ensure_enrollment(user, cohort)
     client.force_login(user)
@@ -290,13 +288,20 @@ def test_api_unit_complete_requires_access(client, django_user_model):
 
 
 def test_mark_completed_creates_self_paced_enrollment_via_api(client, django_user_model):
+    """Curriculum is course-owned: completing a unit with no cohort in the URL
+
+    auto-enrolls into the course's self-paced cohort, not any other dated cohort that
+    happens to exist for the course.
+    """
+
     user = django_user_model.objects.create_user(email="autoenroll@example.com")
     course = make_course()
-    cohort = make_cohort(course)
-    module = make_module(cohort)
+    make_cohort(course)  # a dated cohort that must NOT receive the auto-enrollment
+    module = make_module(course)
     unit = make_unit(module)
     client.force_login(user)
 
     client.post(f"/courses/{course.slug}/units/{unit.pk}/complete/")
 
-    assert cohort.enrollments.filter(user=user, unenrolled_at__isnull=True).exists()
+    self_paced = Cohort.objects.get(course=course, mode="self_paced")
+    assert self_paced.enrollments.filter(user=user, unenrolled_at__isnull=True).exists()

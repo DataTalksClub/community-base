@@ -51,7 +51,7 @@ urlpatterns = [
         name="curriculum_studio_cohort_delete",
     ),
     path(
-        "cohorts/<int:cohort_id>/modules/create/",
+        "courses/<int:course_id>/modules/create/",
         studio_views.module_create,
         name="curriculum_studio_module_create",
     ),
