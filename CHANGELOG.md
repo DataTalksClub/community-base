@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.3 - 2026-09-16
+
+- Restore `config.service.unset`, which a merge resolution dropped after v0.3.9: sites calling it failed startup against v0.4.0 to v0.4.2.
+
+## 0.4.3 - 2026-09-16
+
+- Restore `config.service.unset`, which a merge resolution dropped after v0.3.9: sites calling it failed startup against v0.4.0 to v0.4.2.
+
 ## 0.4.2 - 2026-09-16
 
 - Restore the `requires_restart` declaration metadata that `declare()` accepted at v0.3.9 and a merge resolution dropped: sites declaring restart-affecting keys failed startup against v0.4.0 and v0.4.1.
