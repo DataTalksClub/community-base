@@ -1,0 +1,9 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Knowledge base{% endblock %}
+{% block studio_content %}
+<h1>Knowledge base pages</h1>
+<form method="get"><label>Search <input name="q" value="{{ q }}"></label><label>Section <select name="section"><option value="">All</option>{% for value, label in section_choices %}<option value="{{ value }}" {% if section == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><button type="submit">Filter</button></form>
+<table><thead><tr><th>Title</th><th>Section</th><th>Slug</th><th>Parent</th><th>Order</th><th>Status</th><th>Source</th></tr></thead><tbody>
+{% for page in pages %}<tr><td><a href="{% url 'knowledge_base_studio_page_detail' page.pk %}">{{ page.title }}</a></td><td>{{ page.get_section_display }}</td><td>{{ page.slug }}</td><td>{% if page.parent %}<a href="{% url 'knowledge_base_studio_page_detail' page.parent_id %}">{{ page.parent.title }}</a>{% else %}-{% endif %}</td><td>{{ page.nav_order }}</td><td>{{ page.status }}</td><td>{% if page.source_checksum %}repo{% else %}manual{% endif %}</td></tr>{% empty %}<tr><td colspan="7">No pages.</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
