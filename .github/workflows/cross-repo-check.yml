@@ -1,0 +1,120 @@
+name: Cross-repo consumer check
+
+# Runs the real test suite of both site consumers (DataTalksClub/website and
+# AI-Shipping-Labs/website) against the in-progress state of this package,
+# using each site's own P1 local-development link tool
+# (scripts/community_base_link.py / `make core-link`) instead of a tagged
+# release.
+#
+# Deliberately NOT wired to `push`/`pull_request`: D1 (docs/01-decisions.md)
+# and the D0.2 site guards (`scripts/check_community_base_source.py` in
+# DataTalksClub/website; the same guard is planned but not yet built for
+# AI-Shipping-Labs, see docs/plan/phase-0.md D0.2) treat a local/path source
+# as development-only and fail closed against it in each site's own required
+# CI. Making this workflow a required community-base PR gate would silently
+# extend that pattern to "package CI installs unreviewed code into a site"
+# without the owner revisiting those decisions. Until that happens, this is
+# an on-demand/scheduled advisory: run it manually before a merge you
+# suspect is risky for a consumer (playbook, docs/03-playbooks.md), or read
+# the weekly scheduled result. A failure here does not block this
+# repository's `CI` workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dtc_website_ref:
+        description: "DataTalksClub/website ref to check out (default: its default branch)"
+        required: false
+        type: string
+      ai_shipping_labs_ref:
+        description: "AI-Shipping-Labs/website ref to check out (default: its default branch)"
+        required: false
+        type: string
+  schedule:
+    # Same weekly cadence as the D0.2 release advisory in DataTalksClub/website.
+    - cron: "0 6 * * 1"
+
+jobs:
+  dtc-website:
+    name: "DataTalksClub/website: real test suite against this package"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out community-base (the change under test)
+        uses: actions/checkout@v4
+        with:
+          path: community-base
+
+      - name: Check out DataTalksClub/website
+        uses: actions/checkout@v4
+        with:
+          repository: DataTalksClub/website
+          ref: ${{ inputs.dtc_website_ref || '' }}
+          path: dtc-website
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Link the in-progress package (dtc-website playbook P1)
+        working-directory: dtc-website
+        run: uv run python scripts/community_base_link.py link
+
+      - name: Django checks against the in-progress package
+        working-directory: dtc-website
+        run: uv run python scripts/ci.py django-check
+
+      - name: Full Django test suite against the in-progress package
+        working-directory: dtc-website
+        run: uv run python scripts/ci.py test-django-full
+
+      - name: Restore the pinned dependency
+        if: always()
+        working-directory: dtc-website
+        run: uv run python scripts/community_base_link.py unlink
+
+  ai-shipping-labs:
+    name: "AI-Shipping-Labs/website: real test suite against this package"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SECRET_KEY: "cross-repo-check-only-not-a-real-secret"
+    steps:
+      - name: Check out community-base (the change under test)
+        uses: actions/checkout@v4
+        with:
+          path: community-base
+
+      - name: Check out AI-Shipping-Labs/website
+        uses: actions/checkout@v4
+        with:
+          repository: AI-Shipping-Labs/website
+          ref: ${{ inputs.ai_shipping_labs_ref || '' }}
+          path: ai-shipping-labs
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Link the in-progress package (AISL playbook P1, `make core-link`)
+        working-directory: ai-shipping-labs
+        run: make core-link
+
+      - name: System checks against the in-progress package
+        working-directory: ai-shipping-labs
+        run: uv run python manage.py check
+
+      - name: Full Django test suite against the in-progress package
+        working-directory: ai-shipping-labs
+        run: make test
+
+      - name: Restore the pinned dependency
+        if: always()
+        working-directory: ai-shipping-labs
+        run: make core-unlink

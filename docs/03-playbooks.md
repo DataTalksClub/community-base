@@ -340,3 +340,27 @@ Site half:
 3. Run the site suite for every app that imports the changed package apps (AISL:
    `make test-affected`).
 4. Open the pull request titled `Bump community-base to v<version>` with the changelog lines.
+
+## P16. Check an in-progress package change against both sites
+
+Before a merge you suspect is risky for a consumer (a kernel, config, API, jobs or mail change;
+anything a site imports directly), run both sites' real test suites against the in-progress
+branch, not just this package's own tests (AGENTS.md, "After changing this package").
+
+`scripts/affected_tests.py`-style selective tooling does not help here: it selects tests from a
+diff of site files, and a package-only change leaves the site checkout undiffed. Run each site's
+full suite.
+
+1. Manually: `gh workflow run cross-repo-check.yml --repo DataTalksClub/community-base --ref <your branch>`,
+   or push the branch and wait for the weekly scheduled run.
+2. The workflow checks out `DataTalksClub/website` and `AI-Shipping-Labs/website` at their default
+   branch (or an explicit `ref` input), links the in-progress package into each with that site's
+   own P1 tool (`scripts/community_base_link.py` / `make core-link`), and runs that site's real
+   Django check and test commands.
+3. Verify: both jobs in the run are green. A red job names the site and step; open its log for the
+   failing test names.
+4. This is advisory, not a required check on this repository's pull requests: D1
+   (`docs/01-decisions.md`) and the D0.2 site guards treat a local/path package source as
+   development-only, and each site's own CI fails closed against exactly this kind of source. Do
+   not point a site pull request at this package's branch or a local path (quality gate: "No local
+   link committed"); land and tag the package first (P15), then bump the site pin.
