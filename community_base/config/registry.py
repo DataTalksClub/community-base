@@ -25,6 +25,7 @@ class Definition:
     django_settings_fallback: str | None = None
     env_var: str | None = None
     docs_url: str | None = None
+    requires_restart: bool = False
 
     def coerce(self, value: Any) -> Any:
         if self.value_type == "str":
@@ -94,6 +95,7 @@ def declare(
     django_settings_fallback: bool | str = False,
     env_var: str | None = None,
     docs_url: str | None = None,
+    requires_restart: bool = False,
 ) -> Definition:
     if value_type not in VALUE_TYPES:
         raise ImproperlyConfigured(f"Unsupported config value type: {value_type}")
@@ -112,6 +114,7 @@ def declare(
         django_settings_fallback=fallback,
         env_var=env_var or key,
         docs_url=docs_url,
+        requires_restart=requires_restart,
     )
     definition.coerce(default)
     existing = _definitions.get(key)
