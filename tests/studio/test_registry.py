@@ -49,6 +49,7 @@ def test_sections_are_sorted_with_their_destinations():
         "people",
         "courses",
         "coursework",
+        "knowledge-base",
         "onboarding",
         "community",
         "events",
