@@ -20,13 +20,14 @@ from django.utils import timezone
 
 from community_base.curriculum.models import (
     Cohort,
+    CohortModule,
     Course,
     CourseInstructor,
     CurriculumImportRun,
     Module,
     Unit,
 )
-from community_base.curriculum.source import InstructorGraph, ParsedCurriculum
+from community_base.curriculum.source import CurriculumParseError, InstructorGraph, ParsedCurriculum
 from community_base.events.models import Host
 
 ACTION_CREATED = "created"
@@ -143,34 +144,115 @@ def _apply(parsed, source, checkout, commit) -> tuple[Course, dict]:
     counts[action] += 1
     _sync_instructors(course, graph)
 
+    # The module tree is course-owned: one pass over the whole tree, keyed by
+    # content_id, regardless of depth. ``top_level_by_ref`` lets cohorts below
+    # resolve their placements by the same identifier the source graph uses
+    # (content_id, or slug when the source has none).
+    seen_module_ids: set[str] = set()
+    top_level_by_ref: dict[str, Module] = {}
+    _apply_module_tree(
+        course,
+        graph.modules,
+        parent=None,
+        commit=commit,
+        checkout=checkout,
+        counts=counts,
+        seen=seen_module_ids,
+        top_level_by_ref=top_level_by_ref,
+    )
+    counts["deleted"] += _delete_stale(
+        Module.objects.filter(course=course).exclude(source_content_id__isnull=True),
+        seen_module_ids,
+    )
+
     seen_cohort_ids = set()
     for cohort_graph in graph.cohorts:
         cohort = _cohort(course, cohort_graph)
         seen_cohort_ids.add(cohort_graph.content_id)
         counts[_write(cohort, _cohort_values(cohort_graph, commit, checkout))] += 1
-        seen_module_ids = set()
-        for position, module_graph in enumerate(cohort_graph.modules):
-            module = _module(cohort, module_graph, position)
-            seen_module_ids.add(module_graph.content_id)
-            counts[_write(module, _module_values(module_graph, position, commit, checkout))] += 1
-            seen_unit_ids = set()
-            for unit_graph in module_graph.units:
-                unit = _unit(module, unit_graph)
-                seen_unit_ids.add(unit_graph.content_id)
-                counts[_write(unit, _unit_values(unit_graph, commit, checkout))] += 1
-            counts["deleted"] += _delete_stale(
-                Unit.objects.filter(module=module).exclude(source_content_id__isnull=True),
-                seen_unit_ids,
-            )
-        counts["deleted"] += _delete_stale(
-            Module.objects.filter(cohort=cohort).exclude(source_content_id__isnull=True),
-            seen_module_ids,
-        )
+        counts["deleted"] += _apply_placements(cohort, cohort_graph, top_level_by_ref)
     counts["deleted"] += _delete_stale(
         Cohort.objects.filter(course=course).exclude(source_content_id__isnull=True),
         seen_cohort_ids,
     )
     return course, counts
+
+
+def _apply_module_tree(
+    course: Course,
+    module_graphs,
+    *,
+    parent: Module | None,
+    commit,
+    checkout,
+    counts: dict,
+    seen: set,
+    top_level_by_ref: dict,
+    depth: int = 0,
+) -> None:
+    for position, module_graph in enumerate(module_graphs):
+        module = _module(course, parent, module_graph)
+        seen.add(module_graph.content_id)
+        values = _module_values(module_graph, position, commit, checkout)
+        counts[_write(module, values)] += 1
+        if depth == 0:
+            top_level_by_ref[module_graph.content_id or module_graph.slug] = module
+
+        seen_unit_ids: set = set()
+        for unit_graph in module_graph.units:
+            unit = _unit(module, unit_graph)
+            seen_unit_ids.add(unit_graph.content_id)
+            counts[_write(unit, _unit_values(unit_graph, commit, checkout))] += 1
+        counts["deleted"] += _delete_stale(
+            Unit.objects.filter(module=module).exclude(source_content_id__isnull=True),
+            seen_unit_ids,
+        )
+
+        _apply_module_tree(
+            course,
+            module_graph.children,
+            parent=module,
+            commit=commit,
+            checkout=checkout,
+            counts=counts,
+            seen=seen,
+            top_level_by_ref=top_level_by_ref,
+            depth=depth + 1,
+        )
+
+
+def _apply_placements(cohort: Cohort, cohort_graph, top_level_by_ref: dict) -> int:
+    """Sync this cohort's :class:`CohortModule` placements; return the deleted count.
+
+    ``module_refs is None`` means the source declared no cohort-specific placement --
+    every existing placement row is removed so the cohort falls back to the course's
+    full default tree (:meth:`Cohort.effective_modules`). A (possibly empty) tuple means
+    the source is authoritative for this cohort's placements: rows are synced to match it
+    exactly, position by position.
+    """
+
+    if cohort_graph.module_refs is None:
+        stale = CohortModule.objects.filter(cohort=cohort)
+        count = stale.count()
+        stale.delete()
+        return count
+
+    seen_module_pks: set = set()
+    for position, ref in enumerate(cohort_graph.module_refs):
+        module = top_level_by_ref.get(ref)
+        if module is None:
+            raise CurriculumParseError(
+                f"{cohort_graph.source_path or cohort_graph.slug}: "
+                f"placement references unknown top-level module {ref!r}"
+            )
+        seen_module_pks.add(module.pk)
+        CohortModule.objects.update_or_create(
+            cohort=cohort, module=module, defaults={"sort_order": position}
+        )
+    stale = CohortModule.objects.filter(cohort=cohort).exclude(module_id__in=seen_module_pks)
+    count = stale.count()
+    stale.delete()
+    return count
 
 
 def _course(graph) -> Course:
@@ -197,14 +279,15 @@ def _cohort(course: Course, graph) -> Cohort:
     return cohort
 
 
-def _module(cohort: Cohort, graph, position) -> Module:
+def _module(course: Course, parent: Module | None, graph) -> Module:
     module = None
     if graph.content_id:
-        module = Module.objects.filter(cohort=cohort, source_content_id=graph.content_id).first()
+        module = Module.objects.filter(course=course, source_content_id=graph.content_id).first()
     if module is None:
-        module = Module.objects.filter(cohort=cohort, slug=graph.slug).first()
+        module = Module.objects.filter(course=course, parent=parent, slug=graph.slug).first()
     if module is None:
-        module = Module(cohort=cohort, slug=graph.slug)
+        module = Module(course=course, slug=graph.slug)
+    module.parent = parent
     module.source_content_id = graph.content_id
     return module
 
@@ -245,7 +328,6 @@ def _cohort_values(graph, commit, checkout) -> dict:
     return {
         "title": graph.title,
         "mode": graph.mode,
-        "curriculum_format": graph.curriculum_format,
         "start_date": graph.start_date,
         "end_date": graph.end_date,
         "registration_url": graph.registration_url,
@@ -261,6 +343,8 @@ def _module_values(graph, position, commit, checkout) -> dict:
         "title": graph.title,
         "sort_order": sort_order,
         "overview": graph.overview,
+        "is_bonus": graph.is_bonus,
+        "available_after_days": graph.available_after_days,
         **_prov(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
     }
 
@@ -269,6 +353,9 @@ def _unit_values(graph, commit, checkout) -> dict:
     return {
         "title": graph.title,
         "sort_order": graph.sort_order,
+        "kind": graph.kind,
+        "session_position": graph.session_position,
+        "is_bonus": graph.is_bonus,
         "video_url": graph.video_url,
         "body": graph.body,
         "homework": graph.homework,

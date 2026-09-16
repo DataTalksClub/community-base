@@ -36,9 +36,13 @@ COHORT_MODES = (
     ("cohort", "Cohort"),
     ("self_paced", "Self-paced"),
 )
-CURRICULUM_FORMATS = (
-    ("legacy", "Legacy"),
-    ("modules", "Modules"),
+UNIT_KIND_LESSON = "lesson"
+UNIT_KIND_HOMEWORK = "homework"
+UNIT_KIND_EVENT = "event"
+UNIT_KINDS = (
+    (UNIT_KIND_LESSON, "Lesson"),
+    (UNIT_KIND_HOMEWORK, "Homework"),
+    (UNIT_KIND_EVENT, "Event"),
 )
 SOURCE_MANUAL = "manual"
 SOURCE_AUTO_PROGRESS = "auto_progress"
@@ -213,24 +217,62 @@ class Course(SourceProvenanceMixin, models.Model):
     def primary_instructor(self):
         return self.instructors.order_by("course_instructor_links__position").first()
 
+    def _countable_units(self):
+        """Units that count toward the progress denominator.
+
+        Every unit counts, including ``kind=event`` units, except a unit (or its module, or
+        that module's parent module) marked ``is_bonus`` -- tracked and displayed, but
+        excluded from the denominator (owner decision, community-base#252).
+        """
+
+        return (
+            Unit.objects.filter(module__course=self)
+            .exclude(is_bonus=True)
+            .exclude(module__is_bonus=True)
+            .exclude(module__parent__is_bonus=True)
+        )
+
     def total_units(self):
-        return Unit.objects.filter(module__cohort__course=self).count()
+        return self._countable_units().count()
 
     def completed_units(self, user):
         if user is None or not user.is_authenticated:
             return 0
         return UnitProgress.objects.filter(
             user=user,
-            unit__module__cohort__course=self,
+            unit__in=self._countable_units(),
             completed_at__isnull=False,
         ).count()
 
     def get_syllabus(self):
-        """Return cohorts with their modules, both in display order."""
+        """Return cohorts, each carrying its effective modules as ``syllabus_modules``.
 
-        return self.cohorts.prefetch_related(
-            Prefetch("modules", queryset=Module.objects.order_by("sort_order", "pk")),
-        ).order_by("start_date", "pk")
+        A cohort's effective modules are its :class:`CohortModule` placements when it has
+        any, otherwise the course's full top-level module tree (see
+        :meth:`Cohort.effective_modules`) -- computed here in two queries total rather than
+        one query per cohort.
+        """
+
+        cohorts = list(self.cohorts.order_by("start_date", "pk"))
+        default_modules = list(
+            self.modules.filter(parent__isnull=True)
+            .prefetch_related(Prefetch("units", queryset=Unit.objects.order_by("sort_order", "pk")))
+            .order_by("sort_order", "pk")
+        )
+        placements_by_cohort: dict[int, list[Module]] = {}
+        placements = (
+            CohortModule.objects.filter(cohort__in=cohorts)
+            .select_related("module")
+            .prefetch_related(
+                Prefetch("module__units", queryset=Unit.objects.order_by("sort_order", "pk"))
+            )
+            .order_by("cohort_id", "sort_order", "pk")
+        )
+        for placement in placements:
+            placements_by_cohort.setdefault(placement.cohort_id, []).append(placement.module)
+        for cohort in cohorts:
+            cohort.syllabus_modules = placements_by_cohort.get(cohort.pk) or default_modules
+        return cohorts
 
     def get_next_unit_for(self, user):
         from community_base.curriculum.services import get_next_unit_for_user
@@ -270,9 +312,6 @@ class Cohort(SourceProvenanceMixin, models.Model):
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     registration_url = models.URLField(max_length=500, blank=True, default="")
-    curriculum_format = models.CharField(
-        max_length=20, choices=CURRICULUM_FORMATS, default="legacy"
-    )
     hashtag = models.CharField(max_length=100, blank=True, default="")
     finished = models.BooleanField(default=False)
     visible = models.BooleanField(default=True)
@@ -318,29 +357,76 @@ class Cohort(SourceProvenanceMixin, models.Model):
             return None
         return max(0, self.max_participants - self.enrollment_count)
 
+    def effective_modules(self):
+        """Return this cohort's top-level modules: its placements, or the full course tree.
+
+        A cohort with no :class:`CohortModule` rows shows every top-level module of its
+        course, in module order -- the common case (every AI Shipping Labs course today,
+        one evergreen tree, no curation). A cohort with placement rows shows exactly that
+        curated subset and order instead -- DataTalks.Club's case, where cohorts of the
+        same course family genuinely differ year to year.
+        """
+
+        placements = list(
+            CohortModule.objects.filter(cohort=self)
+            .select_related("module")
+            .order_by("sort_order", "pk")
+        )
+        if placements:
+            return [placement.module for placement in placements]
+        return list(Module.objects.filter(course_id=self.course_id, parent__isnull=True))
+
 
 class Module(SourceProvenanceMixin, models.Model):
-    """An ordered module inside a cohort."""
+    """An ordered module of a course. A submodule is a module with ``parent`` set.
 
-    cohort = models.ForeignKey(Cohort, on_delete=models.CASCADE, related_name="modules")
+    A module holds either child modules or direct units, never both (enforced in
+    :meth:`clean`, not a database constraint, because the rule spans two related
+    tables -- ``children`` and ``units`` -- which a ``CheckConstraint`` cannot express).
+    Nesting is capped at two module levels: a submodule cannot itself have children.
+    """
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="modules")
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="children",
+        help_text="Set to make this module a submodule of another. Maximum two levels.",
+    )
     slug = models.SlugField(max_length=300, default="")
     title = models.CharField(max_length=300)
     sort_order = models.IntegerField(default=0)
     overview = models.TextField(blank=True, default="")
     overview_html = models.TextField(blank=True, default="", editable=False)
+    is_bonus = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="Optional enrichment, excluded from the progress denominator.",
+    )
+    available_after_days = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Cohort drip schedule for a top-level module: it (and its units, unless they "
+            "override it themselves) becomes available this many days after the cohort "
+            "start date. Null means no module-level offset."
+        ),
+    )
 
     class Meta:
         ordering = ("sort_order", "pk")
         constraints = [
             models.UniqueConstraint(
-                fields=("cohort", "slug"),
-                name="cb_module_cohort_slug_unique",
+                fields=("course", "parent", "slug"),
+                name="cb_module_course_parent_slug_unique",
             ),
             provenance_constraint(name="cb_module_source_complete", identity_fields=()),
         ]
 
     def __str__(self):
-        return f"{self.cohort.title} - {self.title}"
+        return f"{self.course.title} - {self.title}"
 
     def save(self, *args, **kwargs):
         if self.overview:
@@ -356,6 +442,82 @@ class Module(SourceProvenanceMixin, models.Model):
             kwargs["update_fields"] = list(update_fields)
         super().save(*args, **kwargs)
 
+    def clean(self):
+        super().clean()
+        errors: dict[str, str] = {}
+        if self.parent_id is not None:
+            if self.pk is not None and self.parent_id == self.pk:
+                errors["parent"] = "A module cannot be its own parent."
+            elif self.parent is not None:
+                if self.parent.parent_id is not None:
+                    errors["parent"] = "A submodule cannot itself have children (max two levels)."
+                if self.course_id and self.parent.course_id != self.course_id:
+                    errors["parent"] = "A parent module must belong to the same course."
+                if self.parent.units.exists():
+                    errors["parent"] = (
+                        f"Module {self.parent.title!r} already has direct units; "
+                        "it cannot also have child modules."
+                    )
+        if self.pk is not None:
+            has_children = self.children.exists()
+            has_units = self.units.exists()
+            if has_children and has_units:
+                errors["parent"] = (
+                    f"Module {self.title!r} has both child modules and direct units; "
+                    "it must have only one."
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    @property
+    def effective_is_bonus(self) -> bool:
+        """Bonus cascades from an ancestor: a bonus week's submodules are bonus too."""
+
+        if self.is_bonus:
+            return True
+        return bool(self.parent_id and self.parent.is_bonus)
+
+
+class CohortModule(models.Model):
+    """One cohort's placement of one top-level module, in that cohort's own order.
+
+    Placements are optional. A cohort with none shows the full course tree (see
+    :meth:`Cohort.effective_modules`); rows here exist only when a cohort needs to show a
+    different subset, or a different order, of its course's top-level modules -- for
+    example two cohorts of the same course family that each teach an alternative treatment
+    of one topic as separate modules and each place only one of the two.
+    """
+
+    cohort = models.ForeignKey(Cohort, on_delete=models.CASCADE, related_name="module_placements")
+    module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name="placements")
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ("sort_order", "pk")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("cohort", "module"), name="cb_cohort_module_pair_unique"
+            ),
+            models.UniqueConstraint(
+                fields=("cohort", "sort_order"), name="cb_cohort_module_sort_unique"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.cohort} -> {self.module}"
+
+    def clean(self):
+        super().clean()
+        errors: dict[str, str] = {}
+        if self.module_id and self.module.parent_id is not None:
+            errors["module"] = (
+                "A placement targets a top-level module; a submodule is reached through its parent."
+            )
+        if self.cohort_id and self.module_id and self.module.course_id != self.cohort.course_id:
+            errors["module"] = "A placement must reference a module of the cohort's own course."
+        if errors:
+            raise ValidationError(errors)
+
 
 class Unit(SourceProvenanceMixin, models.Model):
     """A single lesson unit within a module."""
@@ -364,6 +526,26 @@ class Unit(SourceProvenanceMixin, models.Model):
     slug = models.SlugField(max_length=300, default="")
     title = models.CharField(max_length=300)
     sort_order = models.IntegerField(default=0)
+    kind = models.CharField(
+        max_length=20,
+        choices=UNIT_KINDS,
+        default=UNIT_KIND_LESSON,
+        db_default=UNIT_KIND_LESSON,
+    )
+    session_position = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Meaningful only when kind=event: this unit's 1-indexed position in the "
+            "course's live-session series. Not a foreign key -- the real Event is "
+            "resolved by the site, per viewer, against the viewer's own cohort."
+        ),
+    )
+    is_bonus = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="Optional enrichment, excluded from the progress denominator.",
+    )
     video_url = models.URLField(max_length=500, blank=True, default="")
     body = models.TextField(blank=True, default="")
     body_html = models.TextField(blank=True, default="", editable=False)
@@ -377,7 +559,8 @@ class Unit(SourceProvenanceMixin, models.Model):
         blank=True,
         help_text=(
             "Cohort drip schedule: the unit becomes available this many days after the "
-            "cohort start date. Null means available immediately."
+            "cohort start date. Null means it falls back to its module's (or that "
+            "module's parent module's) available_after_days, then to immediate."
         ),
     )
     content_hash = models.CharField(max_length=32, blank=True, default="")
@@ -415,9 +598,21 @@ class Unit(SourceProvenanceMixin, models.Model):
             kwargs["update_fields"] = list(update_fields)
         super().save(*args, **kwargs)
 
+    def clean(self):
+        super().clean()
+        if self.module_id and self.module.children.exists():
+            raise ValidationError(
+                {
+                    "module": (
+                        f"Module {self.module.title!r} has child modules; "
+                        "it cannot also have direct units."
+                    )
+                }
+            )
+
     @property
     def course(self):
-        return self.module.cohort.course
+        return self.module.course
 
     @property
     def effective_required_level(self):
@@ -425,10 +620,31 @@ class Unit(SourceProvenanceMixin, models.Model):
 
         if self.required_level is not None:
             return self.required_level
-        course = self.module.cohort.course
+        course = self.module.course
         if course.default_unit_required_level is not None:
             return course.default_unit_required_level
         return course.required_level
+
+    @property
+    def effective_is_bonus(self) -> bool:
+        """Bonus cascades from the unit's module (and that module's parent)."""
+
+        if self.is_bonus:
+            return True
+        return self.module.effective_is_bonus
+
+    @property
+    def effective_available_after_days(self):
+        """Resolve the drip offset: unit override, its module's, then its parent module's."""
+
+        if self.available_after_days is not None:
+            return self.available_after_days
+        module = self.module
+        if module.available_after_days is not None:
+            return module.available_after_days
+        if module.parent_id:
+            return module.parent.available_after_days
+        return None
 
 
 class Enrollment(models.Model):

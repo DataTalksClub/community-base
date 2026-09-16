@@ -20,20 +20,15 @@ def _published_courses():
 def _self_paced_cohort(course: Course) -> Cohort:
     """Return the course's open-ended cohort, creating it when missing."""
 
-    cohort = course.cohorts.filter(mode="self_paced").first()
-    if cohort is None:
-        cohort = Cohort.objects.create(
-            course=course,
-            slug=SELF_PACED_SLUG,
-            title=f"{course.title} (self-paced)",
-            mode="self_paced",
-            curriculum_format="modules",
-        )
-    return cohort
+    return services.get_or_create_self_paced_cohort(course)
 
 
 def _unit_or_404(course: Course, module_slug: str, unit_slug: str):
-    module = get_object_or_404(Module, cohort__course=course, slug=module_slug)
+    # Top-level module only: a public deep link into a specific submodule's unit
+    # is a follow-up (community-base#252's public routes are a smaller, separately
+    # scoped change); this preserves exact behavior for every existing,
+    # non-nested course, whose modules are all top-level by construction.
+    module = get_object_or_404(Module, course=course, parent__isnull=True, slug=module_slug)
     return get_object_or_404(Unit, module=module, slug=unit_slug)
 
 
@@ -77,6 +72,14 @@ def course_detail(request, course_slug: str):
                 enrollments__unenrolled_at__isnull=True,
             ).values_list("pk", flat=True)
         )
+    # Curriculum is course-owned, so a unit has no single cohort of its own; the
+    # "continue" link needs some cohort to build a URL with (the public module/unit
+    # pages still take a cohort slug). The self-paced cohort always carries the
+    # course's full default tree, so it is always a valid destination when one exists.
+    default_cohort = (
+        course.cohorts.filter(mode="self_paced").first()
+        or course.cohorts.order_by("start_date", "pk").first()
+    )
     return render(
         request,
         "curriculum/course_detail.html",
@@ -92,6 +95,7 @@ def course_detail(request, course_slug: str):
             ),
             "user_enrolled_cohort_ids": user_enrolled_cohort_ids,
             "user_is_enrolled": bool(user_enrolled_cohort_ids),
+            "default_cohort": default_cohort,
             "next_unit": services.get_next_unit_for_user(course, user)
             if user.is_authenticated
             else None,
@@ -103,7 +107,7 @@ def course_detail(request, course_slug: str):
 def module_overview(request, course_slug: str, cohort_slug: str, module_slug: str):
     course = get_object_or_404(_published_courses(), slug=course_slug)
     cohort = get_object_or_404(Cohort, course=course, slug=cohort_slug, visible=True)
-    module = get_object_or_404(Module, cohort=cohort, slug=module_slug)
+    module = get_object_or_404(Module, course=course, parent__isnull=True, slug=module_slug)
     user = request.user
     completed_unit_ids = _completed_unit_ids(user, course)
     return render(
@@ -125,7 +129,7 @@ def module_overview(request, course_slug: str, cohort_slug: str, module_slug: st
 def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, unit_slug: str):
     course = get_object_or_404(_published_courses(), slug=course_slug)
     cohort = get_object_or_404(Cohort, course=course, slug=cohort_slug, visible=True)
-    module = get_object_or_404(Module, cohort=cohort, slug=module_slug)
+    module = get_object_or_404(Module, course=course, parent__isnull=True, slug=module_slug)
     unit = get_object_or_404(Unit, module=module, slug=unit_slug)
     user = request.user
 
@@ -135,6 +139,7 @@ def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, u
             "curriculum/unit_detail.html",
             {
                 "course": course,
+                "cohort": cohort,
                 "module": module,
                 "unit": unit,
                 "is_gated": True,
@@ -145,13 +150,14 @@ def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, u
             status=403,
         )
 
-    drip = services.decide_unit_drip(user, unit)
+    drip = services.decide_unit_drip(user, unit, cohort)
     if drip.is_locked:
         return render(
             request,
             "curriculum/unit_detail.html",
             {
                 "course": course,
+                "cohort": cohort,
                 "module": module,
                 "unit": unit,
                 "is_gated": True,
@@ -301,7 +307,7 @@ def api_course_detail(request, course_slug: str):
                             for unit in module.units.all()
                         ],
                     }
-                    for module in cohort.modules.all()
+                    for module in cohort.syllabus_modules
                 ],
             }
             for cohort in course.get_syllabus()
@@ -331,7 +337,7 @@ def _gated_unit_response(unit: Unit, user) -> JsonResponse:
 @require_GET
 def api_unit_detail(request, course_slug: str, unit_id: int):
     course = get_object_or_404(_published_courses(), slug=course_slug)
-    unit = get_object_or_404(Unit, pk=unit_id, module__cohort__course=course)
+    unit = get_object_or_404(Unit, pk=unit_id, module__course=course)
     user = request.user
     if not unit.is_preview and not can_access(user, unit):
         return _gated_unit_response(unit, user)
@@ -364,7 +370,7 @@ def api_unit_complete(request, course_slug: str, unit_id: int):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Authentication required"}, status=401)
     course = get_object_or_404(_published_courses(), slug=course_slug)
-    unit = get_object_or_404(Unit, pk=unit_id, module__cohort__course=course)
+    unit = get_object_or_404(Unit, pk=unit_id, module__course=course)
     if not unit.is_preview and not can_access(request.user, unit):
         return JsonResponse({"error": "Access denied"}, status=403)
     if services.is_completed(request.user, unit):

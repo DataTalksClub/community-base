@@ -23,19 +23,71 @@
 {% endif %}
 
 <h2>Cohorts</h2>
-<table><thead><tr><th>Cohort</th><th>Mode</th><th>Starts</th><th>Format</th><th>Enrolled</th></tr></thead><tbody>
+<table><thead><tr><th>Cohort</th><th>Mode</th><th>Starts</th><th>Enrolled</th></tr></thead><tbody>
 {% for cohort in cohorts %}
   <tr>
     <td><a href="{% url 'curriculum_studio_cohort_detail' cohort.pk %}">{{ cohort.title }}</a></td>
     <td>{{ cohort.mode }}</td>
     <td>{{ cohort.start_date|default:"-" }}</td>
-    <td>{{ cohort.curriculum_format }}</td>
     <td>{{ cohort.enrollment_count }}</td>
   </tr>
 {% empty %}
-  <tr><td colspan="5">No cohorts.</td></tr>
+  <tr><td colspan="4">No cohorts.</td></tr>
 {% endfor %}
 </tbody></table>
+
+<h2>Modules</h2>
+<p>The course's module tree, shared by every cohort. A cohort with no placements shows every
+top-level module here, in order (see the cohort page to curate a subset instead).</p>
+{% for module in modules %}
+  <div>
+    <h3>{{ module.title }}{% if module.is_bonus %} <em>(bonus)</em>{% endif %}</h3>
+    <p>
+      <a href="{% url 'curriculum_studio_module_edit' module.pk %}">Edit module</a>
+      {% if not module.children.all %}
+        · <a href="{% url 'curriculum_studio_unit_create' module.pk %}">Add unit</a>
+      {% endif %}
+      · <form method="post" action="{% url 'curriculum_studio_module_delete' module.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Delete module</button></form>
+    </p>
+    {% if module.children.all %}
+      <ul>
+        {% for child in module.children.all %}
+          <li>
+            {{ child.title }}{% if child.is_bonus %} <em>(bonus)</em>{% endif %}
+            <a href="{% url 'curriculum_studio_module_edit' child.pk %}">Edit</a> ·
+            <a href="{% url 'curriculum_studio_unit_create' child.pk %}">Add unit</a>
+            <ul>
+              {% for unit in child.units.all %}
+                <li>{{ unit.title }} (order {{ unit.sort_order }}, {{ unit.kind }}){% if unit.is_preview %} · preview{% endif %}{% if unit.is_bonus %} · bonus{% endif %}
+                  <a href="{% url 'curriculum_studio_unit_edit' unit.pk %}">Edit</a>
+                  <form method="post" action="{% url 'curriculum_studio_unit_delete' unit.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Delete</button></form>
+                </li>
+              {% empty %}
+                <li>No units.</li>
+              {% endfor %}
+            </ul>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <ul>
+        {% for unit in module.units.all %}
+          <li>{{ unit.title }} (order {{ unit.sort_order }}, {{ unit.kind }}){% if unit.is_preview %} · preview{% endif %}{% if unit.is_bonus %} · bonus{% endif %}
+            <a href="{% url 'curriculum_studio_unit_edit' unit.pk %}">Edit</a>
+            <form method="post" action="{% url 'curriculum_studio_unit_delete' unit.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Delete</button></form>
+          </li>
+        {% empty %}
+          <li>No units.</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+{% empty %}
+  <p>No modules yet.</p>
+{% endfor %}
+{% if not source_locked %}
+<p><a href="{% url 'curriculum_studio_module_create' course.pk %}">Add module</a></p>
+{% endif %}
 
 <h2>Danger zone</h2>
 <form method="post" action="{% url 'curriculum_studio_course_delete' course.pk %}">{% csrf_token %}<button type="submit">Delete course</button></form>

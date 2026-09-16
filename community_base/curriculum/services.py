@@ -3,6 +3,7 @@
 import datetime
 from dataclasses import dataclass
 
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from community_base.curriculum.models import (
@@ -11,6 +12,7 @@ from community_base.curriculum.models import (
     Cohort,
     Course,
     Enrollment,
+    Module,
     Unit,
     UnitProgress,
 )
@@ -55,18 +57,38 @@ def unenroll(user, cohort: Cohort) -> bool:
     return True
 
 
+def get_or_create_self_paced_cohort(course: Course) -> Cohort:
+    """Return the course's open-ended self-paced cohort, creating it when missing.
+
+    Curriculum is course-owned; the self-paced cohort is the default enrollment and
+    completion target when a caller has no more specific cohort in view (for example a
+    unit completion toggle reached from a cohort-free URL).
+    """
+
+    cohort = course.cohorts.filter(mode="self_paced").first()
+    if cohort is None:
+        cohort = Cohort.objects.create(
+            course=course,
+            slug="self-paced",
+            title=f"{course.title} (self-paced)",
+            mode="self_paced",
+        )
+    return cohort
+
+
 def is_completed(user, unit: Unit) -> bool:
     if not _is_authenticated(user):
         return False
     return UnitProgress.objects.filter(user=user, unit=unit, completed_at__isnull=False).exists()
 
 
-def mark_completed(user, unit: Unit, *, when=None):
+def mark_completed(user, unit: Unit, *, cohort: Cohort | None = None, when=None):
     """Persist a completion row; idempotent, never refreshes the timestamp.
 
-    Mirrors the donor behavior of auto-enrolling on first completion so the
-    learner shows up in their course even when they jumped straight into a
-    unit URL.
+    Mirrors the donor behavior of auto-enrolling on first completion so the learner shows
+    up in their course even when they jumped straight into a unit URL. ``cohort`` is the
+    viewer's cohort when known; without one (curriculum is course-owned, so a unit has no
+    single cohort of its own) the course's self-paced cohort is the enrollment target.
     """
 
     if not _is_authenticated(user):
@@ -75,7 +97,8 @@ def mark_completed(user, unit: Unit, *, when=None):
     progress, _created = UnitProgress.objects.get_or_create(
         user=user, unit=unit, defaults={"completed_at": when}
     )
-    ensure_enrollment(user, unit.module.cohort, source=SOURCE_AUTO_PROGRESS)
+    target_cohort = cohort or get_or_create_self_paced_cohort(unit.course)
+    ensure_enrollment(user, target_cohort, source=SOURCE_AUTO_PROGRESS)
     return progress
 
 
@@ -109,23 +132,30 @@ class DripDecision:
     available_date: datetime.date | None = None
 
 
-def decide_unit_drip(user, unit: Unit, *, today: datetime.date | None = None) -> DripDecision:
-    """Return whether cohort drip scheduling currently locks ``unit``.
+def decide_unit_drip(
+    user, unit: Unit, cohort: Cohort, *, today: datetime.date | None = None
+) -> DripDecision:
+    """Return whether cohort drip scheduling currently locks ``unit`` for ``cohort``.
 
-    Drip applies only to a dated cohort the user is enrolled in; a unit
-    without ``available_after_days``, a self-paced cohort and learners with
-    no enrollment are never locked.
+    Curriculum is course-owned, so a unit's drip decision depends on which cohort is
+    viewing it -- ``cohort`` must be supplied explicitly rather than resolved from the
+    unit. Drip applies only to a dated cohort the user is enrolled in; a unit (or its
+    module, or that module's parent module -- see ``Unit.effective_available_after_days``)
+    with no offset at all, a self-paced cohort, and a learner with no enrollment are never
+    locked.
     """
 
-    if not _is_authenticated(user) or unit.available_after_days is None:
+    if not _is_authenticated(user):
         return DripDecision(is_locked=False)
-    cohort = unit.module.cohort
+    offset = unit.effective_available_after_days
+    if offset is None:
+        return DripDecision(is_locked=False)
     if cohort.mode == "self_paced" or cohort.start_date is None:
         return DripDecision(is_locked=False)
     enrollment = Enrollment.objects.filter(user=user, cohort=cohort, unenrolled_at__isnull=True)
     if not enrollment.exists():
         return DripDecision(is_locked=False)
-    available_date = cohort.start_date + datetime.timedelta(days=unit.available_after_days)
+    available_date = cohort.start_date + datetime.timedelta(days=offset)
     today = today or timezone.now().date()
     if today < available_date:
         return DripDecision(is_locked=True, available_date=available_date)
@@ -133,13 +163,39 @@ def decide_unit_drip(user, unit: Unit, *, today: datetime.date | None = None) ->
 
 
 def get_all_units_ordered(course: Course) -> list[Unit]:
-    """Return all units of the course in reading order across cohorts."""
+    """Return every unit of the course in depth-first reading order.
 
-    return list(
-        Unit.objects.filter(module__cohort__course=course)
-        .select_related("module", "module__cohort")
-        .order_by("module__sort_order", "sort_order", "pk")
+    For each top-level module, in ``sort_order``: if it has submodules, each submodule's
+    units in order; otherwise the module's own units directly -- a module holds either
+    children or units, never both (community-base#252). ``id`` is an explicit tiebreaker
+    after ``sort_order``, which is not unique.
+    """
+
+    top_modules = list(
+        Module.objects.filter(course=course, parent__isnull=True)
+        .prefetch_related(
+            Prefetch("children", queryset=Module.objects.order_by("sort_order", "pk")),
+            Prefetch("units", queryset=Unit.objects.order_by("sort_order", "pk")),
+        )
+        .order_by("sort_order", "pk")
     )
+    child_ids = [child.pk for module in top_modules for child in module.children.all()]
+    units_by_module: dict[int, list[Unit]] = {}
+    if child_ids:
+        for unit in Unit.objects.filter(module_id__in=child_ids).order_by(
+            "module_id", "sort_order", "pk"
+        ):
+            units_by_module.setdefault(unit.module_id, []).append(unit)
+
+    ordered: list[Unit] = []
+    for module in top_modules:
+        children = list(module.children.all())
+        if children:
+            for child in children:
+                ordered.extend(units_by_module.get(child.pk, []))
+        else:
+            ordered.extend(module.units.all())
+    return ordered
 
 
 def get_next_unit(course: Course, current_unit: Unit):

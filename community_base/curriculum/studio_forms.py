@@ -35,7 +35,6 @@ class CohortForm(forms.ModelForm):
             "start_date",
             "end_date",
             "registration_url",
-            "curriculum_format",
             "hashtag",
             "finished",
             "visible",
@@ -51,6 +50,8 @@ class ModuleForm(forms.ModelForm):
             "slug",
             "sort_order",
             "overview",
+            "is_bonus",
+            "available_after_days",
         )
 
 
@@ -61,6 +62,9 @@ class UnitForm(forms.ModelForm):
             "title",
             "slug",
             "sort_order",
+            "kind",
+            "session_position",
+            "is_bonus",
             "video_url",
             "body",
             "homework",

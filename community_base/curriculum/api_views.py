@@ -42,16 +42,9 @@ def _course(slug):
 
 
 def _self_paced_cohort(course) -> Cohort:
-    cohort = course.cohorts.filter(mode="self_paced").first()
-    if cohort is None:
-        cohort = Cohort.objects.create(
-            course=course,
-            slug="self-paced",
-            title=f"{course.title} (self-paced)",
-            mode="self_paced",
-            curriculum_format="modules",
-        )
-    return cohort
+    from community_base.curriculum.services import get_or_create_self_paced_cohort
+
+    return get_or_create_self_paced_cohort(course)
 
 
 def _resolve_cohort(course, cohort_slug: str | None) -> Cohort:

@@ -30,7 +30,7 @@ def course_with_content(source_content_id=None):
         course.source_checksum = "b" * 64
         course.save()
     cohort = make_cohort(course)
-    module = make_module(cohort)
+    module = make_module(course)
     unit = make_unit(module)
     return course, cohort, module, unit
 
@@ -120,7 +120,6 @@ def test_cohort_crud_and_pages(client, staff):
             "title": "2026 cohort",
             "slug": "2026",
             "mode": "cohort",
-            "curriculum_format": "legacy",
             "finished": "",
             "visible": "on",
         },
@@ -138,7 +137,6 @@ def test_cohort_crud_and_pages(client, staff):
             "title": "2026 spring",
             "slug": "2026",
             "mode": "cohort",
-            "curriculum_format": "legacy",
             "finished": "",
             "visible": "on",
         },
@@ -154,25 +152,24 @@ def test_cohort_crud_and_pages(client, staff):
 
 def test_module_and_unit_management(client, staff):
     course = make_course()
-    cohort = make_cohort(course)
 
     module_created = client.post(
-        reverse("curriculum_studio_module_create", args=[cohort.pk]),
+        reverse("curriculum_studio_module_create", args=[course.pk]),
         {"title": "Module 1", "slug": "module-1", "sort_order": "1"},
     )
     assert module_created.status_code == 302
-    module = cohort.modules.get(slug="module-1")
+    module = course.modules.get(slug="module-1")
 
     unit_created = client.post(
         reverse("curriculum_studio_unit_create", args=[module.pk]),
-        {"title": "Lesson 1", "slug": "lesson-1", "sort_order": "1"},
+        {"title": "Lesson 1", "slug": "lesson-1", "sort_order": "1", "kind": "lesson"},
     )
     assert unit_created.status_code == 302
     unit = module.units.get(slug="lesson-1")
 
     unit_edited = client.post(
         reverse("curriculum_studio_unit_edit", args=[unit.pk]),
-        {"title": "Lesson 1 renamed", "slug": unit.slug, "sort_order": "1"},
+        {"title": "Lesson 1 renamed", "slug": unit.slug, "sort_order": "1", "kind": "lesson"},
     )
     assert unit_edited.status_code == 302
     unit.refresh_from_db()
@@ -183,7 +180,7 @@ def test_module_and_unit_management(client, staff):
 
     assert unit_deleted.status_code == 302
     assert module_deleted.status_code == 302
-    assert cohort.modules.count() == 0
+    assert course.modules.count() == 0
 
 
 def test_instructor_management(client, staff):

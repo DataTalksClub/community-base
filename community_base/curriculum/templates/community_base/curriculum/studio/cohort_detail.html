@@ -4,31 +4,30 @@
 <h1>{{ cohort.title }} <small>({{ cohort.course.title }})</small></h1>
 <p>
   <a href="{% url 'curriculum_studio_cohort_edit' cohort.pk %}">Edit</a> ·
-  <a href="{% url 'curriculum_studio_module_create' cohort.pk %}">Add module</a> ·
   <a href="{% url 'curriculum_studio_course_detail' cohort.course_id %}">Back to course</a>
 </p>
 {% if source_locked %}<p>Source-managed cohort: edit the repository and re-sync.</p>{% endif %}
-<p>Mode: {{ cohort.mode }} · Format: {{ cohort.curriculum_format }} · Starts {{ cohort.start_date|default:"-" }}</p>
+<p>Mode: {{ cohort.mode }} · Starts {{ cohort.start_date|default:"-" }}</p>
 
 <h2>Curriculum</h2>
+<p>
+  Curriculum belongs to the course, not the cohort; manage modules and units from the
+  <a href="{% url 'curriculum_studio_course_detail' cohort.course_id %}">course page</a>. Shown here:
+  this cohort's effective modules -- its own placements when it has any, otherwise the course's
+  full module tree in order.
+</p>
 {% for module in modules %}
   <div>
-    <h3>{{ module.title }} <small>({{ module.units.count }} units)</small></h3>
-    <p>
-      <a href="{% url 'curriculum_studio_module_edit' module.pk %}">Edit module</a> ·
-      <a href="{% url 'curriculum_studio_unit_create' module.pk %}">Add unit</a> ·
-      <form method="post" action="{% url 'curriculum_studio_module_delete' module.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Delete module</button></form>
-    </p>
-    <ul>
-      {% for unit in module.units.all %}
-        <li>{{ unit.title }} (order {{ unit.sort_order }}){% if unit.is_preview %} · preview{% endif %}
-          <a href="{% url 'curriculum_studio_unit_edit' unit.pk %}">Edit</a>
-          <form method="post" action="{% url 'curriculum_studio_unit_delete' unit.pk %}" style="display:inline">{% csrf_token %}<button type="submit">Delete</button></form>
-        </li>
-      {% empty %}
-        <li>No units.</li>
-      {% endfor %}
-    </ul>
+    <h3>{{ module.title }}{% if module.is_bonus %} <em>(bonus)</em>{% endif %}</h3>
+    {% if module.children.all %}
+      <ul>
+        {% for child in module.children.all %}
+          <li>{{ child.title }}{% if child.is_bonus %} <em>(bonus)</em>{% endif %} &mdash; {{ child.units.count }} unit(s)</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>{{ module.units.count }} unit(s)</p>
+    {% endif %}
   </div>
 {% empty %}
   <p>No modules.</p>

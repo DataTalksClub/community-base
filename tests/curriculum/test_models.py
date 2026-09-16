@@ -8,6 +8,7 @@ from community_base.accounts.models import User
 from community_base.curriculum.models import (
     Certificate,
     Cohort,
+    CohortModule,
     Course,
     CourseInstructor,
     Enrollment,
@@ -33,10 +34,10 @@ def make_cohort(course, **values):
     return Cohort.objects.create(course=course, **values)
 
 
-def make_module(cohort, **values):
+def make_module(course, **values):
     values.setdefault("slug", "intro")
     values.setdefault("title", "Intro")
-    return Module.objects.create(cohort=cohort, **values)
+    return Module.objects.create(course=course, **values)
 
 
 def make_unit(module, **values):
@@ -73,8 +74,8 @@ def test_course_description_html_is_sanitized():
 
 
 def test_module_and_unit_render_markdown_on_save():
-    cohort = make_cohort(make_course())
-    module = make_module(cohort, overview="# Intro\n\nOverview *text*.")
+    course = make_course()
+    module = make_module(course, overview="# Intro\n\nOverview *text*.")
     unit = make_unit(module, body="# Welcome\n\nBody text.", homework="Do the **task**.")
 
     assert "Overview <em>text</em>." in module.overview_html
@@ -83,8 +84,8 @@ def test_module_and_unit_render_markdown_on_save():
 
 
 def test_module_save_with_update_fields_rerenders_overview_html():
-    cohort = make_cohort(make_course())
-    module = make_module(cohort, overview="First draft")
+    course = make_course()
+    module = make_module(course, overview="First draft")
 
     module.overview = "Second *draft*"
     module.save(update_fields=["overview"])
@@ -94,8 +95,8 @@ def test_module_save_with_update_fields_rerenders_overview_html():
 
 
 def test_unit_save_with_update_fields_rerenders_body_html():
-    cohort = make_cohort(make_course())
-    module = make_module(cohort)
+    course = make_course()
+    module = make_module(course)
     unit = make_unit(module, body="First draft")
 
     unit.body = "Second *draft*"
@@ -187,8 +188,7 @@ def test_enrollment_count_ignores_unenrolled():
 
 def test_unit_effective_required_level_chain():
     course = make_course(required_level=10, default_unit_required_level=5)
-    cohort = make_cohort(course)
-    module = make_module(cohort)
+    module = make_module(course)
     inherited = make_unit(module)
     overridden = make_unit(module, slug="overridden", title="Overridden", required_level=30)
 
@@ -198,7 +198,7 @@ def test_unit_effective_required_level_chain():
 
 def test_unit_effective_required_level_falls_back_to_course_level():
     course = make_course(required_level=20)
-    module = make_module(make_cohort(course))
+    module = make_module(course)
     unit = make_unit(module)
 
     assert unit.effective_required_level == 20
@@ -228,10 +228,198 @@ def test_certificate_is_one_per_enrollment():
 
 def test_unit_progress_unique_per_user_and_unit():
     course = make_course()
-    module = make_module(make_cohort(course))
+    module = make_module(course)
     unit = make_unit(module)
     user = User.objects.create_user(email="d@example.com")
     UnitProgress.objects.create(user=user, unit=unit)
 
     with pytest.raises(IntegrityError), transaction.atomic():
         UnitProgress(user=user, unit=unit).save()
+
+
+# --- nesting (community-base#252) ---
+
+
+def test_module_parent_makes_a_submodule():
+    course = make_course()
+    parent = make_module(course, slug="week-1", title="Week 1")
+    child = make_module(course, slug="topic-a", title="Topic A", parent=parent)
+
+    assert child.parent_id == parent.pk
+    assert list(parent.children.all()) == [child]
+
+
+def test_module_rejects_three_levels_deep():
+    course = make_course()
+    parent = make_module(course, slug="week-1", title="Week 1")
+    child = make_module(course, slug="topic-a", title="Topic A", parent=parent)
+    grandchild = Module(course=course, slug="too-deep", title="Too deep", parent=child)
+
+    with pytest.raises(ValidationError):
+        grandchild.full_clean()
+
+
+def test_module_rejects_self_parent():
+    course = make_course()
+    module = make_module(course)
+    module.parent = module
+
+    with pytest.raises(ValidationError):
+        module.full_clean()
+
+
+def test_module_rejects_parent_from_another_course():
+    other_course = make_course(slug="other-course")
+    other_parent = make_module(other_course, slug="week-1", title="Week 1")
+    course = make_course()
+
+    child = Module(course=course, slug="topic-a", title="Topic A", parent=other_parent)
+    with pytest.raises(ValidationError):
+        child.full_clean()
+
+
+def test_module_with_children_cannot_also_have_direct_units():
+    course = make_course()
+    parent = make_module(course, slug="week-1", title="Week 1")
+    make_module(course, slug="topic-a", title="Topic A", parent=parent)
+    # Bypass Unit.clean()'s own guard to construct the invalid state directly,
+    # so Module.clean()'s defensive check (both children and units present) is
+    # what is actually under test here.
+    Unit.objects.create(module=parent, slug="stray", title="Stray")
+
+    with pytest.raises(ValidationError):
+        parent.full_clean()
+
+
+def test_parent_with_units_cannot_also_have_children():
+    course = make_course()
+    parent = make_module(course, slug="week-1", title="Week 1")
+    make_unit(parent)
+
+    child = Module(course=course, slug="topic-a", title="Topic A", parent=parent)
+    with pytest.raises(ValidationError):
+        child.full_clean()
+
+
+def test_unit_cannot_be_added_to_a_module_with_children():
+    course = make_course()
+    parent = make_module(course, slug="week-1", title="Week 1")
+    make_module(course, slug="topic-a", title="Topic A", parent=parent)
+
+    unit = Unit(module=parent, slug="stray", title="Stray")
+    with pytest.raises(ValidationError):
+        unit.full_clean()
+
+
+def test_two_submodules_may_each_contain_a_unit_slugged_the_same():
+    """The exact collision case the flattened site content hit 26 times."""
+
+    course = make_course()
+    parent = make_module(course, slug="week-1", title="Week 1")
+    sub_a = make_module(course, slug="topic-a", title="Topic A", parent=parent)
+    sub_b = make_module(course, slug="topic-b", title="Topic B", parent=parent)
+
+    unit_a = make_unit(sub_a, slug="section-overview", title="Overview")
+    unit_b = make_unit(sub_b, slug="section-overview", title="Overview")
+
+    assert unit_a.pk != unit_b.pk
+    assert Unit.objects.filter(slug="section-overview").count() == 2
+
+
+def test_module_slug_unique_per_parent_not_per_course():
+    course = make_course()
+    parent_a = make_module(course, slug="parent-a", title="Parent A")
+    parent_b = make_module(course, slug="parent-b", title="Parent B")
+
+    make_module(course, slug="overview", title="Overview", parent=parent_a)
+    make_module(course, slug="overview", title="Overview", parent=parent_b)
+
+    assert Module.objects.filter(slug="overview").count() == 2
+
+
+def test_module_is_bonus_defaults_false_and_cascades_to_units():
+    course = make_course()
+    module = make_module(course)
+    unit = make_unit(module)
+
+    assert module.is_bonus is False
+    assert unit.effective_is_bonus is False
+
+    module.is_bonus = True
+    module.save()
+    unit.refresh_from_db()
+    assert unit.effective_is_bonus is True
+
+
+def test_unit_kind_defaults_to_lesson():
+    course = make_course()
+    module = make_module(course)
+    unit = make_unit(module)
+
+    assert unit.kind == "lesson"
+
+
+def test_unit_kind_event_with_session_position():
+    course = make_course()
+    module = make_module(course)
+    unit = make_unit(module, kind="event", session_position=4)
+
+    assert unit.kind == "event"
+    assert unit.session_position == 4
+
+
+def test_unit_effective_available_after_days_cascade():
+    course = make_course()
+    parent = make_module(course, slug="week-1", title="Week 1", available_after_days=21)
+    child = make_module(course, slug="topic-a", title="Topic A", parent=parent)
+    inherited = make_unit(child)
+    overridden = make_unit(child, slug="override", title="Override", available_after_days=1)
+
+    assert inherited.effective_available_after_days == 21
+    assert overridden.effective_available_after_days == 1
+
+
+def test_cohort_module_placement_targets_only_top_level_modules():
+    course = make_course()
+    cohort = make_cohort(course)
+    parent = make_module(course, slug="week-1", title="Week 1")
+    child = make_module(course, slug="topic-a", title="Topic A", parent=parent)
+
+    placement = CohortModule(cohort=cohort, module=child, sort_order=0)
+    with pytest.raises(ValidationError):
+        placement.full_clean()
+
+
+def test_cohort_effective_modules_defaults_to_full_course_tree():
+    course = make_course()
+    cohort = make_cohort(course)
+    first = make_module(course, slug="a", title="A", sort_order=0)
+    second = make_module(course, slug="b", title="B", sort_order=1)
+
+    assert list(cohort.effective_modules()) == [first, second]
+
+
+def test_cohort_effective_modules_uses_placements_when_present():
+    """Two cohorts of the same course each select a different alternative-treatment module.
+
+    Proves per-cohort placement is enough for DataTalks.Club's real case: cohorts of one
+    course genuinely differ in content, not just ordering, because both variants live on
+    the shared course and each cohort's placement selects one.
+    """
+
+    course = make_course()
+    old_treatment = make_module(course, slug="tooling-2025", title="Tooling (2025 edition)")
+    new_treatment = make_module(course, slug="tooling-2026", title="Tooling (2026 edition)")
+    make_unit(old_treatment, slug="setup", title="Setup (old)")
+    make_unit(new_treatment, slug="setup", title="Setup (new)")
+
+    cohort_2025 = make_cohort(course, slug="2025", title="2025 cohort")
+    cohort_2026 = make_cohort(course, slug="2026", title="2026 cohort")
+    CohortModule.objects.create(cohort=cohort_2025, module=old_treatment, sort_order=0)
+    CohortModule.objects.create(cohort=cohort_2026, module=new_treatment, sort_order=0)
+
+    assert list(cohort_2025.effective_modules()) == [old_treatment]
+    assert list(cohort_2026.effective_modules()) == [new_treatment]
+    # Both variants sync/persist cleanly on the shared course; nothing about placing one
+    # in a cohort disturbs the other.
+    assert Module.objects.filter(course=course, slug__startswith="tooling-").count() == 2

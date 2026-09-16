@@ -23,7 +23,7 @@
         {% csrf_token %}
         <button class="cb-button" type="submit">Unenroll</button>
       </form>
-      {% if next_unit %}<a class="cb-button cb-button-primary" href="{% url 'curriculum_unit_detail' course.slug next_unit.module.cohort.slug next_unit.module.slug next_unit.slug %}">Continue</a>{% endif %}
+      {% if next_unit and default_cohort %}<a class="cb-button cb-button-primary" href="{% url 'curriculum_unit_detail' course.slug default_cohort.slug next_unit.module.slug next_unit.slug %}">Continue</a>{% endif %}
     {% elif has_access %}
       <form class="cb-form" method="post" action="{% url 'curriculum_course_enroll' course.slug %}">
         {% csrf_token %}
@@ -55,7 +55,7 @@
         {% elif cohort.registration_url %}
           <a class="cb-button" href="{{ cohort.registration_url }}">Register</a>
         {% endif %}
-        {% for module in cohort.modules.all %}
+        {% for module in cohort.syllabus_modules %}
           <h3>{{ module.title }}</h3>
           <ul class="cb-list">
             {% for unit in module.units.all %}

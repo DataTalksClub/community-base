@@ -4,12 +4,19 @@ Layout (one directory per course anywhere in the checkout):
 
 - ``<course-dir>/course.yaml`` - course metadata
 - ``<course-dir>/<module-dir>/module.yaml`` - module metadata
-- ``<course-dir>/<module-dir>/<NN>-<slug>.md`` - unit content with frontmatter
+- ``<course-dir>/<module-dir>/<submodule-dir>/module.yaml`` - submodule metadata (max two
+  module levels; a module holds either submodules or units, never both)
+- ``<course-dir>/<module-dir>[/<submodule-dir>]/<NN>-<slug>.md`` - unit content with
+  frontmatter, directly inside whichever module directory is a leaf
 - ``<course-dir>/README.md`` - course description when ``course.yaml`` has none
-- ``<course-dir>/<module-dir>/README.md`` - module overview
+- ``<course-dir>/<module-dir>[/<submodule-dir>]/README.md`` - module overview
 
-Every course becomes one open-ended self-paced cohort, because the shared
-model requires every course to have at least one cohort.
+The numeric ordering prefix (``01-``, ``02-``, ...) supplies sort order and is stripped from
+the slug at every level -- course, module, submodule and unit.
+
+Every course becomes one open-ended self-paced cohort, because the shared model requires
+every course to have at least one cohort. That cohort always places the full course tree
+(``module_refs=None``): AI Shipping Labs never curates a per-cohort subset today.
 """
 
 from __future__ import annotations
@@ -30,6 +37,7 @@ from community_base.curriculum.source import (
     ModuleGraph,
     ParsedCurriculum,
     UnitGraph,
+    validate_module_tree,
 )
 
 PARSER_VERSION = "aisl-course-yaml-1"
@@ -37,6 +45,7 @@ SCHEMA_VERSION = 1
 
 _LEADING_H1_RE = re.compile(r"^#\s+(.+?)\s*#*\s*$")
 _SELF_PACED_SLUG = "self-paced"
+_UNIT_KINDS = {"lesson", "homework", "event"}
 
 
 def parse_aisl_course(checkout, course_yaml_path: str) -> ParsedCurriculum:
@@ -77,9 +86,10 @@ def parse_aisl_course(checkout, course_yaml_path: str) -> ParsedCurriculum:
             )
         )
 
-    modules = tuple(
-        _parse_module(checkout, directory, entry) for entry in _module_entries(checkout, directory)
-    )
+    entries = _module_entries(checkout, directory)
+    modules = _module_graphs(checkout, entries)
+    validate_module_tree(modules, where=directory)
+
     self_paced = CohortGraph(
         content_id=None,
         slug=_SELF_PACED_SLUG,
@@ -89,7 +99,7 @@ def parse_aisl_course(checkout, course_yaml_path: str) -> ParsedCurriculum:
         start_date=None,
         end_date=None,
         source_path=course_yaml_path,
-        modules=modules,
+        module_refs=None,
     )
 
     course = CourseGraph(
@@ -111,6 +121,7 @@ def parse_aisl_course(checkout, course_yaml_path: str) -> ParsedCurriculum:
         hashtag=str(data.get("hashtag") or ""),
         visible=True,
         instructors=tuple(instructors),
+        modules=modules,
         cohorts=(self_paced,),
     )
     return ParsedCurriculum(
@@ -121,27 +132,46 @@ def parse_aisl_course(checkout, course_yaml_path: str) -> ParsedCurriculum:
     )
 
 
-def _module_entries(checkout, directory: str) -> list[tuple[str, dict]]:
+def _module_entries(checkout, directory: str) -> dict[tuple[str, ...], tuple[str, dict]]:
+    """Every ``module.yaml`` under ``directory``, keyed by its directory path relative to it.
+
+    A top-level module key is a 1-tuple (``("01-module",)``); a submodule key is a 2-tuple
+    (``("01-module", "01-submodule")``). Depth beyond two is left for :func:`validate_module_tree`
+    to reject, by construction: :func:`_module_graphs` only ever looks for a parent at exactly
+    one level up, so a module.yaml three levels deep is never attached to the tree as anything
+    but a would-be grandchild, which the shared validator refuses.
+    """
+
     prefix = tuple(directory.split("/"))
-    module_depth = len(prefix) + 2
-    entries = []
+    entries: dict[tuple[str, ...], tuple[str, dict]] = {}
     for path in checkout.files():
         parts = path.parts
-        if (
-            len(parts) == module_depth
-            and parts[: len(prefix)] == prefix
-            and parts[-1] == "module.yaml"
-        ):
-            module_dir = "/".join(parts[:-1])
-            try:
-                data = yaml.safe_load(checkout.read_text(path.as_posix())) or {}
-            except yaml.YAMLError as error:
-                raise CurriculumParseError(f"{path}: invalid YAML: {error}") from None
-            if not isinstance(data, dict):
-                raise CurriculumParseError(f"{path}: top level must be a mapping")
-            entries.append((module_dir, data))
-    entries.sort(key=lambda entry: (_module_sort(entry[0], entry[1]), entry[0]))
+        if parts[: len(prefix)] != prefix or parts[-1] != "module.yaml":
+            continue
+        rel = parts[len(prefix) : -1]
+        if not rel:
+            continue
+        module_dir = "/".join(parts[:-1])
+        try:
+            data = yaml.safe_load(checkout.read_text(path.as_posix())) or {}
+        except yaml.YAMLError as error:
+            raise CurriculumParseError(f"{path}: invalid YAML: {error}") from None
+        if not isinstance(data, dict):
+            raise CurriculumParseError(f"{path}: top level must be a mapping")
+        entries[rel] = (module_dir, data)
     return entries
+
+
+def _module_graphs(
+    checkout,
+    entries: dict[tuple[str, ...], tuple[str, dict]],
+    parent_rel: tuple[str, ...] = (),
+) -> tuple[ModuleGraph, ...]:
+    child_keys = sorted(
+        (rel for rel in entries if len(rel) == len(parent_rel) + 1 and rel[:-1] == parent_rel),
+        key=lambda rel: (_module_sort(*entries[rel]), rel),
+    )
+    return tuple(_parse_module(checkout, entries, rel) for rel in child_keys)
 
 
 def _module_sort(module_dir: str, data: dict) -> int:
@@ -151,25 +181,26 @@ def _module_sort(module_dir: str, data: dict) -> int:
     return _prefix_sort(module_dir.rsplit("/", 1)[-1])
 
 
-def _parse_module(checkout, directory: str, entry: tuple[str, dict]) -> ModuleGraph:
-    module_dir, data = entry
-    prefix = tuple(directory.split("/"))
+def _parse_module(checkout, entries, rel: tuple[str, ...]) -> ModuleGraph:
+    module_dir, data = entries[rel]
     dir_name = module_dir.rsplit("/", 1)[-1]
     module_path = f"{module_dir}/module.yaml"
     slug = str(data.get("slug") or _derive_slug(dir_name))
     title = str(data.get("title") or _derive_slug(dir_name))
     overview = _read_body(checkout, f"{module_dir}/README.md")
 
+    children = _module_graphs(checkout, entries, rel)
+
     units = []
-    unit_depth = len(prefix) + 2
+    unit_depth = len(module_dir.split("/")) + 1
     for path in checkout.files():
         parts = path.parts
-        if len(parts) != unit_depth or parts[: len(prefix)] != prefix or parts[-2] != dir_name:
+        if len(parts) != unit_depth or "/".join(parts[:-1]) != module_dir:
             continue
         name = parts[-1]
         if not name.endswith(".md") or name.lower() == "readme.md" or name.startswith("."):
             continue
-        units.append(_parse_unit(checkout, module_dir, path.as_posix(), name))
+        units.append(_parse_unit(checkout, path.as_posix(), name))
     units.sort(key=lambda unit: (unit.sort_order, unit.slug))
 
     return ModuleGraph(
@@ -179,22 +210,29 @@ def _parse_module(checkout, directory: str, entry: tuple[str, dict]) -> ModuleGr
         source_path=module_path,
         overview=overview,
         sort_order=_module_sort(module_dir, data),
+        is_bonus=bool(data.get("is_bonus", False)),
+        available_after_days=_optional_int(
+            data.get("available_after_days"), f"{module_path}:/available_after_days"
+        ),
         units=tuple(units),
+        children=children,
     )
 
 
-def _parse_unit(checkout, module_dir: str, path: str, name: str) -> UnitGraph:
+def _parse_unit(checkout, path: str, name: str) -> UnitGraph:
     raw = checkout.read_text(path)
     frontmatter, body = _split_frontmatter(path, raw)
     if not frontmatter.get("content_id"):
         raise CurriculumParseError(f"{path}: missing content_id in frontmatter")
 
     is_homework = bool(frontmatter.get("is_homework", False))
+    kind = _unit_kind(frontmatter, path, is_homework=is_homework)
     access_raw = frontmatter.get("access")
     required_level = (
         _access_value(access_raw, f"{path}:/access") if access_raw is not None else None
     )
     is_preview = bool(frontmatter.get("is_preview", False))
+    is_bonus = bool(frontmatter.get("is_bonus", False))
     title = str(frontmatter.get("title") or _derive_slug(name.rsplit(".", 1)[0]))
 
     return UnitGraph(
@@ -209,7 +247,28 @@ def _parse_unit(checkout, module_dir: str, path: str, name: str) -> UnitGraph:
         is_preview=is_preview,
         required_level=required_level,
         sort_order=_int(frontmatter.get("sort_order"), _prefix_sort(name), f"{path}:/sort_order"),
+        kind=kind,
+        session_position=_optional_int(
+            frontmatter.get("session_position"), f"{path}:/session_position"
+        ),
+        is_bonus=is_bonus,
     )
+
+
+def _unit_kind(frontmatter: dict, path: str, *, is_homework: bool) -> str:
+    """Resolve ``kind``: an explicit frontmatter value, else the legacy ``is_homework`` flag.
+
+    Backward compatible by construction: existing content with ``is_homework: true`` and no
+    ``kind`` field gets ``kind="homework"`` on every sync, with no separate data migration --
+    everything else defaults to ``"lesson"``, exactly matching every row's meaning today.
+    """
+
+    raw = frontmatter.get("kind")
+    if raw is not None:
+        if raw not in _UNIT_KINDS:
+            raise CurriculumParseError(f"{path}:/kind: unknown unit kind {raw!r}")
+        return raw
+    return "homework" if is_homework else "lesson"
 
 
 def _split_frontmatter(path: str, raw: str) -> tuple[dict, str]:
@@ -279,6 +338,14 @@ def _access_value(raw, where: str) -> int | None:
 def _int(value, default, where: str) -> int:
     if value is None:
         return default
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise CurriculumParseError(f"{where}: expected an integer, got {value!r}")
+    return value
+
+
+def _optional_int(value, where: str) -> int | None:
+    if value is None:
+        return None
     if isinstance(value, bool) or not isinstance(value, int):
         raise CurriculumParseError(f"{where}: expected an integer, got {value!r}")
     return value

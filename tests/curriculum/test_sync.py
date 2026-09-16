@@ -13,6 +13,7 @@ from community_base.curriculum.content_sync_parsers import (
 )
 from community_base.curriculum.models import (
     Cohort,
+    CohortModule,
     Course,
     CurriculumImportRun,
     Unit,
@@ -58,7 +59,7 @@ def test_sync_reimport_is_unchanged():
     assert second.items_deleted == 0
     assert second.items_unchanged == 1
     assert Course.objects.filter(slug="ai-hero").count() == 1
-    assert Unit.objects.filter(module__cohort__course__slug="ai-hero").count() == 3
+    assert Unit.objects.filter(module__course__slug="ai-hero").count() == 3
 
 
 def test_sync_imports_dtc_fixture():
@@ -69,8 +70,9 @@ def test_sync_imports_dtc_fixture():
     assert log.status == SyncStatus.SUCCESS
     course = Course.objects.get(slug="ml-zoomcamp")
     cohort = course.cohorts.get(slug="2026")
-    assert cohort.curriculum_format == "modules"
-    assert Unit.objects.filter(module__cohort=cohort).count() == 2
+    placements = CohortModule.objects.filter(cohort=cohort)
+    assert placements.count() == 1
+    assert Unit.objects.filter(module__in=[p.module for p in placements]).count() == 2
 
 
 def test_sync_records_import_run():

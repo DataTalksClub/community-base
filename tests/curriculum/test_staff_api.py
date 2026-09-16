@@ -38,7 +38,7 @@ def staff_keys(db):
 def course_setup():
     course = make_course(slug="api-course", title="API Course")
     cohort = make_cohort(course, mode="self_paced", title="Self-paced")
-    module = make_module(cohort)
+    module = make_module(course)
     unit = make_unit(module)
     return course, cohort, module, unit
 
