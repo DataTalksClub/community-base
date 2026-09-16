@@ -5,10 +5,13 @@ staff-oriented, so per the donor analysis these member endpoints follow the
 registry-route shape adopted in C5.1c instead of a donor endpoint.
 """
 
+from django.core.exceptions import ImproperlyConfigured
+
 from community_base.api import route
 from community_base.api.errors import APIError
 from community_base.api.registry import json_response
 from community_base.api.safety import read_json_object
+from community_base.coursework.certificates import request_certificate
 from community_base.coursework.leaderboard import (
     LEADERBOARD_PAGE_SIZE,
     current_student_leaderboard_enrollment,
@@ -18,6 +21,15 @@ from community_base.coursework.leaderboard import (
 from community_base.curriculum.models import Cohort, Enrollment
 
 OBJECT_SCHEMA = {"type": "object"}
+CERTIFICATE_RESPONSE_SCHEMA = {
+    "type": "object",
+    "required": ["eligible", "reasons"],
+    "properties": {
+        "eligible": {"type": "boolean"},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "certificate": OBJECT_SCHEMA,
+    },
+}
 PREFERENCE_RESPONSE_SCHEMA = {
     "type": "object",
     "required": ["enrollment", "field", "enabled", "changed"],
@@ -108,3 +120,32 @@ def get_cohort_leaderboard(request, course_slug, cohort_slug):
             "count": len(enrollments_data),
         }
     )
+
+
+@route(
+    "POST",
+    "courses/<slug:course_slug>/cohorts/<slug:cohort_slug>/certificate-request",
+    None,
+    "Request a certificate for the signed-in learner's enrollment, if it currently qualifies",
+    CERTIFICATE_RESPONSE_SCHEMA,
+    authentication="session",
+)
+def request_cohort_certificate(request, course_slug, cohort_slug):
+    cohort = _cohort_for(course_slug, cohort_slug)
+    enrollment = Enrollment.objects.filter(
+        cohort=cohort, user=request.user, unenrolled_at__isnull=True
+    ).first()
+    if enrollment is None:
+        raise APIError(404, "not_enrolled", "No active enrollment in this cohort.")
+
+    try:
+        certificate, eligibility = request_certificate(enrollment)
+    except ImproperlyConfigured as error:
+        raise APIError(
+            503, "certificate_generator_unavailable", "Certificate generation is unavailable."
+        ) from error
+
+    body = {"eligible": eligibility.eligible, "reasons": list(eligibility.reasons)}
+    if certificate is not None:
+        body["certificate"] = {"id": str(certificate.pk), "url": certificate.url}
+    return json_response(body)

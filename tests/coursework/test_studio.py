@@ -23,6 +23,7 @@ from community_base.coursework.models import (
     PeerReview,
     ProjectCriteriaAssignment,
     ProjectState,
+    ProjectSubmission,
     QuestionTypes,
     ReviewCriteria,
     ReviewCriteriaTypes,
@@ -509,6 +510,35 @@ def test_certificate_issue_creates_row_then_updates_without_duplicates(client, s
     client.post(issue_url, {"url": "https://example.com/certificates/abc"}, follow=True)
 
     assert Certificate.objects.filter(enrollment=enrollment).count() == 1
+
+
+def test_certificates_page_shows_eligibility(client, staff):
+    from community_base.curriculum.services import mark_completed
+    from tests.curriculum.test_models import make_module, make_unit
+
+    cohort = coursework_cohort(slug="cert-studio")
+    module = make_module(cohort.course)
+    unit = make_unit(module)
+    _ineligible_user, ineligible = enrollment_for(cohort, email="not-eligible@example.com")
+    eligible_user, eligible = enrollment_for(cohort, email="eligible@example.com")
+    mark_completed(eligible_user, unit, cohort=cohort)
+    project = make_project(cohort)
+    ProjectSubmission.objects.create(
+        project=project,
+        student=eligible_user,
+        enrollment=eligible,
+        github_link="https://github.com/example/repo",
+        commit_id="e" * 40,
+        passed=True,
+    )
+
+    response = client.get(reverse("coursework_studio_certificates", args=[cohort.pk]))
+
+    assert response.status_code == 200
+    by_email = {row.user.email: row for row in response.context["enrollments"]}
+    assert by_email["eligible@example.com"].certificate_eligible is True
+    assert by_email["not-eligible@example.com"].certificate_eligible is False
+    assert by_email["not-eligible@example.com"].certificate_reasons
 
 
 def test_campaigns_page_shows_baseline_plus_native_count(client, staff):
