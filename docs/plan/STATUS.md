@@ -160,5 +160,5 @@ issues that can start now.
 | `C7.1` | community-base | Site convergence umbrella |  | no | todo | https://github.com/DataTalksClub/community-base/issues/258 |
 | `C7.2` | community-base | Shared knowledge base app: wiki and docs | C2.4 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.4.1 |
 | `D7.1` | DataTalksClub/website | DTC wiki and docs onto the shared app | C7.2 | no | todo | https://github.com/DataTalksClub/website/issues/406 |
-| `A7.1` | AI-Shipping-Labs/website | AISL gains wiki and docs | C7.2 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1685 |
+| `A7.1` | AI-Shipping-Labs/website | AISL gains wiki and docs | C7.2 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1685#issuecomment-5704258072 (merged as website ac9a7ea3; Deploy Dev 35144001433 green; wiki and nested docs pages 200 on dev, pages in the sitemap) |
 | `C7.3` | community-base | Gate Calendly Studio surfaces behind the Calendly flag |  | no | done | https://github.com/DataTalksClub/community-base/pull/267 |
