@@ -93,6 +93,36 @@ purpose and idempotency-key shape rather than a parallel "expiry approaching" jo
 
 ## Certificates
 
-Eligibility, request-based issuance and the banner-generator artifact seam
-(`COURSEWORK_CERTIFICATE_GENERATOR`, following the `EVENT_BANNER_GENERATOR` pattern in
-`community_base.events`) are covered in the C5.2h issue (`docs/plan/phase-5.md`).
+The package has no automatic issuance and never did -- `certificates.issue_certificate` has always
+been staff/API-key-triggered only (Studio, `curriculum/api_views.py`). "Certificate on request" is
+a package feature addition, not a behaviour change within the package; AISL's own local automatic
+issuance (`content/services/peer_review_service.py`) retires separately in A5.1.
+
+`certificates.certificate_eligibility(enrollment)` returns `CertificateEligibility(eligible,
+reasons)`, mode-agnostic (identical for a dated cohort or a pooled project): every countable unit
+of the enrollment's course completed (`Course.total_units`/`completed_units`, already excluding
+bonus content), and at least `cohort.min_projects_to_pass` of the enrollment's project submissions
+`passed` -- which already requires both a passing project score and the learner's own
+`reviewed_enough_peers`, so no separate review-completion check is needed.
+
+`certificates.request_certificate(enrollment)` checks eligibility and, if it passes, calls the
+site's certificate generator and issues. Re-requesting for an enrollment that already has a
+certificate re-generates and re-attaches the artifact rather than refusing as "already issued" --
+the recommended, reversible default for learners grandfathered from AISL's prior automatic
+issuance (open question in DataTalksClub/community-base#256; not decided unilaterally, and easy to
+change since nothing here treats "already issued" as terminal). Exposed as
+`POST /api/v1/courses/<course_slug>/cohorts/<cohort_slug>/certificate-request`
+(session-authenticated) and as an eligibility column on the Studio certificates page.
+
+Artifact generation is a site-supplied seam, `COURSEWORK_CERTIFICATE_GENERATOR`, following
+`community_base.events`'s `EVENT_BANNER_GENERATOR` pattern exactly rather than inventing a second
+configuration mechanism (`community_base/coursework/integrations.py`): a dotted path to a site
+callable that returns a plain URL string, resolved through `kernel.hooks`. The package never sees
+an endpoint or a token -- a site's callable owns those entirely (AISL:
+`BANNER_GENERATOR_FUNCTION_URL`/`BANNER_GENERATOR_AUTH_TOKEN` through its own `IntegrationSetting`).
+Raises `ImproperlyConfigured` when unset, since a learner-triggered request with nothing configured
+to generate an artifact is an operator error worth surfacing loudly (`events.process_recording`'s
+precedent), unlike `generate_banner`'s silent `None`. Whether the artifact is a PDF, an image, or a
+page offering both is a site decision this seam deliberately does not fix (also open in #256):
+`Certificate.url` holds whichever URL comes back either way, so nothing here needs to change once
+that is answered.

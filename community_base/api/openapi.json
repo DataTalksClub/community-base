@@ -244,6 +244,78 @@
         "x-required-scope": "content_sync.write"
       }
     },
+    "/api/v1/courses/{course_slug}/cohorts/{cohort_slug}/certificate-request": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "course_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRFToken",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "certificate": {
+                      "type": "object"
+                    },
+                    "eligible": {
+                      "type": "boolean"
+                    },
+                    "reasons": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "eligible",
+                    "reasons"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Request a certificate for the signed-in learner's enrollment, if it currently qualifies"
+      }
+    },
     "/api/v1/courses/{course_slug}/cohorts/{cohort_slug}/enrollment-preferences": {
       "post": {
         "parameters": [

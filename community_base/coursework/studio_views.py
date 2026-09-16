@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 from community_base.accounts.models import User
 from community_base.coursework import studio as studio_ops
 from community_base.coursework import wrapped as wrapped_stats
-from community_base.coursework.certificates import issue_certificate
+from community_base.coursework.certificates import certificate_eligibility, issue_certificate
 from community_base.coursework.leaderboard import file_leaderboard_complaint
 from community_base.coursework.models import (
     Homework,
@@ -388,12 +388,17 @@ def complaint_create(request, enrollment_id):
 @staff_required
 def certificates(request, cohort_id):
     cohort = get_object_or_404(Cohort.objects.select_related("course"), pk=cohort_id)
+    enrollments = list(cohort.enrollments.select_related("user").order_by("user__email"))
+    for enrollment in enrollments:
+        eligibility = certificate_eligibility(enrollment)
+        enrollment.certificate_eligible = eligibility.eligible
+        enrollment.certificate_reasons = eligibility.reasons
     return render(
         request,
         "community_base/coursework/studio/certificates.html",
         {
             "cohort": cohort,
-            "enrollments": cohort.enrollments.select_related("user").order_by("user__email"),
+            "enrollments": enrollments,
         },
     )
 

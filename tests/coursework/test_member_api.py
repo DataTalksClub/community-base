@@ -10,8 +10,12 @@ import pytest
 from django.contrib.auth import get_user_model
 
 from community_base.coursework.leaderboard import LEADERBOARD_PAGE_SIZE
+from community_base.coursework.models import ProjectSubmission
 from community_base.curriculum.models import Enrollment
+from community_base.curriculum.services import mark_completed
 from tests.coursework.test_models import coursework_cohort
+from tests.coursework.test_projects import make_project
+from tests.curriculum.test_models import make_module, make_unit
 
 pytestmark = pytest.mark.django_db
 
@@ -33,6 +37,10 @@ def preferences_url(cohort):
 
 def leaderboard_url(cohort):
     return f"/api/v1/courses/{cohort.course.slug}/cohorts/{cohort.slug}/leaderboard"
+
+
+def certificate_request_url(cohort):
+    return f"/api/v1/courses/{cohort.course.slug}/cohorts/{cohort.slug}/certificate-request"
 
 
 def post_preference(client, cohort, field, value):
@@ -146,3 +154,91 @@ def test_leaderboard_api_serves_the_requested_page(client):
     assert payload["count"] == LEADERBOARD_PAGE_SIZE + 1
     assert len(payload["leaderboard"]) == 1
     assert payload["leaderboard"][0]["display_name"] == "Learner 100"
+
+
+def test_certificate_request_requires_the_signed_in_member(client):
+    cohort = coursework_cohort()
+
+    response = client.post(certificate_request_url(cohort))
+
+    assert response.status_code == 401
+
+
+def test_certificate_request_404s_without_an_active_enrollment(client):
+    cohort = coursework_cohort()
+    member = get_user_model().objects.create_user(email="not-enrolled@example.com")
+    client.force_login(member)
+
+    response = client.post(certificate_request_url(cohort))
+
+    assert response.status_code == 404
+
+
+def test_certificate_request_reports_ineligibility_without_a_certificate(client):
+    cohort = coursework_cohort()
+    member = get_user_model().objects.create_user(email="not-yet-eligible@example.com")
+    Enrollment.objects.create(user=member, cohort=cohort)
+    client.force_login(member)
+
+    response = client.post(certificate_request_url(cohort))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["eligible"] is False
+    assert payload["reasons"]
+    assert "certificate" not in payload
+
+
+def test_certificate_request_issues_a_certificate_when_eligible(client, settings):
+    settings.COMMUNITY_BASE = {
+        "COURSEWORK_CERTIFICATE_GENERATOR": (
+            lambda enrollment, certificate: f"https://certs.example.com/{enrollment.id}.pdf"
+        ),
+    }
+    cohort = coursework_cohort(slug="cert-api")
+    module = make_module(cohort.course)
+    unit = make_unit(module)
+    member = get_user_model().objects.create_user(email="api-eligible@example.com")
+    enrollment = Enrollment.objects.create(user=member, cohort=cohort)
+    mark_completed(member, unit, cohort=cohort)
+    project = make_project(cohort)
+    ProjectSubmission.objects.create(
+        project=project,
+        student=member,
+        enrollment=enrollment,
+        github_link="https://github.com/example/repo",
+        commit_id="c" * 40,
+        passed=True,
+    )
+    client.force_login(member)
+
+    response = client.post(certificate_request_url(cohort))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["eligible"] is True
+    assert payload["certificate"]["url"] == f"https://certs.example.com/{enrollment.id}.pdf"
+
+
+def test_certificate_request_returns_503_when_eligible_but_unconfigured(client, settings):
+    settings.COMMUNITY_BASE = {}
+    cohort = coursework_cohort(slug="cert-api-unconfigured")
+    module = make_module(cohort.course)
+    unit = make_unit(module)
+    member = get_user_model().objects.create_user(email="api-unconfigured@example.com")
+    enrollment = Enrollment.objects.create(user=member, cohort=cohort)
+    mark_completed(member, unit, cohort=cohort)
+    project = make_project(cohort)
+    ProjectSubmission.objects.create(
+        project=project,
+        student=member,
+        enrollment=enrollment,
+        github_link="https://github.com/example/repo",
+        commit_id="d" * 40,
+        passed=True,
+    )
+    client.force_login(member)
+
+    response = client.post(certificate_request_url(cohort))
+
+    assert response.status_code == 503
