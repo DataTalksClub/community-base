@@ -130,7 +130,7 @@ issues that can start now.
 | `C5.2dc` | community-base | Learner views, member APIs and certificates | C5.2da, C5.2db | no | done | https://github.com/DataTalksClub/community-base/pull/146 |
 | `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2dc | no | done | https://github.com/DataTalksClub/community-base/pull/159 |
 | `C5.2f` | community-base | Peer review assessment modes: per-submission lifecycle, pooled batch formation and assignment | C5.2e | no | in-progress | https://github.com/DataTalksClub/community-base/pull/257 |
-| `C5.2g` | community-base | Pooled review expiry and coursework email notifications | C5.2f | no | todo |  |
+| `C5.2g` | community-base | Pooled review expiry and coursework email notifications | C5.2f | no | in-progress | branch c5.2g-pooled-review-expiry-and-notifications, PR pending |
 | `C5.2h` | community-base | Certificate eligibility, learner-requested issuance, and banner-generator artifact seam | C5.2f | no | todo |  |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e, C5.2h | no | todo |  |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3 | no | todo |  |

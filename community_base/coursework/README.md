@@ -40,13 +40,31 @@ docstring for why scoring a submission the moment its own incoming reviews land 
 owner's *outgoing* reviews, an independent set within the same batch, may still be pending).
 `pooling.try_score_batch(batch)` scores every member once every review in the batch is resolved
 (`SUBMITTED` or `EXPIRED`), called from the happy path (`review.submit_peer_review`, every review
-lands before `due_at`) and from the expiry sweep (`pooling.expire_pooled_reviews`, coming in the
-C5.2g issue). Idempotent, guarded by `PeerReviewBatch.scored_at` and a row lock, so the two
-triggers racing on the same batch is safe.
+lands before `due_at`) and from the expiry sweep (`pooling.expire_pooled_reviews`, every 15
+minutes). Idempotent, guarded by `PeerReviewBatch.scored_at` and a row lock, so the two triggers
+racing on the same batch is safe.
 
 A volunteer/optional review (`add_volunteer_peer_review`) is never part of a batch
 (`PeerReview.batch` stays null) in either mode, matching deadline mode's existing behaviour: it
 stays open regardless of the project's or batch's state.
+
+### Expiry: what happens to both parties when a pooled window closes
+
+No silent stall, and no reassignment (that just relocates the same indefinite-wait risk to a
+different reviewer). `pooling.expire_pooled_reviews` (`coursework.expire_pooled_reviews`, every 15
+minutes) finds `TO_REVIEW` reviews whose batch is past `due_at` and not yet scored:
+
+- The reviewer who did not deliver: their review moves to `EXPIRED`, excluded from then on from
+  the reviewee's score; they get a `coursework.review_window_expired` email. It can still cost
+  them their own pass, through the existing `reviewed_enough_peers` mechanism (reviews *they*
+  failed to give), not a new punitive field.
+- The learner waiting on them: the moment their batch has no `TO_REVIEW` reviews left (every one
+  `SUBMITTED` or `EXPIRED`), `try_score_batch` scores it on whatever arrived -- the existing
+  median-of-available-reviews fallback (`review.calculate_median_score`), not a new scoring path.
+  Never blocked longer than `Project.pooled_review_window_days` past assignment.
+
+A late submission is accepted, and counts, until its batch is scored (`submit_peer_review` rejects
+it only once `PeerReviewBatch.scored_at` is set -- `review.ReviewWindowClosedError`).
 
 ## Read paths
 
@@ -56,10 +74,25 @@ the same expression every caller used before this changed (`project.state == PEE
 pooled mode it checks the review's own batch (or, for a volunteer review with no batch, is always
 open).
 
-## Notifications and certificates
+## Notifications
 
-Peer review email notifications (assignment, pool-ready, expiry-approaching, review-received) and
-certificate eligibility, request-based issuance and the banner-generator artifact seam
+`community_base/coursework/notifications.py` covers the four event-driven purposes, each a plain
+function call at the moment of the event (not a scheduled scan), reusing `mail.send`'s own
+idempotency key like `reminders.py` already does -- no parallel send mechanism:
+
+| Purpose | Fires when | Recipient |
+|---|---|---|
+| `coursework.review_assigned` | A reviewer is assigned one or more reviews (deadline-mode whole-project assignment or one pooled batch); one email per reviewer per event, not one per review row | Reviewer |
+| `coursework.pool_ready` | A pooled batch forms | Every batch member |
+| `coursework.review_received` | A review is submitted (both modes) | Reviewee |
+| `coursework.review_window_expired` | A pooled review's batch expires it | Reviewer |
+
+`reminders.py`'s existing `coursework.peer_review_deadline` scheduled reminder now also scans
+pooled reviews approaching their batch's `due_at` (`pooled_reviews_due_between`), reusing the same
+purpose and idempotency-key shape rather than a parallel "expiry approaching" job.
+
+## Certificates
+
+Eligibility, request-based issuance and the banner-generator artifact seam
 (`COURSEWORK_CERTIFICATE_GENERATOR`, following the `EVENT_BANNER_GENERATOR` pattern in
-`community_base.events`) are covered in the C5.2g and C5.2h issues respectively
-(`docs/plan/phase-5.md`).
+`community_base.events`) are covered in the C5.2h issue (`docs/plan/phase-5.md`).

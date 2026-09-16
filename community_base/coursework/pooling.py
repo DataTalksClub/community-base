@@ -13,6 +13,7 @@ unit -- that reasoning is the one thing in this module that must not be "simplif
 from django.db import transaction
 from django.utils import timezone
 
+from community_base.coursework import notifications
 from community_base.coursework.hooks import hooks
 from community_base.coursework.models import (
     PeerReview,
@@ -28,6 +29,7 @@ from community_base.coursework.review import (
     persist_scored_submissions,
     select_random_assignment,
 )
+from community_base.jobs.registry import JobContext, JobPayload, register_handler, schedule
 
 
 def _batch_seed(project, batch) -> int:
@@ -89,6 +91,9 @@ def try_form_batch(project) -> PeerReviewBatch | None:
         )
 
     hooks.peer_reviews_assigned(project=project, review_count=len(assignments))
+    notifications.send_review_assigned_notifications(assignments)
+    for submission in waiting:
+        notifications.send_pool_ready_notification(batch, submission)
     return batch
 
 
@@ -139,3 +144,54 @@ def try_score_batch(batch: PeerReviewBatch) -> bool:
 
     hooks.project_leaderboard_updater(project=batch.project)
     return True
+
+
+def _expired_pooled_reviews():
+    return PeerReview.objects.filter(
+        state=PeerReviewState.TO_REVIEW.value,
+        batch__isnull=False,
+        batch__scored_at__isnull=True,
+        batch__due_at__lt=timezone.now(),
+    ).select_related("batch", "reviewer", "reviewer__student")
+
+
+@register_handler("coursework.expire_pooled_reviews")
+def expire_pooled_reviews(context: JobContext, payload: JobPayload):
+    """Release both parties of a pooled review whose window has closed.
+
+    Reviewer: their ``PeerReview`` moves ``TO_REVIEW`` -> ``EXPIRED`` (excluded from the
+    reviewee's score from that point on) and they are told the window closed. Reviewee: never
+    handled here directly -- ``try_score_batch`` scores their batch the moment every review in it
+    is resolved, submitted or expired, which this function's state change is what makes true. No
+    reassignment: see ``models.PeerReviewBatch`` and the C5.2g plan entry for why.
+    """
+
+    del context, payload
+    expired = 0
+    scored_batches = 0
+    batch_ids: set[int] = set()
+
+    for review in _expired_pooled_reviews():
+        with transaction.atomic():
+            updated = PeerReview.objects.filter(
+                pk=review.pk, state=PeerReviewState.TO_REVIEW.value
+            ).update(state=PeerReviewState.EXPIRED.value)
+        if not updated:
+            continue  # submitted or already expired by a concurrent run since the query above
+        expired += 1
+        batch_ids.add(review.batch_id)
+        notifications.send_review_expired_notification(review)
+
+    for batch in PeerReviewBatch.objects.filter(id__in=batch_ids):
+        if try_score_batch(batch):
+            scored_batches += 1
+
+    return {"expired": expired, "scored_batches": scored_batches}
+
+
+schedule(
+    "coursework.expire_pooled_reviews",
+    "*/15 * * * *",
+    {},
+    name="coursework.expire_pooled_reviews.every_15_minutes",
+)

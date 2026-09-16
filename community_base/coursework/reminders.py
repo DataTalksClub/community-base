@@ -59,6 +59,26 @@ def projects_peer_reviewing_between(now, horizon):
     ).select_related("cohort__course")
 
 
+def pooled_reviews_due_between(now, horizon):
+    """Pooled counterpart of ``projects_peer_reviewing_between``.
+
+    A pooled project has no single ``peer_review_due_date``: each batch has its own ``due_at``
+    (C5.2f). Reuses the same reminder purpose and idempotency-key shape as the deadline-mode
+    query above (keyed by review id and due date) instead of a parallel mechanism.
+    """
+    return PeerReview.objects.filter(
+        state=PeerReviewState.TO_REVIEW.value,
+        batch__isnull=False,
+        batch__scored_at__isnull=True,
+        batch__due_at__gt=now,
+        batch__due_at__lte=horizon,
+    ).select_related(
+        "reviewer__student",
+        "batch",
+        "submission_under_evaluation__project__cohort__course",
+    )
+
+
 def _active_enrollments_without(cohort, submitted_enrollment_ids):
     return (
         cohort.enrollments.filter(unenrolled_at__isnull=True)
@@ -153,4 +173,25 @@ def send_peer_review_deadline_reminders(context: JobContext, payload: JobPayload
                 user=student,
             )
             sent += 1
+
+    # C5.2f/g: pooled mode's per-batch counterpart -- same purpose, same idempotency-key shape.
+    for review in pooled_reviews_due_between(now, horizon):
+        student = review.reviewer.student
+        project = review.submission_under_evaluation.project
+        due_at = review.batch.due_at
+        send(
+            PEER_REVIEW_DEADLINE_PURPOSE,
+            student.email,
+            {
+                "course_slug": project.cohort.course.slug,
+                "cohort_slug": project.cohort.slug,
+                "project_slug": project.slug,
+                "project_title": project.title,
+                "due_date": due_at.isoformat(),
+            },
+            f"coursework.peer_review_deadline:{review.pk}:{due_at.date().isoformat()}",
+            category="coursework",
+            user=student,
+        )
+        sent += 1
     return {"reminders": sent}
