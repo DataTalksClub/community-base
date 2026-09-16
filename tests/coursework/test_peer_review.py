@@ -14,6 +14,7 @@ from community_base.coursework.models import (
     ProjectSubmission,
     ReviewCriteria,
     ReviewCriteriaTypes,
+    SubmissionReviewState,
 )
 from community_base.coursework.projects import submit_project
 from community_base.coursework.review import (
@@ -80,6 +81,22 @@ def submit_all_reviews(project, skip=None, links=("https://example.com/watch",))
             time_spent_reviewing=1.5,
             note_to_peer="well done",
         )
+
+
+def test_assign_and_score_refuse_a_pooled_project():
+    cohort = coursework_cohort(slug="pooled-guard", mode="self_paced")
+    project = make_project(cohort)
+
+    assign_status, assign_message = assign_peer_reviews_for_project(project)
+    assert assign_status is ProjectActionStatus.FAIL
+    assert "pooled assignment" in assign_message
+    assert PeerReview.objects.count() == 0
+
+    score_status, score_message = score_project(project)
+    assert score_status is ProjectActionStatus.FAIL
+    assert "pooled batch" in score_message
+    project.refresh_from_db()
+    assert project.state == ProjectState.COLLECTING_SUBMISSIONS.value
 
 
 def test_assign_peer_reviews_preconditions():
@@ -155,9 +172,17 @@ def test_project_flow_assigns_reviews_scores_and_computes_statistics():
 
     with pytest.raises(ValueError):
         calculate_project_statistics(project)
+    for submission in submissions:
+        submission.refresh_from_db()
+        assert submission.review_state == SubmissionReviewState.AWAITING_ASSIGNMENT.value
 
     status, _message = assign_peer_reviews_for_project(project)
     assert status is ProjectActionStatus.OK
+    # C5.2f: review_state mirrors Project.state in bulk at the same transition, for every real
+    # submission -- not just the ones that end up with reviews.
+    for submission in submissions:
+        submission.refresh_from_db()
+        assert submission.review_state == SubmissionReviewState.IN_REVIEW.value
     submit_all_reviews(project)
 
     close_review_window(project)
@@ -168,6 +193,7 @@ def test_project_flow_assigns_reviews_scores_and_computes_statistics():
 
     for submission in submissions:
         submission.refresh_from_db()
+        assert submission.review_state == SubmissionReviewState.SCORED.value
         assert submission.project_score == 12
         assert submission.peer_review_score == 6
         assert submission.project_learning_in_public_score == 2

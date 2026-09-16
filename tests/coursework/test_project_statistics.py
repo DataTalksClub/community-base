@@ -1,6 +1,11 @@
 import pytest
 
-from community_base.coursework.models import ProjectState, ProjectStatistics, ProjectSubmission
+from community_base.coursework.models import (
+    ProjectState,
+    ProjectStatistics,
+    ProjectSubmission,
+    SubmissionReviewState,
+)
 from community_base.coursework.stat_display import project_stat_sections
 from community_base.coursework.statistics import (
     calculate_project_statistics,
@@ -33,6 +38,10 @@ def make_scored_submission(project, enrollment, **scores):
         enrollment=enrollment,
         github_link="https://github.com/example/repo",
         commit_id="a" * 40,
+        # C5.2f: statistics now read review_state, the field score_project sets in bulk when a
+        # real scoring run completes; this fixture bypasses that run, so it sets the field
+        # itself to keep "a scored submission" meaning what its name says.
+        review_state=SubmissionReviewState.SCORED.value,
         **values,
     )
 

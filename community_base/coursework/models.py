@@ -350,6 +350,17 @@ class Project(models.Model):
 
     state = models.CharField(max_length=2, choices=PROJECT_STATE_CHOICES, default="CS")
 
+    # Pooled (self-paced) assignment only; ignored for a dated cohort's deadline-driven project.
+    # The clock for one pooled review batch starts at ``PeerReviewBatch.formed_at``, not at
+    # submission, so a learner who waits in the pool before enough peers arrive does not lose
+    # part of their window to that wait. Configurable per project, not per cohort or per course:
+    # every other assignment knob (``number_of_peers_to_evaluate``, ``points_for_peer_review``,
+    # ``learning_in_public_cap_review``) already lives here, and a self-paced cohort is unique
+    # per course (``cb_cohort_self_paced_unique``), so "per cohort" and "per course" already
+    # collapse to the same thing for a pooled course -- a project-level field is simply the
+    # finer-grained of the equivalent options.
+    pooled_review_window_days = models.PositiveIntegerField(default=7)
+
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=("cohort", "slug"), name="cb_project_cohort_slug_uq"),
@@ -365,11 +376,36 @@ class Project(models.Model):
     def points_to_pass(self):
         return self.cohort.project_passing_score
 
+    @property
+    def uses_pooled_review(self) -> bool:
+        """True for a self-paced cohort's project: pooled assignment, not deadline-driven.
+
+        Assessment mode is derived from ``Cohort.mode`` rather than a second field on
+        ``Project``: ``Cohort.mode`` is already the explicit, deliberate value an operator sets
+        (not inferred from data shape), and a second field here could disagree with its own
+        cohort's mode for no benefit.
+        """
+        return self.cohort.mode == "self_paced"
+
     def criteria_for_project(self):
         return criteria_for_project(self)
 
     def get_review_criteria(self):
         return self.criteria_for_project()
+
+
+class SubmissionReviewState(Enum):
+    AWAITING_ASSIGNMENT = "AW"
+    IN_REVIEW = "IR"
+    SCORED = "SC"
+
+
+SUBMISSION_REVIEW_STATE_CHOICES = [(state.value, state.name) for state in SubmissionReviewState]
+SUBMISSION_REVIEW_STATE_LABELS = {
+    SubmissionReviewState.AWAITING_ASSIGNMENT.value: "Awaiting assignment",
+    SubmissionReviewState.IN_REVIEW.value: "In review",
+    SubmissionReviewState.SCORED.value: "Scored",
+}
 
 
 class ProjectSubmission(models.Model):
@@ -408,8 +444,23 @@ class ProjectSubmission(models.Model):
     passed = models.BooleanField(default=False)
     volunteer_review_only = models.BooleanField(default=False)
 
+    # Per-submission mirror of the project-wide peer-review lifecycle. Maintained for both
+    # assessment modes so every reader (leaderboard, statistics) has one place to ask "is this
+    # submission's peer review finished" regardless of mode: deadline mode sets it in bulk at
+    # the same moments it flips ``Project.state`` (a pure mirror, no behaviour change), pooled
+    # mode sets it per batch, since ``Project.state`` cannot describe one learner's progress
+    # through a pool (see ``PeerReviewBatch``).
+    review_state = models.CharField(
+        max_length=2,
+        choices=SUBMISSION_REVIEW_STATE_CHOICES,
+        default=SubmissionReviewState.AWAITING_ASSIGNMENT.value,
+    )
+
     def __str__(self):
         return f"project submission for enrollment {self.enrollment_id}"
+
+    def get_review_state_display(self):
+        return SUBMISSION_REVIEW_STATE_LABELS.get(self.review_state, self.review_state)
 
 
 class ProjectVote(models.Model):
@@ -578,13 +629,53 @@ def criteria_for_project(project):
 class PeerReviewState(Enum):
     TO_REVIEW = "TR"
     SUBMITTED = "SU"
+    EXPIRED = "EX"
 
 
 PEER_REVIEW_STATE_CHOICES = [(state.value, state.name) for state in PeerReviewState]
 PEER_REVIEW_STATE_LABELS = {
     PeerReviewState.TO_REVIEW.value: "To review",
     PeerReviewState.SUBMITTED.value: "Submitted",
+    PeerReviewState.EXPIRED.value: "Expired",
 }
+
+
+class PeerReviewBatch(models.Model):
+    """One pooled assignment event: a full round-robin review graph over N+1 submissions.
+
+    THE BATCH, NOT THE SUBMISSION, IS THE SCORING UNIT. Do not "simplify" this to scoring each
+    submission the moment its own incoming reviews land -- that reintroduces the bug this model
+    exists to prevent.
+
+    Within one batch, ``select_random_assignment`` builds a full round-robin graph: every member
+    both reviews ``project.number_of_peers_to_evaluate`` others (outgoing) and is reviewed by the
+    same number (incoming), all created together with one shared ``due_at``. A submission's own
+    score depends on its *incoming* reviews, but that same submission's owner is also, separately,
+    a reviewer with *outgoing* assignments elsewhere in the batch -- an independent axis with its
+    own, possibly later, completion time. Scoring a submission as soon as its incoming reviews
+    resolve, while its owner's outgoing reviews are still pending, computes
+    ``reviewed_enough_peers``/``peer_review_score`` from data that has not stabilised yet, with no
+    later pass to recompute it -- the score is simply wrong and stays wrong. So the batch resolves
+    together: nothing in it is scored until every review in the batch -- both directions, every
+    member -- is ``SUBMITTED`` or ``EXPIRED``. This is symmetric with deadline mode, where the
+    whole project is the scoring unit for exactly the same reason (``review.score_project``).
+
+    ``scored_at`` guards against scoring a batch twice: the happy path (every review submitted
+    before ``due_at``) and the expiry sweep (``pooling.expire_pooled_reviews``) can both observe
+    "every review resolved" for the same batch; only the first to acquire the row lock scores it.
+    """
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="review_batches")
+    formed_at = models.DateTimeField(auto_now_add=True)
+    due_at = models.DateTimeField()
+    scored_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Peer review batch {self.id} for project {self.project_id}"
+
+    @property
+    def is_scored(self) -> bool:
+        return self.scored_at is not None
 
 
 class PeerReview(models.Model):
@@ -604,6 +695,12 @@ class PeerReview(models.Model):
     submitted_at = models.DateTimeField(null=True, blank=True)
 
     state = models.CharField(max_length=2, choices=PEER_REVIEW_STATE_CHOICES, default="TR")
+
+    # Set only for a pooled review; null for every deadline-mode review, whose shared due date is
+    # ``submission_under_evaluation.project.peer_review_due_date`` instead.
+    batch = models.ForeignKey(
+        PeerReviewBatch, on_delete=models.CASCADE, related_name="reviews", null=True, blank=True
+    )
 
     def __str__(self):
         return f"Peer review {self.id}, state={self.state}"
