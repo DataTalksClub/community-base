@@ -22,3 +22,11 @@ appears to contradict one of them, the plan is wrong: stop and report.
 
 D12 is the owner's default pending explicit confirmation. If the owner overrides it, Phase 2
 issue C2.1 changes to a markup-only shell with a per-site stylesheet; everything else stands.
+
+| # | Decision | Consequence for the plan |
+|---|---|---|
+| D15 | Amends D1, scoped to one CI job only. Owner-confirmed 2026-09-16 (relayed through the `DataTalksClub/website` orchestrator session), in response to the open question in issue C0.6. This package's own CI (`.github/workflows/cross-repo-check.yml`, playbook P16) may install this package's in-progress, unreleased state into a disposable checkout of `DataTalksClub/website` or `AI-Shipping-Labs/website` using that site's own P1 local-link tool, to run the site's real test suite against this package's current change on every push and pull request here. The site checkout is a sibling directory of the runner, resolved to that site's default branch at trigger time, discarded when the job ends; nothing is committed or pushed to the site repository. | D1's own text is unchanged: sites still pin a git tag in `uv.lock` for real installs, and local development still uses an editable path override. D0.2 is unchanged: each site's own CI (`scripts/check_community_base_source.py` in DataTalksClub/website, and its planned AI-Shipping-Labs counterpart) keeps failing closed against a local/path/branch package source, and a site pull request still never points at a branch or a local path (quality gate: "No local link committed"). Only this package's own CI, in this one job, is exempted. |
+
+D15 does not make `cross-repo-check.yml`'s result a required GitHub branch-protection check on
+this repository's pull requests; enabling that is a repository setting change, left to the owner
+or orchestrator, not to this decision.

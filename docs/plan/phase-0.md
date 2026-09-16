@@ -257,6 +257,56 @@ Verification
 Done when
 - [ ] release page shows the wheel and the changelog lines for C0.1 to C0.4
 
+## C0.6 Owner-scoped exception to D1 for a required, always-latest cross-repo check
+
+Repository: community-base. Depends on: nothing. Freeze required: no.
+
+Goal: playbook P16 (`.github/workflows/cross-repo-check.yml`) currently checks out
+`DataTalksClub/website` and `AI-Shipping-Labs/website` at their default branch and links this
+package's in-progress state into each with that site's own P1 local-link tool, but only runs on
+`workflow_dispatch` or a weekly schedule, because D1 (`docs/01-decisions.md`) frames a local/path
+package source as development-only and both sites' own CI fail closed against exactly that
+source (D0.2). The owner confirmed directly (2026-09-16, relayed through the
+`DataTalksClub/website` orchestrator session) that this package's own CI may use the local-link
+override for this specific check, and that it should run on every push and pull request here, not
+weekly, so a break is caught promptly against each site's latest default-branch commit rather than
+up to a week later. This does not touch D0.2: each site's own CI and every site pull request keep
+failing closed against a local/path/branch source; only this package's own CI, running the check
+against disposable sibling checkouts it discards afterward, is exempted.
+
+Read first
+- `docs/01-decisions.md` (D1, D0.2's row is tracked in `docs/plan/STATUS.md`, not decisions.md).
+- `docs/03-playbooks.md` P16.
+- `.github/workflows/cross-repo-check.yml`.
+
+Steps
+1. Record the exception in `docs/01-decisions.md` as a new numbered decision that amends D1 for
+   this one CI job; do not edit D1's original row. State precisely what is exempted (this
+   package's own CI, ephemeral site checkouts) and what is not (site CI, site pull requests).
+2. Change `cross-repo-check.yml`'s trigger to `push` and `pull_request` (kept alongside
+   `workflow_dispatch` for an ad hoc run against a non-default site ref). Each job already checks
+   out the site with no `ref` pinned, which resolves to that site's default branch at trigger
+   time; confirm this rather than re-deriving it.
+3. Update playbook P16 and the `AGENTS.md` pointer: remove the "advisory, not required" framing
+   where it no longer holds, and note precisely that GitHub branch-protection "required check"
+   enrollment (blocking a merge) is a repository setting outside this workflow file and is left
+   for the owner/orchestrator, not set by this issue.
+
+Verification
+- `actionlint .github/workflows/cross-repo-check.yml` -> no findings.
+- Read `on:` in the committed file -> `push` and `pull_request` present.
+- `python scripts/plan.py check` -> OK.
+
+Done when
+- [ ] `docs/01-decisions.md` carries the new numbered, dated, owner-attributed exception, D1's
+      original row unchanged
+- [ ] `cross-repo-check.yml` triggers on push and pull request against this repository, still
+      resolving each site's default branch at trigger time
+- [ ] playbook P16 and `AGENTS.md` reflect the narrowed exception, not a blanket D1 repeal
+
+Docs
+- `docs/01-decisions.md`, `docs/03-playbooks.md`, `AGENTS.md`.
+
 ## A0.1 Add the package dependency and the local link targets
 
 Repository: AI-Shipping-Labs/website. Depends on: C2.4.

@@ -351,16 +351,24 @@ branch, not just this package's own tests (AGENTS.md, "After changing this packa
 diff of site files, and a package-only change leaves the site checkout undiffed. Run each site's
 full suite.
 
-1. Manually: `gh workflow run cross-repo-check.yml --repo DataTalksClub/community-base --ref <your branch>`,
-   or push the branch and wait for the weekly scheduled run.
-2. The workflow checks out `DataTalksClub/website` and `AI-Shipping-Labs/website` at their default
-   branch (or an explicit `ref` input), links the in-progress package into each with that site's
-   own P1 tool (`scripts/community_base_link.py` / `make core-link`), and runs that site's real
-   Django check and test commands.
-3. Verify: both jobs in the run are green. A red job names the site and step; open its log for the
+It runs on every push and pull request in this repository (`.github/workflows/cross-repo-check.yml`),
+under D15's owner-scoped exception to D1 (`docs/01-decisions.md`, issue C0.6): each job checks out
+the site at its default branch as of the trigger, so it always tests against that site's latest
+commit, not a stale snapshot. It can also be run by hand against a non-default ref.
+
+1. Automatic: push or open a pull request here; both jobs run without further action.
+2. Manual, e.g. to check a specific site branch:
+   `gh workflow run cross-repo-check.yml --repo DataTalksClub/community-base --ref <your branch> -f dtc_website_ref=<ref> -f ai_shipping_labs_ref=<ref>`.
+3. The workflow checks out `DataTalksClub/website` and `AI-Shipping-Labs/website` (default branch,
+   or the ref input), links the in-progress package into each with that site's own P1 tool
+   (`scripts/community_base_link.py` / `make core-link`), and runs that site's real Django check
+   and test commands, in a disposable checkout that is discarded when the job ends.
+4. Verify: both jobs in the run are green. A red job names the site and step; open its log for the
    failing test names.
-4. This is advisory, not a required check on this repository's pull requests: D1
-   (`docs/01-decisions.md`) and the D0.2 site guards treat a local/path package source as
-   development-only, and each site's own CI fails closed against exactly this kind of source. Do
-   not point a site pull request at this package's branch or a local path (quality gate: "No local
-   link committed"); land and tag the package first (P15), then bump the site pin.
+5. D15 exempts only this package's own CI running against a disposable site checkout it never
+   commits or pushes to. D0.2 is unchanged: each site's own CI still fails closed against a
+   local/path/branch package source, and a site pull request still never points at this package's
+   branch or a local path (quality gate: "No local link committed"); land and tag the package
+   first (P15), then bump the site pin. Whether a red run here blocks merging a pull request in
+   this repository is a GitHub branch-protection setting, not something this workflow file
+   controls; confirm with the owner/orchestrator before relying on it as a hard gate.

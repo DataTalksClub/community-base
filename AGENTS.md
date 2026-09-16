@@ -98,10 +98,12 @@ the test suite in both `../dtc-website` and `../ai-shipping-labs` (not just
 this package's own tests) before considering the change done — a change that
 passes here can still break one of the two consumers.
 
-For a change you suspect is risky for a consumer, the same check can run in CI instead of two
-local checkouts: `.github/workflows/cross-repo-check.yml`, playbook P16
-(`docs/03-playbooks.md`). It is manual/scheduled, not a required check on this repository's pull
-requests — see the playbook for why (D1, D0.2).
+The same check also runs automatically in CI, against each site's latest default-branch commit,
+on every push and pull request here: `.github/workflows/cross-repo-check.yml`, playbook P16
+(`docs/03-playbooks.md`), under D15's owner-scoped exception to D1 (`docs/01-decisions.md`, issue
+C0.6). D0.2 is unchanged — a site's own CI and every site pull request still fail closed against a
+local/path/branch package source; only this package's own CI, against a disposable site checkout,
+is exempted.
 
 ## Conventions
 

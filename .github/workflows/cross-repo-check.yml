@@ -6,20 +6,26 @@ name: Cross-repo consumer check
 # (scripts/community_base_link.py / `make core-link`) instead of a tagged
 # release.
 #
-# Deliberately NOT wired to `push`/`pull_request`: D1 (docs/01-decisions.md)
-# and the D0.2 site guards (`scripts/check_community_base_source.py` in
-# DataTalksClub/website; the same guard is planned but not yet built for
-# AI-Shipping-Labs, see docs/plan/phase-0.md D0.2) treat a local/path source
-# as development-only and fail closed against it in each site's own required
-# CI. Making this workflow a required community-base PR gate would silently
-# extend that pattern to "package CI installs unreviewed code into a site"
-# without the owner revisiting those decisions. Until that happens, this is
-# an on-demand/scheduled advisory: run it manually before a merge you
-# suspect is risky for a consumer (playbook, docs/03-playbooks.md), or read
-# the weekly scheduled result. A failure here does not block this
-# repository's `CI` workflow.
+# D1 (docs/01-decisions.md) frames a local/path package source as
+# development-only, and the D0.2 site guards
+# (`scripts/check_community_base_source.py` in DataTalksClub/website; the
+# same guard is planned but not yet built for AI-Shipping-Labs, see
+# docs/plan/phase-0.md D0.2) fail closed against exactly that source in each
+# site's own required CI. D15 (docs/01-decisions.md), owner-confirmed
+# 2026-09-16 (issue C0.6, docs/plan/phase-0.md), scopes a narrow exception to
+# D1 for this one job only: this package's own CI may use the local-link
+# override against a disposable checkout of each site, on every push and
+# pull request here, so a break is caught against each site's latest default
+# branch promptly rather than up to a week later. D0.2 is unchanged — each
+# site's own CI, and every site pull request, still fail closed against a
+# local/path/branch source; nothing here is committed or pushed to a site
+# repository. Note: this workflow reporting failure does not by itself make
+# it a required GitHub branch-protection check on this repository's pull
+# requests; that is a separate repository-settings change.
 
 on:
+  push:
+  pull_request:
   workflow_dispatch:
     inputs:
       dtc_website_ref:
@@ -30,9 +36,6 @@ on:
         description: "AI-Shipping-Labs/website ref to check out (default: its default branch)"
         required: false
         type: string
-  schedule:
-    # Same weekly cadence as the D0.2 release advisory in DataTalksClub/website.
-    - cron: "0 6 * * 1"
 
 jobs:
   dtc-website:
