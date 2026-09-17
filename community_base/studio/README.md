@@ -84,10 +84,63 @@ register(
 )
 ```
 
+A destination can carry one lucide icon and can point outside the Studio URLconf:
+
+```python
+Destination(
+    key="api_docs",
+    title="API docs",
+    url_name="",
+    route_names=(),
+    order=40,
+    icon="file-json",
+    external_url="/api/docs",
+    new_tab=True,
+)
+```
+
+Both fields are optional. `icon` defaults to the unadorned label the shell rendered before icons
+existed. `external_url` replaces `url_name` for a link that leaves the Studio URLconf; such a
+destination claims no route names, never becomes the active link, and is invisible to
+`studio_routes --check`. Set `new_tab` to open it in a new tab with `rel="noopener"` and an
+external-link marker. A destination with neither `url_name` nor `external_url` renders nothing, as
+an unresolvable `url_name` always has.
+
 Groups sort deterministically by `order`, then `key`, and their destinations sort like flat ones.
 A group is hidden when none of its destinations are visible to the current user, and the shell
 opens the group that contains the active route. Flat registrations stay unchanged; `route_names`
 claims and `studio_routes --check` cover grouped destinations the same way.
+
+## Sidebar density and collapse
+
+Every titled section renders a header button that collapses and expands the section. The section
+without a title carries no header, so it is never collapsible and its links are always visible.
+
+The shell decides the starting state from how many destinations the viewer can see:
+
+| Visible destinations | Starting state |
+|---|---|
+| at or below `STUDIO_NAV_COLLAPSE_THRESHOLD` | every section expanded |
+| above it | only the active section expanded |
+
+The threshold defaults to 24, which keeps a small registry rendering exactly as it did before
+collapse existed. Set it to 0 to collapse from the first destination, or to a large number to
+never collapse:
+
+```python
+COMMUNITY_BASE = {
+    "STUDIO_NAV_COLLAPSE_THRESHOLD": 24,
+}
+```
+
+The section owning the active route always renders expanded, including when the active route is a
+deep detail, form or action route listed in a destination's `route_names`. That holds server-side,
+so it survives a viewer with no JavaScript.
+
+`community_base/studio-nav.js` remembers each section's state per viewer in `localStorage` under
+`community-base-studio-nav`. Storage is allowed to be missing, blocked or corrupt: every read and
+write is guarded and falls back to the server-rendered state, so the sidebar renders correctly in a
+private window or with site data cleared. A stored preference never hides the active section.
 
 Run the route partition check after mounting Studio URLs:
 
@@ -108,6 +161,11 @@ from community_base.studio.providers import register_card_provider, register_sea
 register_search_provider("members", search_members)
 register_card_provider("delivery-health", delivery_health_cards)
 ```
+
+The sidebar search box renders these groups the way the sidebar renders sections: one header per
+group, then each result's label with its `summary` underneath. The header text is derived from the
+group name, so `event_series` reads as `Event series`; a provider needs no extra field. Groups keep
+the order the JSON response lists them in, and an empty group is skipped.
 
 ## User management extensions
 
@@ -146,6 +204,27 @@ Shared Studio pages extend `community_base/studio/base.html`. The compatibility 
 `extra_js` and `header_actions`, plus the AISL compatibility blocks `studio_title`,
 `studio_content` and `extra_scripts`.
 
+### Sidebar footer
+
+The shell exposes `studio_sidebar_footer`, an empty block at the bottom of the sidebar below the
+navigation. It ships with no markup, so a site that does not override it sees no change. Use it for
+the things only the site knows, such as a version line, a link back to the public site, or a theme
+toggle:
+
+```html
+{% block studio_sidebar_footer %}
+<div class="mt-6 space-y-1 border-t border-border pt-4">
+  <a href="/" class="block px-3 py-2 text-sm text-muted-foreground">Back to website</a>
+  <button type="button" data-studio-theme-toggle class="px-3 py-2 text-sm">Theme</button>
+  <p class="px-3 text-xs text-muted-foreground">v{{ VERSION }}</p>
+</div>
+{% endblock %}
+```
+
+Any element carrying `data-studio-theme-toggle` flips the `dark` class on the document and stores
+the choice under the `theme` key the shell reads on the next page load. Both the read and the write
+are guarded, so a blocked or empty storage falls back to the viewer's `prefers-color-scheme`.
+
 Load `{% load studio_filters %}` for:
 
 - `studio_list_filter`, `studio_empty_state`, `studio_status_badge` and `studio_list_action`
@@ -161,6 +240,9 @@ Use `studio_pagination_context` from `community_base.studio.utils` with the
 
 Run `make css-build` at the repository root. It installs the pinned local Tailwind dependency and
 writes the committed `community_base/studio/static/community_base/studio.css` file.
+
+The build scans package templates, Python modules and the JavaScript under `static/`, so a class
+used only from a script is generated too.
 
 A site that uses utility classes not present in package templates must run its own Tailwind build.
 Use `community_base/studio/assets/tailwind.config.js` as a preset, add the site's template paths to

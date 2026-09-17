@@ -6,6 +6,7 @@ module.exports = {
     files: [
       '../../**/templates/**/*.html',
       '../../**/*.py',
+      '../../**/static/**/*.js',
       '!../../**/tests/**',
       '!../../**/migrations/**',
     ],

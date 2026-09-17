@@ -185,4 +185,4 @@ issues that can start now.
 | `A7.3` | AI-Shipping-Labs/website | AISL: convert and cut over the content repositories | A7.2 | yes | todo |  |
 | `D7.4` | DataTalksClub/website | DTC: convert and cut over the content repositories | D7.2, D7.3 | yes | todo |  |
 | `C7.13` | community-base | Studio registration follows the mounted routes | C2.1a | no | todo |  |
-| `C7.14` | community-base | Studio sidebar collapse and navigation density | C2.1a | no | todo |  |
+| `C7.14` | community-base | Studio sidebar collapse and navigation density | C2.1a | no | in-progress | branch `c7.14-studio-nav-density`, pull request not opened yet |
