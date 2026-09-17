@@ -672,13 +672,13 @@ process exits 1 when any error was reported, and 0 when only warnings were.
 
 ## 5 Not yet implemented
 
-C7.7 ships this document, the kind registry and the validator. The rest of the chain is named here
-so a reader does not mistake a rule for shipped behaviour.
+C7.7 shipped this document, the kind registry and the validator, and C7.9a the reading half of the
+toolkit. The rest of the chain is named here so a reader does not mistake a rule for shipped
+behaviour.
 
 | Rule | Issue that implements it |
 |---|---|
 | One renderer and sanitiser, heading ids, `mermaid` and `embed` fences | C7.8 |
-| Document toolkit: collections, front matter, identity, checksums | C7.9a |
 | Asset upload, reference resolution at sync, source ordering by `depends_on`, `theme_pairs` | C7.9b |
 | Package parsers for `wiki`, `docs` and `person`, and the `source_content_id` repair with its migration | C7.9c |
 | One course parser over this format | C7.10 |

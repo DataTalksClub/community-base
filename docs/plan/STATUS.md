@@ -173,7 +173,7 @@ issues that can start now.
 | `C7.6` | community-base | Accounts: queryable session record | C3.1e | no | done | https://github.com/DataTalksClub/community-base/issues/258 (D20; merged. Opt-in via SESSION_ENGINE, opt-out proven inert by test; erase and purge as services. Migration 0002_accountsession is provisional: AISL owns the donor equivalence check under C3.7, do not tag before it passes) |
 | `C7.7` | community-base | Content format: specification, kind registry and validator |  | no | done | merged; closes https://github.com/DataTalksClub/community-base/issues/253. FORMAT.md is normative, six package kinds registered, check_content runs as a module and a management command over one implementation. Found six specification errors, including two different heading-id suffix schemes: the donor emits setup, setup-1, setup-2 and C7.8 must not change it to -2 |
 | `C7.8` | community-base | Shared rendering: one dialect, one sanitiser, rendered at sync | C7.7, C7.4 | no | todo |  |
-| `C7.9a` | community-base | Document toolkit: collections, front matter, identity and checksums | C7.7 | no | todo |  |
+| `C7.9a` | community-base | Document toolkit: collections, front matter, identity and checksums | C7.7 | no | in-progress |  |
 | `C7.9b` | community-base | Document toolkit: assets and references | C7.9a, C7.8 | no | todo |  |
 | `C7.9c` | community-base | Package parsers for the wiki, docs and person kinds | C7.9b, C7.4 | no | todo |  |
 | `C7.10` | community-base | One course parser | C7.9b | no | todo |  |
