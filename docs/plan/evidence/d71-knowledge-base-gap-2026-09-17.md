@@ -112,3 +112,43 @@ Quality gate section 3 wants a before and after count. Only the before side exis
 A7.1 gave AISL a wiki and docs it did not have before, authored to fit the app. D7.1 moves an
 existing corpus with its own identity, rendering pipeline and record shape, and must not change a
 single public path. The app was built against the first case.
+
+## Addendum, 2026-09-17: D7.1 is implemented, and one packaging defect found on the way
+
+C7.4 closed all four gaps and D7.1 is implemented on branch `d7.1-knowledge-base`. The route and
+sitemap contracts pass unchanged, and `git diff origin/main -- content/route_contracts.py
+content/sitemap_contract.py _docs/compatibility/` is empty, so the pinned inventories were not
+edited to fit. The full-suite failure-set diff against a same-commit baseline is a single
+order-dependent flake that fails on both sides.
+
+Two things the adoption surfaced that belong to the release, not to D7.1.
+
+### The v0.4.7 tag was moved after a consumer locked it
+
+| Where | Commit | pyproject version |
+|---|---|---|
+| `refs/tags/v0.4.7` now, local and remote | `ab8e8ab` | 0.4.7 |
+| what `dtc-website/uv.lock` resolved `v0.4.7` to | `e98c338` | 0.4.6 |
+
+`e98c338` is `ab8e8ab`'s parent, and the only difference between them is the version string, so
+there is no behavioural risk here. The process defect is real though: the tag was cut at a commit
+that had not yet had its version bumped, a consumer locked that commit, and the tag was then moved
+to the bump. A consumer that re-locks today gets different bytes than one that locked earlier,
+which is exactly what pinning a tag is supposed to prevent (D1).
+
+This explains an observation that otherwise looks like corruption: DTC's virtualenv carries
+`community_base-0.4.6.dist-info` while its `direct_url.json` records `requested_revision: v0.4.7`.
+
+The remedy is not to move the tag again. Cut the next release normally, with the version bump in
+the tagged commit, and leave `v0.4.7` where it is.
+
+### Bumping the DTC pin needs a mapping change in the same release-adoption issue
+
+On unchanged `origin/main` with the package linked to community-base main,
+`scripts.tests.test_import_shared_course_platform` fails with 17 errors, all `MappingCoverageDrift`
+naming `cb_coursework.Project: pooled_review_window_days`, `cb_coursework.ProjectSubmission:
+review_state` and `cb_coursework.PeerReview: batch`. Those are the C5.2f, C5.2g and C5.2h fields,
+merged to main and still unreleased.
+
+`scripts/prod/import_shared_course_platform.py:_mapping()` has to be extended in whatever change
+bumps the pin. It is not a D7.1 defect and was not fixed there.
