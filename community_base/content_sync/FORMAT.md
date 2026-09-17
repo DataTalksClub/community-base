@@ -282,7 +282,7 @@ register_kind(
 | `shape` | `document`, `manifest`, `tree`, `data` | the primary file shape of the kind's items |
 | `layout` | layout object | how files under the collection path become items; the package ships `FlatLayout`, `TreeLayout`, `ItemDirectoryLayout`, `DataLayout` and `CourseLayout` |
 | `keys` | mapping of name to `KeySpec` | kind keys; a name that collides with a core key is refused at registration |
-| `asset_keys` | tuple of key names | keys whose value is an asset reference; `image` is always one |
+| `asset_keys` | tuple of key names | keys whose value is an asset reference; `image` is always one, except on a part that carries no core keys (the `data` kind), where an `image` key is opaque site data and not a path the engine resolves |
 | `reference_keys` | derived from `keys` | keys whose value is a typed reference or a fixed-kind reference |
 | `depends_on` | tuple of kind names | kinds whose rows must exist before this kind's references resolve |
 | `requires_date` | boolean | whether `date` is required (and, when false, forbidden) by section 3.3 |
