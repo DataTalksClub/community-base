@@ -358,3 +358,50 @@ The residual risk this does not cover is process, not schema: publishing a fifth
 provisional migrations while the rule says otherwise makes the rule harder to enforce later. That
 is an argument for writing the exception down, with its scope and its expiry at `C5.3`, rather than
 for cutting another silent one.
+
+## Addendum, 2026-09-17: the consumer-side blocker is fixed on a branch
+
+Section 4's mapping work is done, on DataTalksClub/website branch
+`fix/coursework-mapping-drift` (commits `d979d1da` and `3fe9ca0c`, from
+`origin/main` 37874818). Not merged, not pushed; it still needs that repository's
+tester and PM gates.
+
+`_refuse_mapping_drift` was not weakened, bypassed or given an escape hatch. The
+mapping now names what the package grew, and the three decisions are recorded as
+decision 18 in that repository's
+`_docs/architecture/course-platform-shared-apps-mapping.md`.
+
+| Field | Decision |
+|---|---|
+| `ProjectSubmission.review_state` | derived from the site project's state, not defaulted |
+| `Project.pooled_review_window_days` | explicit package default, 7 |
+| `PeerReview.batch` | explicit null, and no `PeerReviewBatch` rows created |
+
+### Defaulting review_state would have been a silent data bug
+
+This is the part worth recording, because the cheap answer was wrong. C5.2f makes
+`review_state` a pure mirror of `Project.state` in deadline mode, and the package
+ships a `RunPython` backfill in `cb_coursework/migrations/0002` applying
+`COMPLETED` to `SC`, `PEER_REVIEWING` to `IR` and everything else to `AW`.
+
+That backfill runs at deploy. The P6 import creates its rows afterwards, so the
+backfill can never see them. A defaulted `review_state` would therefore leave every
+migrated submission of a finished DTC project reading as never assigned, and both
+`leaderboard.completed_project_submissions_prefetch` and
+`statistics.calculate_project_statistics` filter on `review_state == SCORED` since
+C5.2f. The leaderboard and the statistics would have been quietly wrong for every
+migrated cohort, with nothing failing.
+
+The import applies the package's own table instead, keyed off `row.project.state`.
+
+### It reads correctly on both sides of the pin bump
+
+Naming an absent field is harmless to the guard, which only complains about model
+fields the mapping does not name. Writing one is not, so the single derived write
+asks the installed model first through `_package_carries`. Verified both ways:
+against community-base main the module's tests are 19 passed; against the pinned
+v0.4.7 they are 19 passed with 1 skipped, the skip being the new decision-18 test
+declining to run on a release that predates C5.2f.
+
+That guard and that skip are deliberate short-lived scaffolding. The bump that
+carries C5.2f should remove both and make the write unconditional.
