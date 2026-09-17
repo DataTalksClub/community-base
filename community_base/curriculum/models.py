@@ -11,11 +11,12 @@ from community_base.content_sync.provenance import (
     SourceProvenanceMixin,
     provenance_constraint,
 )
-from community_base.curriculum.rendering import (
-    render_annotated_markdown,
+from community_base.content_sync.rendering import (
     render_markdown,
+    sanitize_rendered_html,
     strip_leading_title_h1,
 )
+from community_base.curriculum.rendering import render_annotated_markdown
 from community_base.curriculum.validators import (
     SHA1_PATTERN,
     SHA256_PATTERN,
@@ -32,6 +33,13 @@ from community_base.kernel.access import (
     LEVEL_OPEN,
     LEVEL_PREMIUM,
     LEVEL_REGISTERED,
+)
+
+BODY_HTML_MARKDOWN = "markdown"
+BODY_HTML_SITE = "site"
+BODY_HTML_SOURCE_CHOICES = (
+    (BODY_HTML_MARKDOWN, "Rendered from the markdown body"),
+    (BODY_HTML_SITE, "Supplied by the parser"),
 )
 
 # App-neutral home; re-exported here for compatibility with existing imports.
@@ -492,6 +500,15 @@ class Unit(SourceProvenanceMixin, models.Model):
     video_url = models.URLField(max_length=500, blank=True, default="")
     body = models.TextField(blank=True, default="")
     body_html = models.TextField(blank=True, default="", editable=False)
+    body_html_source = models.CharField(
+        max_length=20,
+        choices=BODY_HTML_SOURCE_CHOICES,
+        default=BODY_HTML_MARKDOWN,
+        help_text=(
+            "Where body_html comes from: this app's markdown renderer, or the sync "
+            "parser. Supplied HTML is sanitized on every save but never re-rendered."
+        ),
+    )
     homework = models.TextField(blank=True, default="")
     homework_html = models.TextField(blank=True, default="", editable=False)
     timestamps = models.JSONField(default=list, blank=True)
@@ -522,7 +539,12 @@ class Unit(SourceProvenanceMixin, models.Model):
         return f"{self.module.title} - {self.title}"
 
     def save(self, *args, **kwargs):
-        if self.body:
+        if self.body_html_source == BODY_HTML_SITE:
+            # The parser owns the rendering, not the trust: supplied HTML goes
+            # through the same sanitizer as rendered markdown. Sanitizing is
+            # idempotent, so a re-save leaves stored HTML byte for byte alone.
+            self.body_html = sanitize_rendered_html(self.body_html)
+        elif self.body:
             body_md = strip_leading_title_h1(self.body, self.title)
             # Fail closed: an invalid annotation payload raises here, so an
             # invalid replacement body never overwrites a published unit.
@@ -542,6 +564,18 @@ class Unit(SourceProvenanceMixin, models.Model):
                 update_fields.add("homework_html")
             kwargs["update_fields"] = list(update_fields)
         super().save(*args, **kwargs)
+
+    def set_rendered_html(self, rendered_html: str) -> None:
+        """Hand the unit already-rendered HTML instead of markdown.
+
+        The app stops rendering this unit's body: ``save`` sanitizes what the
+        sync parser produced and stores it unchanged. Pass an empty string, or
+        set ``body_html_source`` back to ``markdown``, to return the unit to the
+        app's renderer.
+        """
+
+        self.body_html_source = BODY_HTML_SITE
+        self.body_html = rendered_html
 
     def clean(self):
         super().clean()
