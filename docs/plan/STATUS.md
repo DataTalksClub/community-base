@@ -148,7 +148,7 @@ issues that can start now.
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
 | `R6.1` | DataTalksClub/relay | AISL tenant and SES identity in Relay production | D1.3, D5.2 | no | todo | https://github.com/DataTalksClub/relay/issues/25 |
-| `R6.2` | DataTalksClub/relay | History import | R6.1 | no | todo | https://github.com/DataTalksClub/relay/issues/26 |
+| `R6.2` | DataTalksClub/relay | History import | R6.1 | no | todo | https://github.com/DataTalksClub/relay/issues/26 — code complete on relay branch `r6.2-history-import` (9 commits, 682 tests pass, 10k-row fixture imported twice with zero rows on the second run). Built ahead of R6.1 deliberately; stays todo until R6.1 closes, and still needs relay Tester verification and PM acceptance per docs/PROCESS.md |
 | `R6.3` | DataTalksClub/relay | Campaign parity for AISL | R1.5 | no | done | https://github.com/DataTalksClub/relay/commit/e183b23fb3cff7a782d1406cb5f84104ff17b51f |
 | `C6.1` | community-base | Remove transitional backends | A6.4 | no | todo | https://github.com/DataTalksClub/community-base/issues/274 |
 | `C6.2` | community-base | Relay contacts, subscriptions and tags clients | C1.2b | no | done | https://github.com/DataTalksClub/community-base/pull/226 |
