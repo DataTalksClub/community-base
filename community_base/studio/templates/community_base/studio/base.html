@@ -93,6 +93,11 @@
           {% endif %}
         {% if item.section.title %}</div></section>{% endif %}
       {% endfor %}
+      <div id="studio-sidebar-scroll-affordance"
+           class="pointer-events-none absolute inset-x-0 bottom-0 hidden h-14 bg-gradient-to-t from-card via-card/95 to-transparent md:hidden"
+           aria-hidden="true">
+        <span class="absolute bottom-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-muted-foreground/35"></span>
+      </div>
     </nav>
     {% block studio_sidebar_footer %}{% endblock %}
   </aside>
@@ -111,6 +116,30 @@
     </div>
   </main>
 </div>
+{% block studio_quick_jump %}
+<div id="studio-quick-jump"
+     class="fixed inset-0 z-[70] hidden items-start justify-center bg-black/55 px-4 pt-[12vh]"
+     data-studio-quick-jump data-testid="studio-quick-jump">
+  <section role="dialog" aria-modal="true" aria-labelledby="studio-quick-jump-title"
+           class="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+    <div class="flex items-center justify-between border-b border-border px-4 py-3">
+      <h2 id="studio-quick-jump-title" class="text-sm font-semibold text-foreground">Quick jump</h2>
+      <span class="text-xs text-muted-foreground">Esc to close</span>
+    </div>
+    <div class="relative" data-studio-search data-endpoint="{% url 'studio_global_search' %}">
+      <label for="studio-quick-jump-input" class="sr-only">Search Studio pages and records</label>
+      <input id="studio-quick-jump-input" type="search" role="combobox" autocomplete="off"
+             aria-label="Search Studio pages and records" aria-expanded="false"
+             aria-controls="studio-quick-jump-results" placeholder="Search Studio pages and records"
+             class="h-14 w-full border-0 bg-card px-4 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent"
+             data-testid="studio-quick-jump-input">
+      <div id="studio-quick-jump-results" role="listbox" aria-label="Quick jump results"
+           class="hidden max-h-[min(60vh,32rem)] overflow-y-auto border-t border-border bg-card"
+           data-testid="studio-quick-jump-results"></div>
+    </div>
+  </section>
+</div>
+{% endblock %}
 <script src="{% static 'community_base/studio-nav.js' %}"></script>
 <script src="{% static 'community_base/studio.js' %}"></script>
 {% block extra_js %}{% block extra_scripts %}{% endblock %}{% endblock %}

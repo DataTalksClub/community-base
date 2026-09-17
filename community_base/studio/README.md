@@ -281,6 +281,32 @@ Every sidebar link carries `data-testid="studio-nav-<destination key>"` and the 
 from the destination key, which the registry keeps unique, so it survives a change of title,
 section, order or grouping.
 
+### Quick jump
+
+Ctrl-K and Cmd-K open a command palette, `studio_quick_jump`, over the same `studio_global_search`
+endpoint and grouped results the sidebar search box renders; there is no second endpoint and no
+second copy of the fetch or render logic. The overlay carries `data-studio-quick-jump` and
+`data-testid="studio-quick-jump"`, its input `data-testid="studio-quick-jump-input"` and its
+results list `data-testid="studio-quick-jump-results"`, matching the donor hook so an adopting
+site's own tests keep selecting the right elements without a remap.
+
+The package already claimed the Ctrl/Cmd-K chord to focus the sidebar search box before this
+overlay existed, so the chord is not double-handled: it opens the overlay when
+`studio_quick_jump` renders one, and falls back to focusing the sidebar box, unchanged, when a
+site overrides the block away. Inside the overlay, Escape or a click on the backdrop closes it and
+returns focus to whatever had it before opening; Tab and Shift+Tab cycle without leaving the
+dialog; ArrowUp and ArrowDown move the selection over the rendered results and Enter follows the
+selected (or first) result's link. A destination hidden from the viewer by `superuser_only` or a
+feature flag is absent from the palette for the same reason it is absent from the sidebar box:
+both read the one JSON response.
+
+### Mobile sidebar scroll affordance
+
+`#studio-sidebar-scroll-affordance` is a gradient hint at the foot of the sidebar nav, shown only
+while the mobile drawer can scroll further and hidden again once scrolled to the bottom. It ships
+`md:hidden`, so it never renders at the desktop breakpoint, and it sits inside `<nav>` so the
+`studio_sidebar_footer` hook stays empty by default.
+
 Load `{% load studio_filters %}` for:
 
 - `studio_list_filter`, `studio_empty_state`, `studio_status_badge` and `studio_list_action`

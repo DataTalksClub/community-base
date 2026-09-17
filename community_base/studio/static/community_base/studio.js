@@ -3,15 +3,26 @@
   var backdrop = document.getElementById('studio-backdrop');
   var openButton = document.getElementById('studio-sidebar-toggle');
   var closeButton = document.getElementById('studio-sidebar-close');
+  var scrollAffordance = document.getElementById('studio-sidebar-scroll-affordance');
+  function updateScrollAffordance() {
+    if (!sidebar || !scrollAffordance) return;
+    var hasOverflowBelow = sidebar.scrollHeight > sidebar.clientHeight + 1 &&
+      sidebar.scrollTop + sidebar.clientHeight < sidebar.scrollHeight - 1;
+    scrollAffordance.classList.toggle('hidden', !hasOverflowBelow);
+  }
   function setOpen(open) {
     if (!sidebar || !backdrop || !openButton) return;
     sidebar.classList.toggle('hidden', !open);
     backdrop.classList.toggle('hidden', !open);
     openButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+    updateScrollAffordance();
   }
   if (openButton) openButton.addEventListener('click', function () { setOpen(true); });
   if (closeButton) closeButton.addEventListener('click', function () { setOpen(false); });
   if (backdrop) backdrop.addEventListener('click', function () { setOpen(false); });
+  if (sidebar) sidebar.addEventListener('scroll', updateScrollAffordance);
+  window.addEventListener('resize', updateScrollAffordance);
+  updateScrollAffordance();
   var nav = document.getElementById('studio-sidebar-nav');
   var navApi = window.studioNav;
   function navStorage() {
@@ -33,6 +44,7 @@
         panel.hidden = !expanded;
         var chevron = button.querySelector('.studio-section-chevron');
         if (chevron) chevron.classList.toggle('-rotate-90', !expanded);
+        updateScrollAffordance();
       }
       var rendered = button.getAttribute('aria-expanded') === 'true';
       apply(navApi.resolveExpanded(preferences, key, rendered, activeSection));
@@ -43,6 +55,11 @@
         navApi.writePreference(navStorage(), key, next);
         apply(navApi.resolveExpanded(preferences, key, next, activeSection));
       });
+    });
+  }
+  if (nav) {
+    nav.querySelectorAll('details[data-studio-group]').forEach(function (group) {
+      group.addEventListener('toggle', updateScrollAffordance);
     });
   }
   document.querySelectorAll('details[data-studio-overflow][open]').forEach(function (menu) {
@@ -57,6 +74,7 @@
     function closeResults() {
       results.classList.add('hidden');
       input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
     }
     function showMessage(message) {
       results.replaceChildren();
@@ -67,9 +85,12 @@
       results.classList.remove('hidden');
       input.setAttribute('aria-expanded', 'true');
     }
-    function resultRow(item) {
+    function resultRow(item, optionId) {
       var link = document.createElement('a');
       link.href = item.url;
+      link.id = optionId;
+      link.setAttribute('role', 'option');
+      link.setAttribute('aria-selected', 'false');
       link.className = 'block px-3 py-2 text-sm hover:bg-secondary';
       var label = document.createElement('span');
       label.className = 'block truncate text-foreground';
@@ -97,6 +118,7 @@
     }
     function render(payload) {
       results.replaceChildren();
+      var index = 0;
       searchGroups(payload).forEach(function (group) {
         var block = document.createElement('section');
         block.className = 'border-b border-border last:border-b-0';
@@ -107,7 +129,8 @@
         heading.textContent = group.label;
         block.appendChild(heading);
         group.items.forEach(function (item) {
-          block.appendChild(resultRow(item));
+          block.appendChild(resultRow(item, input.id + '-option-' + index));
+          index += 1;
         });
         results.appendChild(block);
       });
@@ -130,13 +153,11 @@
       if (!root.contains(event.target)) closeResults();
     });
     document.addEventListener('keydown', function (event) {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        input.focus();
-      } else if (event.key === 'Escape') {
-        closeResults();
-      }
+      if (event.key === 'Escape') closeResults();
     });
+    root.studioSearchOptions = function () {
+      return Array.prototype.slice.call(results.querySelectorAll('[role="option"]'));
+    };
   });
   document.querySelectorAll('[data-studio-theme-toggle]').forEach(function (button) {
     button.addEventListener('click', function () {
@@ -150,5 +171,112 @@
       }
     });
   });
+
+  /* Quick jump: one Ctrl/Cmd-K palette over the search box's own fetch and
+     render, above. A site that overrides `studio_quick_jump` away removes
+     the overlay from the page, and the chord falls back to focusing the
+     sidebar search box exactly as it did before this overlay existed. */
+  var quickJump = document.querySelector('[data-studio-quick-jump]');
+  var quickJumpInput = quickJump ? quickJump.querySelector('input[type="search"]') : null;
+  var quickJumpRoot = quickJump ? quickJump.querySelector('[data-studio-search]') : null;
+  var focusBeforeQuickJump = null;
+
+  function isQuickJumpOpen() {
+    return !!quickJump && !quickJump.classList.contains('hidden');
+  }
+
+  function openQuickJump() {
+    if (!quickJump || !quickJumpInput) return;
+    focusBeforeQuickJump = document.activeElement;
+    quickJump.classList.remove('hidden');
+    quickJump.classList.add('flex');
+    quickJumpInput.focus();
+    quickJumpInput.select();
+  }
+
+  function closeQuickJump() {
+    if (!isQuickJumpOpen()) return;
+    quickJump.classList.add('hidden');
+    quickJump.classList.remove('flex');
+    if (focusBeforeQuickJump && typeof focusBeforeQuickJump.focus === 'function') {
+      focusBeforeQuickJump.focus();
+    }
+    focusBeforeQuickJump = null;
+  }
+
+  if (quickJump) {
+    quickJump.addEventListener('click', function (event) {
+      if (event.target === quickJump) closeQuickJump();
+    });
+    quickJump.addEventListener('keydown', function (event) {
+      if (event.key !== 'Tab') return;
+      var focusable = Array.prototype.slice.call(
+        quickJump.querySelectorAll('input, a[href], button, [tabindex]:not([tabindex="-1"])')
+      );
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+  }
+
+  if (quickJumpInput && quickJumpRoot) {
+    quickJumpInput.addEventListener('keydown', function (event) {
+      var options = quickJumpRoot.studioSearchOptions ? quickJumpRoot.studioSearchOptions() : [];
+      if (!options.length) return;
+      var activeIndex = options.findIndex(function (option) {
+        return option.getAttribute('aria-selected') === 'true';
+      });
+      function select(nextIndex) {
+        options.forEach(function (option, index) {
+          var active = index === nextIndex;
+          option.setAttribute('aria-selected', active ? 'true' : 'false');
+          option.classList.toggle('bg-secondary', active);
+          if (active) {
+            quickJumpInput.setAttribute('aria-activedescendant', option.id);
+            option.scrollIntoView({block: 'nearest'});
+          }
+        });
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        select(activeIndex < 0 ? 0 : Math.min(activeIndex + 1, options.length - 1));
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        select(activeIndex <= 0 ? 0 : activeIndex - 1);
+      } else if (event.key === 'Enter') {
+        var target = options[activeIndex >= 0 ? activeIndex : 0];
+        if (target) {
+          event.preventDefault();
+          window.location.href = target.href;
+        }
+      }
+    });
+  }
+
+  document.addEventListener('keydown', function (event) {
+    var key = (event.key || '').toLowerCase();
+    if ((event.ctrlKey || event.metaKey) && key === 'k') {
+      event.preventDefault();
+      if (quickJump) {
+        openQuickJump();
+      } else {
+        var fallback = document.getElementById('studio-search');
+        if (fallback) fallback.focus();
+      }
+      return;
+    }
+    if (event.key === 'Escape' && isQuickJumpOpen()) {
+      event.preventDefault();
+      closeQuickJump();
+    }
+  });
+
   if (window.lucide) window.lucide.createIcons();
 })();
