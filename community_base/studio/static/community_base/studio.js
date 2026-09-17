@@ -83,10 +83,21 @@
       }
       return link;
     }
+    function searchGroups(payload) {
+      if (navApi && navApi.searchGroups) return navApi.searchGroups(payload);
+      // studio-nav.js is missing: still show every result, headed by the raw group name.
+      var groups = (payload && payload.results) || {};
+      return Object.keys(groups)
+        .map(function (key) {
+          return {key: key, label: key, items: groups[key] || []};
+        })
+        .filter(function (group) {
+          return group.items.length > 0;
+        });
+    }
     function render(payload) {
       results.replaceChildren();
-      var groups = navApi ? navApi.searchGroups(payload) : [];
-      groups.forEach(function (group) {
+      searchGroups(payload).forEach(function (group) {
         var block = document.createElement('section');
         block.className = 'border-b border-border last:border-b-0';
         block.setAttribute('data-studio-search-group', group.key);
