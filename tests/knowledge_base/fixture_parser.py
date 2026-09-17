@@ -107,6 +107,13 @@ class KbFixtureParser:
     def _slug_of(path: PurePosixPath) -> str:
         return "/".join(path.with_suffix("").parts[1:])
 
+    @staticmethod
+    def _render(slug: str, title: str, body: str) -> str:
+        """The site's own rendering: a wrapper and an anchored heading."""
+
+        paragraphs = "".join(f"<p>{line}</p>" for line in body.strip().splitlines() if line.strip())
+        return f'<div class="site-rendered"><h2 id="{slug}-heading">{title}</h2>{paragraphs}</div>'
+
     def _item(self, path: PurePosixPath, metadata: dict, body: str) -> SourceItem:
         source_path = path.as_posix()
         section = path.parts[0]
@@ -145,7 +152,10 @@ class KbDocsTreeFixtureParser:
     (``project``) repeats under different parents, and the path is carried by
     ``parent_path``. Item keys are source paths, which identify a page even
     when its slug does not. The public path comes from the source file, not
-    from the parent links, the way the DataTalks.Club docs parser derives it.
+    from the parent links, the way the DataTalks.Club docs parser derives it,
+    and the parser renders the body itself: the heading carries the anchor id
+    the site's table of contents links to, which the app's markdown renderer
+    does not emit.
     """
 
     def __init__(self):
@@ -178,6 +188,7 @@ class KbDocsTreeFixtureParser:
             parent_path=data["parent_path"],
             nav_order=data["nav_order"],
             public_path=data["public_path"],
+            body_html=data["body_html"],
             commit_sha=data["commit_sha"],
             source_path=data["source_path"],
             checksum=data["checksum"],
@@ -196,12 +207,20 @@ class KbDocsTreeFixtureParser:
             parts.pop()
         return parts
 
+    @staticmethod
+    def _render(slug: str, title: str, body: str) -> str:
+        """The site's own rendering: a wrapper and an anchored heading."""
+
+        paragraphs = "".join(f"<p>{line}</p>" for line in body.strip().splitlines() if line.strip())
+        return f'<div class="site-rendered"><h2 id="{slug}-heading">{title}</h2>{paragraphs}</div>'
+
     def _item(self, path: PurePosixPath, metadata: dict, body: str) -> SourceItem:
         source_path = path.as_posix()
         chain = self._chain(path)
         slug = chain[-1] if chain else "index"
         parent_path = "/".join(chain[:-1]) or None
         nav_order = int(metadata.get("nav_order") or 0)
+        title = str(metadata.get("title") or slug)
         checksum = hashlib.sha256(
             "|".join(
                 (source_path, parent_path or "", body, json.dumps(metadata, sort_keys=True))
@@ -212,11 +231,12 @@ class KbDocsTreeFixtureParser:
             path=path,
             data={
                 "slug": slug,
-                "title": str(metadata.get("title") or slug),
+                "title": title,
                 "body": body,
                 "parent_path": parent_path,
                 "nav_order": nav_order,
                 "public_path": "/docs/" + "".join(f"{segment}/" for segment in chain),
+                "body_html": self._render(slug, title, body),
                 "source_path": source_path,
                 "checksum": checksum,
                 "commit_sha": self._checkout.commit_sha,

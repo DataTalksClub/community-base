@@ -16,6 +16,8 @@ applies each item through :func:`upsert_page`. The contract:
   ``parent_slug`` (section-wide, which must resolve to exactly one page) or by
   ``parent_path`` (the slug chain from the section root down to the parent),
   which is the shape a tree with repeated leaf slugs needs;
+- a site that renders the page itself passes ``body_html``, which is
+  sanitized and stored instead of the app's markdown rendering;
 - a site that owns its routes passes ``public_path``; a site that does not
   leaves it out and keeps the ancestor-chain path the app derives;
 - synced rows carry the source's id in ``source_content_id``, which gives
@@ -31,6 +33,7 @@ import hashlib
 from django.db import transaction
 
 from community_base.knowledge_base.models import (
+    BODY_HTML_MARKDOWN,
     SECTION_CHOICES,
     SECTION_WIKI,
     STATUS_DRAFT,
@@ -67,6 +70,7 @@ def upsert_page(
     parent_path: str | None = None,
     nav_order: int = 0,
     public_path: str | None = None,
+    body_html: str | None = None,
     commit_sha: str,
     source_path: str,
     checksum: str,
@@ -79,7 +83,9 @@ def upsert_page(
     the section root, ``"activities/book-of-the-week"``) when leaf slugs
     repeat; passing both is an error. ``public_path`` is the site's own public
     URL for the page; left out, the page keeps the ancestor-chain path the app
-    derives. An unchanged page (same checksum and
+    derives. ``body_html`` is the site's own rendering of the page, sanitized
+    and stored as-is; left out, the app renders ``body`` as markdown. An
+    unchanged page (same checksum and
     commit) is left completely alone except that a previously drafted page is
     republished -- its return to the repository is itself a change.
     """
@@ -126,6 +132,10 @@ def upsert_page(
         page.title = title
         page.summary = summary
         page.body = body
+        if body_html is None:
+            page.body_html_source = BODY_HTML_MARKDOWN
+        else:
+            page.set_site_rendered_html(body_html)
         page.parent = parent
         page.nav_order = nav_order
         page.public_path = public_path or None

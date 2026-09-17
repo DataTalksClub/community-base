@@ -14,7 +14,7 @@ from django.db import models
 
 from community_base.content_sync.provenance import SourceProvenanceMixin, provenance_constraint
 from community_base.curriculum.rendering import strip_leading_title_h1
-from community_base.knowledge_base.rendering import render_markdown
+from community_base.knowledge_base.rendering import render_markdown, sanitize_rendered_html
 
 SECTION_WIKI = "wiki"
 SECTION_DOCS = "docs"
@@ -27,6 +27,12 @@ STATUS_PUBLISHED = "published"
 STATUS_CHOICES = (
     (STATUS_DRAFT, "Draft"),
     (STATUS_PUBLISHED, "Published"),
+)
+BODY_HTML_MARKDOWN = "markdown"
+BODY_HTML_SITE = "site"
+BODY_HTML_SOURCE_CHOICES = (
+    (BODY_HTML_MARKDOWN, "Rendered from the markdown body"),
+    (BODY_HTML_SITE, "Supplied by the site"),
 )
 
 SLUG_MAX_LENGTH = 300
@@ -77,6 +83,15 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     summary = models.TextField(blank=True, default="")
     body = models.TextField(blank=True, default="")
     body_html = models.TextField(blank=True, default="", editable=False)
+    body_html_source = models.CharField(
+        max_length=20,
+        choices=BODY_HTML_SOURCE_CHOICES,
+        default=BODY_HTML_MARKDOWN,
+        help_text=(
+            "Where body_html comes from: this app's markdown renderer, or the site. "
+            "Site-supplied HTML is sanitized on every save but never re-rendered."
+        ),
+    )
     parent = models.ForeignKey(
         "self",
         null=True,
@@ -139,13 +154,20 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     def save(self, *args, **kwargs):
         if not self.public_path:
             self.public_path = None
-        self.body_html = render_markdown(strip_leading_title_h1(self.body, self.title))
         update_fields = kwargs.get("update_fields")
-        if update_fields is not None:
-            update_fields = set(update_fields)
-            if "body" in update_fields:
-                update_fields.add("body_html")
-            kwargs["update_fields"] = list(update_fields)
+        if self.body_html_source == BODY_HTML_SITE:
+            # The site owns the rendering, not the trust: supplied HTML goes
+            # through the same sanitizer as rendered markdown. Sanitizing is
+            # idempotent, so a re-save leaves stored HTML byte for byte alone.
+            if update_fields is None or "body_html" in set(update_fields):
+                self.body_html = sanitize_rendered_html(self.body_html)
+        else:
+            self.body_html = render_markdown(strip_leading_title_h1(self.body, self.title))
+            if update_fields is not None:
+                update_fields = set(update_fields)
+                if "body" in update_fields:
+                    update_fields.add("body_html")
+                kwargs["update_fields"] = list(update_fields)
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
@@ -161,6 +183,18 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
             return self.public_path
         parts = (*self.ancestor_slugs(), self.slug)
         return f"/{self.section}/" + "/".join(parts) + "/"
+
+    def set_site_rendered_html(self, rendered_html: str) -> None:
+        """Hand the page already-rendered HTML instead of markdown.
+
+        The app stops rendering this page's body: ``save`` sanitizes what the
+        site produced and stores it unchanged. Pass an empty string, or set
+        ``body_html_source`` back to ``markdown``, to return the page to the
+        app's renderer.
+        """
+
+        self.body_html_source = BODY_HTML_SITE
+        self.body_html = rendered_html
 
     def clean(self):
         super().clean()
