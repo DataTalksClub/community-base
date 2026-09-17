@@ -213,9 +213,7 @@ def _homework_graph(
     )
 
 
-def _manifest_path(
-    where: str, pointer: str, cohort: CohortGraph, source: Any
-) -> str:
+def _manifest_path(where: str, pointer: str, cohort: CohortGraph, source: Any) -> str:
     """The binding's `source`, resolved against the cohort directory.
 
     Section 3.8 makes everything below the cohort directory the cohort's own,
@@ -288,9 +286,7 @@ def _form(values: Mapping[str, Any]) -> HomeworkFormGraph:
     )
 
 
-def _questions(
-    document: ParsedDocument, *, course_slug: str
-) -> tuple[HomeworkQuestionGraph, ...]:
+def _questions(document: ParsedDocument, *, course_slug: str) -> tuple[HomeworkQuestionGraph, ...]:
     path = document.raw.path
     homework_slug = document.slug
     found: list[HomeworkQuestionGraph] = []
@@ -343,14 +339,10 @@ def _options(
         raise HomeworkManifestError(
             f"{path}:{pointer}/options: [{RULE}] a {question_type} question needs its options"
         )
-    options = tuple(
-        HomeworkOptionGraph(id=item["id"], label=item["label"]) for item in declared
-    )
+    options = tuple(HomeworkOptionGraph(id=item["id"], label=item["label"]) for item in declared)
     ids = [option.id for option in options]
     if len(set(ids)) != len(ids):
-        raise HomeworkManifestError(
-            f"{path}:{pointer}/options: [{RULE}] option ids are not unique"
-        )
+        raise HomeworkManifestError(f"{path}:{pointer}/options: [{RULE}] option ids are not unique")
     return options
 
 
@@ -404,7 +396,5 @@ def _answer(
             question_id=question_id,
         )
     except HomeworkAnswerCryptoError as error:
-        raise HomeworkManifestError(
-            f"{path}:{pointer}/answer: [{RULE}] {error}"
-        ) from None
+        raise HomeworkManifestError(f"{path}:{pointer}/answer: [{RULE}] {error}") from None
     return dict(declared)

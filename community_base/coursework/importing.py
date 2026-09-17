@@ -82,15 +82,11 @@ def apply_homework_graphs(
             if graph.content_id:
                 seen.add(graph.content_id)
             counts["deleted"] += delete_stale(
-                Question.objects.filter(homework=homework).exclude(
-                    source_content_id__isnull=True
-                ),
+                Question.objects.filter(homework=homework).exclude(source_content_id__isnull=True),
                 {question.content_id for question in graph.questions},
             )
         counts["deleted"] += delete_stale(
-            Homework.objects.filter(cohort__course=course).exclude(
-                source_content_id__isnull=True
-            ),
+            Homework.objects.filter(cohort__course=course).exclude(source_content_id__isnull=True),
             seen,
         )
     return counts

@@ -346,3 +346,75 @@ def test_a_simple_kind_has_one_part_named_after_it():
         core_keys=True,
         allow_unknown=False,
     )
+
+
+def homework_keys(**overrides):
+    """The homework part of the course kind, with one manifest to check."""
+
+    data = {
+        "content_id": "8f0b3ad2-77f4-4f0c-9d2a-1f3c2e4d5a6b",
+        "title": "Homework 1",
+        "due_at": "2026-09-01T23:59:00+02:00",
+        "form": {"homework_url": True},
+        "questions": [
+            {
+                "content_id": "8f0b3ad2-77f4-4f0c-9d2a-1f3c2e4d5a6c",
+                "id": "q1",
+                "type": "multiple_choice",
+                "prompt": "Which retriever?",
+                "points": 1,
+                "options": [{"id": "a", "label": "minsearch"}],
+            }
+        ],
+        **overrides,
+    }
+    return check_item_keys(data, get_kind("course").part("homework"))
+
+
+def test_a_valid_homework_manifest_passes_the_registry():
+    assert homework_keys() == []
+
+
+def test_a_mapping_that_declares_its_keys_reports_an_unknown_one():
+    """`form` names its five keys; `extra`, which names none, stays opaque."""
+
+    problems = homework_keys(form={"homework_url": True, "learning_in_publik_cap": 3})
+
+    assert [(problem.pointer, problem.message) for problem in problems] == [
+        ("/form/learning_in_publik_cap", "unknown key: learning_in_publik_cap")
+    ]
+
+
+def test_a_mapping_that_declares_its_keys_reports_a_mistyped_one():
+    problems = homework_keys(form={"learning_in_public_cap": "three"})
+
+    assert [problem.pointer for problem in problems] == ["/form/learning_in_public_cap"]
+
+
+def test_extra_stays_opaque():
+    assert homework_keys(extra={"anything": {"nested": [1, 2]}}) == []
+
+
+def test_the_homework_manifest_states_its_question_shape():
+    problems = homework_keys(
+        due_at="2026-09-01T23:59:00",
+        questions=[
+            {
+                "content_id": "8f0b3ad2-77f4-4f0c-9d2a-1f3c2e4d5a6c",
+                "id": "q1",
+                "type": "essay",
+                "prompt": "Which retriever?",
+                "points": 1,
+                "options": ["minsearch"],
+                "answer_type": "string",
+                "correct": "minsearch",
+            }
+        ],
+    )
+
+    reported = {problem.pointer: problem.message for problem in problems}
+    assert reported["/due_at"] == "must carry a UTC offset"
+    assert reported["/questions/0/type"].startswith("must be one of multiple_choice")
+    assert reported["/questions/0/options/0"] == "must be a mapping, found str"
+    assert reported["/questions/0/answer_type"].startswith("must be one of any, float")
+    assert reported["/questions/0/correct"] == "unknown key: correct"
