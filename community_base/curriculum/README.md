@@ -92,9 +92,9 @@ part of `can_access`; callers check it separately so preview badges keep working
 ## Import
 
 The app registers exactly one `content_sync` parser, `curriculum_course`. It reads the course
-layout of `community_base/content_sync/FORMAT.md` section 3.8 and nothing else; the two layout
-parsers that preceded it (`parsers_aisl.py`, `parsers_dtc.py`) are gone, and so is the layout
-sniffing that decided between them.
+layout of `community_base/content_sync/FORMAT.md` section 3.8 and nothing else; the two
+site-shaped parsers that preceded it are deleted, and so is the layout sniffing that decided
+between them (issue C7.10 names both files).
 
 ```text
 <course>/course.yaml

@@ -44,7 +44,7 @@ def parse_all(fixture):
 
 
 def test_defect_a_course_manifest_is_not_gated_on_schema_version_one():
-    """Defect one: `parsers_dtc.py` demanded `schema_version == 1` in every manifest.
+    """Defect one: the deleted DTC parser demanded `schema_version == 1` in every manifest.
 
     Five of the six DataTalks.Club course repositories are schema 2, so that
     gate rejected all of them. The version now lives in `content.yaml` and
