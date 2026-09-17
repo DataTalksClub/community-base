@@ -10,6 +10,7 @@ from community_base.content_sync.checkout import ImmutableCheckout
 from community_base.content_sync.documents import read_repository
 from community_base.content_sync.kinds.base import applied_defaults, default_value, resolve_level
 from community_base.content_sync.kinds.course import UNIT
+from community_base.content_sync.resolution import resolve_repository
 
 FIXTURES = Path(__file__).parent / "fixtures"
 VALID = ("valid_course", "valid_multi", "valid_docs", "lenient_references")
@@ -363,10 +364,13 @@ def test_a_site_kind_module_can_be_imported_before_reading(tmp_path):
 # --- the toolkit and the validator read one repository, once ------------------
 
 # Every fixture, and what each of the two entry points makes of it. The toolkit
-# owns the reading half of the format; `check_content` adds sections 3.6, 3.7
-# and 4.1 on top of it. A fixture the validator rejects and the toolkit accepts
-# is named here with the rule that separates them, so that a rule cannot move
-# across the boundary unnoticed.
+# is both halves of the format: `read_repository` for sections 3.1 to 3.5 and
+# `resolve_repository` for the assets and cross-references of sections 3.6 and
+# 3.7. `check_content` is the toolkit plus the markdown dialect of section 4.1,
+# and nothing else. A fixture the validator rejects and the toolkit accepts is
+# named here with the rule that separates them, so that a rule cannot move
+# across the boundary unnoticed; every remaining difference is a dialect rule,
+# which rejects a construct rather than resolves a destination.
 PARITY = (
     ("valid_course", "accept", "accept", ""),
     ("valid_multi", "accept", "accept", ""),
@@ -375,7 +379,7 @@ PARITY = (
     ("invalid/absolute_asset", "reject", "reject", ""),
     ("invalid/bad_asset_type", "reject", "reject", ""),
     ("invalid/bad_embed", "reject", "accept", "4.1 embed fence"),
-    ("invalid/bad_fragment", "reject", "accept", "3.7 heading fragment"),
+    ("invalid/bad_fragment", "reject", "reject", ""),
     ("invalid/bad_level", "reject", "reject", ""),
     ("invalid/bad_schema_version", "reject", "reject", ""),
     ("invalid/bad_slug_name", "reject", "reject", ""),
@@ -386,14 +390,15 @@ PARITY = (
     ("invalid/docs_too_deep", "reject", "reject", ""),
     ("invalid/duplicate_content_id", "reject", "reject", ""),
     ("invalid/duplicate_slug", "reject", "reject", ""),
-    ("invalid/escaping_asset", "reject", "accept", "3.6 asset resolution"),
+    ("invalid/escaping_asset", "reject", "reject", ""),
     ("invalid/forbidden_date", "reject", "reject", ""),
-    ("invalid/http_image", "reject", "accept", "3.6 body asset reference"),
+    ("invalid/http_image", "reject", "reject", ""),
+    ("invalid/ignored_asset", "reject", "reject", ""),
     ("invalid/image_token", "reject", "accept", "4.1 body token"),
     ("invalid/kramdown", "reject", "accept", "4.1 attribute list"),
     ("invalid/liquid", "reject", "accept", "4.1 Liquid"),
     ("invalid/manifest_not_mapping", "reject", "reject", ""),
-    ("invalid/missing_asset", "reject", "accept", "3.6 asset existence"),
+    ("invalid/missing_asset", "reject", "reject", ""),
     ("invalid/missing_content_id", "reject", "reject", ""),
     ("invalid/missing_date", "reject", "reject", ""),
     ("invalid/missing_front_matter", "reject", "reject", ""),
@@ -402,9 +407,9 @@ PARITY = (
     ("invalid/root_collection_with_others", "reject", "reject", ""),
     ("invalid/unknown_key", "reject", "reject", ""),
     ("invalid/unknown_kind", "reject", "reject", ""),
-    ("invalid/unknown_reference_kind", "reject", "accept", "3.7 typed reference"),
-    ("invalid/unresolved_link", "reject", "accept", "3.7 relative link"),
-    ("invalid/unresolved_reference", "reject", "accept", "3.7 typed reference"),
+    ("invalid/unknown_reference_kind", "reject", "reject", ""),
+    ("invalid/unresolved_link", "reject", "reject", ""),
+    ("invalid/unresolved_reference", "reject", "reject", ""),
     ("invalid/wiki_subdirectory", "reject", "reject", ""),
     ("invalid/wikilink", "reject", "accept", "4.1 wikilink"),
 )
@@ -415,13 +420,15 @@ PARITY = (
 )
 def test_the_toolkit_and_the_validator_agree_on_every_fixture(name, validator, toolkit, difference):
     checked = check_repository(FIXTURES / name)
-    result = read_repository(FIXTURES / name)
+    diagnostics = toolkit_diagnostics(FIXTURES / name)
 
     rendered = "\n".join(item.render() for item in checked)
     assert ("reject" if any(item.severity == "error" for item in checked) else "accept") == (
         validator
     ), rendered
-    assert ("reject" if result.errors else "accept") == toolkit, rendered
+    assert (
+        "reject" if any(item.severity == "error" for item in diagnostics) else "accept"
+    ) == toolkit, rendered
     assert bool(difference) == (validator != toolkit)
 
 
@@ -430,10 +437,30 @@ def test_every_toolkit_diagnostic_is_a_validator_diagnostic(name):
     """One implementation: `check_content` adds diagnostics, it never drops one."""
 
     checked = check_repository(FIXTURES / name)
-    result = read_repository(FIXTURES / name)
 
-    missing = [item.render() for item in result.diagnostics if item not in checked]
+    diagnostics = toolkit_diagnostics(FIXTURES / name)
+
+    missing = [item.render() for item in diagnostics if item not in checked]
     assert not missing, "\n".join(missing)
+
+
+def test_the_parity_table_names_every_fixture():
+    """A new fixture cannot escape the table that pins the boundary."""
+
+    found = {
+        str(path.relative_to(FIXTURES))
+        for path in (*FIXTURES.iterdir(), *(FIXTURES / "invalid").iterdir())
+        if path.is_dir() and path.name != "invalid"
+    }
+
+    assert found == {entry[0] for entry in PARITY}
+
+
+def toolkit_diagnostics(path):
+    """Both halves of the toolkit over one repository, as a parser runs them."""
+
+    result = read_repository(path)
+    return [*result.diagnostics, *resolve_repository(result).diagnostics]
 
 
 def test_the_validator_reads_the_repository_through_the_toolkit(tmp_path):
@@ -445,8 +472,8 @@ def test_the_validator_reads_the_repository_through_the_toolkit(tmp_path):
     )
 
     checked = check_repository(tmp_path / "repository")
-    result = read_repository(tmp_path / "repository")
+    diagnostics = toolkit_diagnostics(tmp_path / "repository")
 
-    assert [item.render() for item in result.errors] == [
+    assert sorted(item.render() for item in diagnostics if item.severity == "error") == sorted(
         item.render() for item in checked if item.severity == "error"
-    ]
+    )
