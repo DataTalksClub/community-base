@@ -65,7 +65,7 @@ issues that can start now.
 | `C2.2` | community-base | Users management in Studio | C2.1b | no | done | https://github.com/DataTalksClub/community-base/pull/49 |
 | `C2.3` | community-base | Content sync engine | C1.5, C2.1a | no | done | https://github.com/DataTalksClub/community-base/pull/52 |
 | `C2.4` | community-base | Release 0.3.0 | C2.1b, C2.2, C2.3 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.3.0 |
-| `A2.1` | AI-Shipping-Labs/website | Adopt the Studio shell | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1615 |
+| `A2.1` | AI-Shipping-Labs/website | Adopt the Studio shell | C2.4 | no | blocked | https://github.com/AI-Shipping-Labs/website/issues/1615 — registration half done and green on branch `a2.1-studio-shell` (every AISL Studio route now has exactly one disposition, down from 272 unclaimed). The shell cutover is blocked on C7.13 (package apps claim Studio routes the site never mounts, no site-side remedy) and C7.14 (the shared shell renders about 51 destinations always-expanded where the donor collapses to 8 headers) |
 | `A2.2` | AI-Shipping-Labs/website | Users pages from the package | A2.1 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1691 |
 | `A2.3` | AI-Shipping-Labs/website | Content sync through the package engine | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1617 |
 | `D2.1` | DataTalksClub/website | Mount the Studio shell and re-home DTC Studio pages | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/377 |
@@ -171,3 +171,5 @@ issues that can start now.
 | `C7.4` | community-base | Knowledge base: site-owned page identity, rendering and record metadata | C7.2 | no | todo |  |
 | `C7.5` | community-base | Kernel model bases: optimistic concurrency and append-only |  | no | done | https://github.com/DataTalksClub/community-base/issues/258 (D19; merged as 9cac088. RevisionedModel, RevisionConflict, AppendOnlyManager and AppendOnlyQuerySet in community_base/kernel/models.py, abstract and manager-only, no migration. The donor AuditEvent carve-out stayed in DTC: it names a site model inside a domain-agnostic queryset) |
 | `C7.6` | community-base | Accounts: queryable session record | C3.1e | no | done | https://github.com/DataTalksClub/community-base/issues/258 (D20; merged. Opt-in via SESSION_ENGINE, opt-out proven inert by test; erase and purge as services. Migration 0002_accountsession is provisional: AISL owns the donor equivalence check under C3.7, do not tag before it passes) |
+| `C7.13` | community-base | Studio registration follows the mounted routes | C2.1a | no | todo |  |
+| `C7.14` | community-base | Studio sidebar collapse and navigation density | C2.1a | no | todo |  |

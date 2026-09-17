@@ -338,3 +338,99 @@ Done when
 
 Docs
 - `community_base/accounts/README.md`, `docs/02-architecture.md`, `CHANGELOG.md`.
+
+Issue numbers C7.7 to C7.12 are reserved for the unified content format work proposed in
+`docs/plan/evidence/unified-content-format-2026-09-17.md`. The two issues below take C7.13 and
+C7.14 so that reservation stays intact.
+
+## C7.13 Studio registration follows the mounted routes
+
+Repository: community-base. Depends on: C2.1a. Freeze required: no.
+
+Goal: a site that installs a package app but does not mount its Studio URLs can still pass
+`studio_routes --check`. Today it cannot, and that blocks A2.1 (AI-Shipping-Labs/website#1615).
+
+The defect: `community_base/mail/apps.py` lines 15 to 17 and
+`community_base/knowledge_base/apps.py` lines 10 to 13 call `register_studio()` unconditionally.
+The destinations claim the route names in `mail/studio_urls.py` and `knowledge_base/studio_urls.py`.
+AISL installs both apps and mounts neither module, so six routes are permanently `claimed but not
+mounted` and the check fails with no site-side remedy: `studio_routes.py` has no ignore flag and
+`kernel/conf.py` has no opt-out.
+
+The six: `community_base_mail_deliveries`, `community_base_mail_delivery`,
+`community_base_mail_template`, `community_base_mail_templates`,
+`knowledge_base_studio_page_detail`, `knowledge_base_studio_page_list`.
+
+Why the alternative is wrong: AISL could mount both modules, but that adds a package Mail surface
+next to AISL's own Email log and Email templates pages, and a Knowledge base section it has not
+asked for. That is a product decision, not shell adoption, and it makes installing an app imply
+shipping its Studio pages.
+
+Steps
+1. Register a Studio destination only when its routes are actually mounted, or give the site an
+   explicit opt-out. Prefer the first: a claim that does not match the URLconf is the bug.
+2. Apply the same rule to every package app that registers Studio destinations, not just the two
+   that surfaced. Find them with a grep for `register_studio`.
+3. Leave the destinations registered where the routes are mounted, so no adopting site loses a
+   page it has today.
+
+Verification
+- A synthetic site config that installs `mail` and `knowledge_base` without mounting their Studio
+  URLs passes `studio_routes --check` with zero errors.
+- The same config with the URLs mounted registers all six destinations.
+- `uv run pytest tests/studio` passes.
+
+Done when
+- [ ] installing an app no longer claims Studio routes the site has not mounted
+- [ ] a test covers both the mounted and unmounted configurations
+- [ ] the studio README states the rule
+
+Docs
+- `community_base/studio/README.md`, `CHANGELOG.md`.
+
+## C7.14 Studio sidebar collapse and navigation density
+
+Repository: community-base. Depends on: C2.1a. Freeze required: no.
+
+Goal: the shared Studio shell stays navigable when a site registers a realistic number of
+destinations. Today it does not, and that blocks the destructive half of A2.1
+(AI-Shipping-Labs/website#1615): deleting the donor shell would ship a regression.
+
+The defect: `templates/community_base/studio/base.html` lines 52 to 100 render every section
+always-expanded, and `static/community_base/studio.js` has no collapse. With AISL's registry that
+is 47 flat destinations plus 4 grouped across 11 sections, so roughly 51 permanently visible links,
+on a 390 pixel viewport as well. The donor shell collapses to 8 headers and remembers the state per
+viewer in localStorage (AI-Shipping-Labs/website#1287).
+
+Also missing, found in the same pass and small enough to ride along:
+
+| Gap | Donor behaviour | Where |
+|---|---|---|
+| External link destination | staff "API docs" opens `/api/docs` in a new tab | `studio/registry.py` lines 11 to 18, no field for it |
+| Per-destination icon | one lucide icon per link | registry has no icon field |
+| Sidebar footer hook | version line, back to website, theme toggle | shell has no footer block |
+| Grouped search results | results grouped with headers and summaries | `studio.js` lines 37 to 50 render flat labels only |
+
+Steps
+1. Add section collapse with per-viewer persistence. The active section, and any section owning the
+   active deep route, must be open on load regardless of stored state.
+2. Add the external-link and icon fields to `Destination`, both optional, defaulting to today's
+   behaviour.
+3. Add a sidebar footer block a site can fill.
+4. Group the search results the way the sidebar groups destinations.
+
+Verification
+- A synthetic registry of 50 destinations across 11 sections renders collapsed, with the active
+  section open, and the state survives a reload.
+- Every existing Studio test passes unchanged: a site that registers few destinations sees no
+  behaviour change.
+- `uv run pytest tests/studio` passes.
+
+Done when
+- [ ] sections collapse and remember their state per viewer
+- [ ] the active section and active deep route are always visible
+- [ ] destinations can be external links and can carry an icon
+- [ ] search results are grouped
+
+Docs
+- `community_base/studio/README.md`, `CHANGELOG.md`.
