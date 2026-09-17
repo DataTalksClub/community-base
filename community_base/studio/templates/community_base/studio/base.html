@@ -70,15 +70,7 @@
         {% endif %}
           <ul class="space-y-1">
           {% for row in item.destinations %}
-            {% if row.url %}
-            <li>
-              <a href="{{ row.url }}"
-                 class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors {% if row.active %}bg-secondary text-foreground{% else %}text-muted-foreground hover:bg-secondary hover:text-foreground{% endif %}"
-                 {% if row.active %}aria-current="page"{% endif %}>
-                <span>{{ row.destination.title }}</span>
-              </a>
-            </li>
-            {% endif %}
+            {% if row.url %}{% include "community_base/studio/includes/nav_link.html" %}{% endif %}
           {% endfor %}
           </ul>
           {% if item.groups %}
@@ -91,15 +83,7 @@
               </summary>
               <ul class="ml-3 space-y-1 border-l border-border pl-2">
               {% for row in group_row.destinations %}
-                {% if row.url %}
-                <li>
-                  <a href="{{ row.url }}"
-                     class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors {% if row.active %}bg-secondary text-foreground{% else %}text-muted-foreground hover:bg-secondary hover:text-foreground{% endif %}"
-                     {% if row.active %}aria-current="page"{% endif %}>
-                    <span>{{ row.destination.title }}</span>
-                  </a>
-                </li>
-                {% endif %}
+                {% if row.url %}{% include "community_base/studio/includes/nav_link.html" %}{% endif %}
               {% endfor %}
               </ul>
             </details>

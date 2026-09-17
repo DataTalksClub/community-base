@@ -1,0 +1,9 @@
+<li>
+  <a href="{{ row.url }}"{% if row.destination.new_tab %} target="_blank" rel="noopener"{% endif %}
+     class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors {% if row.active %}bg-secondary text-foreground{% else %}text-muted-foreground hover:bg-secondary hover:text-foreground{% endif %}"
+     {% if row.active %}aria-current="page"{% endif %}>
+    {% if row.destination.icon %}<i data-lucide="{{ row.destination.icon }}" class="h-4 w-4 flex-shrink-0" aria-hidden="true"></i>{% endif %}
+    <span>{{ row.destination.title }}</span>
+    {% if row.destination.new_tab %}<i data-lucide="external-link" class="h-3 w-3 opacity-60" aria-hidden="true"></i>{% endif %}
+  </a>
+</li>

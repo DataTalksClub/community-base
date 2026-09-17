@@ -9,6 +9,15 @@ from community_base.kernel import conf
 
 @dataclass(frozen=True)
 class Destination:
+    """One sidebar link.
+
+    A destination normally points at a mounted Studio route through `url_name`.
+    Set `external_url` instead for a link that leaves the Studio URLconf, such
+    as generated API documentation; such a destination claims no route names and
+    is never the active link. `icon` names one lucide icon and defaults to the
+    unadorned label the shell rendered before icons existed.
+    """
+
     key: str
     title: str
     url_name: str
@@ -16,6 +25,9 @@ class Destination:
     order: int
     superuser_only: bool = False
     feature_flag: str = ""
+    icon: str = ""
+    external_url: str = ""
+    new_tab: bool = False
 
 
 @dataclass(frozen=True)
@@ -187,6 +199,19 @@ def _apply_collapse_state(rendered_sections: list[dict]) -> None:
         item["expanded"] = not collapsible or not dense or item["active"]
 
 
+def _destination_url(destination: Destination) -> str:
+    """Resolve a destination to a href, degrading safely to an empty string."""
+
+    if destination.external_url:
+        return destination.external_url
+    if not destination.url_name:
+        return ""
+    try:
+        return reverse(destination.url_name)
+    except NoReverseMatch:
+        return ""
+
+
 def _visible(destination: Destination, is_superuser: bool) -> bool:
     """Render a destination only when its staff scope and feature flag allow it."""
 
@@ -215,10 +240,7 @@ def active_state(request) -> dict:
             if is_active:
                 active_section = section.slug
                 active_destination = destination.key
-            try:
-                url = reverse(destination.url_name)
-            except NoReverseMatch:
-                url = ""
+            url = _destination_url(destination)
             rendered_destinations.append(
                 {"destination": destination, "active": is_active, "url": url}
             )
@@ -234,10 +256,7 @@ def active_state(request) -> dict:
                     active_section = section.slug
                     active_destination = destination.key
                     group_active = True
-                try:
-                    url = reverse(destination.url_name)
-                except NoReverseMatch:
-                    url = ""
+                url = _destination_url(destination)
                 rendered_group_destinations.append(
                     {"destination": destination, "active": is_active, "url": url}
                 )

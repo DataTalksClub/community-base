@@ -84,6 +84,28 @@ register(
 )
 ```
 
+A destination can carry one lucide icon and can point outside the Studio URLconf:
+
+```python
+Destination(
+    key="api_docs",
+    title="API docs",
+    url_name="",
+    route_names=(),
+    order=40,
+    icon="file-json",
+    external_url="/api/docs",
+    new_tab=True,
+)
+```
+
+Both fields are optional. `icon` defaults to the unadorned label the shell rendered before icons
+existed. `external_url` replaces `url_name` for a link that leaves the Studio URLconf; such a
+destination claims no route names, never becomes the active link, and is invisible to
+`studio_routes --check`. Set `new_tab` to open it in a new tab with `rel="noopener"` and an
+external-link marker. A destination with neither `url_name` nor `external_url` renders nothing, as
+an unresolvable `url_name` always has.
+
 Groups sort deterministically by `order`, then `key`, and their destinations sort like flat ones.
 A group is hidden when none of its destinations are visible to the current user, and the shell
 opens the group that contains the active route. Flat registrations stay unchanged; `route_names`
