@@ -26,6 +26,10 @@ import re
 import yaml
 
 from community_base.content_sync.checkout import CheckoutError
+from community_base.curriculum.code_annotations import (
+    CodeAnnotationError,
+    validate_annotated_body,
+)
 from community_base.curriculum.source import (
     ACCESS_NAMES,
     FORMAT_MODULES,
@@ -226,6 +230,8 @@ def _parse_unit(checkout, path: str, name: str) -> UnitGraph:
         raise CurriculumParseError(f"{path}: missing content_id in frontmatter")
 
     is_homework = bool(frontmatter.get("is_homework", False))
+    if not is_homework:
+        _validate_code_annotations(path, body)
     kind = _unit_kind(frontmatter, path, is_homework=is_homework)
     access_raw = frontmatter.get("access")
     required_level = (
@@ -253,6 +259,20 @@ def _parse_unit(checkout, path: str, name: str) -> UnitGraph:
         ),
         is_bonus=is_bonus,
     )
+
+
+def _validate_code_annotations(path: str, body: str) -> None:
+    """Reject malformed structured code annotations before anything is written.
+
+    A payload that claims to be annotation metadata but does not satisfy the
+    contract fails the import with the source file named, rather than reaching
+    a reader as visible YAML.
+    """
+
+    try:
+        validate_annotated_body(body, path)
+    except CodeAnnotationError as error:
+        raise CurriculumParseError(str(error)) from None
 
 
 def _unit_kind(frontmatter: dict, path: str, *, is_homework: bool) -> str:
