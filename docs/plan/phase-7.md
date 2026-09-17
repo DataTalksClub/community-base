@@ -29,7 +29,7 @@ converges, stays site-owned, or is still undecided. This issue owns the table, n
 accepted row becomes its own issue.
 
 This is an index issue. It closes when every row is `accepted` with a sub-issue, or `site-owned`,
-and none is `undecided`.
+and none is `undecided`. A `deferred` row is decided, not open.
 
 Read first
 - `docs/plan/evidence/site-convergence-analysis-2026-09-16.md`, sections 4 and 5.
@@ -44,10 +44,10 @@ Candidate table
 | Event aliases and legacy paths | package and DTC had them | remove, no legacy compatibility | accepted, D17 | `C4.1e` |
 | Calendly Studio surfaces | package shows them when `CALENDLY` is false | gate Studio like the public views | accepted | `C7.3` |
 | Public design systems | one per site | stays per site, never shared | site-owned, D18 | none |
-| Capability declaration for Studio and admin API | DTC has 61, AISL has none | absorb DTC's pattern into `api` and `studio` | undecided | |
-| Optimistic concurrency and append-only model bases | DTC only | move `RevisionedModel` and `AppendOnlyManager` into the kernel | undecided | |
-| Custom session model | AISL only | move `AccountSession` into package `accounts` | undecided | |
-| Article storage shape | AISL concrete model, DTC synced document | pick one shape for a shared article model | undecided | |
+| Capability declaration for Studio and admin API | DTC has 46, AISL has none | converge only the generic mechanism, after reconciling it with the two existing package registries | deferred, D22 | none |
+| Optimistic concurrency and append-only model bases | DTC only | move `RevisionedModel` and `AppendOnlyManager` into the kernel | accepted, D19 | `C7.5` |
+| Custom session model | AISL only | move `AccountSession` into package `accounts` | accepted, D20 | `C7.6` |
+| Article storage shape | AISL concrete model, DTC synced document | each site keeps its own shape; the shared part, the sync engine, is already unified | site-owned, D21 | none |
 | Podcast, FAQ, people, sponsors, event Q and A | DTC only | stays DTC-owned unless the owner asks | site-owned | none |
 | Payments, sprint plans, CRM, book club, analytics, triggers | AISL only | stays AISL-owned | site-owned | none |
 
@@ -57,6 +57,9 @@ Steps
 2. When a row is accepted, add its issues to this phase, run `python scripts/plan.py sync`, and put
    the issue ids in the row.
 3. Mirror this issue in each site repository only when that site has an accepted row.
+
+A row in state `deferred` is decided, not open: the owner has ruled that it does not converge now
+and recorded why. It does not hold this issue open.
 
 Done when
 - [ ] no row is in state `undecided`
@@ -263,3 +266,75 @@ Done when
 
 Docs
 - `community_base/knowledge_base/README.md`, `docs/02-architecture.md`, `CHANGELOG.md`.
+
+## C7.5 Kernel model bases: optimistic concurrency and append-only
+
+Repository: community-base. Depends on: nothing. Freeze required: no. Decision D19.
+
+Goal: the kernel offers the two model base classes DTC already relies on, so a shared app can use
+optimistic concurrency without each site inventing it.
+
+Read first
+- `~/git/dtc-website/core/models.py` lines 16 to 114, the donor `RevisionedModel` and
+  `AppendOnlyManager`.
+- The eleven DTC models that inherit them, to see which behaviours are actually exercised.
+- `community_base/kernel/`, which has no model base classes today, for where these belong.
+
+Steps
+1. Move the two bases into the kernel with their tests. The kernel is import-light: these must not
+   drag in anything from another package app.
+2. Keep the donor semantics exactly. A revision conflict must raise the same way it does today;
+   do not redesign the exception or the retry contract while moving it.
+3. Do not migrate DTC's eleven models here. They stay DTC-owned and adopt the kernel bases in
+   their own site issue, so this issue ships no site change and no migration.
+4. Document both in the kernel README, including the conflict exception a caller must handle.
+
+Verification
+- `uv run pytest tests/kernel` passes, boundary test included.
+- A test proves a concurrent write raises the conflict rather than silently overwriting.
+- `uv run pytest -q` does not regress.
+
+Done when
+- [ ] both bases live in the kernel with their donor semantics unchanged
+- [ ] a concurrency test covers the conflict path
+- [ ] the kernel README documents the conflict exception
+
+Docs
+- `community_base/kernel/README.md`, `docs/02-architecture.md`, `CHANGELOG.md`.
+
+## C7.6 Accounts: queryable session record
+
+Repository: community-base. Depends on: C3.1e. Freeze required: no. Decision D20.
+
+Goal: the package accounts app owns a queryable session record, so a site can answer "which
+sessions does this member have" without reading Django's opaque session table, and can erase them
+on request.
+
+Read first
+- `~/git/ai-shipping-labs/accounts/models/session.py` and `accounts/session_backend.py`, the
+  donor, about fifty lines together.
+- Its two real call sites: GDPR erasure and expired-session cleanup.
+- `community_base/accounts/`, for where this belongs and what it may import.
+
+Steps
+1. Move the model and the session backend into the package accounts app. The backend is selected
+   through `SESSION_ENGINE`, so a site opts in by setting it; installing the app must not change
+   session behaviour on a site that does not.
+2. Provide the two operations the donor call sites need as services: erase a member's sessions,
+   and purge expired ones. Do not ship a management command that assumes a site's scheduler.
+3. This is additive for both sites: AISL already has the donor table, DTC gains one. Record in the
+   issue which of the two owns the kept-label migration question, and leave the migration
+   provisional until the donor inventory is checked.
+
+Verification
+- `uv run pytest tests/accounts` passes, boundary test included.
+- With `SESSION_ENGINE` unset, session behaviour is unchanged; a test covers both states.
+- Migrations apply from empty and reverse.
+
+Done when
+- [ ] the model and backend live in the package accounts app
+- [ ] opting out leaves Django's default session behaviour untouched, proven by a test
+- [ ] erase and purge are services, not commands
+
+Docs
+- `community_base/accounts/README.md`, `docs/02-architecture.md`, `CHANGELOG.md`.
