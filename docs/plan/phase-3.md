@@ -49,7 +49,8 @@ Steps
    `MemberProfile(user OneToOne)` with the DTC spec fields (country, work status, organisation,
    role, seniority, about, ambitions, why joined, links, completion version, revision).
 2. Generate a provisional initial migration without `replaces`. Keep it untagged. C3.7 records
-   donor inventories and finalizes the squash only after A3.1 and D3.1 prepare compatible schemas.
+   donor inventories and finalizes the squash only after A3.1 and the D3.1 phases prepare
+   compatible schemas.
 3. Move or adapt model and manager tests. Record which donor model tests are package-owned,
    site-owned or deferred to compatibility.
 
@@ -279,7 +280,7 @@ Verification
 
 ## C3.7 Identity donor compatibility checkpoint
 
-Repository: community-base. Depends on: C3.6, A3.2, D3.1.
+Repository: community-base. Depends on: C3.6, A3.2, D3.1e.
 
 Goal: finalize provisional kept-label migrations against prepared donor schemas before release.
 
@@ -343,24 +344,73 @@ Production checks
 Done when
 - [ ] checks pasted in the issue, freeze removed, tagged `replaces` markers retained
 
-## D3.1 Extension models and user model rename
+## D3.1a Additive extension schema (courses.LearnerProfile + accounts_ext)
 
-Repository: DataTalksClub/website. Depends on: C5.2a. Playbook P7, DTC part,
-steps 1 to 3.
+Repository: DataTalksClub/website. Depends on: C5.2a. Playbook P7, DTC part, step 1 expand
+half and step 3's schema. Umbrella: DataTalksClub/website#334; the groomed tracker issue is
+normative for scope, non-goals, drift notes and acceptance criteria.
 
-Steps
-1. `courses.LearnerProfile` with the course-platform fields; `accounts_ext.IdentityState` with
-   the identity reconciliation fields and the `AccountIdentityAlias`, `AccountIdentityQuarantine`,
-   `AccountReconciliationRun`, `CmpLearnerImportProgress` models; data migrations; readers rewritten.
-2. `RenameModel("CustomUser", "User")`, `AlterModelTable("accounts_user")`.
-3. Field reconciliation to the C3.1 table (add missing AISL-origin fields with defaults).
+Split from the umbrella after two branches failed against a fast-moving main (2026-09-15
+re-scope). Pure additions: `courses.LearnerProfile` mirroring the ten course-platform fields,
+the `accounts_ext` app with `IdentityState` plus the six identity models moved via
+`SeparateDatabaseAndState` with `db_table` pinned, and one row per user copied verbatim. No
+reader is switched and no field is removed here.
+
+Verification
+- `manage.py check`, `makemigrations --check`, full suite with zero behavior change;
+  `migrate` applies cleanly on a fresh database and each migration reverses.
+
+## D3.1b Switch course-platform readers to courses.LearnerProfile
+
+Repository: DataTalksClub/website. Depends on: D3.1a. The groomed tracker issue
+(DataTalksClub/website#391) is normative.
+
+Course-platform readers read the ten moved fields through `LearnerProfile` instead of
+`CustomUser`; regression coverage forces new submitter-rendering surfaces through
+`learner_profile` from day one.
+
+## D3.1c Switch identity-window readers to accounts_ext.IdentityState
+
+Repository: DataTalksClub/website. Depends on: D3.1b. The groomed tracker issue
+(DataTalksClub/website#392) is normative.
+
+Identity-window readers go through `accounts_ext.IdentityState`, including the
+`identity_state_eligible()` accessor call sites confirmed by grep; the reader table carries
+the corrected `scripts/prod/registrant_import.py` path from the re-scope drift audit.
+
+## D3.1d Remove the twelve moved fields from CustomUser (contract)
+
+Repository: DataTalksClub/website. Depends on: D3.1c. The groomed tracker issue
+(DataTalksClub/website#393) is normative.
+
+Contract half of playbook P7 DTC step 1: the moved fields and their constraints leave
+`CustomUser`; DTC-only additions that landed after grooming (`newsletter_preference_changed_at`)
+stay untouched.
+
+## D3.1e Rename CustomUser to User (RenameModel, AUTH_USER_MODEL)
+
+Repository: DataTalksClub/website. Depends on: D3.1d. Playbook P7 DTC step 2. The groomed
+tracker issue (DataTalksClub/website#394) is normative.
+
+`RenameModel("CustomUser", "User")` and `AlterModelTable` to `accounts_user` ship in one
+deployable unit with the `AUTH_USER_MODEL` setting change; every remaining
+`from accounts.models import CustomUser` import moves to `get_user_model()`.
 
 Verification
 - `uv run pytest -q` -> pass; development login works after deploy; counts equal (P14).
 
+## D3.1f Add the AISL-origin reconciliation fields (schema only)
+
+Repository: DataTalksClub/website. Depends on: D3.1d. The groomed tracker issue
+(DataTalksClub/website#395) is normative.
+
+Dropped from the umbrella by owner decision (2026-09-15, on #395): the 22 fields are
+schema-only prep with zero readers and are not required for the rename; D3.2 owns them when
+it is scoped, together with the behavior that uses them.
+
 ## D3.2 Freeze weekend: adopt shared accounts and onboarding
 
-Repository: DataTalksClub/website. Depends on: C5.3, C3.7, D3.1. Freeze required: yes. Playbook P7 step 4, P13.
+Repository: DataTalksClub/website. Depends on: C5.3, C3.7, D3.1e. Freeze required: yes. Playbook P7 step 4, P13.
 
 Steps
 1. Delete local `accounts` app code except `accounts_ext`; install `community_base.accounts`,
