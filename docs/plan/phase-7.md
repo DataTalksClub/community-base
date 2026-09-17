@@ -1233,3 +1233,57 @@ Done when
 
 Docs
 - `community_base/studio/README.md`, `CHANGELOG.md`.
+
+## C7.15 Studio shell: messages, banner, focus ring and per-destination test hooks
+
+Repository: community-base. Depends on: C7.14. Freeze required: no.
+
+Goal: a site can delete its own Studio shell without losing behaviour. C7.13 and C7.14 removed two
+blockers from A2.1 (AI-Shipping-Labs/website#1615) and both are verified working, but the cutover
+then found five more. Four are small; the first is a hard blocker.
+
+Evidence, all from rendering real AISL Studio pages through the package shell rather than from
+reading it: `studio_routes --check` now reports 353 mounted Studio routes, 353 claimed, 0 errors,
+and collapse behaves correctly at 51 destinations, so C7.13 and C7.14 did their jobs.
+
+Read first
+- `community_base/studio/templates/community_base/studio/base.html`, lines 99 to 105.
+- `community_base/studio/templates/community_base/studio/includes/nav_link.html`.
+- `~/git/ai-shipping-labs/templates/_partials/messages.html`, the site region the package hides.
+
+The five gaps
+
+| Gap | Where | Why it blocks a cutover |
+|---|---|---|
+| Messages region is unconditional | `base.html` lines 101 to 105 | No surrounding block, no `data-testid`, no per-message `message.tags`. A site cannot suppress it to render its own, so its own region is unreachable. Ten Playwright spec files plus one Django test select it, and two more assert success against error by tag |
+| No banner hook above the content region | `base.html` line 99 | The site's environment-mismatch banner has nowhere full-bleed to go. Overriding the content block works but moves it inside the padded column |
+| No focus-visible ring on a nav link | `nav_link.html` line 3 | The adopting site has an explicit accessibility standard and a test asserting every nav anchor carries the ring. Every donor nav anchor has one |
+| No `data-testid` per destination | `nav_link.html` | About 60 Playwright tests across four spec files select destinations by test id |
+| Quick jump and mobile scroll affordance | donor shell only | The package ships a simpler search box under different hooks, so the command palette is lost |
+
+Steps
+1. Wrap the messages region in a block a site can override, and carry each message's tags and a
+   test id in the default markup. Both, not either: a site that keeps the default still needs the
+   tags to distinguish success from error.
+2. Add a block above the content region for a full-bleed site banner.
+3. Add the focus-visible ring to the nav link. Keyboard accessibility is not a site preference.
+4. Add a per-destination test id derived from the destination key.
+5. Decide whether the quick-jump palette belongs in the package. If it does, say so and scope it;
+   if it does not, say that the adopting site keeps its own and how it coexists with the package
+   search box. Either answer closes the row; silence does not.
+
+Verification
+- A site template overriding the messages block renders its own region and none of the package's.
+- A site that overrides nothing still sees each message's tags and test id.
+- Every nav anchor carries the focus ring, asserted by a test.
+- `uv run pytest tests/studio` passes and no existing test needed changing.
+
+Done when
+- [ ] a site can replace the messages region without losing tags or a test hook
+- [ ] a banner can render full-bleed above the content region
+- [ ] every nav anchor carries a focus-visible ring
+- [ ] every destination carries a stable test id
+- [ ] the quick-jump question is answered either way
+
+Docs
+- `community_base/studio/README.md`, `CHANGELOG.md`.
