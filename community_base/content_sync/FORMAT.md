@@ -650,9 +650,18 @@ process exits 1 when any error was reported, and 0 when only warnings were.
   not the module.
 - Rendering runs in the sync job through the parser toolkit, never in a model `save()`. The page
   and unit models store `body_html` as supplied.
+
+  This rule governs the synced path only. A model still renders markdown in `save()` for content a
+  human authors in Studio, because such content reaches no parser and has no other renderer;
+  removing the fallback would store empty HTML for every Studio-authored unit and page. A parser
+  signals that it has already rendered by setting `body_html_source`, and `save()` then sanitises
+  and stores what it was given rather than re-rendering the markdown body.
 - Sanitisation is package-owned and always last, over one nh3 allowlist, plus the attributes the
   shared extensions emit: `class` on `div`, `pre`, `code`, `span` and `img`; `data-embed-type` and
   `data-embed-id` on `div`; `data-theme-figure` on `img`.
+
+  `class` is admitted on every allowed tag through the allowlist's `*` entry, so the per-tag list
+  above describes where the shared extensions emit it, not where it is permitted.
 - Sites extend, they do not replace: `COMMUNITY_BASE["MARKDOWN_EXTENSIONS"]` is a list of dotted
   paths appended to the package list. An extension's output still passes the package sanitiser, so
   an extension that needs a new attribute needs a package change to the allowlist.
