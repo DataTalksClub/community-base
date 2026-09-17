@@ -52,6 +52,19 @@ def _stable_commit(parsed: ParsedCurriculum) -> str:
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
+def graph_commit(parsed: ParsedCurriculum) -> str:
+    """The commit every row of this graph carries.
+
+    A fixture checkout is not a git working tree and has no commit sha, so the
+    placeholder derived from the graph keeps provenance complete and re-imports
+    idempotent. Anything importing rows alongside this graph -- the coursework
+    homework of issue C7.11 -- takes its commit from here, so one sync writes
+    one commit.
+    """
+
+    return parsed.commit_sha or _stable_commit(parsed)
+
+
 def apply_curriculum_graph(parsed: ParsedCurriculum, source, checkout) -> tuple[Course, dict]:
     """Apply the graph inside one transaction and record an import run.
 
@@ -61,7 +74,7 @@ def apply_curriculum_graph(parsed: ParsedCurriculum, source, checkout) -> tuple[
     """
 
     owner, _, name = source.repo_name.rpartition("/")
-    commit = parsed.commit_sha or _stable_commit(parsed)
+    commit = graph_commit(parsed)
     with transaction.atomic():
         run = CurriculumImportRun.objects.filter(
             source_uuid=source.pk,
@@ -139,7 +152,7 @@ def _apply(parsed, source, checkout, commit) -> tuple[Course, dict]:
     graph = parsed.course
 
     course = _course(graph)
-    action = _write(course, _course_values(graph, commit, checkout))
+    action = write_values(course, _course_values(graph, commit, checkout))
     counts[action] += 1
     _sync_instructors(course, graph)
 
@@ -159,7 +172,7 @@ def _apply(parsed, source, checkout, commit) -> tuple[Course, dict]:
         seen=seen_module_ids,
         top_level_by_ref=top_level_by_ref,
     )
-    counts["deleted"] += _delete_stale(
+    counts["deleted"] += delete_stale(
         Module.objects.filter(course=course).exclude(source_content_id__isnull=True),
         seen_module_ids,
     )
@@ -168,9 +181,9 @@ def _apply(parsed, source, checkout, commit) -> tuple[Course, dict]:
     for cohort_graph in graph.cohorts:
         cohort = _cohort(course, cohort_graph)
         seen_cohort_ids.add(cohort_graph.content_id)
-        counts[_write(cohort, _cohort_values(cohort_graph, commit, checkout))] += 1
+        counts[write_values(cohort, _cohort_values(cohort_graph, commit, checkout))] += 1
         counts["deleted"] += _apply_placements(cohort, cohort_graph, top_level_by_ref)
-    counts["deleted"] += _delete_stale(
+    counts["deleted"] += delete_stale(
         Cohort.objects.filter(course=course).exclude(source_content_id__isnull=True),
         seen_cohort_ids,
     )
@@ -193,7 +206,7 @@ def _apply_module_tree(
         module = _module(course, parent, module_graph)
         seen.add(module_graph.content_id)
         values = _module_values(module_graph, position, commit, checkout)
-        counts[_write(module, values)] += 1
+        counts[write_values(module, values)] += 1
         if depth == 0:
             top_level_by_ref[module_graph.content_id or module_graph.slug] = module
 
@@ -201,8 +214,8 @@ def _apply_module_tree(
         for unit_graph in module_graph.units:
             unit = _unit(module, unit_graph)
             seen_unit_ids.add(unit_graph.content_id)
-            counts[_write(unit, _unit_values(unit_graph, commit, checkout))] += 1
-        counts["deleted"] += _delete_stale(
+            counts[write_values(unit, _unit_values(unit_graph, commit, checkout))] += 1
+        counts["deleted"] += delete_stale(
             Unit.objects.filter(module=module).exclude(source_content_id__isnull=True),
             seen_unit_ids,
         )
@@ -319,7 +332,7 @@ def _course_values(graph, commit, checkout) -> dict:
         "faq_url": graph.faq_url,
         "hashtag": graph.hashtag,
         "visible": graph.visible,
-        **_prov(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
+        **provenance(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
     }
 
 
@@ -332,7 +345,7 @@ def _cohort_values(graph, commit, checkout) -> dict:
         "registration_url": graph.registration_url,
         "hashtag": graph.hashtag,
         "visible": graph.visible,
-        **_prov(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
+        **provenance(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
     }
 
 
@@ -344,7 +357,7 @@ def _module_values(graph, position, commit, checkout) -> dict:
         "overview": graph.overview,
         "is_bonus": graph.is_bonus,
         "available_after_days": graph.available_after_days,
-        **_prov(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
+        **provenance(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
     }
 
 
@@ -362,11 +375,11 @@ def _unit_values(graph, commit, checkout) -> dict:
         "is_preview": graph.is_preview,
         "required_level": graph.required_level,
         "content_hash": _body_hash(graph),
-        **_prov(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
+        **provenance(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
     }
 
 
-def _prov(source_path, commit, checksum) -> dict:
+def provenance(source_path, commit, checksum) -> dict:
     """All-or-nothing provenance, as the table constraint requires."""
 
     if not (source_path and commit and checksum):
@@ -383,7 +396,7 @@ def _body_hash(graph) -> str:
     return hashlib.md5(payload.encode("utf-8")).hexdigest() if payload else ""
 
 
-def _write(instance, values) -> str:
+def write_values(instance, values) -> str:
     """Write ``values`` when they differ; return created/updated/unchanged."""
 
     was_new = instance.pk is None
@@ -407,7 +420,7 @@ def _write(instance, values) -> str:
 _PROVENANCE_KEYS = ("source_path", "source_commit_sha", "source_checksum")
 
 
-def _delete_stale(queryset, seen_ids: set) -> int:
+def delete_stale(queryset, seen_ids: set) -> int:
     seen = {str(value) for value in seen_ids if value is not None}
     stale = [
         row
