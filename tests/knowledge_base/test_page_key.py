@@ -251,3 +251,46 @@ def test_delete_missing_needs_exactly_one_seen_set():
         sync.delete_missing(source, SECTION_DOCS)
     with pytest.raises(sync.KnowledgeBaseSyncError):
         sync.delete_missing(source, SECTION_DOCS, set(), seen_source_paths=set())
+
+
+def test_a_site_owned_public_path_is_used_verbatim():
+    ParserHarness().run_parser(KbDocsTreeFixtureParser(), DOCS_TREE_REPO)
+
+    page = KnowledgeBasePage.objects.get(source_path="docs/course-a/module-1/project.md")
+    assert page.public_path == "/docs/course-a/module-1/project/"
+    assert page.get_absolute_url() == "/docs/course-a/module-1/project/"
+    root = KnowledgeBasePage.objects.get(source_path="docs/index.md")
+    assert root.public_path == "/docs/"
+    assert root.get_absolute_url() == "/docs/"
+
+
+def test_a_page_without_a_public_path_keeps_the_ancestor_chain_url():
+    index = make_page(slug="index", title="Documentation")
+    setup = make_page(slug="setup", title="Setup", parent=index)
+
+    assert index.public_path is None
+    assert setup.public_path is None
+    assert index.get_absolute_url() == "/docs/index/"
+    assert setup.get_absolute_url() == "/docs/index/setup/"
+
+
+def test_an_empty_public_path_is_stored_as_null():
+    page = make_page(slug="empty", title="Empty", public_path="")
+    page.refresh_from_db()
+    assert page.public_path is None
+    assert page.get_absolute_url() == "/docs/empty/"
+
+
+def test_a_public_path_must_be_root_relative():
+    for bad in ("docs/relative/", "https://example.com/docs/", "/docs/ /", "/docs/?q=1"):
+        with pytest.raises(ValidationError):
+            make_page(slug="bad", title="Bad", public_path=bad)
+
+
+def test_two_pages_cannot_claim_one_public_path():
+    make_page(slug="first", title="First", public_path="/docs/shared/")
+    duplicate = KnowledgeBasePage(
+        section=SECTION_DOCS, slug="second", title="Second", public_path="/docs/shared/"
+    )
+    with pytest.raises(IntegrityError), transaction.atomic():
+        duplicate.save()

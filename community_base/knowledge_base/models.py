@@ -31,6 +31,7 @@ STATUS_CHOICES = (
 
 SLUG_MAX_LENGTH = 300
 TITLE_MAX_LENGTH = 300
+PUBLIC_PATH_MAX_LENGTH = 500
 
 # The donor slug alphabets (DTC wiki `[A-Za-z0-9._-]`, docs path segments) both
 # carry dots, so a segment is one step wider than Django's ``validate_slug``.
@@ -45,6 +46,15 @@ slug_validator = RegexValidator(
     SLUG_PATTERN,
     "Enter a slug: letters, digits, dots, dashes or underscores, "
     "optionally in several segments joined by a slash.",
+)
+
+
+# A site-owned public path is a root-relative URL path: no scheme, no host,
+# no query and no fragment, so it can be written into a template as-is.
+PUBLIC_PATH_PATTERN = r"^/[^\s?#]*$"
+public_path_validator = RegexValidator(
+    PUBLIC_PATH_PATTERN,
+    "Enter a root-relative path starting with a slash, without whitespace, query or fragment.",
 )
 
 
@@ -80,6 +90,17 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
         help_text="Position among siblings; ties break by title, then slug.",
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PUBLISHED)
+    public_path = models.CharField(  # noqa: DJ001 -- null means "derive from the tree".
+        max_length=PUBLIC_PATH_MAX_LENGTH,
+        null=True,
+        blank=True,
+        default=None,
+        validators=[public_path_validator],
+        help_text=(
+            "Site-owned public URL path. Null derives the path from the ancestor chain, "
+            "which is what a site that does not own its routes wants."
+        ),
+    )
 
     class Meta:
         ordering = ("section", "slug")
@@ -97,6 +118,12 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
                 condition=models.Q(parent__isnull=True),
                 name="cb_kb_page_root_slug_unique",
             ),
+            # Two pages cannot answer at one URL. Null paths do not collide.
+            models.UniqueConstraint(
+                fields=("public_path",),
+                condition=models.Q(public_path__isnull=False),
+                name="cb_kb_page_public_path_unique",
+            ),
             provenance_constraint(name="cb_kb_page_source_complete"),
         ]
         indexes = [
@@ -110,6 +137,8 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
         return f"{self.get_section_display()}: {self.title}"
 
     def save(self, *args, **kwargs):
+        if not self.public_path:
+            self.public_path = None
         self.body_html = render_markdown(strip_leading_title_h1(self.body, self.title))
         update_fields = kwargs.get("update_fields")
         if update_fields is not None:
@@ -120,11 +149,23 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
+        """The page's public path: the site's own when it stored one.
+
+        A site whose public paths come from the source files (DTC derives
+        them from the documentation file path, independently of the parent
+        links) stores ``public_path``; a site that leaves it null keeps the
+        ancestor-chain path this app has always built.
+        """
+
+        if self.public_path:
+            return self.public_path
         parts = (*self.ancestor_slugs(), self.slug)
         return f"/{self.section}/" + "/".join(parts) + "/"
 
     def clean(self):
         super().clean()
+        if not self.public_path:
+            self.public_path = None
         errors: dict[str, str] = {}
         if self.section == SECTION_WIKI and self.parent_id is not None:
             errors["parent"] = "Wiki pages are a flat set; a wiki page cannot have a parent."

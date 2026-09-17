@@ -144,7 +144,8 @@ class KbDocsTreeFixtureParser:
     directory. The page slug is the leaf segment only, so the same slug
     (``project``) repeats under different parents, and the path is carried by
     ``parent_path``. Item keys are source paths, which identify a page even
-    when its slug does not.
+    when its slug does not. The public path comes from the source file, not
+    from the parent links, the way the DataTalks.Club docs parser derives it.
     """
 
     def __init__(self):
@@ -176,6 +177,7 @@ class KbDocsTreeFixtureParser:
             body=data["body"],
             parent_path=data["parent_path"],
             nav_order=data["nav_order"],
+            public_path=data["public_path"],
             commit_sha=data["commit_sha"],
             source_path=data["source_path"],
             checksum=data["checksum"],
@@ -214,6 +216,7 @@ class KbDocsTreeFixtureParser:
                 "body": body,
                 "parent_path": parent_path,
                 "nav_order": nav_order,
+                "public_path": "/docs/" + "".join(f"{segment}/" for segment in chain),
                 "source_path": source_path,
                 "checksum": checksum,
                 "commit_sha": self._checkout.commit_sha,

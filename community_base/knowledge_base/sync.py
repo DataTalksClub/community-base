@@ -16,6 +16,8 @@ applies each item through :func:`upsert_page`. The contract:
   ``parent_slug`` (section-wide, which must resolve to exactly one page) or by
   ``parent_path`` (the slug chain from the section root down to the parent),
   which is the shape a tree with repeated leaf slugs needs;
+- a site that owns its routes passes ``public_path``; a site that does not
+  leaves it out and keeps the ancestor-chain path the app derives;
 - synced rows carry the source's id in ``source_content_id``, which gives
   :func:`delete_missing` its ownership scope;
 - a page that vanishes from the repository is drafted, not deleted, the way
@@ -64,6 +66,7 @@ def upsert_page(
     parent_slug: str | None = None,
     parent_path: str | None = None,
     nav_order: int = 0,
+    public_path: str | None = None,
     commit_sha: str,
     source_path: str,
     checksum: str,
@@ -74,7 +77,9 @@ def upsert_page(
     discovers parents before children. Name it with ``parent_slug`` when the
     section's slugs are unique, or with ``parent_path`` (the slug chain from
     the section root, ``"activities/book-of-the-week"``) when leaf slugs
-    repeat; passing both is an error. An unchanged page (same checksum and
+    repeat; passing both is an error. ``public_path`` is the site's own public
+    URL for the page; left out, the page keeps the ancestor-chain path the app
+    derives. An unchanged page (same checksum and
     commit) is left completely alone except that a previously drafted page is
     republished -- its return to the repository is itself a change.
     """
@@ -123,6 +128,7 @@ def upsert_page(
         page.body = body
         page.parent = parent
         page.nav_order = nav_order
+        page.public_path = public_path or None
         page.status = STATUS_PUBLISHED
         page.source_content_id = getattr(source, "pk", None)
         page.source_path = source_path
