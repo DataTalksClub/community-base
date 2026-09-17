@@ -43,6 +43,17 @@ Revocation is permanent. Successful use records a timestamp and a salted hash of
 Only superusers may list, create or revoke keys in Studio. Revocation requires an explicit `revoke`
 confirmation value.
 
+Change a stored key through a queryset `update()`, never through `save()`. `save()` runs
+`full_clean()`, and `clean()` refuses a staff key whose owner is not staff, so any operation
+written as `key.save()` raises on a row whose owner has since been downgraded -- which is exactly
+when an operator most wants to revoke it. `revoke()` and `mark_used()` both write through
+`update()` for this reason, and the only `save()` in the app is at creation. The constraint is
+invisible from the call site, so it is pinned by two tests in `tests/api/test_models.py`: one
+proving a downgraded owner's key still revokes, one proving `save()` on the same row raises.
+
+A downgraded owner's key also stops authenticating on its own: `authenticate()` checks the owner's
+staff flag rather than trusting the stored `kind`.
+
 ## Errors and safety
 
 Errors use this stable shape:
