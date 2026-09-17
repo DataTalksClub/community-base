@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}Campaigns{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>Registration campaigns</h1>
 <table><thead><tr><th>Campaign</th><th>Slug</th><th>Current cohort</th><th>Public count</th></tr></thead><tbody>
 {% for campaign, count in rows %}
@@ -9,4 +9,4 @@
 <td>{% if count is not None %}{{ count }}{% else %}-{% endif %}</td></tr>
 {% empty %}<tr><td colspan="4">No campaigns.</td></tr>{% endfor %}
 </tbody></table>
-{% endblock %}
+{% endblock %}{% endblock %}

@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}Leaderboard{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>{{ cohort.course.title }} / {{ cohort.title }} — leaderboard</h1>
 <form method="post" action="{% url 'coursework_studio_leaderboard_recompute' cohort.pk %}">{% csrf_token %}
   <button type="submit">Recompute leaderboard</button>
@@ -37,4 +37,4 @@
     {% endfor %}
   </tbody>
 </table>
-{% endblock %}
+{% endblock %}{% endblock %}

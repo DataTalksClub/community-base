@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block title %}Mail template {{ template_key }}{% endblock %}
-{% block content %}
+{% block content %}{% block studio_content %}
 <div class="cb-page">
   <header class="cb-page-header"><h1 class="cb-page-title">{{ template_key }}</h1></header>
   {% if messages %}{% for message in messages %}<p class="cb-alert">{{ message }}</p>{% endfor %}{% endif %}
@@ -9,4 +9,4 @@
   <section class="cb-card"><h2 class="cb-card-title">Preview or test</h2><form class="cb-form" method="post">{% csrf_token %}<label class="cb-field">Version <input name="version" inputmode="numeric"></label><label class="cb-field">Context JSON <textarea name="context">{}</textarea></label><label class="cb-field">Allowlisted test recipient <input name="recipient" type="email"></label><button class="cb-button" name="action" value="preview" type="submit">Preview</button><button class="cb-button" name="action" value="test-send" type="submit">Send test</button></form></section>
   {% if rendered %}<section class="cb-card"><h2 class="cb-card-title">Rendered preview</h2><h3>{{ rendered.subject }}</h3><pre>{{ rendered.text_body }}</pre></section>{% endif %}
 </div>
-{% endblock %}
+{% endblock %}{% endblock %}

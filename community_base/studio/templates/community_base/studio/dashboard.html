@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block title %}Dashboard | {{ studio_title }}{% endblock %}
-{% block content %}
+{% block content %}{% block studio_content %}
 <header class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
   <p class="mt-1 text-sm text-muted-foreground">Shared operator tools and site extensions.</p>
@@ -19,5 +19,5 @@
 {% else %}
 <div class="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">No dashboard cards registered.</div>
 {% endif %}
-{% endblock %}
+{% endblock %}{% endblock %}
 
