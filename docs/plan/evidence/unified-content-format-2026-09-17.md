@@ -304,8 +304,9 @@ removes, renames or retypes a core key.
 - An asset is any file that a document body, a manifest key of asset type (`image`, and the
   kind-declared ones), or an HTML `<img src>` references by a relative path.
 - A reference resolves from the referencing file's directory and must stay inside the
-  collection directory. A path that escapes the collection, an absolute `/path`, a Liquid
-  expression or a `{IMAGE:id}` token is an error.
+  repository. A path that escapes the repository, an absolute `/path`, a Liquid expression or
+  a `{IMAGE:id}` token is an error. An asset may live outside every collection (DTC's shared
+  `images/` root) as long as a document references it.
 - `https://` references are left alone. `http://` and `data:` references are errors.
 - Allowed asset types: `png`, `jpg`, `jpeg`, `gif`, `webp`, `svg`, `pdf`. The engine applies
   the signature and unsafe-SVG checks now in DTC `content/sync_parsers/media.py:53-73` to every
@@ -859,3 +860,359 @@ rewrite the package and AISL to save DTC two modules.
 | mistune `strikethrough` | DTC docs | python-markdown has no built-in strikethrough; `~~x~~` is rare in the corpus; the validator warns and the conversion script rewrites to `<del>` |
 | Heading id suffix style | AISL `toc` produced `_1`; DTC `-1` | one algorithm, DTC's, and AISL's docs are new enough to have no pinned fragments |
 
+## 5. Conversion cost per content repository
+
+Counts are `git ls-files` on the local clones on 2026-09-17. "Scripted" means one conversion
+script per repository, run once, producing a pull request; "human" is what a person must look
+at before that pull request merges. Every conversion is verified by `check_content` (section
+3.10) in the content repository and by a development-site sync that reports zero errors.
+
+| Repository | Files changed | Scripted | Human |
+|---|---|---|---|
+| `DataTalksClub/llm-zoomcamp` | `content.yaml` added; `course.yaml` rewritten (drop `schema_version`, `cohorts`, `current_cohort`, flatten `urls`, move `starting_point` and `progression` to `extra`); 7 `module.yaml` (drop `units`, `schema_version`); 72 lessons gain `content_id` and `title` from the manifest and lose `prev_url`, `next_url`; 3 `cohort.yaml` (drop `identifier`, `course`, `schema_version`, `format`; `curriculum` to `archive`; homework `source` made cohort-relative; `module` to slug); 7 `homework.yaml` (drop `schema_version`) | all of it, from the manifests | none; the checker proves the round trip |
+| `DataTalksClub/data-engineering-zoomcamp` | same shape: 7 modules, 88 lessons, 6 cohorts, 7 homework manifests | all | none |
+| `DataTalksClub/machine-learning-zoomcamp` | 9 modules, 113 lessons, 6 cohorts, 9 homework manifests; 1,226 module images stay where they are | all | none |
+| `DataTalksClub/mlops-zoomcamp` | 6 modules, 46 lessons, 5 cohorts, 0 homework manifests | all | none |
+| `DataTalksClub/ai-dev-tools-zoomcamp` | 4 modules, 2 cohorts, 4 homework manifests; lessons live below the module directory and need the `NN-unit.md` sibling rule checked by hand | most | the module layout, one look |
+| `DataTalksClub/stock-markets-analytics-zoomcamp` | `content.yaml`, `course.yaml` (schema 1, no modules); `homework_summaries` to `extra` | all | none; the course has no module tree to convert |
+| `DataTalksClub/content` | `content.yaml`; 55 articles renamed from `articles/YYYY/YY-MM-DD-slug.md` to `articles/<slug>/index.md`, `description` to `summary`, `image` to `image`, raw `<img src="/images/posts/...">` to relative, `style` attributes dropped, `layout` and `datepublished` dropped, Liquid includes converted (about twelve files); 98 books gain `content_id`, lose `legacy_path`, `cover` and `image` merge; 203 podcasts and 201 transcripts gain `content_id`, lose `legacy_path`, `short` to `summary`, `dateadded` to `date`; 815 images either stay under `images/` with references rewritten, or move next to their items (recommended) | all except the Liquid includes | the twelve Liquid files; a rendering diff of all 55 articles under python-markdown (section 4.3) |
+| `DataTalksClub/datatalksclub.github.io` | 444 `_people/*.md` and their `images/authors/` pictures move into `DataTalksClub/content` as `people/` (recommended, section 9); front matter `short`, `picture`, `bio_short`, `layout` to core keys; one picture path with a stray space and two keys outside the slug alphabet (`_template`, `ella(wati)sahnan`) | all but three files | three files; the repository stops being a sync source |
+| `DataTalksClub/docs` | 106 pages: `nav_order` to `sort_order` (no directory renames, so public paths are unchanged), `layout`, `parent`, `grand_parent`, `has_children`, `has_toc`, `permalink` dropped, `description` to `summary`, `content_id` minted; about 150 Liquid `relative_url` links to relative file links; 2 kramdown lines dropped; 25 pages whose parent is a sibling page (the five section pages under `courses/zoomcamp-logistics/`) move into five new subdirectories with `index.md`; 54 images referenced relatively | all but the 25 | the 25 re-parented pages, because their public paths change from `/docs/courses/zoomcamp-logistics/joining/` to `/docs/courses/zoomcamp-logistics/start-here/joining/`, which is a DTC route decision |
+| `DataTalksClub/podwiki` | 283 wiki pages: `layout` to `page_type`, `related` titles to `wiki:` references, SEO keys to `extra`, `content_id` minted; `[[...]]` tokens to typed links using the same title map the parser uses today; `graph/graph.json` and `search/search-corpus.json` declared as a `data` collection; the repository's own build scripts keep producing them | most | tokens whose title resolves to nothing today (the parser drops them silently, `_wiki_relations`); a report lists them |
+| `DataTalksClub/faq` | `content.yaml` only, declaring a site-registered `faq` kind over `_questions/` renamed to `faq/`; optional later: `content_id` on 1,400 questions and relative images for 76 | the rename | none, unless the optional step is taken, which also touches `faq_automation/` |
+| `AI-Shipping-Labs/content` | `content.yaml` (replaces the classifier); 22 articles renamed to `articles/<slug>/index.md`, `description` to `summary`, `author` to `authors` or `byline`, `cover_image` to `image`; 10 projects the same; curated links, interview questions renamed keys; 2 wiki and 7 docs pages, the docs pages into directories per their `parent`; `courses/aihero` unchanged apart from `content.yaml`; `tiers.yaml` to `data/`; `events/` left alone (section 2.3, tier C) | all | none |
+| `AI-Shipping-Labs/python-course` | `content.yaml` with `ignore` moved out of `course.yaml`; `course.yaml` drops `instructor_name`, `instructor_bio`, `is_free`, `cover_image` to `image`; `cohorts/self-paced/cohort.yaml` added; 84 units unchanged | all | none |
+| `AI-Shipping-Labs/ai-buildcamp-course` | `content.yaml` with the `ignore` list; `course.yaml` drops `cohorts`, Maven keys to `extra`, `default_unit_access` to `default_unit_required_level`; `cohorts/4/cohort.yaml` added; 210 units unchanged; the branch `restructure-1675-maven-tree` is the shape to convert from, not `origin/main` | all | confirm the restructure branch is the intended tree |
+| `AI-Shipping-Labs/workshops-content` | `content.yaml`; 25 `workshop.yaml`: `cover_image_url` to `image`, `instructor_name` to `instructors` or `byline`; 258 pages unchanged; `scripts/check_*.py` replaced by `check_content` | all | none |
+| `AI-Shipping-Labs/wiki` | `content.yaml`; `_wiki/` renamed `wiki/`; 19 pages gain `content_id`, `topics` to `extra` | all | none |
+
+Totals: about 4,000 files touched across sixteen repositories; roughly 95 percent by script.
+Human review concentrates on three places: the 55 DTC articles' rendering diff, the 25
+re-parented docs pages, and the podwiki tokens that do not resolve.
+
+Two conversion scripts cover everything: one for course repositories (manifest to front matter,
+cohort rewrite) and one for document collections (rename, key mapping, link and image rewrite,
+Liquid handling). Both belong in the package as `content_sync/convert/` so the same code runs
+against every repository, and both are deleted after the last conversion merges.
+
+## 6. Findings that change the plan's assumptions
+
+- The package's DTC course parser cannot read any live DTC course repository with modules.
+  `parsers_dtc.py:559-562` demands `schema_version == 1`; `llm-zoomcamp`, `data-engineering-zoomcamp`,
+  `machine-learning-zoomcamp`, `mlops-zoomcamp` and `ai-dev-tools-zoomcamp` are schema 2 with
+  `cohorts:` inline, `urls:`, `current_cohort`, `delivery`, `curriculum` and `homework` bindings
+  (`~/git/llm-zoomcamp/course.yaml`, `cohorts/2026/cohort.yaml`). Its lesson front matter rule
+  (`parsers_dtc.py:349-351`, only `video_url` and `code`) rejects the `prev_url` and `next_url`
+  keys that 71 of 72 llm-zoomcamp lessons carry. D5.1 would stop on its first repository.
+- The package's AISL course parser skips two of the three AISL courses.
+  `content_sync_parsers.py:145-148` ignores a root-level `course.yaml` because it assumes the
+  DTC layout; `ai-buildcamp-course` and `python-course` both have a root `course.yaml` with no
+  `schema_version`, which the DTC parser then rejects. Only `content/courses/aihero` parses.
+  A5.1 would import one course of three.
+- Neither parser is therefore a working baseline. Retiring both for one parser (C7.10) is not a
+  clean-up; it is the first parser that would work against the real repositories.
+- `source_content_id` means two things. `curriculum/importing.py:265` stores the item's
+  `content_id`; `knowledge_base/sync.py:120,152` stores the `ContentSource` primary key and uses
+  it as the ownership scope of `delete_missing`. The provenance mixin's own docstring says
+  neither. Section 3.4 fixes the meaning to the item's `content_id`; the knowledge base gets a
+  separate source foreign key for scoping (C7.9c).
+- DTC docs identity is not "a slash path" in the sense the C7.4 report treats it. It is a
+  directory path for 81 of 106 pages and a title-declared parent that contradicts the directory
+  for 25 (all five section pages under `courses/zoomcamp-logistics/`). C7.4 step 1's
+  parent-scoped slug is the right model; the format removes the title lookup entirely.
+- DTC syncs generated artefacts as content and couples sources at sync time. `podwiki.py:265-299`
+  refuses to run until podcast, book and people rows exist, and rewrites `graph.json` and
+  `search-corpus.json` against them. Section 3.7 turns the ordering into a declared dependency
+  and section 3.8 carries the two files as `data`; the graph itself stays DTC-owned (C7.2 step 5).
+- Two DTC parsers and one DTC catalogue parser publish nothing (section 1.1). They are not
+  evidence of a content kind that needs a format; `podcast_platforms` and `slack_page` are
+  `data` files, and the course catalogue copy is course metadata the package course model can
+  carry once DTC adopts it.
+- AISL still syncs events from GitHub (`events/community-launch.yaml`, `families/events.py`)
+  although decision D7 makes events Studio-authored on both sites. Out of this design's scope;
+  recorded as a question in section 9.
+- The package coursework app has the answer envelope (`coursework/answer_crypto.py`) but no
+  `homework.yaml` reader; DTC's `courses/services/curriculum_source.py:114-160` is the only
+  implementation of the manifest the format keeps. That reader is issue C7.11.
+- Decision D16's clause "each site keeps its own parsers" was taken when the two sites' formats
+  differed. With one format, the wiki and docs parsers on the two sites are the same code
+  (`families/knowledge_base.py` already contains nothing site-specific). Section 9 asks the owner
+  whether tier A parsers move into the package; the course parsers already live there, so the
+  precedent exists.
+- Decision D21 stands. The format is upstream of storage; the AISL article parser and the DTC
+  article parser read one file shape and write two models. Nothing here asks to revisit it.
+
+## 7. Proposed issues
+
+Numbering continues `docs/plan/phase-7.md`, whose last issue is `C7.6`. Each issue below is
+one pull request. Dependencies are given the way `scripts/plan.py` reads them.
+
+### C7.7 Content format: specification, kind registry and validator
+
+Repository: community-base. Depends on: nothing. Freeze required: no.
+
+Goal: the package states the format normatively and can check a repository against it without
+a database.
+
+Steps
+1. Add `community_base/content_sync/FORMAT.md` from section 3 and 4 of this document.
+2. Add `content_sync/kinds/`: the registry (`register_kind`, `get_kind`), the core key schema,
+   and the package kinds `course`, `article`, `person`, `wiki`, `docs`, `data`.
+3. Add `content_sync/check.py` and the `check_content` command: `content.yaml`, naming,
+   ordering, identity, assets, in-repository references, dialect rules.
+4. Fixture repositories under `tests/content_sync/fixtures/` for a single-course repository, a
+   multi-collection repository and a docs tree with repeated leaf slugs.
+
+Verification
+- `uv run pytest tests/content_sync` passes; every rule in section 3 has a failing fixture.
+- `uv run python -m community_base.content_sync.check tests/content_sync/fixtures/<each>` exits 0.
+
+Done when
+- [ ] the six package kinds are registered and documented
+- [ ] `check_content` reports every violation in section 3 with a path and a pointer
+- [ ] the boundary test passes
+
+### C7.8 Shared rendering: one dialect, one sanitiser, render at sync
+
+Repository: community-base. Depends on: C7.4. Freeze required: no.
+
+Goal: `content_sync.rendering` is the only renderer and sanitiser for synced content.
+
+Steps
+1. Move `knowledge_base/rendering.py` to `content_sync/rendering.py`; keep the lifted DTC
+   allowlist and add the attributes of section 4.2.
+2. Add heading id injection with DTC's algorithm and the returned heading list; add the
+   `mermaid` and `embed` fences; add `COMMUNITY_BASE["MARKDOWN_EXTENSIONS"]`.
+3. `curriculum.Unit` and `KnowledgeBasePage` stop rendering in `save()`; the importers supply
+   `body_html` (C7.4 step 3 already makes the page accept it).
+4. `curriculum/rendering.py` and `knowledge_base/rendering.py` become re-exports.
+
+Verification
+- A fixture body with Liquid, kramdown and a `<script>` renders with the first two rejected by
+  the validator and the third removed by the sanitiser.
+- Heading ids for a fixture equal DTC's `_heading_ids` output for the same input.
+
+Done when
+- [ ] one renderer, one sanitiser, no model renders in `save()`
+- [ ] the extension hook is documented in the kernel README settings list
+
+### C7.9a Document parser toolkit: collections, front matter, identity, checksums
+
+Repository: community-base. Depends on: C7.7. Freeze required: no.
+
+Goal: `content_sync.documents` turns a checkout plus `content.yaml` into validated
+`ParsedDocument` values (core keys, kind keys, body, path, sort key, checksum), so a site parser
+no longer walks files or parses YAML.
+
+Done when
+- [ ] a fixture repository yields one `ParsedDocument` per item with the checksum covering the
+      whole derived record
+- [ ] unknown keys, missing `content_id` and duplicate identities are bounded errors naming the file
+
+### C7.9b Document parser toolkit: assets and references
+
+Repository: community-base. Depends on: C7.9a, C7.8. Freeze required: no.
+
+Goal: relative assets are uploaded through `content_sync.media` and rewritten; relative and
+typed references resolve through kind route resolvers with `strict_references` semantics; the
+resolved reference list is part of the document record; sources are ordered by kind dependency.
+
+Done when
+- [ ] a fixture with a sibling link, a `wiki:` reference and a `person:` reference to another
+      source resolves, and the unresolved case fails or warns per the flag
+- [ ] the `theme_pairs` opt-in emits the paired image markup
+
+### C7.9c Package parsers for wiki, docs and person
+
+Repository: community-base. Depends on: C7.9b, C7.4. Freeze required: no.
+
+Goal: the knowledge base is filled by a package parser for the `wiki` and `docs` kinds, and a
+`person` parser fills a package `Person` record that the knowledge base references; sites keep
+routes and templates (D16, D18). Requires the owner answer to section 9 question 1.
+
+Steps
+1. Register `wiki` and `docs` parsers in `knowledge_base.apps`; store rendered HTML, the heading
+   list and the resolved references (the C7.4 record field).
+2. Fix `source_content_id` to the item's `content_id`; add a `source` foreign key for the
+   ownership scope of `delete_missing`.
+3. Remove the fixture parser's need for site code.
+
+Done when
+- [ ] a three-level docs fixture with repeated leaf slugs syncs and reads back at its own path
+- [ ] AISL's `families/knowledge_base.py` has nothing left to do
+
+### C7.10 One course parser
+
+Repository: community-base. Depends on: C7.9b. Freeze required: no.
+
+Goal: `curriculum/parsers.py` reads the section 3.8 course layout and both
+`parsers_aisl.py` and `parsers_dtc.py` are deleted.
+
+Steps
+1. Implement the parser over `content_sync.documents` for `course.yaml`, module directories,
+   unit documents and `cohorts/<identifier>/cohort.yaml`, producing `ParsedCurriculum`.
+2. Map `modules` to `CohortGraph.module_refs`; `archive: true` to an empty placement; `homework`
+   bindings to a new `CohortGraph.homework_bindings` tuple consumed by C7.11.
+3. Delete both old parsers, their tests and the layout sniffing in `content_sync_parsers.py`.
+4. Rewrite `curriculum/README.md` around the one layout.
+
+Verification
+- The four AISL and DTC fixtures converted by the section 5 scripts parse to the same graph as
+  hand-written expected graphs.
+- `uv run pytest tests/curriculum` passes.
+
+Done when
+- [ ] exactly one course parser is registered
+- [ ] `parsers_aisl.py` and `parsers_dtc.py` are gone
+
+### C7.11 Coursework: homework manifests from cohort bindings
+
+Repository: community-base. Depends on: C7.10, C5.2h. Freeze required: no.
+
+Goal: the coursework app imports `homework.yaml` manifests bound in `cohort.yaml` into
+`Homework` and `Question` rows using the answer envelope, and links a binding's `unit` to the
+homework unit page.
+
+Done when
+- [ ] a bound manifest creates the homework, its questions and their encrypted answers
+- [ ] a binding with `unit` renders the submission form on that unit's page
+- [ ] AISL's plaintext `questions:` shape is not read anywhere
+
+### C7.12 Conversion scripts and the unified format release
+
+Repository: community-base. Depends on: C7.9c, C7.10, C7.11. Freeze required: no.
+
+Goal: `content_sync/convert/` holds the two conversion scripts of section 5, exercised against
+copies of every real content repository, and the package is tagged (playbook P15) with the
+format documented in the CHANGELOG.
+
+Done when
+- [ ] every one of the sixteen repositories converts on a scratch copy and passes `check_content`
+- [ ] the release tag exists and both sites' cross-repo check is green
+
+### A7.2 AISL: adopt the toolkit and the one course parser
+
+Repository: AI-Shipping-Labs/website. Depends on: C7.12. Freeze required: no.
+
+Goal: AISL's `content/sync_parsers/` reads the unified format only: `classify.py`, `parsing.py`
+and the tier A family bodies are replaced by the toolkit; tier B kinds (`workshop`, `project`,
+`curated_link`, `interview_question`, member wiki) are registered kinds; `sanitize_html` no
+longer runs on synced content. AISL `AGENTS.md` and `_docs/PROCESS.md` govern the work.
+
+Done when
+- [ ] `make test-affected` passes with the converted fixture repositories
+- [ ] a development deploy syncs every AISL source converted on a branch with zero errors
+
+### A7.3 AISL: convert and cut over the content repositories
+
+Repository: AI-Shipping-Labs/website (coordination) and the five AISL content repositories.
+Depends on: A7.2. Freeze required: no, a content freeze of one day per repository.
+
+Goal: each repository is converted by the C7.12 scripts on a branch, validated by
+`check_content` in its CI, merged in the same hour the A7.2 deploy goes to production, and
+synced. Order: `wiki`, `content`, `python-course`, `workshops-content`, `ai-buildcamp-course`
+(last, because a paid cohort is running against it; convert from the restructure branch).
+
+Done when
+- [ ] every AISL source syncs from `main` with zero errors and zero warnings
+- [ ] `scripts/check_workshops.py` and its siblings are deleted from the content repositories
+
+### D7.2 DTC: editorial, people and data kinds on the toolkit
+
+Repository: DataTalksClub/website. Depends on: C7.12, D7.1. Freeze required: no.
+
+Goal: the article, book, podcast, person and data parsers are rewritten over the toolkit,
+`SyncedDocument` stays (D21), the everything-under-`images/` media parser is replaced by
+referenced-asset upload, and the bleach sanitiser is not applied to synced content. DTC
+`AGENTS.md`, `_docs/PROCESS.md` and `_docs/specs/03-github-content-and-people.md` govern the
+work; the spec's adapter sections are amended to cite the format.
+
+Done when
+- [ ] route and sitemap contract tests pass unchanged for articles, books, podcasts and people
+- [ ] the `/images/` route serves the referenced assets of the converted repository
+
+### D7.3 DTC: course repositories on the package course parser
+
+Repository: DataTalksClub/website. Depends on: D5.1, C7.12. Freeze required: no.
+
+Goal: DTC imports its six course repositories through `community_base.curriculum` and
+`coursework`, and `courses/services/curriculum_source.py`, `curriculum_import.py`'s schema
+branches and the `zoomcamp-ops` checker are retired.
+
+Done when
+- [ ] the shared-curriculum route contract passes against a converted repository on development
+- [ ] no DTC code parses `course.yaml`
+
+### D7.4 DTC: convert and cut over the content repositories
+
+Repository: DataTalksClub/website (coordination) and the ten DTC content repositories.
+Depends on: D7.2, D7.3. Freeze required: no, a content freeze of one day per repository.
+
+Goal: as A7.3, in the order `docs`, `podwiki`, `content` (with `people/` moved in from
+`datatalksclub.github.io`), then the six course repositories, `faq` last with the
+`content.yaml`-only change.
+
+Done when
+- [ ] every DTC source syncs from `main` with zero errors and zero warnings
+- [ ] `datatalksclub.github.io` is removed from `CONTENT_SOURCES`
+
+Dependency order: C7.7, C7.4, C7.8, C7.9a, C7.9b, C7.9c, C7.10, C7.11, C7.12, then A7.2 and
+D7.2 and D7.3 in parallel, then A7.3 and D7.4. C7.4 is already planned and unchanged; C7.7 can
+start now.
+
+## 8. How this subsumes issue 253
+
+| Stage in issue 253 | State | Where it lands here |
+|---|---|---|
+| A, agree ownership and format on paper with both repositories mapped field by field | done by this document | sections 1 to 3 |
+| B, package ownership moves to the course with cohort placement | shipped in C5.1e | unchanged |
+| C, nesting in the canonical format | directory nesting is the canonical form | section 3.5, C7.10 |
+| D, migrate each content repository | scripted, per repository | section 5, C7.12, A7.3, D7.4 |
+| E, retire the second parser | both parsers retire at once because nothing depends on them working (section 6) | C7.10 |
+
+Answers to the three questions the issue asked the owner.
+
+1. Cohort declaration: `cohorts/<identifier>/cohort.yaml` directories only; the inline list is
+   dropped from both sites.
+2. A cohort may choose a subset and an order of the course's top-level modules (`modules:`) and
+   bind homework; it never overrides or extends the tree. Cohort-local module manifests do not
+   exist.
+3. Retiring the DTC layout is acceptable under the owner's no-compatibility statement, and the
+   rewrite is scripted from the existing manifests with no hand edits (section 5).
+
+Issue 253 should be closed when C7.7 is filed, with a link to this document; its remaining
+work is the issue list of section 7.
+
+## 9. Open questions for the owner
+
+1. Should the parsers for tier A kinds (course, article, wiki, docs, person) live in the package,
+   amending the "each site keeps its own parsers" clause of D16? Recommended answer: yes for
+   wiki, docs and person, whose storage is the package app; the course parser already does; the
+   article parser stays per site because article storage is site-owned (D21) and each site's
+   parser is a thin adapter over the toolkit.
+2. Should DTC's `_people` move from `datatalksclub.github.io` into `DataTalksClub/content` as a
+   `people/` collection, retiring the Jekyll repository as a sync source? Recommended answer:
+   yes; the Jekyll repository is being replaced and only one directory of it is synced.
+3. Should the FAQ repository be converted beyond `content.yaml` (adding `content_id` to 1,400
+   questions and replacing `{IMAGE:id}` tokens), given `faq_automation/` writes those files?
+   Recommended answer: not now; register `faq` as a site kind with its current file shape and
+   revisit when the automation is next touched.
+4. Should the podwiki's `graph.json` and `search-corpus.json` stay as opaque `data` files built
+   by the repository's scripts, or should DTC rebuild the graph from synced references?
+   Recommended answer: opaque data now; the rebuild is a DTC-owned follow-up after D7.1 and
+   D7.4, when every relation the graph needs is a synced reference.
+5. Should the 25 DTC docs pages under `courses/zoomcamp-logistics/` take the paths their
+   section parents imply (`/docs/courses/zoomcamp-logistics/start-here/joining/`), or keep flat
+   paths by dropping the section grouping? Recommended answer: take the nested paths, since D17
+   carries no legacy paths and the grouping is the authors' intent.
+6. Are AISL's entitlement keys (`access_mode`, `enroll_url`, `program_label`,
+   `maven_course_key`) a package concept, given `COMMUNITY_BASE["COURSE_ACCESS_GRANTS"]`
+   already exists, or AISL-only `extra` keys? Recommended answer: `extra` now; promote them when
+   DTC or a second program needs them.
+7. AISL still syncs events from `events/*.yaml` although D7 says events are Studio-authored on
+   both sites. Should that family be retired in the AISL adoption issue? Recommended answer: not
+   in this plan; open a separate AISL issue so the content-format work does not carry an events
+   decision.
+8. Should the `person` kind become the instructor source on AISL (replacing DB-authored
+   instructors), or stay optional? Recommended answer: optional; the format defines the shape,
+   AISL decides its source in A7.2.
