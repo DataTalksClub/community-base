@@ -34,6 +34,12 @@ INVALID = (
     ("wiki_subdirectory", "3.5", "wiki/section", "no subdirectories apart from assets"),
     ("docs_missing_index", "3.5", "docs/01-general", "a tree node must contain index.md"),
     (
+        "docs_too_deep",
+        "3.5",
+        "docs/01-a/02-b/03-c/04-d/05-e",
+        "nesting is deeper than 4 levels below the collection",
+    ),
+    (
         "course_mixed_module",
         "3.5",
         "01-module",
