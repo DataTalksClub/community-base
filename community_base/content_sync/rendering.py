@@ -516,6 +516,27 @@ class RenderedDocument:
     text: str = ""
 
 
+def render_html(body: str, title: str = "") -> tuple[str, tuple[dict[str, object], ...]]:
+    """The dialect and the heading ids, before the sanitizer runs.
+
+    This is the seam `FORMAT.md` sections 3.6 and 3.7 rewrite in: an asset path
+    and a cross-reference are resolved against the repository once the markdown
+    is HTML, and the rewritten HTML is then sanitized by the caller. A relative
+    `img src` does not survive the allowlist, so a rewrite that ran after the
+    sanitizer would rewrite an attribute that is already gone.
+
+    There is still one markdown pass and one sanitizer: :func:`render_document`
+    is this function plus :func:`sanitize_rendered_html`, and a caller that
+    needs the seam composes the same two calls rather than rendering again.
+    """
+
+    if not body:
+        return "", ()
+    source = strip_leading_title_h1(body, title) if title else body
+    rendered = markdown_lib.markdown(source, extensions=markdown_extensions())
+    return inject_heading_ids(rendered)
+
+
 def render_document(body: str, title: str = "") -> RenderedDocument:
     """Render one document body: dialect, heading ids, sanitizer, search text.
 
@@ -526,9 +547,7 @@ def render_document(body: str, title: str = "") -> RenderedDocument:
 
     if not body:
         return RenderedDocument("")
-    source = strip_leading_title_h1(body, title) if title else body
-    rendered = markdown_lib.markdown(source, extensions=markdown_extensions())
-    rendered, headings = inject_heading_ids(rendered)
+    rendered, headings = render_html(body, title)
     rendered = sanitize_rendered_html(rendered)
     return RenderedDocument(rendered, headings, plain_text(rendered))
 
