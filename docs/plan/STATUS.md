@@ -171,5 +171,18 @@ issues that can start now.
 | `C7.4` | community-base | Knowledge base: site-owned page identity, rendering and record metadata | C7.2 | no | done | https://github.com/DataTalksClub/community-base/issues/406 (unblocks D7.1. Slug unique per (section, parent) with a conditional constraint pair for the NULL-parent case; public_path, body_html_source and record added; sanitize_rendered_html no longer drops class, id, lang and title. A7.1 backward compatibility proven by six tests) |
 | `C7.5` | community-base | Kernel model bases: optimistic concurrency and append-only |  | no | done | https://github.com/DataTalksClub/community-base/issues/258 (D19; merged as 9cac088. RevisionedModel, RevisionConflict, AppendOnlyManager and AppendOnlyQuerySet in community_base/kernel/models.py, abstract and manager-only, no migration. The donor AuditEvent carve-out stayed in DTC: it names a site model inside a domain-agnostic queryset) |
 | `C7.6` | community-base | Accounts: queryable session record | C3.1e | no | done | https://github.com/DataTalksClub/community-base/issues/258 (D20; merged. Opt-in via SESSION_ENGINE, opt-out proven inert by test; erase and purge as services. Migration 0002_accountsession is provisional: AISL owns the donor equivalence check under C3.7, do not tag before it passes) |
+| `C7.7` | community-base | Content format: specification, kind registry and validator |  | no | todo |  |
+| `C7.8` | community-base | Shared rendering: one dialect, one sanitiser, rendered at sync | C7.7, C7.4 | no | todo |  |
+| `C7.9a` | community-base | Document toolkit: collections, front matter, identity and checksums | C7.7 | no | todo |  |
+| `C7.9b` | community-base | Document toolkit: assets and references | C7.9a, C7.8 | no | todo |  |
+| `C7.9c` | community-base | Package parsers for the wiki, docs and person kinds | C7.9b, C7.4 | no | todo |  |
+| `C7.10` | community-base | One course parser | C7.9b | no | todo |  |
+| `C7.11` | community-base | Coursework: homework manifests from cohort bindings | C7.10, C5.2h | no | todo |  |
+| `C7.12` | community-base | Conversion scripts and the unified format release | C7.9c, C7.10, C7.11 | no | todo |  |
+| `A7.2` | AI-Shipping-Labs/website | AISL: adopt the toolkit and the one course parser | C7.12 | no | todo |  |
+| `D7.2` | DataTalksClub/website | DTC: editorial, people and data kinds on the toolkit | C7.12, D7.1 | no | todo |  |
+| `D7.3` | DataTalksClub/website | DTC: course repositories on the package course parser | D5.1, C7.12 | no | todo |  |
+| `A7.3` | AI-Shipping-Labs/website | AISL: convert and cut over the content repositories | A7.2 | yes | todo |  |
+| `D7.4` | DataTalksClub/website | DTC: convert and cut over the content repositories | D7.2, D7.3 | yes | todo |  |
 | `C7.13` | community-base | Studio registration follows the mounted routes | C2.1a | no | todo |  |
 | `C7.14` | community-base | Studio sidebar collapse and navigation density | C2.1a | no | todo |  |
