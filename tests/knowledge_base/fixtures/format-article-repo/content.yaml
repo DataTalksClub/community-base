@@ -1,0 +1,5 @@
+schema_version: 1
+collections:
+  - kind: article
+    path: articles
+strict_references: true

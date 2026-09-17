@@ -8,6 +8,8 @@ class KnowledgeBaseConfig(AppConfig):
     verbose_name = "Knowledge base"
 
     def ready(self):
+        from community_base.knowledge_base.content_sync_parsers import register_parsers
         from community_base.knowledge_base.studio_registration import register_studio
 
+        register_parsers()
         register_studio()
