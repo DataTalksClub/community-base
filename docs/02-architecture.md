@@ -72,6 +72,11 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
      and never interprets (`KnowledgeBasePage.record`), plus a nullable site-owned public path
      and site-supplied rendered HTML where the app has a default for both. Two sites with
      different record shapes then share one model, and the package grows no per-site column.
+     A package parser writes into that record too; the package still reads no key of it.
+   - content parsers registered in `AppConfig.ready()` through
+     `community_base.content_sync.parsers.register_parser`. A site writes a parser for the kinds
+     whose storage it owns; the package parses `wiki`, `docs`, `person` and `course`, whose
+     storage the package owns (D24).
 4. Templates. Shared public templates extend `"base.html"` (the site's) and use only the blocks
    and class hooks listed in section 5. Shared Studio templates extend
    `"community_base/studio/base.html"` (the package's, decision D12).
@@ -136,7 +141,7 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
 | `community_base.events` | `events` | as in AISL | AISL `events` | 4 |
 | `community_base.curriculum` | `cb_curriculum` | `Course`, `Cohort`, `Module`, `Unit`, `Enrollment`, `UnitProgress`, `Certificate` | AISL `content` course models, DTC `courses` provenance and cohort split | 5 |
 | `community_base.coursework` | `cb_coursework` | `Homework`, `Question`, `Submission`, `Answer`, `Project`, `ProjectSubmission`, `ReviewCriteria`, `PeerReview`, `Leaderboard*` | DTC `courses` | 5 |
-| `community_base.knowledge_base` | `cb_knowledge_base` | `KnowledgeBasePage` | DTC wiki + docs projections (hierarchy, sanitizer allowlist); new model (D16) | 7 |
+| `community_base.knowledge_base` | `cb_knowledge_base` | `KnowledgeBasePage`, `Person` | DTC wiki + docs projections (hierarchy, sanitizer allowlist); new model (D16); the package parsers for the `wiki`, `docs` and `person` kinds and the person record (D24, D31) | 7 |
 
 Label rules:
 

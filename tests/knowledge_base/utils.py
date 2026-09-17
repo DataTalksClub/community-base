@@ -10,6 +10,9 @@ from community_base.content_sync.models import ContentSource
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 KB_REPO = FIXTURES / "kb-repo"
 DOCS_TREE_REPO = FIXTURES / "docs-tree-repo"
+# Repositories written in the content format, for the package parsers.
+FORMAT_REPO = FIXTURES / "format-repo"
+ARTICLE_REPO = FIXTURES / "format-article-repo"
 
 # upsert_page validates the full 40-hex commit the sync orchestration would pass.
 COMMIT_SHA = "b" * 40
@@ -37,3 +40,26 @@ class ParserHarness(TestCase):
             results = [parser.upsert(item, source, None) for item in items]
             deleted = parser.soft_delete_missing({item.key for item in items}, source)
         return source, items, results, list(deleted)
+
+
+def run_package_parsers(fixture: Path, source, *, commit_sha: str = COMMIT_SHA, media=None):
+    """Run the three package parsers over one checkout, like the sync would.
+
+    Returns ``{kind: (items, results, drafted)}``. The parsers run in the
+    dependency order ``AppConfig.ready`` registers them in.
+    """
+
+    from community_base.knowledge_base.content_sync_parsers import (
+        DocsParser,
+        PersonParser,
+        WikiParser,
+    )
+
+    outcome = {}
+    with checkout(fixture, commit_sha=commit_sha) as active:
+        for parser in (PersonParser(), DocsParser(), WikiParser()):
+            items = list(parser.discover(active, source))
+            results = [parser.upsert(item, source, media) for item in items]
+            drafted = list(parser.soft_delete_missing({item.key for item in items}, source))
+            outcome[parser.kind] = (items, results, drafted)
+    return outcome

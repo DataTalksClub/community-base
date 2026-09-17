@@ -1,19 +1,36 @@
 # Knowledge base
 
-Wiki pages and documentation pages for both sites. This app owns storage,
-hierarchy resolution, rendering, the search corpus and the Studio screens.
-Sites own the parsers that fill it and the public templates that render it
-(decision D16); the public templates shipped here are overridable defaults
-(decision D18).
+Wiki pages, documentation pages and people for both sites. This app owns
+storage, hierarchy resolution, rendering, the search corpus and the Studio
+screens. It also owns the parsers for the three content kinds it stores
+(`wiki`, `docs` and `person`, decision D24); sites own the public templates
+that render them (decision D16), and the templates shipped here are
+overridable defaults (decision D18).
 
-## Model
+## Models
 
 `KnowledgeBasePage` (app label `cb_knowledge_base`) carries `section`
 (`wiki` or `docs`), `slug`, `title`, `summary`, `body`, rendered
 `body_html` with its `body_html_source`, `record`, `public_path`,
 `parent` (documentation tree only), `nav_order`, `status`
-(`draft`/`published`) and the shared `content_sync` provenance fields,
-all-or-nothing through `cb_kb_page_source_complete`.
+(`draft`/`published`), the `source` foreign key and the shared
+`content_sync` provenance fields. Path, commit and checksum are
+all-or-nothing through `cb_kb_page_source_complete`; `source_content_id`
+holds the item's own `content_id` from the content format and is null on a
+row whose parser writes none.
+
+`Person` carries `slug`, `title` (the display name), `summary` (the short
+bio), `image`, `body` (the long bio) with its rendered `body_html`,
+`links` (a list of `{label, url}`), `status`, `record`, the same `source`
+foreign key and the same provenance fields. It is the target the `authors`,
+`instructors` and `guests` reference keys resolve to. Decision D31 makes
+the kind an optional instructor source: the package defines the shape and
+ships no public route or template for it, and a site decides whether to
+fill it.
+
+`source` is what `sync.delete_missing` scopes ownership by. A row with no
+source is Studio-authored and no sync ever touches it; deleting a content
+source leaves its rows in place and unowned.
 
 A wiki page is a flat, standalone page: `parent` must stay null. A
 documentation page may point at another documentation page through
@@ -84,10 +101,40 @@ documentation pages put `edit_url`, `has_toc`, `has_children`,
 It must be a JSON object, so a site can always add a key to what is
 already stored.
 
+## The package parsers
+
+`content_sync_parsers` registers three parsers from `AppConfig.ready()`:
+`knowledge_base_person`, `knowledge_base_docs` and `knowledge_base_wiki`, in
+that order, which is the dependency order `kind_order()` gives. Each is thin.
+It walks no files, parses no YAML and validates no key: `read_repository` is
+the one reader, `resolve_repository` the one resolver and `rendering` the one
+renderer and sanitizer, and what is left is the mapping onto the models.
+
+- A repository declares a collection of the kind in its `content.yaml`, or the
+  parser has nothing to do with it. A repository the toolkit cannot read at all
+  declares nothing, so a source that was never this parser's yields no items
+  and drafts no pages.
+- The three parsers of one sync share one read and one resolution of the
+  checkout, so a repository is rendered once and its assets uploaded once.
+- A page stores the HTML the shared renderer produced, and its `record` carries
+  the item's resolved `values`, the `headings` list, the resolved `references`
+  (`{kind, target, label, href}` each) and the `assets` a document referenced.
+- `public_path` is the route the kind declares (`/wiki/<slug>/`,
+  `/docs/<path>/`, and `/people/<slug>/` for a person). `routes` builds it and
+  answers a cross-reference with it, so a stored path and an `href` inside
+  rendered HTML cannot drift. The collection root's `index.md` is a root page
+  whose path is the collection root itself (`/docs/`).
+- A `docs` page is keyed by its leaf slug inside its parent, so the same leaf
+  slug repeats under different parents; the chain comes from the item's derived
+  path, which the root `index.md` does not contribute a segment to.
+- A reference to a person another source synced resolves through
+  `routes.route_resolver`, which answers from the rows already written.
+
 ## Parser contract
 
-Sites register their own `content_sync` parsers
-(`community_base.content_sync.parsers.register_parser`) and call, per item:
+A site that fills these models from a shape of its own registers its own
+`content_sync` parser (`community_base.content_sync.parsers.register_parser`)
+and calls, per item:
 
 - `sync.upsert_page(source, *, section, slug, title, body="", summary="",
   parent_slug=None, parent_path=None, nav_order=0, public_path=None,
@@ -111,14 +158,23 @@ Sites register their own `content_sync` parsers
   A parser that omits one leaves the page on the app's default for it, and
   a parser that stops passing one returns the page to that default: the
   parser owns the whole record.
+- `status` is the item's declared status, so a repository that declares
+  `status: draft` gets a draft page; `content_id` is the item's own identifier
+  from the content format and is what `source_content_id` holds. A parser whose
+  shape carries neither leaves both out.
+- `sync.upsert_person(source, *, slug, title, ...)` is the same contract for a
+  person, keyed by the slug a `person:` reference names.
 - `sync.delete_missing(source, section, seen_slugs)` drafts this source's
-  published pages of the section that the repository no longer lists.
-  Rows from other sources, and Studio-authored rows (no provenance), are
-  never touched. For a section whose leaf slugs repeat, where a slug
+  published pages of the section that the repository no longer lists, and
+  `sync.delete_missing_people(source, seen_source_paths)` does the same for
+  people. The scope is the `source` foreign key, so rows from other sources,
+  and Studio-authored rows (no source), are never touched. For a section whose leaf slugs repeat, where a slug
   identifies no single page, pass `seen_source_paths=` instead of
   `seen_slugs`; exactly one of the two.
 
-A working example lives in `tests/knowledge_base/fixture_parser.py`.
+The package parsers in `content_sync_parsers` are the worked example.
+`tests/knowledge_base/fixture_parser.py` keeps two site-shaped parsers, which
+exist to pin this contract for a site that does not use the package parsers.
 
 ## Rendering
 

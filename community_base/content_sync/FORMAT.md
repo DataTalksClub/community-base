@@ -129,19 +129,22 @@ file is an opaque record.
   format, and nothing else. It is not the id of the `ContentSource` row the item came from; a
   source foreign key is a separate field.
 
-The provenance rule has a live contradiction in this package, recorded here because it is the
-reason the rule is stated:
+The rule had a live contradiction in this package, recorded here because it is the reason the rule
+is stated:
 
 - `community_base/curriculum/importing.py` follows this rule and stores the item's `content_id`.
-- `community_base/knowledge_base/sync.py` stores `ContentSource.pk` in the same field and scopes
+- `community_base/knowledge_base/sync.py` stored `ContentSource.pk` in the same field and scoped
   `delete_missing` by it.
 - `ContentSource.id` and `SourceProvenanceMixin.source_content_id` are both `UUIDField`, so the two
-  meanings have the same type and the mistake cannot raise; it produces rows whose provenance
-  points at a source instead of an item.
+  meanings had the same type and the mistake could not raise; it produced rows whose provenance
+  pointed at a source instead of an item.
 
-Issue C7.9c repairs the knowledge base by adding the source foreign key and migrating the field.
-C7.7 ships no migration and therefore only writes the contract down, in this section and in the
-`SourceProvenanceMixin` docstring.
+C7.7 wrote the contract down, here and in the `SourceProvenanceMixin` docstring, and shipped no
+migration. C7.9c repaired the knowledge base: `KnowledgeBasePage.source` and `Person.source` are
+the source foreign key, `source_content_id` holds the item `content_id` and nothing else, and
+migration `cb_knowledge_base.0006` moved the stored values into the foreign key. A parser whose
+shape carries no `content_id` leaves the field null, so it is no longer part of the all-or-nothing
+provenance set on those two models.
 
 ## 3.5 Nesting
 
@@ -716,12 +719,12 @@ process exits 1 when any error was reported, and 0 when only warnings were.
 
 C7.7 shipped this document, the kind registry and the validator; C7.8 the renderer and the
 sanitiser; C7.9a the reading half of the toolkit; C7.9b its resolving half, which is assets,
-cross-references, source ordering and `theme_pairs`. The rest of the chain is named here so a
-reader does not mistake a rule for shipped behaviour.
+cross-references, source ordering and `theme_pairs`; C7.9c the package parsers for `wiki`, `docs`
+and `person` and the `source_content_id` repair. The rest of the chain is named here so a reader
+does not mistake a rule for shipped behaviour.
 
 | Rule | Issue that implements it |
 |---|---|
-| Package parsers for `wiki`, `docs` and `person`, and the `source_content_id` repair with its migration | C7.9c |
 | One course parser over this format | C7.10 |
 | The `homework.yaml` reader | C7.11 |
 | Per-repository conversion | C7.12, A7.3, D7.4 |

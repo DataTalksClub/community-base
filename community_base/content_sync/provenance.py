@@ -44,14 +44,18 @@ class SourceProvenanceMixin(models.Model):
     ``ContentSource`` the item came from, and it is not a scope: a row's source
     is named by a foreign key, not by this field.
 
-    One package app disagrees today. ``curriculum.importing`` follows the rule;
-    ``knowledge_base.sync`` stores ``ContentSource.pk`` here and uses it as the
-    ownership scope of ``delete_missing``. ``ContentSource.id`` and this field
-    are both ``UUIDField``, so the two meanings have the same type and the
-    mistake cannot raise: it produces rows whose provenance points at a source
-    instead of an item. Issue C7.9c repairs the knowledge base with a source
-    foreign key and a data migration; C7.7, which wrote this contract down,
-    ships no migration and so could not repair it.
+    One package app used to disagree: ``knowledge_base.sync`` stored
+    ``ContentSource.pk`` here and scoped ``delete_missing`` by it, and because
+    ``ContentSource.id`` and this field are both ``UUIDField`` the two meanings
+    had the same type and the mistake could not raise. Issue C7.9c repaired it
+    with a ``source`` foreign key and migration ``cb_knowledge_base.0006``;
+    ``curriculum.importing`` always followed the rule.
+
+    A model whose parser has no ``content_id`` to write leaves this field null
+    and names its source by the foreign key. Such a model passes
+    ``identity_fields=()`` to :func:`provenance_constraint` and sets
+    ``SOURCE_IDENTITY_FIELDS = ()``, so the all-or-nothing set is the path, the
+    commit and the checksum.
     """
 
     source_content_id = models.UUIDField(null=True, blank=True)

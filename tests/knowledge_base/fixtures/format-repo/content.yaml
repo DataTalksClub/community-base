@@ -1,0 +1,9 @@
+schema_version: 1
+collections:
+  - kind: wiki
+    path: wiki
+  - kind: docs
+    path: docs
+  - kind: person
+    path: people
+strict_references: true

@@ -1,8 +1,11 @@
-"""The ``content_sync`` upsert contract for knowledge base pages.
+"""The ``content_sync`` upsert contract for knowledge base pages and people.
 
-Sites own the parsers. A site parser registers its content type with
-``community_base.content_sync.parsers.register_parser`` and, in ``upsert``,
-applies each item through :func:`upsert_page`. The contract:
+The package parsers for the `wiki`, `docs` and `person` kinds
+(``knowledge_base.content_sync_parsers``, decision D24) apply each item through
+:func:`upsert_page` and :func:`upsert_person`. A site that fills these models
+from a shape of its own registers its own parser with
+``community_base.content_sync.parsers.register_parser`` and applies items the
+same way. The contract:
 
 - item identity is the page slug within its parent, so the same leaf slug
   may repeat under different parents; a site whose slugs are unique across the
@@ -22,13 +25,17 @@ applies each item through :func:`upsert_page`. The contract:
   sanitized and stored instead of the app's markdown rendering;
 - a site that owns its routes passes ``public_path``; a site that does not
   leaves it out and keeps the ancestor-chain path the app derives;
-- synced rows carry the source's id in ``source_content_id``, which gives
-  :func:`delete_missing` its ownership scope. This contradicts the content
-  format, where ``source_content_id`` is the item's own ``content_id``
-  (``content_sync/FORMAT.md`` section 3.4, and ``curriculum.importing``). Both
-  fields are ``UUIDField``, so nothing raises. Issue C7.9c adds the source
-  foreign key this scope needs and migrates the column; until it lands, the
-  behaviour described here is what the code does;
+- a synced row names its content source with the ``source`` foreign key, which
+  is the ownership scope of :func:`delete_missing` and of the second lookup in
+  :func:`_existing_page`. ``source_content_id`` holds the item's own
+  ``content_id`` and nothing else, as ``content_sync/FORMAT.md`` section 3.4
+  requires and as ``curriculum.importing`` already does. The two meanings once
+  shared this one ``UUIDField``, so nothing raised; migration 0006 separated
+  them. A parser that has no ``content_id`` to pass (a site shape that carries
+  none) leaves it null, and the provenance constraint no longer counts it;
+- ``status`` is the declared status of the item: a repository that declares
+  ``status: draft`` gets a draft page (section 3.3, "a draft is imported and
+  hidden"), and a parser that says nothing gets a published one;
 - a page that vanishes from the repository is drafted, not deleted, the way
   curriculum drafts vanished courses.
 
@@ -43,9 +50,11 @@ from community_base.knowledge_base.models import (
     BODY_HTML_MARKDOWN,
     SECTION_CHOICES,
     SECTION_WIKI,
+    STATUS_CHOICES,
     STATUS_DRAFT,
     STATUS_PUBLISHED,
     KnowledgeBasePage,
+    Person,
 )
 
 ACTION_CREATED = "created"
@@ -53,10 +62,11 @@ ACTION_UPDATED = "updated"
 ACTION_UNCHANGED = "unchanged"
 
 SECTIONS = tuple(value for value, _label in SECTION_CHOICES)
+STATUSES = tuple(value for value, _label in STATUS_CHOICES)
 
 
 class KnowledgeBaseSyncError(Exception):
-    """A sync item violates the page contract (unknown parent, cycle, section)."""
+    """A sync item violates the contract (unknown parent, cycle, section, status)."""
 
 
 def _stable_commit(source_path: str, checksum: str) -> str:
@@ -79,6 +89,8 @@ def upsert_page(
     public_path: str | None = None,
     body_html: str | None = None,
     record: dict | None = None,
+    status: str = STATUS_PUBLISHED,
+    content_id: str | None = None,
     commit_sha: str,
     source_path: str,
     checksum: str,
@@ -93,14 +105,19 @@ def upsert_page(
     URL for the page; left out, the page keeps the ancestor-chain path the app
     derives. ``body_html`` is the site's own rendering of the page, sanitized
     and stored as-is; left out, the app renders ``body`` as markdown.
-    ``record`` is the site's own metadata, stored opaquely. An
-    unchanged page (same checksum and
-    commit) is left completely alone except that a previously drafted page is
-    republished -- its return to the repository is itself a change.
+    ``record`` is the row's own metadata, stored opaquely. ``status`` is the
+    item's declared status, so a repository that declares ``status: draft``
+    gets a draft page. ``content_id`` is the item's own identifier from the
+    content format and is what ``source_content_id`` holds; a parser whose
+    shape carries none leaves it out. An unchanged page (same checksum, commit
+    and status) is left completely alone, so a page drafted because it had
+    vanished is republished when it returns -- its return is itself a change.
     """
 
     if section not in SECTIONS:
         raise KnowledgeBaseSyncError(f"Unknown knowledge base section: {section!r}")
+    if status not in STATUSES:
+        raise KnowledgeBaseSyncError(f"Unknown knowledge base page status: {status!r}")
     if not slug:
         raise KnowledgeBaseSyncError("A knowledge base page requires a slug.")
     if not title:
@@ -126,7 +143,7 @@ def upsert_page(
         elif (
             page.source_checksum == checksum
             and page.source_commit_sha == commit_sha
-            and page.status == STATUS_PUBLISHED
+            and page.status == status
         ):
             return page, ACTION_UNCHANGED
         else:
@@ -149,8 +166,9 @@ def upsert_page(
         page.nav_order = nav_order
         page.public_path = public_path or None
         page.record = dict(record) if record else {}
-        page.status = STATUS_PUBLISHED
-        page.source_content_id = getattr(source, "pk", None)
+        page.status = status
+        page.source = source if getattr(source, "pk", None) else None
+        page.source_content_id = content_id
         page.source_path = source_path
         page.source_commit_sha = commit_sha
         page.source_checksum = checksum
@@ -210,14 +228,13 @@ def _existing_page(
     page = KnowledgeBasePage.objects.filter(section=section, slug=slug, parent=parent).first()
     if page is not None:
         return page
-    source_content_id = getattr(source, "pk", None)
-    if source_content_id is None or not source_path:
+    if getattr(source, "pk", None) is None or not source_path:
         return None
     return KnowledgeBasePage.objects.filter(
         section=section,
         slug=slug,
         source_path=source_path,
-        source_content_id=source_content_id,
+        source=source,
     ).first()
 
 
@@ -243,7 +260,8 @@ def delete_missing(
 ):
     """Draft this source's published pages of the section that the repository no
     longer lists. Rows synced by other sources, and Studio-authored rows, are
-    never touched.
+    never touched: the scope is the ``source`` foreign key, so a row with no
+    source is out of scope and a caller with no source drafts nothing.
 
     Name what the repository still lists by slug, or -- for a section whose
     leaf slugs repeat under different parents, where a slug identifies no
@@ -254,10 +272,12 @@ def delete_missing(
         raise KnowledgeBaseSyncError(
             "delete_missing needs exactly one of seen_slugs or seen_source_paths."
         )
+    if getattr(source, "pk", None) is None:
+        return []
     missing = KnowledgeBasePage.objects.filter(
         section=section,
         status=STATUS_PUBLISHED,
-        source_content_id=getattr(source, "pk", None),
+        source=source,
     )
     if seen_slugs is not None:
         missing = missing.exclude(slug__in=set(seen_slugs))
@@ -269,4 +289,96 @@ def delete_missing(
         page.status = STATUS_DRAFT
         page.save(update_fields=["status", "updated_at"])
         drafted.append(page)
+    return drafted
+
+
+def upsert_person(
+    source,
+    *,
+    slug: str,
+    title: str,
+    body: str = "",
+    summary: str = "",
+    image: str = "",
+    links: list | None = None,
+    record: dict | None = None,
+    status: str = STATUS_PUBLISHED,
+    content_id: str | None = None,
+    body_html: str | None = None,
+    commit_sha: str,
+    source_path: str,
+    checksum: str,
+) -> tuple[Person, str]:
+    """Create, update or leave unchanged one person; returns ``(person, action)``.
+
+    The same contract as :func:`upsert_page`, for the record the ``person``
+    kind fills: ``title`` is the display name, ``summary`` the short bio,
+    ``image`` the picture and the body the long bio, and ``links`` is a list
+    of ``{label, url}``. The row is keyed by its slug, which is what a
+    ``person:`` reference names.
+    """
+
+    if status not in STATUSES:
+        raise KnowledgeBaseSyncError(f"Unknown person status: {status!r}")
+    if not slug:
+        raise KnowledgeBaseSyncError("A person requires a slug.")
+    if not title:
+        raise KnowledgeBaseSyncError(f"Person {slug!r} requires a title (the display name).")
+    commit_sha = commit_sha or _stable_commit(source_path, checksum)
+
+    with transaction.atomic():
+        person = Person.objects.filter(slug=slug).first()
+        if person is None:
+            person = Person(slug=slug)
+            action = ACTION_CREATED
+        elif (
+            person.source_checksum == checksum
+            and person.source_commit_sha == commit_sha
+            and person.status == status
+        ):
+            return person, ACTION_UNCHANGED
+        else:
+            action = ACTION_UPDATED
+
+        person.title = title
+        person.summary = summary
+        person.body = body
+        if body_html is None:
+            person.body_html_source = BODY_HTML_MARKDOWN
+        else:
+            person.set_site_rendered_html(body_html)
+        person.image = image or ""
+        person.links = list(links) if links else []
+        person.record = dict(record) if record else {}
+        person.status = status
+        person.source = source if getattr(source, "pk", None) else None
+        person.source_content_id = content_id
+        person.source_path = source_path
+        person.source_commit_sha = commit_sha
+        person.source_checksum = checksum
+        person.full_clean()
+        person.save()
+    return person, action
+
+
+def delete_missing_people(source, seen_source_paths: set[str] | frozenset[str]):
+    """Draft this source's published people that the repository no longer lists.
+
+    The same ownership scope as :func:`delete_missing`: the ``source`` foreign
+    key, so people from another source and Studio-authored people are never
+    touched.
+    """
+
+    if getattr(source, "pk", None) is None:
+        return []
+    missing = (
+        Person.objects.filter(status=STATUS_PUBLISHED, source=source)
+        .exclude(source_path__in=set(seen_source_paths))
+        .order_by("slug")
+    )
+    drafted: list[Person] = []
+    for person in missing:
+        person.status = STATUS_DRAFT
+        person.save(update_fields=["status", "updated_at"])
+        drafted.append(person)
     return drafted

@@ -1,4 +1,11 @@
-"""A fixture ``content_sync`` parser for the knowledge base tests.
+"""Site-shaped ``content_sync`` parsers, kept to pin the site contract.
+
+The package parses the `wiki`, `docs` and `person` kinds itself since C7.9c
+(decision D24), and `tests/knowledge_base/test_package_parsers.py` exercises
+those parsers against repositories written in the content format. These two
+parsers stay because a site may still fill these models from a shape of its
+own: they are the contract `knowledge_base/README.md` documents and the shape
+AI Shipping Labs runs today, and the tests that use them pin exactly that.
 
 Layout under the fixture root:
 

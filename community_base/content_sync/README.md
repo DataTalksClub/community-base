@@ -57,7 +57,8 @@ nesting, assets, cross-references, the kind registry and the markdown dialect. A
 is checked against that file and against nothing else.
 
 `community_base.content_sync.kinds` registers the kinds that enforce it. The package owns `course`,
-`article`, `person`, `wiki`, `docs` and `data`. A site registers its own from `AppConfig.ready()`,
+`article`, `person`, `wiki`, `docs` and `data`, and parses `wiki`, `docs` and `person` itself
+(D24): a site registers no parser for those three. A site registers its own from `AppConfig.ready()`,
 the way it registers a parser:
 
 ```python
@@ -216,8 +217,11 @@ that fails the sync; `false` records a warning, drops the link and keeps its lab
 source whose kinds another source depends on syncs first. The order comes from `kind_order()` and
 from nothing hand-written, and a declared cycle raises `KindDependencyError` naming its members.
 
-The toolkit ships both halves. The package parsers that consume `ResolvedDocument` are `C7.9c` and
-`C7.10`.
+The toolkit ships both halves. `community_base.knowledge_base.content_sync_parsers` consumes
+`ResolvedDocument` for the `wiki`, `docs` and `person` kinds, whose storage the package owns (D24);
+the one course parser is `C7.10`. A parser that consumes the toolkit walks no files, parses no YAML
+and validates no key: it reads `read_repository`, then `resolve_repository`, and maps what comes
+back onto its models.
 
 ## Checking a repository
 
