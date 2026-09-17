@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.8 - 2026-09-17
+
+- C7.6: add `AccountSession`, a queryable view over the `django_session` table, and its opt-in `SessionStore` (`SESSION_ENGINE = "community_base.accounts.session_backend"`). Installing the app leaves a site's default session behaviour untouched until it opts in. Adds the `erase_member_sessions` and `purge_expired_sessions` services (decision D20). The migration is provisional: AISL already carries this exact column in production and owns the donor inventory and equivalence check (C3.7); DTC has no such column and simply gains one.
+
 ## 0.4.7 - 2026-09-17
 
 - Import the accounts email-resolution service lazily in the events registration, guest-invitation and anonymous-registration paths, so a site can install the package events app without adopting shared accounts (D4.1).
