@@ -5,7 +5,6 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.utils import timezone
 
-from community_base.accounts.services.email_resolution import normalize_email, resolve_user_by_email
 from community_base.events.models import Event, EventRegistration
 from community_base.events.registration import _emit_after_commit
 from community_base.events.signals import event_registered
@@ -24,6 +23,13 @@ def invite_guest(event, email):
     event = Event.objects.select_for_update().get(pk=event.pk)
     if not event.is_upcoming:
         raise ValidationError("Guests can be invited only to upcoming events.")
+    # Imported here so installing the events app does not require the
+    # accounts app; inviting a guest is what needs account resolution.
+    from community_base.accounts.services.email_resolution import (
+        normalize_email,
+        resolve_user_by_email,
+    )
+
     normalized = normalize_email(email)
     validate_email(normalized)
     if event.hosts.filter(email__iexact=normalized).exists():

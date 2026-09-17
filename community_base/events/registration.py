@@ -4,7 +4,6 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from community_base.accounts.services.email_resolution import normalize_email
 from community_base.events.models import (
     Event,
     EventRegistration,
@@ -53,6 +52,10 @@ def register_for_event(event, user):
     _require_member(user)
     event = Event.objects.select_for_update().get(pk=event.pk)
     _require_available(event, user)
+    # Imported here so installing the events app does not require the
+    # accounts app; registration is what normalizes an account email.
+    from community_base.accounts.services.email_resolution import normalize_email
+
     email = normalize_email(user.email)
     registration = (
         EventRegistration.objects.select_for_update()

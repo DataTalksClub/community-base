@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.7 - 2026-09-17
+
+- Import the accounts email-resolution service lazily in the events registration, guest-invitation and anonymous-registration paths, so a site can install the package events app without adopting shared accounts (D4.1).
+
 ## 0.4.6 - 2026-09-16
 
 - Move `SourceProvenanceMixin` and `provenance_constraint` to the app-neutral `community_base.content_sync.provenance` (`curriculum.models` re-exports them): the knowledge base no longer imports curriculum models, so a site can install it without the package curriculum or events apps (A7.1).

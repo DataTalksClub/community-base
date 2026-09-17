@@ -6,7 +6,6 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.utils import timezone
 
-from community_base.accounts.services.email_resolution import normalize_email
 from community_base.events.models import Event, EventRegistration
 from community_base.events.registration import _emit_after_commit
 from community_base.events.signals import event_registered, event_unregistered
@@ -53,6 +52,10 @@ def request_anonymous_registration(
     if event.required_level != LEVEL_OPEN or not event.is_upcoming:
         raise ValidationError("Anonymous registration is not available for this event.")
     original_email = str(email).strip()
+    # Imported here so installing the events app does not require the
+    # accounts app: sites without shared accounts never reach registration.
+    from community_base.accounts.services.email_resolution import normalize_email
+
     normalized_email = normalize_email(original_email)
     validate_email(normalized_email)
     now = timezone.now()
