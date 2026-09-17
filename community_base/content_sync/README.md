@@ -199,6 +199,11 @@ file's directory, held to the allowed types, the 16 MiB maximum and the signatur
 checks of `media.asset_payload_defect`, then uploaded once and keyed by its repository path. A file
 matched by `ignore` is invisible as an asset too, so referencing it is an unresolved reference.
 
+A reference is rewritten to the URL the store returned. The sanitiser admits an `img src` that is
+site-absolute or an absolute `http(s)` URL and drops every other one, so a site that renders synced
+images configures a store whose URL has one of those two shapes; the default `null` backend returns
+the repository path unchanged and is not one of them.
+
 `theme_pairs` in `content.yaml` turns a `name.dark.ext` sibling of a referenced image into a pair:
 two adjacent `<img>` tags carrying `data-theme-figure="light"` and `data-theme-figure="dark"` and
 the classes `cb-theme-figure cb-theme-figure-light` and `cb-theme-figure cb-theme-figure-dark`. The
