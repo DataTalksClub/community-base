@@ -115,6 +115,7 @@ DTC side, how to keep that allowance if it still needs it.
 | `MAIL_TEMPLATE_OVERRIDE_LOADER` | dotted path, callable or `None` | `None` |
 | `MAIL_UNSUBSCRIBE_URL_BUILDER` | dotted path, callable or `None` | `None` |
 | `MAIL_VERIFY_EMAIL_URL_BUILDER` | dotted path, callable or `None` | `None` |
+| `MARKDOWN_EXTENSIONS` | list of dotted paths appended to the package markdown extension list | `[]` |
 | `RELAY_API_KEY` | `str` | `""` |
 | `RELAY_BASE_URL` | `str` | `""` |
 | `RELAY_WEBHOOK_SECRET` | `str` | `""` |
