@@ -96,6 +96,7 @@ DEFAULTS = {
     "STUDIO_AUDIT_WRITER": "community_base.studio.audit.discard_audit_event",
     "STUDIO_AUTHORIZER": None,
     "STUDIO_EXTRA_CSS": (),
+    "STUDIO_NAV_COLLAPSE_THRESHOLD": 24,
     "USER_TAGS_ACCESSOR": "community_base.studio.user_tags.AttributeTagsAccessor",
     "VOTING_POLL_LEVELS": {"topic": 20, "course": 30},
 }

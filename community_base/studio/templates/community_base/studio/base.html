@@ -49,13 +49,24 @@
       <div id="studio-search-results"
            class="absolute inset-x-0 top-full z-50 mt-1 hidden max-h-80 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"></div>
     </div>
-    <nav aria-label="Studio" data-studio-active-section="{{ state.active_section }}">
+    <nav id="studio-sidebar-nav" aria-label="Studio" data-studio-active-section="{{ state.active_section }}">
       {% for item in state.sections %}
         {% if item.section.title %}
         <section class="mb-5" data-studio-section="{{ item.section.slug }}">
-          <h2 class="mb-2 flex items-center gap-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <i data-lucide="{{ item.section.icon }}" class="h-4 w-4"></i>{{ item.section.title }}
+          <h2 class="mb-2">
+            <button type="button" data-studio-section-toggle
+                    data-studio-section-key="{{ item.section.slug }}"
+                    {% if item.active %}data-studio-section-active="true"{% endif %}
+                    aria-controls="studio-section-{{ item.section.slug }}"
+                    aria-expanded="{% if item.expanded %}true{% else %}false{% endif %}"
+                    class="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+              <span class="flex min-w-0 items-center gap-2">
+                <i data-lucide="{{ item.section.icon }}" class="h-4 w-4"></i>{{ item.section.title }}
+              </span>
+              <i data-lucide="chevron-down" class="studio-section-chevron h-4 w-4 transition-transform{% if not item.expanded %} -rotate-90{% endif %}" aria-hidden="true"></i>
+            </button>
           </h2>
+          <div id="studio-section-{{ item.section.slug }}"{% if not item.expanded %} hidden{% endif %}>
         {% endif %}
           <ul class="space-y-1">
           {% for row in item.destinations %}
@@ -95,7 +106,7 @@
           {% endfor %}
           </div>
           {% endif %}
-        {% if item.section.title %}</section>{% endif %}
+        {% if item.section.title %}</div></section>{% endif %}
       {% endfor %}
     </nav>
   </aside>
@@ -111,6 +122,7 @@
     </div>
   </main>
 </div>
+<script src="{% static 'community_base/studio-nav.js' %}"></script>
 <script src="{% static 'community_base/studio.js' %}"></script>
 {% block extra_js %}{% block extra_scripts %}{% endblock %}{% endblock %}
 </body>

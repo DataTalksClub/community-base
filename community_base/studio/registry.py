@@ -158,6 +158,35 @@ def route_name_for(target) -> str:
         return ""
 
 
+def _collapse_threshold() -> int:
+    """Return the destination count above which unrelated sections start closed."""
+
+    try:
+        return int(conf.get("STUDIO_NAV_COLLAPSE_THRESHOLD"))
+    except (TypeError, ValueError):
+        return 24
+
+
+def _apply_collapse_state(rendered_sections: list[dict]) -> None:
+    """Decide which sections render expanded, in place, once the active one is known.
+
+    A section without a title has no header to click, so it is never collapsible.
+    Below the threshold every section renders expanded, which is the behaviour a
+    site with a small registry had before collapse existed. Above it only the
+    active section starts open; the rest are one click away.
+    """
+
+    visible = sum(
+        len(item["destinations"]) + sum(len(row["destinations"]) for row in item["groups"])
+        for item in rendered_sections
+    )
+    dense = visible > _collapse_threshold()
+    for item in rendered_sections:
+        collapsible = bool(item["section"].title)
+        item["collapsible"] = collapsible
+        item["expanded"] = not collapsible or not dense or item["active"]
+
+
 def _visible(destination: Destination, is_superuser: bool) -> bool:
     """Render a destination only when its staff scope and feature flag allow it."""
 
@@ -228,6 +257,8 @@ def active_state(request) -> dict:
                 "active": section.slug == active_section,
             }
         )
+
+    _apply_collapse_state(rendered_sections)
 
     return {
         "active_section": active_section,

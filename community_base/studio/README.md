@@ -89,6 +89,37 @@ A group is hidden when none of its destinations are visible to the current user,
 opens the group that contains the active route. Flat registrations stay unchanged; `route_names`
 claims and `studio_routes --check` cover grouped destinations the same way.
 
+## Sidebar density and collapse
+
+Every titled section renders a header button that collapses and expands the section. The section
+without a title carries no header, so it is never collapsible and its links are always visible.
+
+The shell decides the starting state from how many destinations the viewer can see:
+
+| Visible destinations | Starting state |
+|---|---|
+| at or below `STUDIO_NAV_COLLAPSE_THRESHOLD` | every section expanded |
+| above it | only the active section expanded |
+
+The threshold defaults to 24, which keeps a small registry rendering exactly as it did before
+collapse existed. Set it to 0 to collapse from the first destination, or to a large number to
+never collapse:
+
+```python
+COMMUNITY_BASE = {
+    "STUDIO_NAV_COLLAPSE_THRESHOLD": 24,
+}
+```
+
+The section owning the active route always renders expanded, including when the active route is a
+deep detail, form or action route listed in a destination's `route_names`. That holds server-side,
+so it survives a viewer with no JavaScript.
+
+`community_base/studio-nav.js` remembers each section's state per viewer in `localStorage` under
+`community-base-studio-nav`. Storage is allowed to be missing, blocked or corrupt: every read and
+write is guarded and falls back to the server-rendered state, so the sidebar renders correctly in a
+private window or with site data cleared. A stored preference never hides the active section.
+
 Run the route partition check after mounting Studio URLs:
 
 ```console

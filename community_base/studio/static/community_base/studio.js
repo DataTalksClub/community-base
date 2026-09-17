@@ -12,6 +12,39 @@
   if (openButton) openButton.addEventListener('click', function () { setOpen(true); });
   if (closeButton) closeButton.addEventListener('click', function () { setOpen(false); });
   if (backdrop) backdrop.addEventListener('click', function () { setOpen(false); });
+  var nav = document.getElementById('studio-sidebar-nav');
+  var navApi = window.studioNav;
+  function navStorage() {
+    try {
+      return window.localStorage;
+    } catch (error) {
+      return null;
+    }
+  }
+  if (nav && navApi) {
+    var activeSection = nav.getAttribute('data-studio-active-section') || '';
+    var preferences = navApi.readPreferences(navStorage());
+    nav.querySelectorAll('[data-studio-section-toggle]').forEach(function (button) {
+      var key = button.getAttribute('data-studio-section-key') || '';
+      var panel = document.getElementById(button.getAttribute('aria-controls') || '');
+      if (!panel) return;
+      function apply(expanded) {
+        button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        panel.hidden = !expanded;
+        var chevron = button.querySelector('.studio-section-chevron');
+        if (chevron) chevron.classList.toggle('-rotate-90', !expanded);
+      }
+      var rendered = button.getAttribute('aria-expanded') === 'true';
+      apply(navApi.resolveExpanded(preferences, key, rendered, activeSection));
+      button.addEventListener('click', function (event) {
+        event.preventDefault();
+        var next = button.getAttribute('aria-expanded') !== 'true';
+        preferences[key] = next;
+        navApi.writePreference(navStorage(), key, next);
+        apply(navApi.resolveExpanded(preferences, key, next, activeSection));
+      });
+    });
+  }
   document.querySelectorAll('details[data-studio-overflow][open]').forEach(function (menu) {
     document.addEventListener('click', function (event) {
       if (!menu.contains(event.target)) menu.removeAttribute('open');
