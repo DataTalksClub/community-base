@@ -56,6 +56,15 @@ The package owns these stable URL names:
 You can override `event_list.html`, `event_detail.html`, `registration_result.html` and
 `registration_manage.html` with the same paths under `templates/events/`.
 
+## Series visibility
+
+`EventSeries.visibility` is `public` (default) or `hidden`. A hidden series is excluded from the
+public event listing; its events stay reachable by direct URL and keep working for registration,
+feedback, calendar download and the Studio pages. `visibility` is a separate flag from `is_active`,
+which the package does not otherwise use yet (there is no public series page today; `is_active`
+exists for a future one). Set `visibility` from Studio (`events_studio_series_edit`) or the
+`event-series` API routes; the Studio series list marks a hidden series with a `Hidden` badge.
+
 ## Configuration and hooks
 
 Configure `SITE_URL`, `ACCESS_POLICY` and `EVENT_URL_STYLE` for every site. Set
