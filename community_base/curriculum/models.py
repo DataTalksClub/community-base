@@ -11,7 +11,11 @@ from community_base.content_sync.provenance import (
     SourceProvenanceMixin,
     provenance_constraint,
 )
-from community_base.curriculum.rendering import render_markdown, strip_leading_title_h1
+from community_base.curriculum.rendering import (
+    render_annotated_markdown,
+    render_markdown,
+    strip_leading_title_h1,
+)
 from community_base.curriculum.validators import (
     SHA1_PATTERN,
     SHA256_PATTERN,
@@ -520,7 +524,9 @@ class Unit(SourceProvenanceMixin, models.Model):
     def save(self, *args, **kwargs):
         if self.body:
             body_md = strip_leading_title_h1(self.body, self.title)
-            self.body_html = render_markdown(body_md)
+            # Fail closed: an invalid annotation payload raises here, so an
+            # invalid replacement body never overwrites a published unit.
+            self.body_html = render_annotated_markdown(body_md)
         else:
             self.body_html = ""
         if self.homework:

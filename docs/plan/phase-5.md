@@ -308,6 +308,71 @@ Docs
 - `community_base/curriculum/README.md`: document the new kind and the checklist services under
   the existing `Unit`/`UnitProgress` rows.
 
+## C5.1g Structured code annotations in unit bodies
+
+Repository: community-base. Depends on: C5.1f.
+
+Goal: a unit body can attach notes to lines of a fenced code block, and a malformed payload fails
+the import instead of reaching a reader. GitHub issue DataTalksClub/community-base#255. The
+capability is live on AI Shipping Labs (`content/utils/code_annotations.py`,
+AI-Shipping-Labs/website#1589); this issue lifts it into the package so DataTalks.Club gets it too
+and there is one implementation.
+
+Read first
+- `content/utils/code_annotations.py` in `../ai-shipping-labs` -- the reference implementation and
+  the authoring contract.
+- `community_base/curriculum/rendering.py` (`render_markdown`, `strip_leading_title_h1`).
+- `community_base/curriculum/models.py` `Unit.save`.
+- `community_base/curriculum/parsers_aisl.py` `_parse_unit`, `parsers_dtc.py`
+  `_lesson_frontmatter`.
+- `docs/01-decisions.md` D18 -- public design systems stay per site.
+
+Design: the package owns meaning, each site owns appearance. `code_annotations.py` holds the
+parser and the structured representation and emits no HTML; the default markup is an overridable
+template; the styling is the adopting site's. The authoring contract is not redesigned -- it is
+the one specified on #1589, so a body authored for one site behaves the same on the other.
+
+Steps
+1. `community_base/curriculum/code_annotations.py`: port the fence scan, the strict YAML loader,
+   the payload schema, the range validation and the association rules. Return
+   `ParsedUnitBody(markdown, blocks)` where a block carries the language, the `CodeLine` rows with
+   their highlight state, and the `CodeAnnotation` notes.
+2. Add `build_render_plan`, which swaps each annotated fence for an opaque token, so the rendered
+   block is identified exactly rather than matched by position.
+3. `curriculum/templates/curriculum/annotated_code_block.html`: default markup, structural hooks
+   only, no colour or spacing. A site overrides it at the same path.
+4. `rendering.render_annotated_markdown`: render the stripped markdown through the existing
+   `render_markdown` (which sanitizes) and substitute each token. No second markdown path and no
+   second sanitizer.
+5. `Unit.save`: render bodies through `render_annotated_markdown`.
+6. Both sync parsers: validate a lesson body before anything is written and raise
+   `CurriculumParseError` naming the source file.
+
+What this issue does not do
+- No change to the authoring syntax.
+- No stylesheet: D18 keeps public design systems per site.
+- No removal of the AI Shipping Labs local copy; that site cannot consume the package curriculum
+  app yet and deletes its copy when it adopts it.
+- No content adoption in either content repository.
+
+Verification
+- `uv run pytest tests/curriculum` -> pass, including the new `tests/curriculum/test_code_annotations.py`.
+- `uv run pytest tests/test_boundaries.py` -> pass.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- A fixture exercising the syntax end to end: a synced unit whose body carries a payload renders
+  highlighted lines and the note list, and a malformed payload fails the sync.
+
+Done when
+- [ ] The authoring contract matches #1589, accepting and rejecting the same bodies.
+- [ ] The parse result is a structured representation with no HTML in it.
+- [ ] The default markup ships as an overridable template and carries no design system.
+- [ ] `Unit.save` renders annotations, and an invalid body leaves the persisted unit untouched.
+- [ ] Both sync parsers fail closed on a malformed payload, naming the file.
+
+Docs
+- `community_base/curriculum/README.md`: the authoring contract, the package/site split, where the
+  CSS lives, and the AI Shipping Labs follow-up.
+
 ## C5.2a Coursework models
 
 Repository: community-base. Depends on: C5.1d.

@@ -26,6 +26,10 @@ from uuid import UUID
 
 import yaml
 
+from community_base.curriculum.code_annotations import (
+    CodeAnnotationError,
+    validate_annotated_body,
+)
 from community_base.curriculum.source import (
     FORMAT_LEGACY,
     FORMAT_MODULES,
@@ -334,6 +338,7 @@ def _unit_source_path(checkout, path: str, pointer: str, raw: str) -> str:
 def _lesson_frontmatter(path: str, raw: str) -> tuple[str, str | None]:
     lines = raw.splitlines(keepends=True)
     if not lines or lines[0].strip() != "---":
+        _validate_code_annotations(path, raw)
         return raw, None
     closing = None
     for index in range(1, len(lines)):
@@ -357,7 +362,23 @@ def _lesson_frontmatter(path: str, raw: str) -> tuple[str, str | None]:
         hostname = (urlsplit(video_url).hostname or "").casefold()
         if hostname not in _VIDEO_HOSTS:
             raise CurriculumParseError(f"{path}:/frontmatter/video_url: host not allowed")
-    return "".join(lines[closing + 1 :]).lstrip("\n"), video_url
+    body = "".join(lines[closing + 1 :]).lstrip("\n")
+    _validate_code_annotations(path, body)
+    return body, video_url
+
+
+def _validate_code_annotations(path: str, body: str) -> None:
+    """Reject malformed structured code annotations before anything is written.
+
+    A payload that claims to be annotation metadata but does not satisfy the
+    contract fails the import with the source file named, rather than reaching
+    a reader as visible YAML.
+    """
+
+    try:
+        validate_annotated_body(body, path)
+    except CodeAnnotationError as error:
+        raise CurriculumParseError(str(error)) from None
 
 
 def _parse_cohorts(
