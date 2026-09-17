@@ -129,3 +129,49 @@ def test_a_destination_without_a_mounted_home_leaves_its_deep_routes_unclaimed(
     )
 
     assert "community_base_mail_delivery: mounted but unclaimed" in route_partition_errors()
+
+
+def test_an_external_destination_survives_the_mounted_route_filter():
+    """A link that points off the URLconf has no route to mount, so it stays live.
+
+    C7.13 keeps a destination only when its home route is mounted, and C7.14 added
+    destinations whose link is an ``external_url`` and whose ``url_name`` is empty
+    by design. Read naively together, the first drops every one of the second: the
+    three C7.14 shell tests for icons and external links failed exactly this way
+    when the two branches first met. The rule is that an external destination is
+    always live, because there is nothing for the site to mount.
+    """
+
+    registry._clear()
+    registry.register(
+        Section(
+            slug="operations",
+            title="Operations",
+            order=80,
+            icon="settings",
+            destinations=(
+                Destination(
+                    key="api-docs",
+                    title="API docs",
+                    url_name="",
+                    route_names=(),
+                    order=10,
+                    external_url="/api/docs",
+                    new_tab=True,
+                ),
+                Destination(
+                    key="unmounted",
+                    title="Unmounted",
+                    url_name="a_route_this_site_does_not_mount",
+                    route_names=(),
+                    order=20,
+                ),
+            ),
+        )
+    )
+
+    live = registry.mounted_sections()
+
+    kept = [item.key for section in live for item in section.destinations]
+    assert "api-docs" in kept
+    assert "unmounted" not in kept

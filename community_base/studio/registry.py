@@ -156,13 +156,26 @@ def sections() -> tuple[Section, ...]:
     return tuple(ordered)
 
 
+def _is_live(destination, mounted: set[str]) -> bool:
+    """Whether a destination is reachable on this site.
+
+    A destination whose link is an ``external_url`` has no route to mount, so it
+    is always live: it points off the URLconf by design (C7.14) and claims no
+    route name. Every other destination is live when its home route is mounted.
+    """
+
+    if getattr(destination, "external_url", ""):
+        return True
+    return destination.url_name in mounted
+
+
 def _mounted_section(section: Section, mounted: set[str]) -> Section:
     """Rebuild one section from the destinations whose home route is mounted."""
 
-    destinations = tuple(item for item in section.destinations if item.url_name in mounted)
+    destinations = tuple(item for item in section.destinations if _is_live(item, mounted))
     groups = []
     for group in section.groups:
-        group_destinations = tuple(item for item in group.destinations if item.url_name in mounted)
+        group_destinations = tuple(item for item in group.destinations if _is_live(item, mounted))
         if group_destinations:
             groups.append(
                 DestinationGroup(
