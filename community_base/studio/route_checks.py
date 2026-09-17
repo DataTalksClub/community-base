@@ -2,29 +2,21 @@
 
 from collections import defaultdict
 
-from django.urls import URLPattern, URLResolver, get_resolver
-
-from community_base.studio.registry import routes_without_home, section_only_routes, sections
+from community_base.studio.registry import (
+    mounted_sections,
+    routes_without_home,
+    section_only_routes,
+)
+from community_base.studio.route_names import urlconf_route_names
 
 
 def mounted_route_names(*, mount="studio/", resolver=None) -> set[str]:
-    names = set()
-
-    def walk(patterns, prefix=""):
-        for entry in patterns:
-            path = prefix + str(entry.pattern)
-            if isinstance(entry, URLResolver):
-                walk(entry.url_patterns, path)
-            elif isinstance(entry, URLPattern) and path.startswith(mount) and entry.name:
-                names.add(entry.name)
-
-    walk((resolver or get_resolver()).url_patterns)
-    return names
+    return urlconf_route_names(prefix=mount, resolver=resolver)
 
 
-def route_claims() -> dict[str, list[str]]:
+def route_claims(*, resolver=None) -> dict[str, list[str]]:
     claims = defaultdict(list)
-    for section in sections():
+    for section in mounted_sections(resolver=resolver):
         for destination in section.destinations:
             for route_name in destination.route_names:
                 claims[route_name].append(f"destination:{section.slug}/{destination.key}")
@@ -43,7 +35,7 @@ def route_claims() -> dict[str, list[str]]:
 
 def route_partition_errors(*, mount="studio/", resolver=None) -> list[str]:
     mounted = mounted_route_names(mount=mount, resolver=resolver)
-    claims = route_claims()
+    claims = route_claims(resolver=resolver)
     errors = []
     for route_name in sorted(mounted | claims.keys()):
         owners = claims.get(route_name, [])
