@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from django.urls import NoReverseMatch, Resolver404, resolve, reverse
 
 from community_base.kernel import conf
+from community_base.studio.route_names import urlconf_route_names
 
 
 @dataclass(frozen=True)
@@ -143,6 +144,53 @@ def sections() -> tuple[Section, ...]:
     return tuple(ordered)
 
 
+def _mounted_section(section: Section, mounted: set[str]) -> Section:
+    """Rebuild one section from the destinations whose home route is mounted."""
+
+    destinations = tuple(item for item in section.destinations if item.url_name in mounted)
+    groups = []
+    for group in section.groups:
+        group_destinations = tuple(item for item in group.destinations if item.url_name in mounted)
+        if group_destinations:
+            groups.append(
+                DestinationGroup(
+                    key=group.key,
+                    title=group.title,
+                    order=group.order,
+                    destinations=group_destinations,
+                )
+            )
+    return Section(
+        slug=section.slug,
+        title=section.title,
+        order=section.order,
+        icon=section.icon,
+        destinations=destinations,
+        groups=tuple(groups),
+    )
+
+
+def mounted_sections(*, resolver=None) -> tuple[Section, ...]:
+    """Return the sections restricted to destinations the site actually mounts.
+
+    Installing an app registers its destinations; mounting the app's Studio URL
+    module is what makes them real. A destination is live when its ``url_name``
+    is mounted, and a section that registered destinations but kept none of them
+    is dropped entirely. The URLconf is read here rather than at registration
+    time, so ``AppConfig.ready()`` never has to resolve URLs.
+    """
+
+    mounted = urlconf_route_names(resolver=resolver)
+    live = []
+    for section in sections():
+        restricted = _mounted_section(section, mounted)
+        registered_anything = bool(section.destinations or section.groups)
+        kept_anything = bool(restricted.destinations or restricted.groups)
+        if kept_anything or not registered_anything:
+            live.append(restricted)
+    return tuple(live)
+
+
 def route_name_for(target) -> str:
     """Resolve a request or path to a URL name, degrading safely to empty."""
 
@@ -177,7 +225,7 @@ def active_state(request) -> dict:
     rendered_sections = []
     is_superuser = bool(getattr(getattr(request, "user", None), "is_superuser", False))
 
-    for section in sections():
+    for section in mounted_sections():
         rendered_destinations = []
         for destination in section.destinations:
             if not _visible(destination, is_superuser):
