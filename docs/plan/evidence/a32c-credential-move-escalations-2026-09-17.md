@@ -25,7 +25,7 @@ So running the copy as written would turn every existing AISL operator token int
 mail and content-sync credential over `Authorization: Bearer`. The mapping rule needs replacing
 before any copy runs. It was not improvised into the repository.
 
-## 2. Package API keys are transferred by an account merge, not revoked
+## 2. Package API keys are transferred by an account merge, not revoked -- CONFIRMED BY EXECUTION
 
 `accounts/services/account_merge.py` carries explicit strategies for `accounts.Token` (delete) and
 `accounts.MemberAPIKey` (revoke). It has none for `cb_api.APIKey`, so that model falls through to
@@ -37,7 +37,7 @@ credential is one, so a merge would silently transfer credentials instead of rev
 contradicts the acceptance criterion "reactivation restores nothing" and the behaviour
 `api/tests/test_user_merge.py` pins today.
 
-## 3. The copy makes every member's key metadata visible on a Studio page
+## 3. The copy makes every member's key metadata visible on a Studio page -- REFUTED AS STATED, but the data layer is as described
 
 The package's `/studio/api-keys/` page lists `APIKey.objects.select_related("user")` unfiltered,
 and its template renders `{{ api_key.user }}`, `{{ api_key.kind }}`, `{{ api_key.masked_prefix }}`
@@ -100,3 +100,55 @@ Under D32, adding a tenth scope silently narrows every existing key. Whenever `S
 grows, a data migration must add the new scope to existing rows, or grant them a wildcard. This is
 the problem #1495 was reacting to when it removed enforcement; the answer is the migration, not
 removing the check again.
+
+## Addendum, 2026-09-17: findings 2 and 3 executed rather than read
+
+The AI-Shipping-Labs session ran both claims instead of leaving them as code
+readings. One confirmed, one refuted as stated, and the refutation is the more
+useful of the two.
+
+### Finding 2 is confirmed, and it compounds with finding 1
+
+Running the real `merge_accounts` against a real `cb_api.APIKey` row: `user_id`
+repoints to the canonical account, `revoked_at` stays null, and
+`APIKey.authenticate(plaintext)` still returns the row under its new owner. With
+`kind="staff"` and `scopes=["*"]` the transferred key's `allows(("settings.write",))`
+is still true, so a merge hands a full settings, mail and content-sync credential
+to a different account. `MergePlan.to_dict()["credentials"]` reports zeros, so an
+operator sees no signal that a live credential changed hands.
+
+Mutation-checked: adding the missing merge strategy makes all three pinning tests
+fail. Filed as AI-Shipping-Labs/website#1736.
+
+### Finding 3 is refuted as stated, and the reason matters more than the claim
+
+`/studio/api-keys/` leaks nothing today, because nothing renders at all. The page
+returns HTTP 200 with the correct title and an otherwise empty Studio shell.
+`community_base/api/api_keys.html` puts its body in `{% block content %}`, but the
+site's `templates/community_base/studio/base.html` extends
+`templates/studio/base.html`, which defines only `{% block studio_content %}`. The
+block is silently dropped: no owner email, no key name, no masked prefix, no
+scopes, no create form reaches the HTML.
+
+The data layer is exactly as reported, though. `response.context["api_keys"]`
+does contain a member-owned key the requesting superuser does not own; the
+queryset is unfiltered. So the page is a loaded gun rather than a live leak: the
+obvious fix for a blank Studio screen is to add a `studio_content` override, and
+that alone turns the reported leak on. Mutation-checked: adding the override makes
+two of the nine pinning tests fail. Filed as AI-Shipping-Labs/website#1737, which
+states that the template block and the queryset scoping must land in the same
+change.
+
+A side effect worth recording: the page has presumably been non-functional since
+`community_base.api.urls` was mounted, so there is currently no way to create or
+revoke a package API key from the user interface, although the POST route still
+works when hit directly. The site already ships a `studio_content` override for
+the package settings page, so this reads as a missed override at mount time rather
+than a deliberate omission.
+
+### What this leaves for the owner
+
+Two open questions rather than three, and neither now rests on an unexecuted code
+reading. The pinning tests for both live uncommitted in
+`/data/agents/ai-shipping-labs/worktrees/verify-1656`, and both issues point at
+them, so whoever fixes each one inverts the tests rather than starting over.
