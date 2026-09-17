@@ -1,0 +1,11 @@
+content_id: 3c4d5e6f-0001-4000-8000-000000000001
+slug: python
+title: Python for AI Engineering
+description: |
+  A practical Python course built around one running project.
+outcome: Write Python you can put in production.
+prerequisites: You program in some other language.
+required_level: premium
+tags: [python, fundamentals]
+extra:
+  program_label: Maven

@@ -22,8 +22,7 @@ from community_base.curriculum.code_annotations import (
     parse_annotated_body,
 )
 from community_base.curriculum.models import Course, Module, Unit
-from community_base.curriculum.parsers_aisl import parse_aisl_course
-from community_base.curriculum.parsers_dtc import parse_dtc_course_repository
+from community_base.curriculum.parsers import parse_course_repository
 from community_base.curriculum.rendering import render_annotated_markdown, render_markdown
 from community_base.curriculum.source import CurriculumParseError
 from tests.curriculum.utils import AISL_CONTENT, DTC_REPO, make_source
@@ -437,26 +436,26 @@ def _copy(fixture, tmp_path, name):
     return target
 
 
-def test_aisl_sync_rejects_a_malformed_payload_and_names_the_file(tmp_path):
+def test_sync_rejects_a_malformed_payload_and_names_the_file(tmp_path):
     root = _copy(AISL_CONTENT, tmp_path, "aisl")
     unit = root / "courses" / "ai-hero" / "01-welcome" / "01-setup.md"
     unit.write_text(unit.read_text() + "\n" + INVALID_BODIES["out of range"])
 
     with ImmutableCheckout(root) as active:
         with pytest.raises(CurriculumParseError) as error:
-            parse_aisl_course(active, "courses/ai-hero/course.yaml")
+            parse_course_repository(active, path="courses/ai-hero")
 
     assert "courses/ai-hero/01-welcome/01-setup.md" in str(error.value)
     assert "visible lines" in str(error.value)
 
 
-def test_aisl_sync_accepts_a_valid_payload(tmp_path):
+def test_sync_accepts_a_valid_payload(tmp_path):
     root = _copy(AISL_CONTENT, tmp_path, "aisl-valid")
     unit = root / "courses" / "ai-hero" / "01-welcome" / "01-setup.md"
     unit.write_text(unit.read_text() + "\n" + ANNOTATED_BODY)
 
     with ImmutableCheckout(root) as active:
-        parsed = parse_aisl_course(active, "courses/ai-hero/course.yaml")
+        parsed = parse_course_repository(active, path="courses/ai-hero")
 
     bodies = [
         unit_graph.body
@@ -466,16 +465,16 @@ def test_aisl_sync_accepts_a_valid_payload(tmp_path):
     assert any("structured: true" in body for body in bodies)
 
 
-def test_dtc_sync_rejects_a_malformed_payload_and_names_the_file(tmp_path):
+def test_a_special_fence_annotation_is_rejected_and_the_file_named(tmp_path):
     root = _copy(DTC_REPO, tmp_path, "dtc")
-    lesson = root / "core" / "lesson.md"
+    lesson = root / "01-core" / "01-lesson.md"
     lesson.write_text(lesson.read_text() + "\n" + INVALID_BODIES["special fence"])
 
     with ImmutableCheckout(root) as active:
         with pytest.raises(CurriculumParseError) as error:
-            parse_dtc_course_repository(active)
+            parse_course_repository(active)
 
-    assert "core/lesson.md" in str(error.value)
+    assert "01-core/01-lesson.md" in str(error.value)
     assert "special fences cannot have annotations" in str(error.value)
 
 
