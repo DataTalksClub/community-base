@@ -1,0 +1,17 @@
+{% comment %}
+Default markup for one annotated code block (community-base issue #255).
+
+A site owns its public design system (decision D18), so this template ships
+only structural hooks and no colour, spacing or typography: `annotated-code-block`,
+`code-line-gutter`, `code-line-number`, `code-annotation-line` with the
+`is-highlighted` modifier and a `data-line-number` attribute, `code-annotations`,
+`code-annotations-heading`, `code-annotation-list`, `code-annotation-note`,
+`code-annotation-label` and `code-annotation-text`. A site styles those hooks in
+its own stylesheet, and may override this file at the same path to emit different
+markup entirely.
+
+The gutter sits outside `<code>` so a reader copies the source without the line
+numbers. Line text and note text are the only author-supplied strings here and
+both are autoescaped.
+{% endcomment %}<div class="annotated-code-block"><pre><span class="code-line-gutter" aria-hidden="true">{% for line in block.lines %}<span class="code-line-number">{{ line.number }}</span>{% endfor %}</span><code{% if block.language %} class="language-{{ block.language }}"{% endif %}>{% for line in block.lines %}<span class="code-annotation-line{% if line.is_highlighted %} is-highlighted{% endif %}" data-line-number="{{ line.number }}">{{ line.text }}</span>{% if not forloop.last %}
+{% endif %}{% endfor %}</code></pre></div><aside class="code-annotations" aria-labelledby="{{ heading_id }}" data-testid="code-annotations"><h3 id="{{ heading_id }}" class="code-annotations-heading">{{ heading }}</h3><ol class="code-annotation-list">{% for annotation in block.annotations %}<li class="code-annotation-note" data-testid="code-annotation-note"><span class="code-annotation-label">{{ annotation.label }}:</span><span class="code-annotation-text">{{ annotation.text }}</span></li>{% endfor %}</ol></aside>
