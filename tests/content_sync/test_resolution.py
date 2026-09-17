@@ -573,3 +573,84 @@ def test_a_data_record_is_opaque_and_its_keys_are_not_assets(tmp_path):
 
     assert result.ok
     assert result.assets == ()
+
+
+# --- the issue's worked case: three forms, two sources ------------------------
+
+SECOND_SOURCE = {"person:16rahuljain": "/people/16rahuljain"}
+
+FIRST = "schema_version: 1\ncollections:\n  - kind: wiki\n    path: wiki\n"
+LENIENT = FIRST + "strict_references: false\n"
+
+THREE_FORMS = (
+    "See the [sibling](power-analysis.md), [A/B testing](wiki:a-b-testing)\n"
+    "and [Rahul](person:16rahuljain)."
+)
+
+
+def two_source_repository(root: Path, *, manifest: str = FIRST) -> Path:
+    return write_repository(
+        root,
+        manifest=manifest,
+        pages=[
+            ("wiki/a-b-testing.md", page(THREE_FORMS, title="A/B Testing")),
+            (
+                "wiki/power-analysis.md",
+                page("Power analysis sizes an experiment.", title="Power Analysis").replace(
+                    "88888888", "40404040"
+                ),
+            ),
+        ],
+    )
+
+
+def second_source(kind: str, target: str) -> str | None:
+    return SECOND_SOURCE.get(f"{kind}:{target}")
+
+
+def test_a_sibling_link_a_typed_reference_and_a_second_source_all_resolve(tmp_path):
+    result = resolve(two_source_repository(tmp_path), routes=second_source)
+
+    document = result.by_path()["wiki/a-b-testing.md"]
+    assert result.ok
+    assert document.reference_records() == [
+        {
+            "kind": "wiki",
+            "target": "power-analysis",
+            "label": "sibling",
+            "href": "/wiki/power-analysis",
+        },
+        {
+            "kind": "wiki",
+            "target": "a-b-testing",
+            "label": "A/B testing",
+            "href": "/wiki/a-b-testing",
+        },
+        {
+            "kind": "person",
+            "target": "16rahuljain",
+            "label": "Rahul",
+            "href": "/people/16rahuljain",
+        },
+    ]
+    for record in document.reference_records():
+        assert set(record) == {"kind", "target", "label", "href"}
+
+
+def test_the_same_document_when_the_second_source_lost_the_target(tmp_path):
+    """Strict fails the sync; lenient keeps the label, drops the link, warns."""
+
+    strict = resolve(two_source_repository(tmp_path / "strict"), routes=lambda kind, target: None)
+    lenient = resolve(
+        two_source_repository(tmp_path / "lenient", manifest=LENIENT),
+        routes=lambda kind, target: None,
+    )
+
+    assert [(item.rule, item.severity) for item in strict.diagnostics] == [("3.7", "error")]
+    assert strict.ok is False
+    assert [(item.rule, item.severity) for item in lenient.diagnostics] == [("3.7", "warning")]
+    assert lenient.ok
+    page_html = lenient.by_path()["wiki/a-b-testing.md"].html
+    assert "Rahul" in page_html
+    assert "person:16rahuljain" not in page_html
+    assert page_html.count("<a ") == 2
