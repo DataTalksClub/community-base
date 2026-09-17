@@ -162,6 +162,11 @@ register_search_provider("members", search_members)
 register_card_provider("delivery-health", delivery_health_cards)
 ```
 
+The sidebar search box renders these groups the way the sidebar renders sections: one header per
+group, then each result's label with its `summary` underneath. The header text is derived from the
+group name, so `event_series` reads as `Event series`; a provider needs no extra field. Groups keep
+the order the JSON response lists them in, and an empty group is skipped.
+
 ## User management extensions
 
 The shared `/studio/users/` list works with `get_user_model()` and uses only standard Django auth
@@ -235,6 +240,9 @@ Use `studio_pagination_context` from `community_base.studio.utils` with the
 
 Run `make css-build` at the repository root. It installs the pinned local Tailwind dependency and
 writes the committed `community_base/studio/static/community_base/studio.css` file.
+
+The build scans package templates, Python modules and the JavaScript under `static/`, so a class
+used only from a script is generated too.
 
 A site that uses utility classes not present in package templates must run its own Tailwind build.
 Use `community_base/studio/assets/tailwind.config.js` as a preset, add the site's template paths to

@@ -229,3 +229,46 @@ def test_a_working_storage_round_trips_a_preference():
         ]));
         """
     ) == [{"people": False, "events": True}, False]
+
+
+def test_search_results_are_grouped_the_way_the_sidebar_groups_destinations():
+    assert run_node(
+        """
+        console.log(JSON.stringify(studioNav.searchGroups({
+          query: 'ku',
+          results: {
+            pages: [{label: 'Users', url: '/studio/users/', summary: 'People'}],
+            event_series: [{label: 'Kubernetes', url: '/studio/series/1/', summary: 'Events'}],
+            empty_group: []
+          }
+        })));
+        """
+    ) == [
+        {
+            "key": "pages",
+            "label": "Pages",
+            "items": [{"label": "Users", "url": "/studio/users/", "summary": "People"}],
+        },
+        {
+            "key": "event_series",
+            "label": "Event series",
+            "items": [{"label": "Kubernetes", "url": "/studio/series/1/", "summary": "Events"}],
+        },
+    ]
+
+
+def test_search_grouping_survives_a_malformed_payload():
+    assert run_node(
+        """
+        console.log(JSON.stringify([
+          studioNav.searchGroups(undefined),
+          studioNav.searchGroups({}),
+          studioNav.searchGroups({results: null}),
+          studioNav.searchGroups({results: ['pages']}),
+          studioNav.searchGroups({results: {pages: null}}),
+          studioNav.searchGroups({results: {pages: [null]}}),
+          studioNav.groupLabel(''),
+          studioNav.groupLabel('booked_calls')
+        ]));
+        """
+    ) == [[], [], [], [], [], [], "Results", "Booked calls"]

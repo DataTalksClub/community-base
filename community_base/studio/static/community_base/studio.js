@@ -67,16 +67,38 @@
       results.classList.remove('hidden');
       input.setAttribute('aria-expanded', 'true');
     }
+    function resultRow(item) {
+      var link = document.createElement('a');
+      link.href = item.url;
+      link.className = 'block px-3 py-2 text-sm hover:bg-secondary';
+      var label = document.createElement('span');
+      label.className = 'block truncate text-foreground';
+      label.textContent = item.label;
+      link.appendChild(label);
+      if (item.summary) {
+        var summary = document.createElement('span');
+        summary.className = 'block truncate text-xs text-muted-foreground';
+        summary.textContent = item.summary;
+        link.appendChild(summary);
+      }
+      return link;
+    }
     function render(payload) {
       results.replaceChildren();
-      Object.keys(payload.results || {}).forEach(function (group) {
-        (payload.results[group] || []).forEach(function (item) {
-          var link = document.createElement('a');
-          link.href = item.url;
-          link.className = 'block px-3 py-2 text-sm hover:bg-secondary';
-          link.textContent = item.label;
-          results.appendChild(link);
+      var groups = navApi ? navApi.searchGroups(payload) : [];
+      groups.forEach(function (group) {
+        var block = document.createElement('section');
+        block.className = 'border-b border-border last:border-b-0';
+        block.setAttribute('data-studio-search-group', group.key);
+        var heading = document.createElement('h3');
+        heading.className =
+          'px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground';
+        heading.textContent = group.label;
+        block.appendChild(heading);
+        group.items.forEach(function (item) {
+          block.appendChild(resultRow(item));
         });
+        results.appendChild(block);
       });
       if (!results.children.length) return showMessage('No results');
       results.classList.remove('hidden');

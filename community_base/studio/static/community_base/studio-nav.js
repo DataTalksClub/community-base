@@ -34,10 +34,35 @@
     return typeof preferred === 'boolean' ? preferred : !!serverExpanded;
   }
 
+  /* Search results arrive as {group: [item]}, the same shape the sidebar groups
+     destinations in. Turn them into an ordered, non-empty list of labelled
+     groups; the group key is a provider name, so derive a readable header from
+     it rather than keeping a map the package would have to guess. */
+  function groupLabel(key) {
+    var text = String(key || '').replace(/[_-]+/g, ' ').trim();
+    if (!text) return 'Results';
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function searchGroups(payload) {
+    var groups = (payload && payload.results) || {};
+    if (typeof groups !== 'object' || Array.isArray(groups)) return [];
+    return Object.keys(groups)
+      .map(function (key) {
+        var items = Array.isArray(groups[key]) ? groups[key].filter(Boolean) : [];
+        return {key: key, label: groupLabel(key), items: items};
+      })
+      .filter(function (group) {
+        return group.items.length > 0;
+      });
+  }
+
   root.studioNav = {
     STORAGE_KEY: STORAGE_KEY,
     readPreferences: readPreferences,
     writePreference: writePreference,
-    resolveExpanded: resolveExpanded
+    resolveExpanded: resolveExpanded,
+    groupLabel: groupLabel,
+    searchGroups: searchGroups
   };
 })(typeof window !== 'undefined' ? window : globalThis);
