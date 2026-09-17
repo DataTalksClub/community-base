@@ -151,6 +151,22 @@ def is_admitted_site_image_src(value: str) -> bool:
     )
 
 
+# nh3 consults ``attribute_filter`` only for attributes its own allowlist
+# already admits, so the filter below cannot widen anything on its own. This
+# map opens exactly the attributes ``_allowed_attribute`` decides on -- it is
+# the gate; the map only lets the question be asked. Without the ``*`` entry
+# the heading ids a site injects for its table of contents are dropped before
+# the filter ever sees them.
+_SANITIZE_ATTRIBUTES = {
+    "*": {"class", "id", "lang", "title"},
+    "a": {"href", "rel"},
+    "img": {"alt", "height", "loading", "src", "width"},
+    "td": {"colspan", "rowspan"},
+    "th": {"colspan", "rowspan", "scope"},
+    "time": {"datetime"},
+}
+
+
 def _allowed_attribute(tag: str, attribute: str, value: str) -> str | None:
     """nh3 attribute filter lifting DTC's ``_allowed_render_attribute``."""
 
@@ -177,6 +193,7 @@ def sanitize_rendered_html(rendered_html: str) -> str:
     return nh3.clean(
         rendered_html,
         tags=_SANITIZE_TAGS,
+        attributes=_SANITIZE_ATTRIBUTES,
         attribute_filter=_allowed_attribute,
         url_schemes=_URL_SCHEMES,
         link_rel=None,

@@ -107,6 +107,13 @@ class KbFixtureParser:
     def _slug_of(path: PurePosixPath) -> str:
         return "/".join(path.with_suffix("").parts[1:])
 
+    @staticmethod
+    def _render(slug: str, title: str, body: str) -> str:
+        """The site's own rendering: a wrapper and an anchored heading."""
+
+        paragraphs = "".join(f"<p>{line}</p>" for line in body.strip().splitlines() if line.strip())
+        return f'<div class="site-rendered"><h2 id="{slug}-heading">{title}</h2>{paragraphs}</div>'
+
     def _item(self, path: PurePosixPath, metadata: dict, body: str) -> SourceItem:
         source_path = path.as_posix()
         section = path.parts[0]
@@ -129,6 +136,115 @@ class KbFixtureParser:
                 "body": body,
                 "parent_slug": parent_slug,
                 "nav_order": nav_order,
+                "source_path": source_path,
+                "checksum": checksum,
+                "commit_sha": self._checkout.commit_sha,
+            },
+        )
+
+
+class KbDocsTreeFixtureParser:
+    """A documentation-tree parser shaped like DataTalks.Club's docs parser.
+
+    Layout under the fixture root: ``docs/<dir>/.../<stem>.md``. A directory's
+    own page is its ``index.md``; every other file is a leaf page of that
+    directory. The page slug is the leaf segment only, so the same slug
+    (``project``) repeats under different parents, and the path is carried by
+    ``parent_path``. Item keys are source paths, which identify a page even
+    when its slug does not. The public path comes from the source file, not
+    from the parent links, the way the DataTalks.Club docs parser derives it,
+    and the parser renders the body itself: the heading carries the anchor id
+    the site's table of contents links to, which the app's markdown renderer
+    does not emit.
+    """
+
+    def __init__(self):
+        self._checkout = None
+
+    def discover(self, checkout, source):
+        self._checkout = checkout
+        items: list[SourceItem] = []
+        paths = [
+            PurePosixPath(str(relative))
+            for relative in checkout.files()
+            if PurePosixPath(str(relative)).suffix == ".md"
+            and PurePosixPath(str(relative)).parts[0] == DOCS_ROOT
+        ]
+        # Parents before children: a shorter chain is always an ancestor's, and
+        # a directory's own index.md precedes the leaves beside it.
+        for path in sorted(paths, key=lambda path: (len(self._chain(path)), path.as_posix())):
+            metadata, body = parse_fixture_page(checkout.read_text(path.as_posix()))
+            items.append(self._item(path, metadata, body))
+        return items
+
+    def upsert(self, item, source, media):
+        data = item.data
+        page, action = sync.upsert_page(
+            source,
+            section=SECTION_DOCS,
+            slug=data["slug"],
+            title=data["title"],
+            body=data["body"],
+            parent_path=data["parent_path"],
+            nav_order=data["nav_order"],
+            public_path=data["public_path"],
+            body_html=data["body_html"],
+            record=data["record"],
+            commit_sha=data["commit_sha"],
+            source_path=data["source_path"],
+            checksum=data["checksum"],
+        )
+        return UpsertResult(page, action)
+
+    def soft_delete_missing(self, seen_keys, source):
+        return sync.delete_missing(source, SECTION_DOCS, seen_source_paths=set(seen_keys))
+
+    @staticmethod
+    def _chain(path: PurePosixPath) -> list[str]:
+        """The slug chain from the section root down to this page."""
+
+        parts = list(path.with_suffix("").parts[1:])
+        if parts[-1] == "index":
+            parts.pop()
+        return parts
+
+    @staticmethod
+    def _render(slug: str, title: str, body: str) -> str:
+        """The site's own rendering: a wrapper and an anchored heading."""
+
+        paragraphs = "".join(f"<p>{line}</p>" for line in body.strip().splitlines() if line.strip())
+        return f'<div class="site-rendered"><h2 id="{slug}-heading">{title}</h2>{paragraphs}</div>'
+
+    def _item(self, path: PurePosixPath, metadata: dict, body: str) -> SourceItem:
+        source_path = path.as_posix()
+        chain = self._chain(path)
+        slug = chain[-1] if chain else "index"
+        parent_path = "/".join(chain[:-1]) or None
+        nav_order = int(metadata.get("nav_order") or 0)
+        title = str(metadata.get("title") or slug)
+        checksum = hashlib.sha256(
+            "|".join(
+                (source_path, parent_path or "", body, json.dumps(metadata, sort_keys=True))
+            ).encode()
+        ).hexdigest()
+        return SourceItem(
+            key=source_path,
+            path=path,
+            data={
+                "slug": slug,
+                "title": title,
+                "body": body,
+                "parent_path": parent_path,
+                "nav_order": nav_order,
+                "public_path": "/docs/" + "".join(f"{segment}/" for segment in chain),
+                "body_html": self._render(slug, title, body),
+                "record": {
+                    "edit_url": f"https://example.invalid/edit/{source_path}",
+                    "has_toc": True,
+                    "grand_parent": chain[-3] if len(chain) > 2 else "",
+                    "fragment_ids": [f"{slug}-heading"],
+                    "images": [],
+                },
                 "source_path": source_path,
                 "checksum": checksum,
                 "commit_sha": self._checkout.commit_sha,

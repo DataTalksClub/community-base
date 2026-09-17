@@ -41,11 +41,13 @@ def test_parent_must_belong_to_the_same_section():
     assert "parent" in error.value.message_dict
 
 
-def test_slug_allows_dots_but_not_slashes():
+def test_slug_allows_dots_and_path_segments():
     page = make_page(slug="install.cmd", title="Install")
     assert page.slug == "install.cmd"
+    nested = make_page(slug="guides/install.cmd", title="Nested install")
+    assert nested.slug == "guides/install.cmd"
     with pytest.raises(ValidationError):
-        make_page(slug="no/slashes", title="No")
+        make_page(slug="no//empty", title="No")
 
 
 def test_body_html_is_rendered_and_sanitized_on_save():
@@ -68,7 +70,7 @@ def test_partial_provenance_is_rejected():
         page.full_clean()
 
 
-def test_section_slug_is_unique():
+def test_section_slug_is_unique_at_the_root():
     make_page(section=SECTION_DOCS, slug="dup", title="First")
     duplicate = KnowledgeBasePage(section=SECTION_DOCS, slug="dup", title="Second")
     with pytest.raises(IntegrityError), transaction.atomic():

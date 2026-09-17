@@ -14,7 +14,7 @@ from django.db import models
 
 from community_base.content_sync.provenance import SourceProvenanceMixin, provenance_constraint
 from community_base.curriculum.rendering import strip_leading_title_h1
-from community_base.knowledge_base.rendering import render_markdown
+from community_base.knowledge_base.rendering import render_markdown, sanitize_rendered_html
 
 SECTION_WIKI = "wiki"
 SECTION_DOCS = "docs"
@@ -28,25 +28,58 @@ STATUS_CHOICES = (
     (STATUS_DRAFT, "Draft"),
     (STATUS_PUBLISHED, "Published"),
 )
+BODY_HTML_MARKDOWN = "markdown"
+BODY_HTML_SITE = "site"
+BODY_HTML_SOURCE_CHOICES = (
+    (BODY_HTML_MARKDOWN, "Rendered from the markdown body"),
+    (BODY_HTML_SITE, "Supplied by the site"),
+)
 
 SLUG_MAX_LENGTH = 300
 TITLE_MAX_LENGTH = 300
+PUBLIC_PATH_MAX_LENGTH = 500
 
 # The donor slug alphabets (DTC wiki `[A-Za-z0-9._-]`, docs path segments) both
-# carry dots, so this is one step wider than Django's ``validate_slug``.
-SLUG_PATTERN = r"^[-a-zA-Z0-9_.]+$"
+# carry dots, so a segment is one step wider than Django's ``validate_slug``.
+# A slug may also be several such segments joined by ``/``: a site whose page
+# identity is a path (DTC's docs stable key) stores the whole path as the slug,
+# while a site whose identity is a leaf segment (AISL) stores one segment and
+# lets ``parent`` carry the path. Neither a leading, trailing nor doubled ``/``
+# is a segment, so both shapes stay unambiguous.
+SLUG_SEGMENT_PATTERN = r"[-a-zA-Z0-9_.]+"
+SLUG_PATTERN = rf"^{SLUG_SEGMENT_PATTERN}(?:/{SLUG_SEGMENT_PATTERN})*$"
 slug_validator = RegexValidator(
-    SLUG_PATTERN, "Enter a slug: letters, digits, dots, dashes or underscores."
+    SLUG_PATTERN,
+    "Enter a slug: letters, digits, dots, dashes or underscores, "
+    "optionally in several segments joined by a slash.",
+)
+
+
+# A site-owned public path is a root-relative URL path: no scheme, no host,
+# no query and no fragment, so it can be written into a template as-is.
+PUBLIC_PATH_PATTERN = r"^/[^\s?#]*$"
+public_path_validator = RegexValidator(
+    PUBLIC_PATH_PATTERN,
+    "Enter a root-relative path starting with a slash, without whitespace, query or fragment.",
 )
 
 
 class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     """One wiki or documentation page, with its rendered HTML stored alongside.
 
-    ``slug`` is the site's stable key within the section (for a documentation
-    tree it is typically the source path without extension, for the wiki the
-    page stem). ``parent`` is only meaningful for documentation pages: wiki
-    pages are a flat set and must leave it null.
+    ``slug`` is the site's stable key among its siblings: unique per
+    ``(section, parent)``, not per section, so the same leaf segment may
+    appear under different parents (DTC's documentation tree repeats
+    ``project`` seven times). A site whose identity is the whole path may
+    store the path as the slug instead. ``parent`` is only meaningful for
+    documentation pages: wiki pages are a flat set and must leave it null.
+
+    ``record`` is the site's own, section-shaped metadata. The package stores
+    it opaquely: it never reads a key, ships no field for one, and adds no
+    per-site column. DTC's wiki pages put ``blocks``, ``tags``,
+    ``fragment_ids``, ``unresolved_fragment_ids`` and ``relations`` there;
+    its documentation pages put ``edit_url``, ``has_toc``, ``permalink`` and
+    the rest of their projection record.
     """
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -57,6 +90,15 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     summary = models.TextField(blank=True, default="")
     body = models.TextField(blank=True, default="")
     body_html = models.TextField(blank=True, default="", editable=False)
+    body_html_source = models.CharField(
+        max_length=20,
+        choices=BODY_HTML_SOURCE_CHOICES,
+        default=BODY_HTML_MARKDOWN,
+        help_text=(
+            "Where body_html comes from: this app's markdown renderer, or the site. "
+            "Site-supplied HTML is sanitized on every save but never re-rendered."
+        ),
+    )
     parent = models.ForeignKey(
         "self",
         null=True,
@@ -70,13 +112,47 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
         help_text="Position among siblings; ties break by title, then slug.",
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PUBLISHED)
+    record = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            "Section-shaped metadata owned by the site. The package stores and returns it "
+            "and never reads a key of it; put site-specific fields here, not in new columns."
+        ),
+    )
+    public_path = models.CharField(  # noqa: DJ001 -- null means "derive from the tree".
+        max_length=PUBLIC_PATH_MAX_LENGTH,
+        null=True,
+        blank=True,
+        default=None,
+        validators=[public_path_validator],
+        help_text=(
+            "Site-owned public URL path. Null derives the path from the ancestor chain, "
+            "which is what a site that does not own its routes wants."
+        ),
+    )
 
     class Meta:
         ordering = ("section", "slug")
         constraints = [
+            # A NULL parent does not compare equal to itself in a unique index,
+            # so the root level needs its own conditional constraint; without
+            # it two root pages could share a slug within one section.
+            models.UniqueConstraint(
+                fields=("section", "parent", "slug"),
+                condition=models.Q(parent__isnull=False),
+                name="cb_kb_page_child_slug_unique",
+            ),
             models.UniqueConstraint(
                 fields=("section", "slug"),
-                name="cb_kb_page_section_slug_unique",
+                condition=models.Q(parent__isnull=True),
+                name="cb_kb_page_root_slug_unique",
+            ),
+            # Two pages cannot answer at one URL. Null paths do not collide.
+            models.UniqueConstraint(
+                fields=("public_path",),
+                condition=models.Q(public_path__isnull=False),
+                name="cb_kb_page_public_path_unique",
             ),
             provenance_constraint(name="cb_kb_page_source_complete"),
         ]
@@ -91,22 +167,57 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
         return f"{self.get_section_display()}: {self.title}"
 
     def save(self, *args, **kwargs):
-        self.body_html = render_markdown(strip_leading_title_h1(self.body, self.title))
+        if not self.public_path:
+            self.public_path = None
         update_fields = kwargs.get("update_fields")
-        if update_fields is not None:
-            update_fields = set(update_fields)
-            if "body" in update_fields:
-                update_fields.add("body_html")
-            kwargs["update_fields"] = list(update_fields)
+        if self.body_html_source == BODY_HTML_SITE:
+            # The site owns the rendering, not the trust: supplied HTML goes
+            # through the same sanitizer as rendered markdown. Sanitizing is
+            # idempotent, so a re-save leaves stored HTML byte for byte alone.
+            if update_fields is None or "body_html" in set(update_fields):
+                self.body_html = sanitize_rendered_html(self.body_html)
+        else:
+            self.body_html = render_markdown(strip_leading_title_h1(self.body, self.title))
+            if update_fields is not None:
+                update_fields = set(update_fields)
+                if "body" in update_fields:
+                    update_fields.add("body_html")
+                kwargs["update_fields"] = list(update_fields)
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
+        """The page's public path: the site's own when it stored one.
+
+        A site whose public paths come from the source files (DTC derives
+        them from the documentation file path, independently of the parent
+        links) stores ``public_path``; a site that leaves it null keeps the
+        ancestor-chain path this app has always built.
+        """
+
+        if self.public_path:
+            return self.public_path
         parts = (*self.ancestor_slugs(), self.slug)
         return f"/{self.section}/" + "/".join(parts) + "/"
 
+    def set_site_rendered_html(self, rendered_html: str) -> None:
+        """Hand the page already-rendered HTML instead of markdown.
+
+        The app stops rendering this page's body: ``save`` sanitizes what the
+        site produced and stores it unchanged. Pass an empty string, or set
+        ``body_html_source`` back to ``markdown``, to return the page to the
+        app's renderer.
+        """
+
+        self.body_html_source = BODY_HTML_SITE
+        self.body_html = rendered_html
+
     def clean(self):
         super().clean()
+        if not self.public_path:
+            self.public_path = None
         errors: dict[str, str] = {}
+        if not isinstance(self.record, dict):
+            errors["record"] = "The record must be a JSON object, so sites can add keys to it."
         if self.section == SECTION_WIKI and self.parent_id is not None:
             errors["parent"] = "Wiki pages are a flat set; a wiki page cannot have a parent."
         if self.parent_id is not None:

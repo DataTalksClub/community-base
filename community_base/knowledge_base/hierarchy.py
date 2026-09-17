@@ -42,12 +42,18 @@ class NavigationItem:
 
 @dataclass(frozen=True)
 class NavigationTree:
-    """A validated hierarchy and its deterministic depth-first reading order."""
+    """A validated hierarchy and its deterministic depth-first reading order.
+
+    ``by_pk`` is the total index. ``by_slug`` is a convenience for a section
+    whose slugs are unique; where a leaf slug repeats under different parents
+    it holds only one of them, so look a page up by ``pk``.
+    """
 
     section: str
     roots: tuple[NavigationItem, ...]
     preorder: tuple[NavigationItem, ...]
     by_slug: Mapping[str, NavigationItem]
+    by_pk: Mapping[int, NavigationItem]
 
 
 def _nav_key(page: KnowledgeBasePage) -> tuple[int, str, str]:
@@ -116,6 +122,7 @@ def navigation_tree(section: str = SECTION_DOCS) -> NavigationTree:
         children.sort(key=_nav_key)
 
     by_slug: dict[str, NavigationItem] = {}
+    by_pk: dict[int, NavigationItem] = {}
 
     def build_item(page: KnowledgeBasePage) -> NavigationItem:
         item = NavigationItem(
@@ -123,6 +130,7 @@ def navigation_tree(section: str = SECTION_DOCS) -> NavigationTree:
             children=tuple(build_item(child) for child in children_by_parent.get(page.pk, ())),
         )
         by_slug[page.slug] = item
+        by_pk[page.pk] = item
         return item
 
     roots = tuple(build_item(page) for page in children_by_parent.get(None, ()))
@@ -140,6 +148,7 @@ def navigation_tree(section: str = SECTION_DOCS) -> NavigationTree:
         roots=roots,
         preorder=tuple(preorder),
         by_slug=MappingProxyType(dict(by_slug)),
+        by_pk=MappingProxyType(dict(by_pk)),
     )
 
 
@@ -174,7 +183,9 @@ def sequential_navigation(
     """Adjacent detail pages in depth-first pre-order: (previous, next)."""
 
     tree = navigation_tree(page.section)
-    item = tree.by_slug.get(page.slug)
+    # By pk, not slug: a repeated leaf slug would otherwise find a namesake
+    # under another parent and report that page's neighbours.
+    item = tree.by_pk.get(page.pk)
     if item is None:
         return None, None
     items = tree.preorder

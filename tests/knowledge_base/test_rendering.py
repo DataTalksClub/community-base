@@ -44,3 +44,24 @@ def test_image_traversal_and_credentials_are_denied():
 
 def test_empty_body_renders_empty_html():
     assert render_markdown("") == ""
+
+
+def test_heading_ids_and_classes_survive_sanitizing():
+    html = sanitize_rendered_html(
+        '<div class="toc-body"><h2 id="setup">Setup</h2><p lang="en" title="t">x</p></div>'
+    )
+    assert (
+        html == '<div class="toc-body"><h2 id="setup">Setup</h2><p lang="en" title="t">x</p></div>'
+    )
+
+
+def test_unlisted_attributes_are_still_stripped():
+    html = sanitize_rendered_html('<p style="color:red" data-x="1" onmouseover="e()">x</p>')
+    assert html == "<p>x</p>"
+
+
+def test_sanitizing_is_idempotent():
+    once = sanitize_rendered_html(
+        '<div class="site"><h2 id="a">A</h2><script>alert(1)</script><p>b</p></div>'
+    )
+    assert sanitize_rendered_html(once) == once

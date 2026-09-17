@@ -61,3 +61,32 @@ def test_studio_detail_shows_ancestors_and_children():
 
     parent_detail = client.get(f"/studio/knowledge-base/{index.pk}/")
     assert b"Setup" in parent_detail.content
+
+
+def test_studio_detail_shows_who_owns_the_path_and_the_rendering():
+    page = make_page(
+        slug="project",
+        title="Project",
+        public_path="/docs/course-a/project/",
+        record={"edit_url": "https://example.invalid/edit/docs/course-a/project.md"},
+    )
+    page.set_site_rendered_html('<div class="site-rendered"><p>Brief.</p></div>')
+    page.save()
+    client = make_staff_client()
+
+    response = client.get(f"/studio/knowledge-base/{page.pk}/")
+
+    assert response.status_code == 200
+    assert b"/docs/course-a/project/ (site-owned)" in response.content
+    assert b"body rendered by supplied by the site" in response.content
+    assert b"edit_url" in response.content
+
+
+def test_studio_detail_says_when_the_path_comes_from_the_tree():
+    page = make_page(slug="plain", title="Plain")
+    client = make_staff_client()
+
+    response = client.get(f"/studio/knowledge-base/{page.pk}/")
+
+    assert b"/docs/plain/ (from the tree)" in response.content
+    assert b"body rendered by rendered from the markdown body" in response.content
