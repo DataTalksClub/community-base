@@ -49,6 +49,64 @@ The checkout is a read-only manifest snapshot. Read files through `checkout.read
 delete to the supplied source. A parser failure produces a partial sync and does not prevent other
 registered content types from running.
 
+## Content format and kind registry
+
+`FORMAT.md` in this directory is the normative content format, version 1 (decision D23): the
+`content.yaml` repository manifest, the two file shapes, the core keys, naming and identity,
+nesting, assets, cross-references, the kind registry and the markdown dialect. A content repository
+is checked against that file and against nothing else.
+
+`community_base.content_sync.kinds` registers the kinds that enforce it. The package owns `course`,
+`article`, `person`, `wiki`, `docs` and `data`. A site registers its own from `AppConfig.ready()`,
+the way it registers a parser:
+
+```python
+from community_base.content_sync.kinds import KeySpec, KindSpec, register_kind
+from community_base.content_sync.kinds.layouts import ItemDirectoryLayout
+
+register_kind(
+    "workshop",
+    KindSpec(
+        name="workshop",
+        shape="manifest",
+        layout=ItemDirectoryLayout(part="workshop", document="workshop.yaml"),
+        keys={"instructors": KeySpec("reference_list", reference_kind="person")},
+        requires_date=True,
+        route=lambda path: f"workshops/{path}",
+    ),
+)
+```
+
+A kind declares its file shape, its layout, its keys with type, required flag and default, which
+keys are asset references, which are typed references, the kinds it depends on, and a route
+resolver. A kind may add keys; it may never remove, rename or retype a core key, and `register_kind`
+refuses a specification that tries. `extra` is the only site escape hatch.
+
+`kind_order()` returns the registered kinds in dependency order: a kind depends on the kinds its
+reference keys name, or on the list it declares in `depends_on` when body references make the
+derivation incomplete. Ordering sources by the kinds their collections declare is what `C7.9b` uses
+instead of a hand-written list.
+
+## Checking a repository
+
+```text
+uv run python -m community_base.content_sync.check <path>
+uv run python manage.py check_content <path>
+```
+
+Both entry points call `check.run_check`, need no database and exit non-zero on any error. Each
+diagnostic names the repository-relative file, a YAML pointer into it (`/` is the whole file) and
+the rule number in `FORMAT.md`:
+
+```text
+articles/no-id/index.md:/content_id: [3.3] required key content_id is missing
+wiki/liquid.md:12:/body: [4.1] Liquid is not part of the dialect: {% include x.html %}
+```
+
+The module form knows the package kinds only; pass `--kinds <dotted.module>` (repeatable) to import
+a module that registers a site kind. The management command needs no flag, because the site's apps
+have already registered them.
+
 ## Configuration
 
 Declare source dictionaries in `COMMUNITY_BASE["CONTENT_SOURCES"]`. Each needs `slug`,

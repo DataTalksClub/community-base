@@ -36,7 +36,23 @@ def provenance_constraint(*, name: str, identity_fields: tuple[str, ...] = ("sou
 
 
 class SourceProvenanceMixin(models.Model):
-    """Nullable provenance shared by source-managed records."""
+    """Nullable provenance shared by source-managed records.
+
+    ``source_content_id`` holds the item's own ``content_id`` from the content
+    format: the upsert key an author writes in the file's front matter or
+    manifest (``content_sync/FORMAT.md`` section 3.4). It is not the id of the
+    ``ContentSource`` the item came from, and it is not a scope: a row's source
+    is named by a foreign key, not by this field.
+
+    One package app disagrees today. ``curriculum.importing`` follows the rule;
+    ``knowledge_base.sync`` stores ``ContentSource.pk`` here and uses it as the
+    ownership scope of ``delete_missing``. ``ContentSource.id`` and this field
+    are both ``UUIDField``, so the two meanings have the same type and the
+    mistake cannot raise: it produces rows whose provenance points at a source
+    instead of an item. Issue C7.9c repairs the knowledge base with a source
+    foreign key and a data migration; C7.7, which wrote this contract down,
+    ships no migration and so could not repair it.
+    """
 
     source_content_id = models.UUIDField(null=True, blank=True)
     source_path = models.CharField(  # noqa: DJ001 -- null identifies DB-managed rows.

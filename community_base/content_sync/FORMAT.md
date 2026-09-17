@@ -208,8 +208,8 @@ Rules.
   declared kinds' dependencies (section 3.8, `depends_on`).
 - `[[wikilinks]]`, `prev_url`, `next_url` and Liquid do not exist. Previous and next are derived
   from order.
-- Heading fragments use the slug algorithm of section 4. Every heading id on a page is unique;
-  duplicates get `-2`, `-3`.
+- Heading fragments use the slug algorithm of section 4.1. Every heading id on a page is unique;
+  the second `Setup` heading is `setup-1`, the third `setup-2`.
 - The resolved references of a document are stored as a list of `{kind, target, label, href}` on
   the record.
 
@@ -239,7 +239,7 @@ register_kind(
         },
         asset_keys=("image",),
         requires_date=True,
-        route=lambda item: f"workshops/{item.slug}",
+        route=lambda path: f"workshops/{path}",
     ),
 )
 ```
@@ -254,7 +254,7 @@ register_kind(
 | `reference_keys` | derived from `keys` | keys whose value is a typed reference or a fixed-kind reference |
 | `depends_on` | tuple of kind names | kinds whose rows must exist before this kind's references resolve |
 | `requires_date` | boolean | whether `date` is required (and, when false, forbidden) by section 3.3 |
-| `route` | callable | `(item) -> path`, the default route the package apps compute |
+| `route` | callable | `(path) -> route`, the default route the package apps compute from an item path |
 | `parts` | mapping of part name to `PartSpec` | for a composite kind such as `course`, the per-file schemas |
 
 A `KeySpec` declares `type` (one of `string`, `text`, `markdown`, `integer`, `boolean`, `slug`,
@@ -300,6 +300,14 @@ Layout, with `<course>` the collection path (`.` for a single-course repository,
 <course>/cohorts/<identifier>/homework/<module-slug>/homework.md
 <course>/cohorts/<identifier>/**                  anything else is opaque archive, ignored
 ```
+
+A course repository carries notebooks, scripts and datasets beside its content. A file this layout
+does not recognise is ignored rather than rejected; `ignore` in `content.yaml` exists for the ones
+an author wants named. The other layouts are stricter, because their collections hold nothing but
+authored content.
+
+A course collection at `path: .` has no directory name to take a slug from, so its `course.yaml`
+declares `slug` explicitly.
 
 `course.yaml`
 
@@ -449,8 +457,10 @@ exist.
 data/<name>.yaml or data/<name>.json
 ```
 
-One opaque record per file, keyed by the file stem, carrying the parsed content untouched. No core
-keys are required and no key is rejected. The package stores it; a site parser interprets it. This
+One opaque record per file, keyed by its path below the collection root without the extension, so
+a generated artefact may sit in a subdirectory (`graph/graph.json`) and keep a distinct key. The
+parsed content is carried untouched: no core keys are required, no key is rejected, and a top-level
+list is as acceptable as a mapping. The package stores it; a site parser interprets it. This
 carries `tiers.yaml`, `podcast-platforms.yaml`, `slack.yaml`, `graph.json` and `search-corpus.json`
 (decision D27).
 
@@ -574,6 +584,11 @@ uv run python -m community_base.content_sync.check <path>
 uv run python manage.py check_content <path>
 ```
 
+The module form runs with the package kinds alone. A content repository whose CI checks a
+site-registered kind passes `--kinds <dotted.module>`, repeatable, and the module registers its
+kinds the way `AppConfig.ready()` does. The management command needs no flag: the site's apps have
+already registered them.
+
 Both call `community_base.content_sync.check.run_check`, which does the work and writes the report;
 the module entry point turns its return value into a process exit code and the management command
 turns it into a `CommandError`. There is no second implementation to drift.
@@ -615,8 +630,13 @@ process exits 1 when any error was reported, and 0 when only warnings were.
 - `[[wikilinks]]` and `{IMAGE:id}` tokens are errors.
 - A leading H1 equal to the title is stripped by the renderer; writing one is a warning.
 - Heading ids are injected after rendering, with the DataTalks.Club algorithm: NFKD, ASCII,
-  lowercase, non-alphanumerics to `-`, duplicates suffixed `-2`, `-3`; the heading list
-  `{level, id, title}` is returned and stored.
+  lowercase, non-alphanumerics to `-`, an empty result becoming `section`, and a repeat of an id
+  suffixed by the number of times it was already seen, so a second `Setup` is `setup-1` and a third
+  `setup-2`; the heading list `{level, id, title}` is returned and stored.
+- The design document stated both suffix styles, `-1`, `-2` in its section 4.1 and `-2`, `-3` in
+  its section 3.7. The donor is the authority, because the point of keeping the algorithm is that
+  the pinned DataTalks.Club fragment contracts keep resolving, and the donor
+  (`content/docs_projection.py`) counts from zero and suffixes `-1` first. That is the rule here.
 - `~~strikethrough~~` has no python-markdown built-in; the validator warns and the conversion
   writes `<del>`.
 - Links are resolved and images rewritten before rendering (sections 3.6 and 3.7).
@@ -647,7 +667,7 @@ process exits 1 when any error was reported, and 0 when only warnings were.
 | Raw HTML block followed by markdown on the next line | the conversion inserts a blank line after `</figure>` and `</table>` |
 | Server-side code highlighting | `codehilite` registered through the extension hook, unchanged output |
 | mistune `strikethrough` | the validator warns; the conversion rewrites to `<del>` |
-| Heading id suffix style | one algorithm, `-2` and `-3` suffixes |
+| Heading id suffix style | one algorithm: a repeated `Setup` heading is `setup-1`, then `setup-2` |
 | A site's article `blocks` projection | article storage is site-owned under decision D21; issue D7.2 decides whether DataTalks.Club keeps deriving blocks from this source or renders the body once. Not decided here. |
 
 ## 5 Not yet implemented

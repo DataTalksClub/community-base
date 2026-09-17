@@ -55,6 +55,9 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
      `@community_base.jobs.register_handler(name)`;
    - domain signals in `community_base.<app>.signals`;
    - Studio sections registered in `AppConfig.ready()` through `community_base.studio.registry`;
+   - content kinds registered in `AppConfig.ready()` through
+     `community_base.content_sync.kinds.register_kind`, which may add keys to the content format
+     but never remove, rename or retype a core key (D23);
    - API routes registered through `community_base.api.registry`; administrative integrations use
      scoped bearer authentication, while member-owned browser routes explicitly select session
      authentication and retain CSRF protection;
@@ -124,7 +127,7 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
 | `community_base.notifications` | `notifications` | as in AISL | AISL | 3 |
 | `community_base.comments` | `comments` | as in AISL | AISL | 3 |
 | `community_base.voting` | `voting` | as in AISL | AISL | 3 |
-| `community_base.content_sync` | `cb_content_sync` | `ContentSource`, `SyncLog`, `WebhookLog` | AISL `integrations/services/github_sync/`, `integrations.models` | 2 |
+| `community_base.content_sync` | `cb_content_sync` | `ContentSource`, `SyncLog`, `WebhookLog` | AISL `integrations/services/github_sync/`, `integrations.models`; the content format, kind registry and `check_content` (phase 7 `C7.7`, D23) | 2 |
 | `community_base.studio` | `cb_studio` | none | AISL `studio` shell, sidebar, templatetags, users pages | 2 |
 | `community_base.events` | `events` | as in AISL | AISL `events` | 4 |
 | `community_base.curriculum` | `cb_curriculum` | `Course`, `Cohort`, `Module`, `Unit`, `Enrollment`, `UnitProgress`, `Certificate` | AISL `content` course models, DTC `courses` provenance and cohort split | 5 |
