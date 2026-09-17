@@ -127,6 +127,7 @@ issues that can start now.
 | `C5.1d` | community-base | Curriculum Studio and staff APIs | C5.1c | no | done | https://github.com/DataTalksClub/community-base/pull/123 |
 | `C5.1e` | community-base | Curriculum ownership: course-owned modules, cohort placement, and nesting | C5.1d | no | done | https://github.com/DataTalksClub/community-base/pull/254 |
 | `C5.1f` | community-base | Pre-work checklist items | C5.1e | no | done | https://github.com/DataTalksClub/community-base/issues/272 (merged to main as 202bcb9 and ee82f30: checklist_item unit kind, checklist services, curriculum README) |
+| `C5.1g` | community-base | Structured code annotations in unit bodies | C5.1f | no | in-progress | https://github.com/DataTalksClub/community-base/issues/255 |
 | `C5.2a` | community-base | Coursework models | C5.1d | no | done | https://github.com/DataTalksClub/community-base/pull/126 |
 | `C5.2b` | community-base | Homework scoring and statistics | C5.2a | no | done | https://github.com/DataTalksClub/community-base/pull/128 |
 | `C5.2c` | community-base | Projects and peer review | C5.2b | no | done | https://github.com/DataTalksClub/community-base/pull/132 |

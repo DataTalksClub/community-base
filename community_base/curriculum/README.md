@@ -114,6 +114,88 @@ Run imports with the content sync command:
 uv run python manage.py sync_content --from-disk <checkout> --source <slug>
 ```
 
+## Code annotations
+
+A unit body can attach notes to lines of a fenced code block. The author writes a standalone
+HTML comment immediately after the closing fence:
+
+````text
+```python
+first = 1
+
+third = first + 2
+print(third)
+```
+<!--
+structured: true
+code_annotations:
+  - line: 1
+    text: Set the initial value.
+  - lines: "2-3"
+    text: The blank line still counts.
+-->
+````
+
+The authoring contract is the one specified on AI-Shipping-Labs/website#1589, unchanged, so a
+body written for either site behaves the same way here.
+
+| Rule | Detail |
+|---|---|
+| Placement | A standalone multi-line `<!--` / `-->` comment, separated from the closing fence by blank lines only. An inline comment carrying a reserved key is an error, not metadata. |
+| Payload | Exactly the keys `structured: true` and `code_annotations`, a non-empty sequence. Duplicate YAML keys are rejected; the loader is a safe loader, so a YAML tag never constructs an object. |
+| Selector | Each item carries exactly one of `line` (a positive integer) or `lines` (a quoted `start-end` range with `start < end`), plus a non-empty `text`. |
+| Ranges | Ranges must fit the block's visible line count and must not overlap or repeat. |
+| Targets | One payload per block. A payload with no code fence in front of it, or one in front of a `mermaid` or `eventwidget` fence, is an error. |
+| Note text | Plain text. It is whitespace-collapsed and escaped, never rendered as markdown, so a link or a tag in a note stays literal. |
+
+Anything that claims to be annotation metadata but breaks a rule raises
+`code_annotations.CodeAnnotationError`. A comment that makes no such claim is ordinary markdown
+and is left alone.
+
+The capability is split so the package owns meaning and each site owns appearance:
+
+| Layer | Owner | Where |
+|---|---|---|
+| Parsing, validation, structured representation | package | `curriculum/code_annotations.py`: `parse_annotated_body` returns the stripped markdown plus one `AnnotatedCodeBlock` per fenced block (`language`, `CodeLine` rows carrying `number`/`text`/`is_highlighted`, and the `CodeAnnotation` notes with a ready-to-print `label`). No HTML, no Django. |
+| Default markup | package, overridable | `curriculum/templates/curriculum/annotated_code_block.html`. |
+| Styling | site | Each site adds rules for the hooks below to its own stylesheet. |
+
+Line highlighting is expressed structurally, not visually: `CodeLine.is_highlighted` in the
+parse result, and in the default markup an `is-highlighted` modifier plus a `data-line-number`
+attribute on each `code-annotation-line`. The default template emits structural hooks only --
+`annotated-code-block`, `code-line-gutter`, `code-line-number`, `code-annotation-line`,
+`code-annotations`, `code-annotations-heading`, `code-annotation-list`, `code-annotation-note`,
+`code-annotation-label`, `code-annotation-text` -- and no colour, spacing or typography. Decision
+D18 keeps public design systems per site, so the package ships no stylesheet for them: a site
+that adopts the feature styles those hooks itself, or overrides the template at the same path and
+emits whatever markup its design system wants. Until a site does one of the two, an annotated
+block renders as readable but unstyled numbered lines followed by the note list.
+
+The package does not syntax-highlight. `render_markdown` has no codehilite extension, so a
+fenced block renders as plain escaped text here, and an annotated one is the same text split into
+numbered lines with the language kept on `<code class="language-...">` for a site that wants to
+highlight client-side.
+
+`rendering.render_annotated_markdown` is the unit-body entry point and `Unit.save()` calls it, so
+annotations are rendered once at ingestion rather than per request. A body with no annotations
+renders exactly like `render_markdown`. Rendering is not a second markdown path or a second
+sanitizer: the markdown still goes through `render_markdown` (which sanitizes), and the annotated
+block is markup this package generates afterwards from the parsed structure, with the two
+author-supplied strings -- code text and note text -- autoescaped by the template.
+
+Both sync parsers validate a lesson body before anything is written, so a malformed payload fails
+the import as a `CurriculumParseError` naming the source file, rather than reaching a reader as
+visible YAML. `Unit.save()` fails the same way, which means an invalid replacement body leaves the
+previously published unit untouched.
+
+Rendered HTML is stored on the row. A site that overrides the template, or changes its markup,
+re-renders existing units by re-running the sync (or re-saving them); the stored HTML is not
+regenerated on read.
+
+AI Shipping Labs keeps its local copy in `content/utils/code_annotations.py` until it adopts this
+curriculum app, and deletes it then. Removing it earlier is not part of this work: the site cannot
+consume the package curriculum yet.
+
 ## Studio
 
 Mount the Studio routes and register the section (done by the app config):
