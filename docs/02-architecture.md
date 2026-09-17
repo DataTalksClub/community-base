@@ -287,3 +287,13 @@ GitHub push webhook -> content_sync ingress (signature) -> JobIntent per source
   -> handler: source lock, immutable checkout, parser registry by content type,
      upsert, soft-delete missing, SyncLog
 ```
+
+A parser is a consumer of the document toolkit, never a second implementation of it.
+`content_sync.documents` reads a repository once (the collection walk, the two file shapes, the
+core and kind keys, slug, `sort_order`, `required_level`, identity and checksums),
+`content_sync.resolution` resolves its assets and cross-references, `content_sync.rendering` is
+the one renderer and the one sanitiser, and `content_sync.kinds` holds the layouts and schemas.
+What is left for a parser is the mapping onto its app's models. The course parser,
+`curriculum/parsers.py`, is the shape of that: one parser for one format, registered once as
+`curriculum_course`, with no layout sniffing and no second key validation (decision D23, issue
+C7.10).

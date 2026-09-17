@@ -1,7 +1,7 @@
 # Curriculum
 
 `community_base.curriculum` owns courses, cohorts, modules and units, enrollments, unit
-progress and completion certificates, plus the import pipeline for both source layouts. It
+progress and completion certificates, plus the import pipeline for the one content format. It
 exists so that neither site defines a `Course`, `Module` or `Unit` model.
 
 ## Installation
@@ -67,8 +67,8 @@ for item in get_checklist_state(user, pre_work_module):
 ```
 
 `services.get_checklist_items(module)` returns the raw ordered `Unit` rows without a user's
-completion state. Neither the AISL nor the DTC content-sync parser emits `checklist_item` units
-yet; today they are Studio- or API-authored only.
+completion state. The course parser reads `kind: checklist_item` (section 3.8 lists it), but no
+content repository authors one yet; today they are Studio- or API-authored in practice.
 
 Rows synced from a repository carry complete provenance (`source_content_id`, `source_path`,
 `source_commit_sha`, `source_checksum`); Studio-managed rows carry none.
@@ -91,22 +91,69 @@ part of `can_access`; callers check it separately so preview badges keep working
 
 ## Import
 
-The app registers two `content_sync` parsers, each sniffing its layout in `discover`:
+The app registers exactly one `content_sync` parser, `curriculum_course`. It reads the course
+layout of `community_base/content_sync/FORMAT.md` section 3.8 and nothing else; the two layout
+parsers that preceded it (`parsers_aisl.py`, `parsers_dtc.py`) are gone, and so is the layout
+sniffing that decided between them.
 
-| Content type | Layout |
+```text
+<course>/course.yaml
+<course>/NN-<module>/module.yaml
+<course>/NN-<module>/README.md                    module overview, optional
+<course>/NN-<module>/NN-<unit>.md
+<course>/NN-<module>/NN-<submodule>/module.yaml   optional second module level
+<course>/cohorts/<identifier>/cohort.yaml
+<course>/cohorts/<identifier>/README.md           cohort notice, optional
+<course>/cohorts/<identifier>/homework/<module-slug>/homework.yaml
+```
+
+`<course>` is a collection of kind `course` declared in the repository's `content.yaml`: `.` for
+a single-course repository (where `course.yaml` declares its own `slug`), or one entry per course
+in a repository that holds several. A repository of three courses therefore imports three, and a
+`course.yaml` at the repository root is an ordinary course rather than a file to skip.
+
+The parser is thin by construction. `content_sync.documents` walks the collection, splits the two
+file shapes, validates the core and kind keys, derives `slug`, `sort_order` and `required_level`,
+and checks identity; `content_sync.kinds` owns the layout and the per-part schemas.
+`curriculum/parsers.py` maps what they read onto `community_base.curriculum.source`, and reports
+their diagnostics unchanged: a rejected file comes back with its path, a pointer into it and the
+number of the rule in `FORMAT.md`. A retired key (`prev_url`, `next_url`, `is_homework`,
+`is_preview`, `access`, `schema_version` in anything but `content.yaml`) is named by that
+diagnostic, not by a second rule written in the parser.
+
+| Graph | From |
 |---|---|
-| `curriculum_aisl_course` | `course.yaml` + `module.yaml` (optionally nested one level: `01-module/01-submodule/module.yaml`) + numbered unit markdown. The numeric ordering prefix supplies sort order and is stripped from the slug at every level. Every course becomes one `self_paced` cohort that places the full course tree. |
-| `curriculum_dtc_course_repository` | DTC course repository v1: root `course.yaml`, `SITE.md`, module manifests (optionally nested one level), `cohorts/<identifier>/cohort.yaml`. A `modules`-format cohort's `flow` is its placement of top-level modules (`CohortModule`), not a private copy. Homework manifests are left unread until the coursework app imports them. |
+| `CourseGraph` | `course.yaml` plus the core keys; `image` becomes `cover_image_url`, `repository_url` becomes `github_repo_url`, `status` drives `visible`. |
+| `ModuleGraph` | one `module.yaml` per module directory, its `README.md` as `overview`, `sort_order` from the `NN-` prefix, recursive through `children` to at most two module levels. |
+| `UnitGraph` | one `NN-<unit>.md` per unit: `kind`, `video_url`, `timestamps`, `session_position`, `is_bonus`, `code`, with the markdown body unrendered. |
+| `CohortGraph` | one `cohorts/<identifier>/cohort.yaml` per cohort; `delivery` becomes `mode`, `modules` becomes `module_refs`, `homework` becomes `homework_bindings`. |
 
-Both parsers produce the same source graph (`community_base.curriculum.source`): a course owns
-one module tree (`CourseGraph.modules`, recursive via `ModuleGraph.children`), and a cohort
-carries `module_refs` -- `None` for "no placement declared, show the full tree" (every AI
-Shipping Labs course), or an ordered tuple of top-level module identifiers to place (DataTalks.Club
-cohorts that curate a subset or order). One importer applies the graph: source-managed rows are
-created, updated or removed to match the repository, a course that vanishes is soft-deleted to
-`draft`, and every import records a `CurriculumImportRun`. Re-importing unchanged content is a
-no-op. `source.validate_module_tree` rejects a mixed module (children and direct units) or a tree
-deeper than two module levels, naming the offending directory.
+Cohort placement follows the contract `CohortModule` already has: `module_refs is None` means
+"no placement declared, show the course's full tree", and a tuple places exactly those top-level
+modules in that order. An absent `modules` list is `None`; `archive: true` is the empty tuple, so
+an archived cohort places nothing and its own `README.md` is the notice for GitHub readers.
+Declaring both is an error naming both keys.
+
+A cohort's `homework` entries become `CohortGraph.homework_bindings`, a tuple of
+`{module, source, unit}`. This parser validates that `module` names a top-level module and
+carries the rest through; the manifests themselves are read by the coursework app (issue C7.11).
+
+Three parser rulings, where section 3.8 is silent:
+
+- A course that declares no `cohorts/` directory gets one implicit open-ended self-paced cohort
+  placing the full tree, which is the row `services.get_or_create_self_paced_cohort` would mint
+  on demand anyway.
+- A unit carries `required_level` only when it or one of its module ancestors declares one, so
+  `Course.default_unit_required_level` still answers for a unit that declares nothing.
+- An `instructors` reference resolves against a `person` collection of the same repository when
+  there is one, and otherwise carries the reference itself as the instructor slug, which is what
+  the importer matches an existing host by.
+
+One importer applies the graph: source-managed rows are created, updated or removed to match the
+repository, a course that vanishes is soft-deleted to `draft`, and every import records a
+`CurriculumImportRun`. Re-importing unchanged content is a no-op. `source.validate_module_tree`
+rejects a mixed module (children and direct units) or a tree deeper than two module levels,
+naming the offending directory.
 
 Run imports with the content sync command:
 
@@ -196,9 +243,9 @@ sanitizer: the markdown still goes through `render_markdown` (which sanitizes), 
 block is markup this package generates afterwards from the parsed structure, with the two
 author-supplied strings -- code text and note text -- autoescaped by the template.
 
-Both sync parsers validate a lesson body before anything is written, so a malformed payload fails
-the import as a `CurriculumParseError` naming the source file, rather than reaching a reader as
-visible YAML. `Unit.save()` fails the same way, which means an invalid replacement body leaves the
+The course parser validates a lesson body before anything is written, so a malformed payload
+fails the import as a `CurriculumParseError` naming the source file, rather than reaching a reader
+as visible YAML. `Unit.save()` fails the same way, which means an invalid replacement body leaves the
 previously published unit untouched.
 
 Rendered HTML is stored on the row. A site that overrides the template, or changes its markup,
@@ -255,8 +302,9 @@ helpers.
   against top-level modules only; deep-linking straight to a unit inside a submodule is not
   yet routed. Nested content parses, imports and computes correctly; its public browsing pages
   are a follow-up.
-- A DataTalks.Club `legacy`-format cohort (one with no module content at all) and a cohort with
-  no placement rows are currently indistinguishable at the database level: both read as "show
-  the course's default tree" through `Cohort.effective_modules()`. This only matters for a
-  course that mixes a `legacy` cohort with a `modules`/`shared` cohort in the same family, a
-  narrow case during DataTalks.Club's own per-family migration window.
+- A cohort that places nothing and a cohort that declared no placement are indistinguishable at
+  the database level: both leave zero `CohortModule` rows, so `Cohort.effective_modules()` falls
+  back to the course's default tree for either. An `archive: true` cohort therefore parses to the
+  empty placement the format asks for and still displays the full tree. Separating the two needs
+  a column on `Cohort`, which is the placement contract shipped in `C5.1e` and is not reopened by
+  the parser issue.
