@@ -67,3 +67,67 @@ Then a harness pinned to the real corpus, now fixed in two places.
    only thing keeping two of the four historical-registration-total cases red.
 4. `test_project_gallery`, ten tests, expects an "Explore courses" link in an empty state the
    unified gallery template does not render. A product acceptance question, not a test bug.
+
+## Addendum: the corpus binding is half repaired, and the other half is not corpus binding
+
+Branch `fix/playwright-corpus-binding`, nine commits on top of `ci-repair-20260917`, not merged.
+Per-module sweep, run identically at the base and at the head:
+
+| | failures | errors |
+|---|---|---|
+| base | 79 | 7 |
+| head | 42 | 2 |
+
+Cleared 37 failures and 5 errors, of which 36 and 4 are attributable to the commits; one of each was
+a flake that passed at head unchanged.
+
+### A measurement finding that outranks the count
+
+The first full-suite run was invalidated and the reason generalises. Under load average 29 on 12
+cores, `test_reflow_zoom_spacing_reduced_motion_and_forced_colors` hung, the browser died, and every
+one of the roughly 330 tests after it reported an error: 273 apparent failures from one hang.
+
+A single full-suite Playwright run is not a trustworthy measurement on a contended machine. The
+replacement was one pytest process per module with the same markers the CI target uses. Anyone
+reading a browser-suite number from this box should ask how it was produced before believing it.
+
+### Roughly half of what remains is not corpus binding
+
+This is the part worth acting on. The following are browser tests that never followed a deliberate
+product change, so each is an acceptance question rather than a test defect:
+
+- homepage climb copy rewritten on 2026-09-10, with the browser pin never following. The Django
+  test pins the new copy, so the browser pin is simply stale.
+- FAQ dropped from the default primary navigation.
+- every extensionless and trailing-slash detail alias retired on 2026-09-16, where the owner ruled
+  the URL break acceptable, and this module still expects a 301.
+- the article reading measure widened to 896px on owner feedback, against a test pinning 480 to 640.
+
+They are cheap individually and should be batched into one issue that puts the product decisions in
+front of the owner, rather than absorbed silently by whoever is next in the file. Absorbing them is
+how a suite becomes green and meaningless, which is the failure this whole diagnosis started from.
+
+### Three findings that are not test defects at all
+
+- `test_accessibility` has three genuine axe `target-size` violations on the courses hub, on
+  `a[href$="de-zoomcamp"]` and two catalogue-card title links. A real accessibility defect.
+- `test_issue_237_qna_review` sees `JobIntent.objects.count()` of 3 where 0 is expected: a jobs or
+  email side effect, not a corpus question.
+- `test_podcast_episode_graph` fails because the synthetic graph has 78 nodes and 9 links, all
+  wiki to wiki, so no episode has a single graph link and every episode page renders the empty
+  state. Making those pass means designing synthetic episode-graph data, which has knock-on effects
+  on the wiki graph page and the homepage explorer. That is a fixture design decision and was left
+  alone rather than invented.
+
+### The shapes that recur, for whoever continues
+
+- a name that was one string in the real corpus and is two in the synthetic one, which bit three
+  separate modules.
+- the newest or first record silently assumed to carry a video, a transcript, show notes or three
+  platform links.
+- arithmetic of the old corpus written as a literal: 24 seasons, 23 graph connections, 51 event
+  rows.
+
+Deriving the value from the record is the fix in every case. A scan for path literals is not
+enough: two modules were found only by reading failures, because their bindings were an event title
+and an implicit assumption about the newest episode.
