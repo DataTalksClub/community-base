@@ -10,6 +10,7 @@ def _navigation_results(request, query):
     matches = []
     query = query.casefold()
     for section in active_state(request)["sections"]:
+        section_title = section["section"].title or "Studio"
         for row in section["destinations"]:
             destination = row["destination"]
             if row["url"] and query in destination.title.casefold():
@@ -18,9 +19,23 @@ def _navigation_results(request, query):
                         "label": destination.title,
                         "url": row["url"],
                         "type": "Page",
-                        "summary": section["section"].title or "Studio",
+                        "summary": section_title,
                     }
                 )
+        for group_row in section["groups"]:
+            group_title = group_row["group"].title
+            summary = f"{section_title} · {group_title}" if group_title else section_title
+            for row in group_row["destinations"]:
+                destination = row["destination"]
+                if row["url"] and query in destination.title.casefold():
+                    matches.append(
+                        {
+                            "label": destination.title,
+                            "url": row["url"],
+                            "type": "Page",
+                            "summary": summary,
+                        }
+                    )
     return matches
 
 
