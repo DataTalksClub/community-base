@@ -198,3 +198,664 @@ different layout. They are DTC-only, their YAML shapes are sound, and the FAQ ha
 core rules to them only where a rule is violated (Liquid, absolute asset paths, identity), and
 section 5 prices the FAQ conversion as optional.
 
+## 3. The specification
+
+Name: the DataTalks.Club content format, version 1. Lives in the package as
+`community_base/content_sync/FORMAT.md` (normative text, this section) and
+`community_base/content_sync/kinds/` (the kind registry that enforces it). Everything below is
+normative unless marked as a recommendation.
+
+### 3.1 Repository manifest
+
+Every synced repository carries `content.yaml` at its root. A repository without it is not
+synced; the engine records one error and stops for that source.
+
+```yaml
+schema_version: 1
+collections:
+  - kind: article
+    path: articles
+  - kind: person
+    path: people
+  - kind: data
+    path: data
+ignore:
+  - "**/*.template.md"
+  - "**/solution.md"
+strict_references: true
+```
+
+| Key | Type | Required | Default | Rule |
+|---|---|---|---|---|
+| `schema_version` | integer | yes | none | must equal `1`; the only place a version is written |
+| `collections` | list | yes | none | at least one entry |
+| `collections[].kind` | string | yes | none | a kind registered in the package or by the site (section 3.8) |
+| `collections[].path` | string | yes | none | repository-relative directory; `.` means the whole repository and then no other collection may be declared; two collections never nest |
+| `ignore` | list of globs | no | `[]` | matched against repository-relative paths; a matched file is invisible to every collection |
+| `strict_references` | boolean | no | `true` | `true` fails the sync on an unresolved reference (section 3.7); `false` records a warning and drops the link |
+| `theme_pairs` | boolean | no | `false` | `true` turns a `name.dark.ext` sibling of a referenced image into a paired image (section 3.6) |
+
+Files outside every collection path are ignored, not errors. This replaces AISL's classifier
+(`classify.py`, 391 lines of directory and front-matter heuristics) and DTC's per-parser
+`source.slug` checks with one declaration per repository.
+
+### 3.2 Two file shapes
+
+- A document is a `.md` file whose first line is `---`, followed by YAML front matter, a line
+  `---`, then the markdown body. Front matter is required; a `.md` file without it inside a
+  collection is an error. UTF-8, LF line endings.
+- A manifest is a `.yaml` file whose top level is a mapping.
+- File names inside a collection: `NN-slug.md`, `slug.md`, `index.md`, `README.md`,
+  `<fixed name>.yaml` as the kind prescribes. Files and directories whose name starts with `_`
+  or `.` are ignored.
+
+### 3.3 Core keys
+
+Every document and every item manifest (course, module, cohort, homework, workshop, podcast,
+book) carries the core keys. Unknown top-level keys are an error. A kind adds keys; it never
+removes, renames or retypes a core key.
+
+| Key | Type | Required | Default | Rule |
+|---|---|---|---|---|
+| `content_id` | UUID string, any version | yes | none | permanent identity; unique across the whole repository regardless of kind; quoted in YAML |
+| `title` | string, 1 to 300 chars | yes | none | display title; the body must not repeat it as a leading H1 (the renderer strips one if present) |
+| `slug` | slug | no | file or directory name with the ordering prefix removed | pattern `^[a-z0-9]+(?:-[a-z0-9]+)*$`, at most 100 chars; unique among siblings |
+| `summary` | plain text, at most 500 chars | no | `""` | one line for cards, search and meta description; no markdown |
+| `status` | `draft` or `published` | no | `published` | a draft is imported and hidden |
+| `required_level` | integer, or one of `open`, `registered`, `basic`, `main`, `premium` | no | inherited from the parent item, else `0` | resolved to the integer through `curriculum.source.ACCESS_NAMES`; decision D5 |
+| `sort_order` | integer | no | the numeric prefix of the file or directory name, else `0` | sibling order; ties break by slug |
+| `tags` | list of slugs | no | `[]` | free taxonomy |
+| `image` | relative path or `https://` URL | no | `""` | the item's cover, picture or thumbnail (section 3.6) |
+| `date` | ISO date `YYYY-MM-DD` | kind-dependent | none | required by article, project, podcast, book, workshop; forbidden elsewhere |
+| `extra` | mapping | no | `{}` | site-specific keys; the package validates it is a mapping and never reads inside it; it is stored on the record and passed to the site parser |
+
+### 3.4 Naming, ordering and identity
+
+- Ordering prefix: a file or directory name may start with two or three digits and a hyphen
+  (`01-intro.md`, `01-agentic-rag/`, `001-first-question.md`). The prefix sets `sort_order` and
+  is stripped from the slug. An explicit `sort_order` wins over the prefix. Two siblings that
+  strip to the same slug are an error; two siblings with the same prefix are allowed.
+- No date prefixes on names. Chronology is `date` in front matter.
+- `index.md` is the document of its directory (a tree node). `README.md` is for GitHub readers
+  and is read only where a kind names it (module overview, workshop landing copy).
+- `content_id` is the upsert key. A renamed file with the same `content_id` updates the same
+  record with a new slug. A changed `content_id` creates a new record and drafts the old one,
+  exactly as `knowledge_base.sync.delete_missing` and the curriculum soft delete do today.
+- `slug` is the URL segment. `path` for a tree kind is the chain of ancestor slugs plus the
+  slug, relative to the collection root, joined with `/`. The public URL is the site's decision:
+  the package apps compute a default route from `(kind, path)` and a site may map it.
+- Provenance: `source_content_id` on every synced row holds the item's `content_id`. Section 6
+  records that the knowledge base stores the source's pk there today.
+
+### 3.5 Nesting
+
+- A tree is expressed by directories and by nothing else. `parent:` keys do not exist.
+- In a docs collection: a directory is a node and must contain `index.md`; leaves are
+  `NN-slug.md` files; maximum depth four below the collection root.
+- In a course: a module is a directory holding `module.yaml`; a submodule is a directory holding
+  `module.yaml` inside a module directory; maximum two module levels
+  (`curriculum.source.validate_module_tree`); a module directory holds either submodule
+  directories or unit files, never both, apart from `README.md` and asset directories.
+- A wiki collection is flat: one directory of `slug.md` files; subdirectories are an error.
+- Cohorts are not part of the tree; they are placements (section 3.8, course).
+
+### 3.6 Assets
+
+- An asset is any file that a document body, a manifest key of asset type (`image`, and the
+  kind-declared ones), or an HTML `<img src>` references by a relative path.
+- A reference resolves from the referencing file's directory and must stay inside the
+  collection directory. A path that escapes the collection, an absolute `/path`, a Liquid
+  expression or a `{IMAGE:id}` token is an error.
+- `https://` references are left alone. `http://` and `data:` references are errors.
+- Allowed asset types: `png`, `jpg`, `jpeg`, `gif`, `webp`, `svg`, `pdf`. The engine applies
+  the signature and unsafe-SVG checks now in DTC `content/sync_parsers/media.py:53-73` to every
+  asset before upload. Maximum 16 MiB.
+- The engine uploads every referenced asset through `content_sync.media` keyed by the
+  repository path and rewrites the reference in the rendered HTML and in stored asset keys.
+  Unreferenced files are not assets and are not uploaded.
+- Recommendation: keep an item's assets in an `images/` directory next to the item (article
+  directory, module directory, workshop directory) or, for flat collections, in
+  `<collection>/images/`.
+- `theme_pairs` (section 3.1) makes `name.dark.ext` a paired asset of `name.ext`; the engine
+  emits both with the class hooks the site styles (AISL issue 1725 behaviour, opt-in).
+
+### 3.7 Cross-references
+
+One link syntax: a standard markdown link or image. Three destination forms.
+
+| Form | Example | Resolution |
+|---|---|---|
+| Relative file | `[setup](02-environment.md)`, `[intro](../01-intro/index.md#running-example)` | another document in the same collection; resolved to that document's route; the fragment must name a heading of the target when both are in the same source |
+| Typed reference | `[A/B testing](wiki:a-b-testing)`, `[Rahul](person:16rahuljain)`, `[episode](podcast:s24e01-competitions-beyond-kaggle-leaderboard)`, `[project rules](docs:courses/llm-zoomcamp/project)`, `[module 1](course:llm-zoomcamp/agentic-rag)` | `kind:` prefix is a registered kind; the remainder is the target's slug, or its path for a tree kind; resolved through the kind's route resolver, site-provided for site-routed kinds |
+| External URL | `[docs](https://...)` | left alone |
+
+Front-matter references use the same typed form without the link wrapper:
+`related: [wiki:a-b-testing, podcast:s24e01-...]`. Keys whose kind is fixed omit the prefix:
+`authors: [16rahuljain]`, `instructors: [alexey-grigorev]`, `guests: [tatianagabruseva]` are
+person references.
+
+Rules.
+
+- An unresolved reference fails the sync when `strict_references` is true (the default),
+  otherwise the link is dropped, its label kept, and a warning recorded. This keeps DTC's
+  wiki behaviour (fail on unresolved fragments, `podwiki.py:363-374`) as the default and its
+  graceful degradation for cross-source podcast links as the opt-out.
+- Resolution happens at sync, against the rows already synced. A reference to a kind from
+  another source therefore requires that source to be synced first; the engine orders sources
+  by the declared kinds' dependencies, which is what DTC's `podwiki.py:265-299` does by hand.
+- `[[wikilinks]]`, `prev_url`, `next_url` and Liquid do not exist. Previous and next are derived
+  from order.
+- Heading fragments use the slug algorithm of section 4. Every heading id on a page is unique;
+  duplicates get `-2`, `-3`.
+- The resolved references of a document are stored as a list of `{kind, target, label, href}`
+  on the record. This is DTC's `relations` (`podwiki.py:391`), made general.
+
+### 3.8 Kind registry and kind schemas
+
+The registry is `community_base.content_sync.kinds`. A kind is a module that declares: the
+file shape (`document`, `manifest`, `tree`, `data`), the kind keys with type, required flag
+and default, which keys are asset references and which are typed references, and a route
+resolver. The package registers the tier A kinds and `data`; a site registers its tier B kinds
+with `register_kind(name, spec)` in `AppConfig.ready()`, the same pattern as
+`register_parser`. A kind cannot alter the core; `extra` is the only site escape hatch.
+
+The specifications below list kind keys only; core keys apply everywhere.
+
+#### course
+
+Layout, with `<course>` the collection path (`.` for a single-course repository, or
+`courses/<slug>/` in a multi-course one).
+
+```
+<course>/course.yaml
+<course>/images/cover.jpg
+<course>/NN-<module>/module.yaml
+<course>/NN-<module>/README.md                    overview, optional
+<course>/NN-<module>/NN-<unit>.md
+<course>/NN-<module>/images/...                   assets
+<course>/NN-<module>/code/...                     never synced, referenced by unit `code`
+<course>/NN-<module>/NN-<submodule>/module.yaml   optional second level
+<course>/NN-<module>/NN-<submodule>/NN-<unit>.md
+<course>/cohorts/<identifier>/cohort.yaml
+<course>/cohorts/<identifier>/README.md           cohort notes or archive notice, optional
+<course>/cohorts/<identifier>/homework/<module-slug>/homework.yaml
+<course>/cohorts/<identifier>/homework/<module-slug>/homework.md
+<course>/cohorts/<identifier>/**                  anything else is opaque archive, ignored
+```
+
+`course.yaml`
+
+| Key | Type | Required | Default |
+|---|---|---|---|
+| `description` | markdown | yes | none |
+| `instructors` | list of person references | no | `[]` |
+| `default_unit_required_level` | level | no | inherits `required_level` |
+| `outcome` | plain text, at most 300 | no | `""` |
+| `prerequisites` | plain text, at most 1000 | no | `""` |
+| `discussion_url` | https URL | no | `""` |
+| `repository_url` | https URL | no | `""` |
+| `docs_url` | https URL | no | `""` |
+| `faq_url` | https URL | no | `""` |
+| `hashtag` | `[A-Za-z0-9_]+` without `#` | no | `""` |
+| `testimonials` | list of `{quote, name, role, source_url}` | no | `[]` |
+| `extra` | mapping | no | `{}` | 
+
+AISL's `access_mode`, `enroll_url`, `program_label` and `maven_course_key` go under `extra`
+and stay AISL-read (`families/courses.py:64-125`). DTC's `starting_point`, `progression` and
+`homework_summaries` go under `extra` and stay DTC-read. `cohorts`, `current_cohort`, `urls`,
+`schema_version`, `published`, `cover_image`, `cover_image_url`, `ignore` (moved to
+`content.yaml`) and `instructor_name` do not exist.
+
+`module.yaml`
+
+| Key | Type | Required | Default |
+|---|---|---|---|
+| `is_bonus` | boolean | no | `false` |
+| `available_after_days` | integer or null | no | `null` |
+
+No `units` list, no `schema_version`, no `bonus`, no `ignore`. The overview is `README.md`.
+
+Unit document `NN-<unit>.md`
+
+| Key | Type | Required | Default |
+|---|---|---|---|
+| `kind` | `lesson`, `homework`, `event`, `checklist_item` | no | `lesson` |
+| `video_url` | https URL | no | `""` |
+| `timestamps` | list of `{time, title}`, `time` as `MM:SS` or `H:MM:SS` | no | `[]` |
+| `session_position` | positive integer | when `kind: event` | `null` |
+| `is_bonus` | boolean | no | `false` |
+| `code` | list of `{label, path}` with `path` relative to the unit file | no | `[]` |
+
+The body is the lesson. A `kind: homework` unit body is the instructions page; the gradable
+assignment is the cohort's `homework.yaml`. `is_homework`, `is_preview`, `access`, `prev_url`
+and `next_url` do not exist.
+
+`cohorts/<identifier>/cohort.yaml`. The identifier is the directory name and is not repeated
+inside the file. It follows the slug pattern (`2026`, `self-paced`, `4`).
+
+| Key | Type | Required | Default |
+|---|---|---|---|
+| `delivery` | `live` or `self_paced` | yes | none |
+| `start_date`, `end_date` | ISO dates | when `delivery: live` and `status: published` | `null` |
+| `modules` | ordered list of top-level module slugs | no | absent means the full course tree in module order |
+| `archive` | boolean | no | `false`; `true` means the cohort places no modules and points GitHub readers at its own directory (`README.md` is the notice) |
+| `registration_url` | https URL | no | `""` |
+| `hashtag` | as course | no | `""` |
+| `homework` | list of `{module, source, unit}` | no | `[]` |
+
+`homework[].module` is a top-level module slug that the cohort places; `homework[].source` is
+the manifest path relative to the cohort directory (`homework/01-agentic-rag/homework.yaml`);
+`homework[].unit` is the optional `content_id` of a `kind: homework` unit whose page shows the
+submission form. This is DTC's binding (`llm-zoomcamp/cohorts/2026/cohort.yaml`) plus the one
+key AISL needs to keep its form on the unit page. `title` defaults to
+`<course title> <identifier>`. `curriculum: current` becomes the absence of `archive`;
+`curriculum: github_archive` becomes `archive: true`; `identifier`, `course`, `published`,
+`legacy_slug`, `year`, `format` and `flow` do not exist. The package maps `modules` to
+`CohortGraph.module_refs` and `CohortModule` placements.
+
+`homework/<module-slug>/homework.yaml` keeps the DTC manifest exactly
+(`llm-zoomcamp/cohorts/2026/homework/01-agentic-rag/homework.yaml`): core keys plus
+`instructions_path` (default `homework.md`), `due_at` (ISO datetime with offset), `initial_state`
+(`closed`, `open`, `scored`), `form` (`homework_url`, `time_spent_lectures`,
+`time_spent_homework`, `faq_contribution`, `learning_in_public_cap`), `questions` (each with
+`content_id`, `id`, `type`, `prompt`, `points`, `options`, `answer_type`, and the encrypted
+`answer` envelope of `coursework/answer_crypto.py:40-43`). AISL's plaintext `questions:` with
+`correct:` in unit front matter does not exist; answers are always the envelope.
+
+#### article
+
+```
+articles/<slug>/index.md
+articles/<slug>/images/...
+```
+
+| Key | Type | Required | Default |
+|---|---|---|---|
+| `date` | ISO date | yes | none |
+| `authors` | list of person references | no | `[]` |
+| `byline` | plain text | no | `""`; display text when no person record exists |
+| `subtitle` | plain text, at most 300 | no | `""` |
+| `related` | list of typed references | no | `[]` |
+| `faq` | list of `{question, answer}` with markdown answers | no | `[]` |
+
+Storage stays site-owned (D21): the AISL parser fills `content.Article`, the DTC parser fills
+`SyncedDocument`. Both read this one shape.
+
+#### person
+
+```
+people/<id>.md
+people/images/<id>.jpg
+```
+
+`title` is the display name, `summary` the short bio, `image` the picture, the body the long
+bio. Kind keys: `links`, a list of `{label, url}` where `label` is one of `website`, `linkedin`,
+`github`, `x`, `youtube`, `other`. AISL keeps instructors DB-authored if it wants; a synced
+person is the same shape on both sites. `short`, `picture`, `bio_short`, `layout`, `photo_url`
+do not exist.
+
+#### wiki
+
+```
+wiki/<slug>.md
+wiki/images/...
+```
+
+| Key | Type | Required | Default |
+|---|---|---|---|
+| `related` | list of typed references | no | `[]` |
+| `page_type` | slug | no | `""`; a site-defined template selector (DTC's `layout: article` versus `wiki`) |
+
+Stored per page: rendered HTML, the heading list, and the resolved references. DTC's
+`keyword`, `secondary_keywords`, `seo_title`, `search_intent` and `related_wiki` go under `extra`.
+
+#### docs
+
+```
+docs/index.md
+docs/NN-<section>/index.md
+docs/NN-<section>/NN-<page>.md
+docs/NN-<section>/NN-<subsection>/index.md
+docs/images/...
+```
+
+| Key | Type | Required | Default |
+|---|---|---|---|
+| `toc` | boolean | no | `true` |
+
+The tree is the directory tree. The page key in `knowledge_base` is `(section, parent, slug)`
+and the stored path is the directory chain, which is what C7.4 step 1 proposes. Repeated leaf
+slugs under different parents (DTC's fifteen repeated segments) are legal. `parent`,
+`grand_parent`, `nav_order`, `has_children`, `has_toc`, `permalink`, `layout` do not exist.
+
+#### data
+
+```
+data/<name>.yaml or data/<name>.json
+```
+
+One opaque record per file, keyed by the file stem, carrying the parsed content untouched. No
+core keys are required. The package stores it; a site parser interprets it. This carries
+`tiers.yaml`, `podcast-platforms.yaml`, `slack.yaml`, `graph.json` and `search-corpus.json`.
+
+#### Tier B kinds, site-registered
+
+| Kind | Site | Layout | Changes needed to obey the core |
+|---|---|---|---|
+| workshop | AISL | `YYYY/MM/YYYY-MM-DD-<slug>/workshop.yaml`, `NN-page.md`, `README.md`, `images/` | `cover_image_url` becomes `image`; `instructor_name` becomes `instructors` (person references) with `byline` fallback; page links already relative; everything else in `_docs/03-04-frontmatter.md` stands |
+| project | AISL | `projects/<slug>/index.md`, `images/` | file renamed to `index.md`; `author` becomes `authors` or `byline`; `description` becomes `summary`; `cover_image` becomes `image` |
+| curated_link | AISL | `links/NN-<slug>.md` | `content_id` becomes a UUID; `item_id` retired; `category` and `url` are kind keys |
+| interview_question | AISL | `interview-questions/<slug>.md` | unchanged apart from `description` becoming `summary` |
+| podcast | DTC | `podcasts/sNN/eNN.yaml`, `eNN-transcript.yaml`, `podcasts/sNN/images/` or a shared `podcasts/images/` | add `content_id`; `short` becomes `summary`; `image` path becomes relative; `legacy_path` retired; `dateadded` becomes `date`; `guests` are person references; the flat pre-reorg transcript layout is retired |
+| book | DTC | `books/YYYY/<slug>.yaml`, `books/images/` | add `content_id`; `cover` and `image` become `image`; `legacy_path` retired; `start` becomes `date` with `end` kept as a kind key; `authors` are person references |
+| faq | DTC | unchanged: `faq/<course>/index.yaml` (was `_metadata.yaml`), `faq/<course>/<section>/NNN-<id>-<slug>.md` | optional: add `content_id`; `{IMAGE:id}` tokens and `images:` declarations become relative image links; the ten-character `id` stays as a kind key; the `_questions` prefix and underscore separators go because leading underscores are ignored by the core |
+| member wiki topic | AISL | private repository, `wiki/<slug>.md` | `_wiki` renamed to `wiki`; otherwise a wiki collection with `topics` under `extra` |
+
+### 3.9 Worked examples
+
+`content.yaml` of a single-course repository (`DataTalksClub/llm-zoomcamp`)
+
+```yaml
+schema_version: 1
+collections:
+  - kind: course
+    path: .
+ignore:
+  - "**/code/**"
+  - "etc/**"
+  - "awesome-llms.md"
+  - "project.md"
+```
+
+`course.yaml`
+
+```yaml
+content_id: "e79727f3-f540-4176-ae98-9b9cb42abdc7"
+title: LLM Zoomcamp
+slug: llm-zoomcamp
+summary: Build, evaluate and monitor production-style LLM applications.
+image: images/llm-zoomcamp.jpg
+tags: [llm, rag, agents]
+description: |
+  LLM Zoomcamp is a free, hands-on course on building real-world applications with
+  Large Language Models. ...
+outcome: Build, evaluate, and monitor production-style LLM applications.
+prerequisites: You can write Python and use the command line, with some Docker familiarity.
+repository_url: https://github.com/DataTalksClub/llm-zoomcamp
+docs_url: https://datatalks.club/docs/courses/llm-zoomcamp/
+faq_url: https://datatalks.club/faq/llm-zoomcamp.html
+hashtag: llmzoomcamp
+instructors: [alexeygrigorev]
+extra:
+  starting_point: You want to turn questions over your own documents into a working application.
+  progression:
+    - heading: I have documents and questions, but no working application
+      description: I want an LLM to answer from my own data.
+```
+
+`01-agentic-rag/module.yaml`
+
+```yaml
+content_id: "d9ca5cb3-b94c-4281-be7d-a2462559f02b"
+title: "Module 1: Agentic RAG"
+summary: Build an agentic RAG assistant over a course FAQ dataset.
+```
+
+`01-agentic-rag/01-intro.md`
+
+```markdown
+---
+content_id: "1e8059d3-1c63-47f6-b0a1-9b21c96ca1c6"
+title: Introduction
+video_url: https://www.youtube.com/watch?v=rQYyFxf1FWw
+---
+
+In this module, we'll build a working Retrieval-Augmented Generation (RAG)
+system from scratch, step by step.
+
+Before you start, read the [course logistics](docs:courses/zoomcamp-logistics)
+and the [environment page](02-environment.md).
+
+![Overview of the course RAG project](images/01-intro-01-rag-project-overview-imagegen.png)
+```
+
+`cohorts/2026/cohort.yaml`
+
+```yaml
+content_id: "0ea85a46-bd6b-4f21-82fe-317954d8be32"
+title: LLM Zoomcamp 2026
+delivery: live
+start_date: "2026-08-24"
+end_date: "2026-10-12"
+hashtag: llmzoomcamp
+homework:
+  - module: agentic-rag
+    source: homework/01-agentic-rag/homework.yaml
+  - module: vector-search
+    source: homework/02-vector-search/homework.yaml
+```
+
+`cohorts/2025/cohort.yaml` (GitHub-only archive)
+
+```yaml
+content_id: "5393ebf3-f68b-48f2-abca-d686bbbd7e7c"
+title: LLM Zoomcamp 2025
+delivery: live
+start_date: "2025-05-27"
+end_date: "2025-08-23"
+archive: true
+```
+
+`cohorts/4/cohort.yaml` for an AISL course, and its `course.yaml` tail
+
+```yaml
+content_id: "7b1f5a3e-2c4d-4e8f-9a0b-1c2d3e4f5a6b"
+title: Cohort 4
+delivery: live
+start_date: "2026-09-21"
+end_date: "2026-11-22"
+homework:
+  - module: foundations-llms-rag-and-structured-output
+    source: homework/01-foundations/homework.yaml
+    unit: "458d8bbc-f236-5be3-a29a-774e4f435e65"
+```
+
+```yaml
+required_level: basic
+default_unit_required_level: basic
+extra:
+  access_mode: entitlement
+  enroll_url: https://maven.com/alexey-grigorev/from-rag-to-agents
+  program_label: Maven
+  maven_course_key: from-rag-to-agents
+  maven_cohort_keys: {"4": "4"}
+```
+
+`articles/crisp-dm-for-ai/index.md` (AISL) and `articles/building-ai-agent-that-thrives-in-real-world/index.md` (DTC)
+
+```markdown
+---
+content_id: "6bc9da15-7603-46ee-901d-096fdebf5764"
+title: "CRISP-DM for AI Engineering: Why a 1996 Framework Still Describes Modern AI Development"
+summary: See how CRISP-DM still guides AI engineers in 2026.
+date: 2026-03-11
+authors: [alexey-grigorev, valeriia-kuka]
+tags: [ai-engineering, data-science, crisp-dm]
+image: images/cover.jpg
+---
+
+During AI development, teams work with large language models (LLMs) ...
+```
+
+```markdown
+---
+content_id: "3f7c2a10-5e2b-4d1a-9c3e-8b7a6f5d4c3b"
+title: Building an AI Agent that Thrives in the Real World
+subtitle: A Guide to Development, Testing, and Monitoring
+summary: A Guide to Development, Testing, and Monitoring
+date: 2025-02-26
+authors: [sallyanndelucia]
+tags: [arize, llm, monitoring]
+image: images/cover.jpg
+related: [article:llm-monitoring-basics]
+---
+
+<figure>
+<img src="images/image2.jpg" alt="Building an AI agent that thrives">
+<figcaption>Building an AI agent that thrives</figcaption>
+</figure>
+```
+
+`docs/02-courses/04-llm-zoomcamp/index.md` and `docs/02-courses/04-llm-zoomcamp/07-project.md`
+
+```markdown
+---
+content_id: "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d"
+title: LLM Zoomcamp
+summary: Free, hands-on course on building RAG and AI applications with Large Language Models
+---
+
+The LLM Zoomcamp is a free, hands-on course ...
+
+1. [Community Guidelines](../../01-general/02-guidelines/index.md)
+2. [Zoomcamp Logistics](../01-zoomcamp-logistics/index.md)
+```
+
+```markdown
+---
+content_id: "0b1c2d3e-4f5a-4b6c-9d8e-1f2a3b4c5d6e"
+title: Project
+summary: Rubric and deadlines for the final project.
+toc: false
+---
+
+Submit your project through the [course platform](course:llm-zoomcamp).
+```
+
+`wiki/a-a-testing.md` (DTC podwiki) and `wiki/ai-engineering-glossary.md` (AISL)
+
+```markdown
+---
+content_id: "c4d5e6f7-a8b9-4c0d-8e1f-2a3b4c5d6e7f"
+title: A/A Testing
+summary: A/A testing for validating experiment assignment, tracking, and statistical interpretation.
+related: [wiki:a-b-testing, wiki:power-analysis, wiki:event-tracking]
+page_type: concept
+extra:
+  seo_title: A/A testing explained
+---
+
+A/A testing sits between [event tracking](wiki:event-tracking),
+[product analytics](wiki:product-analytics) and [A/B testing](wiki:a-b-testing).
+It doesn't answer whether a feature works.
+[Product Analytics and A/B Testing](podcast:s12e04-ab-testing-and-product-experimentation)
+```
+
+```markdown
+---
+content_id: "523a63d8-58da-453c-b951-516076ccaca5"
+title: AI Engineering Glossary
+summary: Plain-language definitions of the terms that come up most often in AI engineering discussions.
+---
+
+## Core terms
+
+- LLM (large language model): a neural network trained on large amounts of text ...
+```
+
+`people/16rahuljain.md`
+
+```markdown
+---
+content_id: "d7e8f9a0-b1c2-4d3e-8f4a-5b6c7d8e9f0a"
+title: Rahul Jain
+summary: Data engineering manager at Siemens with over 12 years of experience.
+image: images/16rahuljain.jpg
+links:
+  - {label: linkedin, url: https://www.linkedin.com/in/16rahuljain/}
+---
+
+Rahul Jain is a data engineering manager at Siemens ...
+```
+
+### 3.10 Validation
+
+The package ships `uv run python -m community_base.content_sync.check <path>` (also a
+management command `check_content`), usable in a content repository's CI without a database.
+It validates `content.yaml`, every collection against its kind schema, naming and ordering,
+identity uniqueness, asset resolution, references inside the repository, and the dialect rules
+of section 4. Diagnostics carry the repository path and a YAML pointer, never prose. It replaces
+`zoomcamp-ops` `check_zoomcamp.py`, AISL `scripts/check_workshops.py` and
+`scripts/check_content_ids.py`, and DTC `scripts/verify_course_repository_curriculum.py` for
+layout checks.
+
+## 4. Rendering: one markdown dialect
+
+Decision: python-markdown, in the package, at sync time, with one sanitiser. Not mistune. The
+package already renders with python-markdown in two apps (`curriculum/rendering.py`,
+`knowledge_base/rendering.py`), AISL renders everything with it, and mistune is used by DTC in
+two modules that D7.1 and the article path retire or reshape anyway. The reverse choice would
+rewrite the package and AISL to save DTC two modules.
+
+### 4.1 The dialect
+
+- CommonMark as python-markdown implements it, plus `tables`, `fenced_code`, `sane_lists`,
+  `attr_list` is not enabled, `md_in_html` is not enabled.
+- Fenced code blocks render to `<pre><code class="language-x">`. No server-side highlighting in
+  the package. A site may add `codehilite` through the extension hook below.
+- A fenced block with info string `mermaid` renders to `<pre class="mermaid">` with the source
+  escaped; the site's JavaScript draws it. Both sites use mermaid already (`docs`
+  `_includes/mermaid_config.js`, AISL `MermaidExtension`).
+- A fenced block with info string `embed` whose body is a YAML mapping `{type, id}` with `type`
+  in `youtube`, `loom` renders to `<div class="cb-embed" data-embed-type="youtube" data-embed-id="...">` containing a plain link to the video. The site hydrates it. This replaces DTC's `{% include youtube.html video_id=... %}` and keeps iframes out of stored HTML.
+- Raw HTML is allowed and passes through the sanitiser. `<figure>`, `<figcaption>`, `<details>`,
+  `<summary>`, `<img>`, `<table>` survive; `style` attributes, `<script>`, `<style>`, `<iframe>`
+  and event handlers do not.
+- Liquid (`{% %}`, `{{ }}`) and kramdown attribute lists (`{: .class }`) are errors outside
+  fenced and inline code. Inside code they are text.
+- A leading H1 equal to the title is stripped, as `knowledge_base` does today.
+- Heading ids are injected after rendering by the package with DTC's algorithm
+  (`content/docs_projection.py:111-139`): NFKD, ASCII, lowercase, non-alphanumerics to `-`,
+  duplicates suffixed `-1`, `-2`; the heading list `{level, id, title}` is returned and stored.
+  This keeps DTC's pinned fragment contracts (`_docs/compatibility/faq-fragment-contracts.jsonl`,
+  `podwiki-graph-fragment-contracts.jsonl`) meaningful.
+- Links are resolved and images rewritten before rendering, by the parser toolkit (sections 3.6
+  and 3.7).
+- Plain text for search is derived from the rendered HTML by the package, as
+  `knowledge_base.search` does.
+
+### 4.2 Where it lives and who owns what
+
+- `community_base/content_sync/rendering.py` owns `render_document(text, *, extensions)`,
+  `inject_heading_ids`, `sanitize_rendered_html` and `plain_text`. `curriculum/rendering.py`
+  and `knowledge_base/rendering.py` become thin imports of it.
+- Rendering runs in the sync job through the parser toolkit, never in a model `save()`. The
+  page and unit models store `body_html` as supplied (C7.4 step 3 for the knowledge base, the
+  same change for `curriculum.Unit`). This matches DTC spec 03 line 190 and architecture rule 7.
+- Sanitisation is package-owned and always last. The allowlist is the one already lifted from
+  DTC into `knowledge_base/rendering.py:30-148` (tags, attribute filter, URL schemes) plus the
+  attributes the shared extensions emit: `class` on `div`, `pre`, `code`, `span`, `img`;
+  `data-embed-type`, `data-embed-id` on `div`; `data-theme-figure` on `img`. `curriculum`'s
+  narrower list and AISL's `sanitize_html` list are retired for synced content. DTC's bleach
+  cleaner (`content/services.py:145-235`) is retired for synced content when D7.1 lands.
+- Sites extend, they do not replace: `COMMUNITY_BASE["MARKDOWN_EXTENSIONS"]` is a list of
+  dotted paths to python-markdown extensions appended to the package list (AISL's
+  `EventWidgetExtension`, `ExternalLinksExtension`, `codehilite`). An extension's output still
+  passes the package sanitiser, so an extension that needs a new attribute needs a package
+  change to the allowlist.
+
+### 4.3 What breaks, and what to do about it
+
+| Break | Where | Handling |
+|---|---|---|
+| Inline `style` on `<img>` in DTC articles | `content/articles/**` (five occurrences seen in one file, more across 55) | stripped by the sanitiser; the conversion script removes `style` and keeps `width` and `loading`; a rendering diff over all 55 articles is a human review step |
+| kramdown `{: .fs-9 }`, `{: .btn }` in DTC docs | two occurrences, `docs/index.md`, `courses/index.md` | dropped; the site's stylesheet styles the hooks |
+| Liquid includes in DTC articles: `related-posts.html`, `youtube.html`, `course-structured-data/*.html` | about twelve files | `youtube.html` becomes an `embed` fence; `related-posts` becomes `related:` front matter; the structured-data includes are site SEO output, not content, and are removed from the source |
+| Raw HTML blocks followed by markdown on the next line | DTC articles, python-markdown needs a blank line after a block-level HTML element | the conversion script inserts blank lines after `</figure>`, `</table>`; the rendering diff catches the rest |
+| DTC wiki and person pages stop being plain-text `blocks` | `templates/public/wiki_detail.html:144`, `content/catalogue.py:548-557` | they render stored HTML plus the stored heading list and references; this is D7.1 work and removes gap 2 of the C7.4 report for the body, leaving `tags`, `references` and `page_type` to the record field |
+| DTC article `blocks` with the FAQ split index | `scripts/build_public_projection.py:1208-1360` | article storage is site-owned (D21); DTC may keep deriving blocks from the unified source, or render the body once; not decided here |
+| Server-side code highlighting | AISL | `codehilite` registered through the extension hook, unchanged output |
+| `normalize_inline_bullets` and `linkify_urls` | AISL `content/utils/markdown.py:56-104` | not applied to synced content; they exist for Studio-authored event and email text and stay there |
+| mistune `strikethrough` | DTC docs | python-markdown has no built-in strikethrough; `~~x~~` is rare in the corpus; the validator warns and the conversion script rewrites to `<del>` |
+| Heading id suffix style | AISL `toc` produced `_1`; DTC `-1` | one algorithm, DTC's, and AISL's docs are new enough to have no pinned fragments |
+
