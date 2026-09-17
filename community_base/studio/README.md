@@ -199,6 +199,27 @@ Shared Studio pages extend `community_base/studio/base.html`. The compatibility 
 `extra_js` and `header_actions`, plus the AISL compatibility blocks `studio_title`,
 `studio_content` and `extra_scripts`.
 
+### Sidebar footer
+
+The shell exposes `studio_sidebar_footer`, an empty block at the bottom of the sidebar below the
+navigation. It ships with no markup, so a site that does not override it sees no change. Use it for
+the things only the site knows, such as a version line, a link back to the public site, or a theme
+toggle:
+
+```html
+{% block studio_sidebar_footer %}
+<div class="mt-6 space-y-1 border-t border-border pt-4">
+  <a href="/" class="block px-3 py-2 text-sm text-muted-foreground">Back to website</a>
+  <button type="button" data-studio-theme-toggle class="px-3 py-2 text-sm">Theme</button>
+  <p class="px-3 text-xs text-muted-foreground">v{{ VERSION }}</p>
+</div>
+{% endblock %}
+```
+
+Any element carrying `data-studio-theme-toggle` flips the `dark` class on the document and stores
+the choice under the `theme` key the shell reads on the next page load. Both the read and the write
+are guarded, so a blocked or empty storage falls back to the viewer's `prefers-color-scheme`.
+
 Load `{% load studio_filters %}` for:
 
 - `studio_list_filter`, `studio_empty_state`, `studio_status_badge` and `studio_list_action`

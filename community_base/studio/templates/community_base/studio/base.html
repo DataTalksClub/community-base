@@ -6,7 +6,8 @@
   <title>{% block title %}{% block studio_title %}Dashboard{% endblock %} | {{ studio_title }}{% endblock %}</title>
   <script>
     (function () {
-      var theme = localStorage.getItem('theme');
+      var theme = null;
+      try { theme = window.localStorage.getItem('theme'); } catch (error) { theme = null; }
       if (theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
       }
@@ -93,6 +94,7 @@
         {% if item.section.title %}</div></section>{% endif %}
       {% endfor %}
     </nav>
+    {% block studio_sidebar_footer %}{% endblock %}
   </aside>
   <main class="min-w-0 flex-1 overflow-hidden">
     <div class="p-4 pt-16 md:p-8">

@@ -105,5 +105,17 @@
       }
     });
   });
+  document.querySelectorAll('[data-studio-theme-toggle]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var dark = document.documentElement.classList.toggle('dark');
+      button.setAttribute('aria-pressed', dark ? 'true' : 'false');
+      var storage = navStorage();
+      try {
+        if (storage) storage.setItem('theme', dark ? 'dark' : 'light');
+      } catch (error) {
+        // Storage may be blocked; the theme still applies to this page view.
+      }
+    });
+  });
   if (window.lucide) window.lucide.createIcons();
 })();
