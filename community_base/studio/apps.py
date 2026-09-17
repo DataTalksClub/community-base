@@ -8,6 +8,6 @@ class StudioConfig(AppConfig):
     verbose_name = "Community Base Studio"
 
     def ready(self) -> None:
-        from community_base.studio import builtin
+        from community_base.studio import builtin, checks  # noqa: F401
 
         builtin.register_builtin_section()

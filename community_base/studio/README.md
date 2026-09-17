@@ -227,6 +227,22 @@ Shared Studio pages extend `community_base/studio/base.html`. The compatibility 
 `extra_js` and `header_actions`, plus the AISL compatibility blocks `studio_title`,
 `studio_content` and `extra_scripts`.
 
+### The content-block contract
+
+Every shared Studio page fills its body inside both `{% block content %}` and, nested inside it,
+`{% block studio_content %}`, never just one. A site is free to replace
+`community_base/studio/base.html` outright with its own shell instead of using the package's
+(AI-Shipping-Labs' and DataTalksClub's own Studio bases both do this today), but that replacement
+must expose a reachable slot for at least one of the two names. Filling both in every package page
+means a site exposing either name renders every page unchanged, with no site-side template change
+required; a replacement exposing neither renders the page as an empty shell -- HTTP 200, correct
+title, no body, nothing in the response to say why (community-base#279).
+
+`community_base.studio.checks.check_studio_content_block_contract` runs on every `manage.py check`
+and raises `community_base.studio.E001` when the resolved `community_base/studio/base.html`
+exposes neither name, so a genuinely incompatible site shell fails the check instead of shipping a
+silently empty page.
+
 ### Sidebar footer
 
 The shell exposes `studio_sidebar_footer`, an empty block at the bottom of the sidebar below the
