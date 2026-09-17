@@ -89,14 +89,31 @@ A group is hidden when none of its destinations are visible to the current user,
 opens the group that contains the active route. Flat registrations stay unchanged; `route_names`
 claims and `studio_routes --check` cover grouped destinations the same way.
 
+## Mounted routes decide what registers
+
+Registering a destination says what an app offers; mounting the app's Studio URL module is
+what makes the destination real. A destination is live only when its `url_name` is mounted in
+the site URLconf. A section that registered destinations but kept none of them is not rendered
+and claims no routes. A site can therefore install an app without mounting its Studio URLs, and
+`studio_routes --check` stays green.
+
+The URLconf is read when the shell renders and when the check runs, never during
+`AppConfig.ready()`, so registration never forces URL resolution during startup.
+`registry.sections()` returns everything that registered; `registry.mounted_sections()` returns
+what the site mounts, and the shell and the route check both use the second.
+
+A deep route is claimed only through its destination's home route. Mounting an app's Studio URL
+module while the destination's `url_name` is missing leaves that module's routes `mounted but
+unclaimed`, so a wrong `url_name` stays an error instead of disappearing quietly.
+
 Run the route partition check after mounting Studio URLs:
 
 ```console
 uv run python manage.py studio_routes --check
 ```
 
-It exits unsuccessfully when a mounted route is unclaimed, claimed more than once, or when a
-registration refers to a route that is not mounted.
+It exits unsuccessfully when a mounted route is unclaimed, claimed more than once, or when a live
+destination claims a route that is not mounted.
 
 Search providers accept `(request, query)` and return a mapping of group names to JSON-serializable
 result lists. Dashboard providers accept `request` and return one card dictionary, an iterable of
