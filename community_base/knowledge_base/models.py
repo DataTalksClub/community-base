@@ -13,8 +13,11 @@ from django.core.validators import RegexValidator
 from django.db import models
 
 from community_base.content_sync.provenance import SourceProvenanceMixin, provenance_constraint
-from community_base.curriculum.rendering import strip_leading_title_h1
-from community_base.knowledge_base.rendering import render_markdown, sanitize_rendered_html
+from community_base.content_sync.rendering import (
+    render_markdown,
+    sanitize_rendered_html,
+    strip_leading_title_h1,
+)
 
 SECTION_WIKI = "wiki"
 SECTION_DOCS = "docs"
