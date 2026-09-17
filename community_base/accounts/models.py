@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.sessions.base_session import AbstractBaseSession
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import models
@@ -382,3 +383,27 @@ class MemberProfile(models.Model):
         self.country = self.country.strip().upper()
         for field in ("organisation", "about", "ambitions", "why_joined"):
             setattr(self, field, getattr(self, field).strip())
+
+
+class AccountSession(AbstractBaseSession):
+    """Queryable view over Django's own `django_session` table.
+
+    This model adds an `account_id` column to the table Django's built-in
+    `django.contrib.sessions` app already owns and manages. It never creates or
+    drops that table itself (`managed = False`); a site opts into populating
+    `account_id` by setting `SESSION_ENGINE = "community_base.accounts.session_backend"`.
+    Until a site does that, sessions are written by Django's default backend and
+    `account_id` stays null, exactly as if this model did not exist.
+    """
+
+    account_id = models.PositiveBigIntegerField(blank=True, db_index=True, null=True)
+
+    class Meta(AbstractBaseSession.Meta):
+        db_table = "django_session"
+        managed = False
+
+    @classmethod
+    def get_session_store_class(cls):
+        from community_base.accounts.session_backend import SessionStore
+
+        return SessionStore

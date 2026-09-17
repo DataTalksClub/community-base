@@ -113,7 +113,7 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
 | `community_base.api` | `cb_api` | `APIKey` | AISL `accounts.Token`, `accounts.MemberAPIKey`, `api/openapi/`, `api/safety.py`; DTC `management_auth` scopes | 0 |
 | `community_base.jobs` | `cb_jobs` | `JobIntent`, `JobLease` | DTC `jobs` (dispatch, leases), AISL `jobs` (Studio page, schedules command), Relay tasks API. Backends: `relay`, `django_q` | 1 |
 | `community_base.mail` | `cb_mail` | `EmailDelivery`, `PendingUnsubscribe`, `EmailLog` (ses_local backend only) | DTC spec 05 and `email_app` (link bridge), AISL `email_app` (preferences, bounce semantics, markdown renderer and SES client as the `ses_local` backend) | 1 |
-| `community_base.accounts` | `accounts` | `User`, `EmailAlias`, `EmailChangeRequest`, `PrivacyRequestLog`, `ImportBatch`, `MemberProfile` | AISL `accounts` (model, services, auth views, allauth glue), DTC spec 01 (`MemberProfile` fields) | 3 |
+| `community_base.accounts` | `accounts` | `User`, `EmailAlias`, `EmailChangeRequest`, `PrivacyRequestLog`, `ImportBatch`, `MemberProfile`, `AccountSession` | AISL `accounts` (model, services, auth views, allauth glue), DTC spec 01 (`MemberProfile` fields), AISL `accounts/models/session.py` and `session_backend.py` (`AccountSession`, phase 7 `C7.6`) | 3, 7 |
 | `community_base.questionnaires` | `questionnaires` | as in AISL | AISL `questionnaires` | 3 |
 | `community_base.onboarding` | `cb_onboarding` | `OnboardingFlow`, `OnboardingStep`, `FlowAssignment` | AISL `accounts/views/onboarding*.py`, new flow models | 3 |
 | `community_base.community` | `community` | as in AISL | AISL `community` | 3 |
