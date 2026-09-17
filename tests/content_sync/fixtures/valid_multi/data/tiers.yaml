@@ -1,0 +1,5 @@
+tiers:
+  - name: Basic
+    level: 10
+  - name: Premium
+    level: 30

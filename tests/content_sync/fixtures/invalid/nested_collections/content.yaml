@@ -1,0 +1,6 @@
+schema_version: 1
+collections:
+  - kind: wiki
+    path: wiki
+  - kind: person
+    path: wiki/people

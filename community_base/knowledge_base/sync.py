@@ -23,7 +23,12 @@ applies each item through :func:`upsert_page`. The contract:
 - a site that owns its routes passes ``public_path``; a site that does not
   leaves it out and keeps the ancestor-chain path the app derives;
 - synced rows carry the source's id in ``source_content_id``, which gives
-  :func:`delete_missing` its ownership scope;
+  :func:`delete_missing` its ownership scope. This contradicts the content
+  format, where ``source_content_id`` is the item's own ``content_id``
+  (``content_sync/FORMAT.md`` section 3.4, and ``curriculum.importing``). Both
+  fields are ``UUIDField``, so nothing raises. Issue C7.9c adds the source
+  foreign key this scope needs and migrates the column; until it lands, the
+  behaviour described here is what the code does;
 - a page that vanishes from the repository is drafted, not deleted, the way
   curriculum drafts vanished courses.
 

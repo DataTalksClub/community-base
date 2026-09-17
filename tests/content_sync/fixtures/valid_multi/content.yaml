@@ -1,0 +1,12 @@
+schema_version: 1
+collections:
+  - kind: article
+    path: articles
+  - kind: person
+    path: people
+  - kind: wiki
+    path: wiki
+  - kind: data
+    path: data
+strict_references: true
+theme_pairs: true

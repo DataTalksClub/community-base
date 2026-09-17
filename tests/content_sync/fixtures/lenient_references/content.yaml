@@ -1,0 +1,5 @@
+schema_version: 1
+collections:
+  - kind: wiki
+    path: wiki
+strict_references: false

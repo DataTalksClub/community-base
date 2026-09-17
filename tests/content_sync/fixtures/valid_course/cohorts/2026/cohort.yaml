@@ -1,0 +1,9 @@
+content_id: "0ea85a46-bd6b-4f21-82fe-317954d8be32"
+title: LLM Zoomcamp 2026
+delivery: live
+start_date: "2026-08-24"
+end_date: "2026-10-12"
+hashtag: llmzoomcamp
+homework:
+  - module: agentic-rag
+    source: homework/01-agentic-rag/homework.yaml
