@@ -7,6 +7,8 @@ from django.db import IntegrityError
 
 from community_base.accounts.models import User
 from community_base.events.models import (
+    VISIBILITY_HIDDEN,
+    VISIBILITY_PUBLIC,
     Event,
     EventFeedback,
     EventHost,
@@ -74,6 +76,24 @@ def test_series_and_position_must_be_set_together():
             start_datetime=datetime(2026, 4, 1, 18, tzinfo=BERLIN),
             event_series=series,
         ).full_clean()
+
+
+def test_series_visibility_defaults_to_public_and_is_not_hidden():
+    series = EventSeries.objects.create(name="Office hours", day_of_week=2, start_time=time(18))
+
+    assert series.visibility == VISIBILITY_PUBLIC
+    assert series.is_hidden is False
+
+
+def test_series_is_hidden_reflects_visibility():
+    series = EventSeries.objects.create(
+        name="Cohort office hours",
+        day_of_week=2,
+        start_time=time(18),
+        visibility=VISIBILITY_HIDDEN,
+    )
+
+    assert series.is_hidden is True
 
 
 def test_series_positions_are_unique():

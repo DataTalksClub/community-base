@@ -32,6 +32,19 @@ WEEKDAYS = tuple(
     enumerate(("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
 )
 
+# Issue #249 (donor: AI-Shipping-Labs/website #1660). A NEW, separate flag from
+# ``is_active``: ``is_active`` only affects the series' own detail page (an inactive
+# series is dropped from public listings and its own page 404s). ``visibility``
+# controls whether the series' occurrences appear on discovery surfaces (public event
+# listings, sitemaps, feeds) at all. A hidden series stays reachable by direct URL and
+# keeps working for recaps and registration; only discovery is affected.
+VISIBILITY_PUBLIC = "public"
+VISIBILITY_HIDDEN = "hidden"
+EVENT_SERIES_VISIBILITY_CHOICES = (
+    (VISIBILITY_PUBLIC, "Public listing"),
+    (VISIBILITY_HIDDEN, "Hidden series"),
+)
+
 
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -71,6 +84,18 @@ class EventSeries(TimestampedModel):
     timezone = models.CharField(max_length=100, default="Europe/Berlin")
     required_level = models.IntegerField(default=LEVEL_OPEN)
     is_active = models.BooleanField(default=True)
+    visibility = models.CharField(
+        max_length=10,
+        choices=EVENT_SERIES_VISIBILITY_CHOICES,
+        default=VISIBILITY_PUBLIC,
+        help_text=(
+            "Issue #249: 'hidden' removes every occurrence of this series from "
+            "discovery surfaces (public listings, sitemaps, feeds) for every viewer. "
+            "This is separate from 'is_active', which only affects the series' own "
+            "public page. The series and its events stay reachable by direct URL and "
+            "keep working for recaps and registration."
+        ),
+    )
 
     class Meta:
         ordering = ("-created_at",)
@@ -93,6 +118,16 @@ class EventSeries(TimestampedModel):
     @property
     def event_count(self):
         return self.events.count()
+
+    @property
+    def is_hidden(self):
+        """True when ``visibility='hidden'`` (issue #249).
+
+        A hidden series is removed from discovery surfaces for every viewer. It stays
+        reachable by direct URL, and its events keep working for recaps and
+        registration.
+        """
+        return self.visibility == VISIBILITY_HIDDEN
 
 
 class Event(TimestampedModel):
