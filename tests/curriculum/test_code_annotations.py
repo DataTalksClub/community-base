@@ -509,3 +509,19 @@ def test_a_valid_payload_syncs_end_to_end_and_renders(tmp_path):
     )
     assert "Set the initial value." in synced.body_html
     assert "structured: true" not in synced.body_html
+
+
+@pytest.mark.django_db
+def test_an_invalid_replacement_leaves_the_published_units_untouched(tmp_path):
+    root = _copy(AISL_CONTENT, tmp_path, "aisl-replace")
+    source = make_source(slug="annotations-replace", repo="example/annotations-replace")
+    sync_content_source(source, repo_dir=str(root))
+    published = {unit.pk: (unit.body, unit.body_html) for unit in Unit.objects.all()}
+    assert published
+
+    unit_path = root / "courses" / "ai-hero" / "01-welcome" / "01-setup.md"
+    unit_path.write_text(unit_path.read_text() + "\n" + INVALID_BODIES["overlap"])
+    log = sync_content_source(source, repo_dir=str(root))
+
+    assert log.status != "success"
+    assert {unit.pk: (unit.body, unit.body_html) for unit in Unit.objects.all()} == published
