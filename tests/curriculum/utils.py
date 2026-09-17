@@ -10,8 +10,9 @@ from community_base.content_sync.models import ContentSource
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 AISL_CONTENT = FIXTURES / "aisl-content"
-AISL_CONTENT_NESTED = FIXTURES / "aisl-content-nested"
+AISL_ROOT = FIXTURES / "aisl-root"
 DTC_REPO = FIXTURES / "dtc-repo"
+DTC_NESTED = FIXTURES / "dtc-nested"
 
 
 def make_source(slug="fixture-source", repo="example/fixture"):

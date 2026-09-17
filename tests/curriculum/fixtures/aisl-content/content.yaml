@@ -1,0 +1,10 @@
+schema_version: 1
+collections:
+  - kind: course
+    path: courses/ai-hero
+  - kind: course
+    path: courses/agents
+  - kind: person
+    path: people
+ignore:
+  - "**/*.template.md"

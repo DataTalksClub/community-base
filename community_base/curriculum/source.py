@@ -1,14 +1,16 @@
-"""The one graph type both curriculum parsers produce.
+"""The one graph type the course parser produces.
 
-Parsers turn a repository layout into :class:`ParsedCurriculum`; the importer
+The parser turns a repository layout into :class:`ParsedCurriculum`; the importer
 turns that graph into ``cb_curriculum`` rows. The graph knows nothing about
 Django, GitHub, or persistence.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Any
 
 MODE_COHORT = "cohort"
 MODE_SELF_PACED = "self_paced"
@@ -80,9 +82,16 @@ class CohortGraph:
     source_path: str | None = None
     # Ordered top-level module identifiers (content_id, or slug when content_id is
     # None) this cohort places. ``None`` means "the full course tree, in module
-    # order" -- every AI Shipping Labs course today. A non-empty tuple curates a
-    # subset or order, DataTalks.Club's case.
+    # order" -- a course whose cohorts curate nothing. A non-empty tuple curates a
+    # subset or order, DataTalks.Club's case; an empty tuple places nothing, which
+    # is what ``archive: true`` means (`FORMAT.md` section 3.8).
     module_refs: tuple[str, ...] | None = None
+    # The cohort's homework bindings, ``{module, source, unit}`` each, straight
+    # from ``cohort.yaml``. ``module`` is a top-level module slug, ``source`` the
+    # manifest path relative to the cohort directory and ``unit`` the optional
+    # content id of the unit whose page shows the submission form. The manifests
+    # themselves are read by the coursework app (issue C7.11), not here.
+    homework_bindings: tuple[Mapping[str, Any], ...] = field(default=())
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,7 +134,7 @@ class CurriculumParseError(ValueError):
 
 
 def validate_module_tree(modules: tuple[ModuleGraph, ...], *, where: str, depth: int = 1) -> None:
-    """Validate a course's module tree once, shared by both parsers.
+    """Validate a course's module tree once, for the one course parser.
 
     Enforces: a module has either ``children`` or ``units``, never both, naming the
     offending directory (``where``); nesting does not exceed two module levels; sibling

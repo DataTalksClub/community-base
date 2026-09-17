@@ -1,36 +1,73 @@
-"""``content_sync`` parser adapters for the two curriculum layouts.
+"""The ``content_sync`` adapter for the one course parser.
 
-Both adapters produce the same graph type (``community_base.curriculum.source``)
-and apply it through the shared importer. They sniff their layout in
-``discover``, so registering both is harmless on any content source.
+The parser itself is :mod:`community_base.curriculum.parsers`, which maps the
+document toolkit onto the graph and knows nothing about Django. This module is
+the sync side of it: one repository read per ``discover``, one ``SourceItem``
+per course collection, and the shared importer applied per course.
 
-The sync orchestration is sequential per source, so the adapters keep the
-active checkout on the instance between ``discover`` and ``upsert``.
+There is no layout sniffing left. A repository declares its courses in
+``content.yaml`` (`FORMAT.md` section 3.1), so the adapter reads that manifest
+instead of guessing a layout from where a ``course.yaml`` happens to sit -- the
+guess that made a root-level ``course.yaml`` invisible.
+
+The sync orchestration is sequential per source, so the adapter keeps the
+active checkout and its read result on the instance between ``discover`` and
+``upsert``.
 """
 
+from community_base.content_sync.documents import MANIFEST_NAME
+from community_base.content_sync.kinds.layouts import COURSE_MANIFEST
 from community_base.content_sync.parsers import SourceItem
 from community_base.curriculum.importing import apply_curriculum_graph
 from community_base.curriculum.models import CurriculumImportRun
-from community_base.curriculum.parsers_aisl import parse_aisl_course
-from community_base.curriculum.parsers_dtc import (
-    looks_like_course_repository,
-    parse_dtc_course_repository,
+from community_base.curriculum.parsers import (
+    PARSER_VERSION,
+    check_read,
+    course_collections,
+    parse_course,
+    read_courses,
 )
 
 
-class BaseCurriculumParser:
-    """One SourceItem per course; the graph is parsed and applied in upsert."""
+class CourseParser:
+    """One SourceItem per course collection; the graph is applied in upsert."""
 
-    parser_version = ""
+    parser_version = PARSER_VERSION
 
     def __init__(self):
         self._checkout = None
+        self._result = None
+        self._collections = {}
         self._seen_content_ids = set()
 
     def discover(self, checkout, source):
+        """Read the repository once and name every course collection it declares.
+
+        A repository with no ``content.yaml`` is not a content repository and
+        yields nothing, so a source that lost its content still reaches
+        ``soft_delete_missing``. A repository that has one and fails a rule of
+        the format raises instead: a parse failure must never mass-draft
+        content.
+        """
+
         self._checkout = checkout
         self._seen_content_ids = set()
-        return tuple(self._items(checkout))
+        self._result = None
+        self._collections = {}
+        if not any(path.as_posix() == MANIFEST_NAME for path in checkout.files()):
+            return ()
+        self._result = read_courses(checkout)
+        collections = course_collections(self._result)
+        if not collections:
+            check_read(self._result)
+            return ()
+        items = []
+        for collection in collections:
+            key = collection.path or "."
+            self._collections[key] = collection
+            path = f"{collection.path}/{COURSE_MANIFEST}" if collection.path else COURSE_MANIFEST
+            items.append(SourceItem(key=key, path=path, data={}))
+        return tuple(items)
 
     def upsert(self, item, source, media):
         from community_base.content_sync.orchestration import UpsertResult
@@ -105,37 +142,9 @@ class BaseCurriculumParser:
             course.save(update_fields=["status", "updated_at"])
         return drafted
 
-    def _items(self, checkout):
-        raise NotImplementedError
-
     def _parse(self, item):
-        raise NotImplementedError
-
-
-class AislCourseParser(BaseCurriculumParser):
-    """Parser for the AISL ``course.yaml`` layout."""
-
-    parser_version = "aisl-course-yaml-1"
-
-    def _items(self, checkout):
-        for path in checkout.files():
-            # A root-level course.yaml is the DTC course repository layout,
-            # which the DTC parser owns; AISL course directories are nested.
-            if len(path.parts) > 1 and path.parts[-1] == "course.yaml":
-                yield SourceItem(key=path.parts[0], path=path, data={})
-
-    def _parse(self, item):
-        return parse_aisl_course(self._checkout, item.path.as_posix())
-
-
-class DtcCourseRepositoryParser(BaseCurriculumParser):
-    """Parser for the DTC course repository contract."""
-
-    parser_version = "dtc-course-repository-1"
-
-    def _items(self, checkout):
-        if looks_like_course_repository(checkout):
-            yield SourceItem(key="course-repository", path="course.yaml", data={})
-
-    def _parse(self, item):
-        return parse_dtc_course_repository(self._checkout)
+        return parse_course(
+            self._result,
+            self._collections[item.key],
+            commit_sha=getattr(self._checkout, "commit_sha", None) or None,
+        )

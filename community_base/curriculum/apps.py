@@ -1,5 +1,8 @@
 from django.apps import AppConfig
 
+#: The one content type the curriculum app registers a parser for.
+CONTENT_TYPE = "curriculum_course"
+
 
 def events_dependent_surfaces_active(installed_apps) -> bool:
     """Whether the curriculum API and Studio surfaces may be registered.
@@ -23,13 +26,9 @@ class CurriculumConfig(AppConfig):
         from django.conf import settings
 
         from community_base.content_sync.parsers import register_parser
-        from community_base.curriculum.content_sync_parsers import (
-            AislCourseParser,
-            DtcCourseRepositoryParser,
-        )
+        from community_base.curriculum.content_sync_parsers import CourseParser
 
-        register_parser("curriculum_aisl_course", AislCourseParser())
-        register_parser("curriculum_dtc_course_repository", DtcCourseRepositoryParser())
+        register_parser(CONTENT_TYPE, CourseParser())
 
         if events_dependent_surfaces_active(settings.INSTALLED_APPS):
             from community_base.curriculum import api_views  # noqa: F401

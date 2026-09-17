@@ -1,13 +1,12 @@
+"""The importer applied to what the one course parser produces."""
+
 import shutil
 import tempfile
 from pathlib import Path
 
 from django.test import TestCase
 
-from community_base.curriculum.content_sync_parsers import (
-    AislCourseParser,
-    DtcCourseRepositoryParser,
-)
+from community_base.curriculum.content_sync_parsers import CourseParser
 from community_base.curriculum.models import (
     Cohort,
     CohortModule,
@@ -16,82 +15,28 @@ from community_base.curriculum.models import (
     Module,
     Unit,
 )
-from community_base.curriculum.parsers_aisl import parse_aisl_course
-from community_base.curriculum.parsers_dtc import parse_dtc_course_repository
-from community_base.curriculum.source import CurriculumParseError
+from community_base.curriculum.parsers import PARSER_VERSION
 from community_base.events.models import Host
-from tests.curriculum.utils import AISL_CONTENT, AISL_CONTENT_NESTED, DTC_REPO, checkout
-
-COURSE_ID = "1a2b3c4d-0001-4000-8000-000000000001"
-DTC_COURSE_ID = "9a2b3c4d-0001-4000-8000-000000000001"
-
-
-class AislParserTests(TestCase):
-    def test_parses_course_graph(self):
-        with checkout(AISL_CONTENT) as active:
-            parsed = parse_aisl_course(active, "courses/ai-hero/course.yaml")
-
-        course = parsed.course
-        assert course.slug == "ai-hero"
-        assert course.title == "AI Hero Crash Course"
-        assert course.required_level == 0
-        assert course.default_unit_required_level == 5
-        assert course.status == "published"
-        assert "applied" in course.description
-        assert course.instructors[0].name == "Ada Lovelace"
-
-        (cohort,) = course.cohorts
-        assert cohort.mode == "self_paced"
-        assert cohort.curriculum_format == "modules"
-        assert cohort.module_refs is None  # no placement rows: default to the full tree
-        assert [module.slug for module in course.modules] == ["welcome", "retrieval"]
-
-        welcome = course.modules[0]
-        assert "# Welcome" in welcome.overview
-        assert "Overview" in welcome.overview
-        assert [unit.slug for unit in welcome.units] == ["setup", "exercise"]
-        assert welcome.units[0].required_level == 0
-        assert welcome.units[0].video_url.endswith("/abc")
-        assert welcome.units[0].body.startswith("Body for")
-        assert welcome.units[1].body.startswith("Do the homework.")
-        assert course.modules[1].units[0].homework.startswith("Write a retrieval")
-
-
-class DtcParserTests(TestCase):
-    def test_parses_course_repository_graph(self):
-        with checkout(DTC_REPO) as active:
-            parsed = parse_dtc_course_repository(active)
-
-        course = parsed.course
-        assert course.slug == "ml-zoomcamp"
-        assert course.visible is True
-        assert course.description == "Learn machine learning by building four projects."
-        assert course.hashtag == "mlzoomcamp"
-
-        by_slug = {cohort.slug: cohort for cohort in course.cohorts}
-        assert set(by_slug) == {"2026", "2025"}
-        modules_cohort = by_slug["2026"]
-        assert modules_cohort.curriculum_format == "modules"
-        assert modules_cohort.module_refs == ("9a2b3c4d-0002-4000-8000-000000000001",)
-        (core,) = [module for module in course.modules if module.slug == "core"]
-        assert core.units[0].video_url == "https://youtu.be/xyz"
-        assert by_slug["2025"].curriculum_format == "legacy"
-        assert by_slug["2025"].module_refs == ()
+from tests.curriculum.utils import AISL_CONTENT, AISL_ROOT, DTC_NESTED, DTC_REPO
 
 
 class ImportTests(TestCase):
-    def import_aisl(self):
+    def import_fixture(self, fixture):
         from tests.curriculum.utils import ParserHarness
 
-        return ParserHarness().run_parser(AislCourseParser(), AISL_CONTENT)
+        return ParserHarness().run_parser(CourseParser(), fixture)
 
-    def import_dtc(self):
-        from tests.curriculum.utils import ParserHarness
+    def test_every_course_collection_of_one_repository_is_imported(self):
+        """A repository of two courses imports two, not the first one it sniffs."""
 
-        return ParserHarness().run_parser(DtcCourseRepositoryParser(), DTC_REPO)
+        _source, items, results, _drafted = self.import_fixture(AISL_CONTENT)
+
+        assert [item.key for item in items] == ["courses/ai-hero", "courses/agents"]
+        assert all(result.action == "created" for result in results)
+        assert set(Course.objects.values_list("slug", flat=True)) == {"ai-hero", "agents"}
 
     def test_aisl_import_creates_rows(self):
-        _source, _items, results, _drafted = self.import_aisl()
+        self.import_fixture(AISL_CONTENT)
 
         course = Course.objects.get(slug="ai-hero")
         assert course.source_content_id is not None
@@ -101,78 +46,92 @@ class ImportTests(TestCase):
         assert list(cohort.effective_modules()) == list(course.modules.filter(parent__isnull=True))
         assert course.modules.filter(parent__isnull=True).count() == 2
         assert course.total_units() == 3
-        assert results and results[0].action == "created"
 
     def test_aisl_import_links_instructor_host(self):
-        self.import_aisl()
+        self.import_fixture(AISL_CONTENT)
 
         host = Host.objects.get(name="Ada Lovelace")
         assert host.kind == "instructor"
+        assert host.slug == "ada-lovelace"
         course = Course.objects.get(slug="ai-hero")
         assert list(course.ordered_instructors) == [host]
 
     def test_aisl_reimport_is_unchanged(self):
-        self.import_aisl()
-        _source, _items, results, _drafted = self.import_aisl()
+        self.import_fixture(AISL_CONTENT)
+        _source, _items, results, _drafted = self.import_fixture(AISL_CONTENT)
 
         assert all(result.action == "unchanged" for result in results)
         assert Course.objects.filter(slug="ai-hero").count() == 1
         assert Unit.objects.filter(module__course__slug="ai-hero").count() == 3
 
+    def test_root_level_repository_imports(self):
+        """The `course.yaml` at a repository root the old adapter skipped."""
+
+        self.import_fixture(AISL_ROOT)
+
+        course = Course.objects.get(slug="python")
+        assert course.required_level == 30
+        assert Unit.objects.filter(module__course=course).count() == 4
+        # The bonus module's two units are tracked but stay out of the denominator.
+        assert course.total_units() == 2
+        assert course.modules.get(slug="projects").is_bonus is True
+
     def test_dtc_import_creates_rows(self):
-        self.import_dtc()
+        self.import_fixture(DTC_REPO)
 
         course = Course.objects.get(slug="ml-zoomcamp")
         assert course.description == "Learn machine learning by building four projects."
         cohorts = {cohort.slug: cohort for cohort in course.cohorts.all()}
-        assert set(cohorts) == {"2026", "2025"}
+        assert set(cohorts) == {"2026", "2024"}
         assert cohorts["2026"].start_date is not None
         (placement,) = CohortModule.objects.filter(cohort=cohorts["2026"])
         module = placement.module
         assert module.slug == "core"
         assert module.units.count() == 2
         assert module.units.get(slug="lesson").video_url == "https://youtu.be/xyz"
-        assert list(cohorts["2025"].effective_modules()) == list(
-            course.modules.filter(parent__isnull=True)
-        )
+
+    def test_an_archived_cohort_places_nothing_after_import(self):
+        self.import_fixture(DTC_REPO)
+
+        archived = Cohort.objects.get(course__slug="ml-zoomcamp", slug="2024")
+        assert not CohortModule.objects.filter(cohort=archived).exists()
 
     def test_dtc_reimport_is_unchanged(self):
-        self.import_dtc()
-        _source, _items, results, _drafted = self.import_dtc()
+        self.import_fixture(DTC_REPO)
+        _source, _items, results, _drafted = self.import_fixture(DTC_REPO)
 
         assert all(result.action == "unchanged" for result in results)
         assert Course.objects.filter(slug="ml-zoomcamp").count() == 1
 
     def test_removed_unit_is_deleted_on_reimport(self):
-        self.import_dtc()
+        self.import_fixture(DTC_REPO)
 
         with tempfile.TemporaryDirectory(prefix="cb-curriculum-edit-") as tmp:
             edited = Path(tmp) / "repo"
             shutil.copytree(DTC_REPO, edited)
-            (edited / "core" / "homework.md").unlink()
-            module_yaml = edited / "core" / "module.yaml"
-            module_yaml.write_text(
-                module_yaml.read_text()
-                .replace("  - content_id: 9a2b3c4d-0003-4000-8000-000000000002\n", "")
-                .replace("    title: Homework intro\n    path: homework.md\n", "")
+            (edited / "01-core" / "02-homework.md").unlink()
+            (edited / "cohorts" / "2026" / "cohort.yaml").write_text(
+                (edited / "cohorts" / "2026" / "cohort.yaml")
+                .read_text()
+                .replace("    unit: 9a2b3c4d-0003-4000-8000-000000000002\n", "")
             )
             from tests.curriculum.utils import ParserHarness
 
-            source_results = ParserHarness().run_parser_with_source(
-                DtcCourseRepositoryParser(), edited, slug="edit-source"
+            ParserHarness().run_parser_with_source(
+                CourseParser(), edited, slug="edit-source", repo="example/edit-source"
             )
 
-        del source_results
         course = Course.objects.get(slug="ml-zoomcamp")
         module = course.modules.get(slug="core")
         assert list(module.units.values_list("slug", flat=True)) == ["lesson"]
 
     def test_removed_course_is_drafted(self):
-        from tests.curriculum.utils import checkout, make_source
+        from tests.curriculum.utils import checkout as open_checkout
+        from tests.curriculum.utils import make_source
 
         source = make_source(slug="vanish", repo="example/vanish")
-        with checkout(AISL_CONTENT) as active:
-            parser = AislCourseParser()
+        parser = CourseParser()
+        with open_checkout(AISL_CONTENT) as active:
             items = list(parser.discover(active, source))
             for item in items:
                 parser.upsert(item, source, None)
@@ -182,21 +141,21 @@ class ImportTests(TestCase):
         with tempfile.TemporaryDirectory(prefix="cb-curriculum-empty-") as tmp:
             empty = Path(tmp) / "empty"
             empty.mkdir()
-            with checkout(empty) as active:
+            with open_checkout(empty) as active:
                 items = list(parser.discover(active, source))
                 deleted = parser.soft_delete_missing({item.key for item in items}, source)
 
         assert items == []
-        assert [course.slug for course in deleted] == ["ai-hero"]
+        assert sorted(course.slug for course in deleted) == ["agents", "ai-hero"]
         assert Course.objects.get(slug="ai-hero").status == "draft"
 
     def test_import_run_is_recorded(self):
-        self.import_dtc()
+        self.import_fixture(DTC_REPO)
 
         run = CurriculumImportRun.objects.get(
             source_stable_id="ml-zoomcamp", state=CurriculumImportRun.State.SUCCEEDED
         )
-        assert run.parser_version == "dtc-course-repository-1"
+        assert run.parser_version == PARSER_VERSION
         assert run.schema_version == 1
         assert run.repository_name == "fixture-source"
         assert run.repository_owner == "example"
@@ -204,78 +163,22 @@ class ImportTests(TestCase):
         assert run.manifest_checksum
         assert run.finished_at is not None
 
+    def test_commit_sha_of_the_checkout_is_carried(self):
+        from tests.curriculum.utils import ParserHarness
 
-class AislNestedParserTests(TestCase):
-    """Nested module directories (community-base#252): ``01-module/01-submodule/01-unit.md``."""
+        sha = "a" * 40
+        ParserHarness().run_parser(CourseParser(), DTC_REPO, commit_sha=sha)
 
-    def test_parses_nested_tree_with_numeric_prefixes_stripped(self):
-        with checkout(AISL_CONTENT_NESTED) as active:
-            parsed = parse_aisl_course(active, "courses/nested-course/course.yaml")
-
-        modules = parsed.course.modules
-        assert [module.slug for module in modules] == ["week-one", "week-two"]
-
-        week_one = modules[0]
-        assert week_one.available_after_days == 7
-        assert week_one.units == ()  # a module with children has no direct units
-        assert [child.slug for child in week_one.children] == ["topic-a", "topic-b"]
-        topic_a, topic_b = week_one.children
-        assert [unit.slug for unit in topic_a.units] == ["section-overview"]
-        assert [unit.slug for unit in topic_b.units] == ["section-overview"]
-        assert topic_a.units[0].title == "Section Overview"
-        assert topic_a.units[0].body.startswith("Overview for topic A")
-        assert topic_b.units[0].body.startswith("Overview for topic B")
-
-        week_two = modules[1]
-        assert week_two.children == ()
-        event, extra = week_two.units
-        assert event.kind == "event"
-        assert event.session_position == 1
-        assert extra.is_bonus is True
-        assert event.is_bonus is False
-
-    def test_rejects_module_with_both_children_and_units(self):
-        import tempfile
-        from pathlib import Path
-
-        with tempfile.TemporaryDirectory(prefix="cb-curriculum-mixed-") as tmp:
-            edited = Path(tmp) / "repo"
-            shutil.copytree(AISL_CONTENT_NESTED, edited)
-            stray = edited / "courses" / "nested-course" / "01-week-one" / "99-stray-unit.md"
-            stray.write_text(
-                "---\ncontent_id: 2b3c4d5e-000a-4000-8000-000000000001\n"
-                "title: Stray\n---\nShould not be allowed here.\n"
-            )
-            with checkout(edited) as active, self.assertRaises(CurriculumParseError) as caught:
-                parse_aisl_course(active, "courses/nested-course/course.yaml")
-
-        assert "01-week-one" in str(caught.exception)
-
-    def test_rejects_three_levels_deep(self):
-        import tempfile
-        from pathlib import Path
-
-        with tempfile.TemporaryDirectory(prefix="cb-curriculum-deep-") as tmp:
-            edited = Path(tmp) / "repo"
-            shutil.copytree(AISL_CONTENT_NESTED, edited)
-            deep_dir = (
-                edited / "courses" / "nested-course" / "01-week-one" / "01-topic-a" / "01-too-deep"
-            )
-            deep_dir.mkdir()
-            (deep_dir / "module.yaml").write_text(
-                "content_id: 2b3c4d5e-000b-4000-8000-000000000001\ntitle: Too deep\n"
-            )
-            with checkout(edited) as active, self.assertRaises(CurriculumParseError):
-                parse_aisl_course(active, "courses/nested-course/course.yaml")
+        assert CurriculumImportRun.objects.filter(commit_sha=sha).exists()
 
 
 class NestedImportTests(TestCase):
-    """Full import of a nested tree, including the exact sibling-slug-collision case."""
+    """Two module levels, including the exact sibling-slug-collision case."""
 
     def import_nested(self):
         from tests.curriculum.utils import ParserHarness
 
-        return ParserHarness().run_parser(AislCourseParser(), AISL_CONTENT_NESTED)
+        return ParserHarness().run_parser(CourseParser(), DTC_NESTED)
 
     def test_two_submodules_each_with_section_overview_sync_cleanly(self):
         """The exact case that produced 26 collisions on the flattened site content."""
@@ -311,38 +214,32 @@ class NestedImportTests(TestCase):
         assert Course.objects.filter(slug="nested-course").count() == 1
         assert Unit.objects.filter(slug="section-overview").count() == 2
 
-    def test_nested_import_self_paced_cohort_shows_full_tree(self):
+    def test_a_cohort_placement_is_a_subset_of_the_course_tree(self):
         self.import_nested()
 
         course = Course.objects.get(slug="nested-course")
-        cohort = Cohort.objects.get(course=course, mode="self_paced")
-        assert not CohortModule.objects.filter(cohort=cohort).exists()
-        assert list(cohort.effective_modules()) == list(
-            course.modules.filter(parent__isnull=True).order_by("sort_order", "pk")
-        )
+        cohort = Cohort.objects.get(course=course, slug="2026")
+        assert [module.slug for module in cohort.effective_modules()] == ["week-two"]
+        assert [module.slug for module in course.modules.filter(parent__isnull=True)] == [
+            "week-one",
+            "week-two",
+        ]
 
 
-class BackwardCompatibilityTests(TestCase):
-    """Every existing (two-level, unnested) course behaves identically after this change."""
+class DefaultTreeTests(TestCase):
+    """A cohort that places nothing shows the course's own tree."""
 
-    def test_existing_flat_course_has_no_parent_and_default_kind(self):
+    def test_self_paced_cohort_shows_the_full_tree(self):
         from tests.curriculum.utils import ParserHarness
 
-        ParserHarness().run_parser(AislCourseParser(), AISL_CONTENT)
+        ParserHarness().run_parser(CourseParser(), AISL_CONTENT)
 
         course = Course.objects.get(slug="ai-hero")
-        for module in course.modules.all():
-            assert module.parent_id is None
-            assert module.is_bonus is False
-            assert module.available_after_days is None
-        for unit in Unit.objects.filter(module__course=course):
-            assert unit.kind == "lesson" or (unit.kind == "homework" and unit.homework)
-            assert unit.is_bonus is False
-            assert unit.session_position is None
-
         cohort = Cohort.objects.get(course=course, mode="self_paced")
         assert not CohortModule.objects.filter(cohort=cohort).exists()
         assert list(cohort.effective_modules()) == list(
             course.modules.filter(parent__isnull=True).order_by("sort_order", "pk")
         )
+        for module in course.modules.all():
+            assert module.parent_id is None
         assert course.total_units() == course._countable_units().count()

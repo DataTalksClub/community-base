@@ -1,13 +1,12 @@
-schema_version: 1
 content_id: 9a2b3c4d-0004-4000-8000-000000000001
-course: ml-zoomcamp
-identifier: "2026"
 title: Machine Learning Zoomcamp 2026
-format: modules
-published: true
+delivery: live
 start_date: 2026-09-07
 end_date: 2027-01-31
-flow:
-  - module:
-      source: core/module.yaml
-      homework: homework.yaml
+registration_url: https://example.com/register
+modules:
+  - core
+homework:
+  - module: core
+    source: homework/core/homework.yaml
+    unit: 9a2b3c4d-0003-4000-8000-000000000002
