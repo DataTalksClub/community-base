@@ -54,7 +54,7 @@ issues that can start now.
 | `D1.2cb` | DataTalksClub/website | Retire email_app and the data app, move the bridge settings | D1.2ca | no | todo | https://github.com/DataTalksClub/website/issues/372 (D1.2c umbrella spans D1.2ca and D1.2cb) |
 | `D1.3` | DataTalksClub/website | Freeze weekend: DTC on Relay in production | D1.1, D1.2cb | yes | todo | https://github.com/DataTalksClub/website/issues/410 |
 | `A1.1` | AI-Shipping-Labs/website | Adopt the package jobs app on the django_q backend | C1.5 | no | done | https://github.com/AI-Shipping-Labs/website/commit/b8d0eb8096668c4b1478840dd3e1c5c4051834c6 |
-| `A1.2` | AI-Shipping-Labs/website | Adopt the package mail app on the ses_local backend | C1.5, A1.1 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1610 (closed 2026-09-12 with dev deploy green; canonical final check unmet, remainder filed as https://github.com/AI-Shipping-Labs/website/issues/1629) |
+| `A1.2` | AI-Shipping-Labs/website | Adopt the package mail app on the ses_local backend | C1.5, A1.1 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1610 and the remainder https://github.com/AI-Shipping-Labs/website/issues/1629, both closed. All five slices shipped with the dev deploy green; the remaining EmailService call sites are that issue's documented, accepted exemptions (campaigns until A6.3, the privacy workflow) |
 
 ## Phase 2
 
@@ -65,7 +65,7 @@ issues that can start now.
 | `C2.2` | community-base | Users management in Studio | C2.1b | no | done | https://github.com/DataTalksClub/community-base/pull/49 |
 | `C2.3` | community-base | Content sync engine | C1.5, C2.1a | no | done | https://github.com/DataTalksClub/community-base/pull/52 |
 | `C2.4` | community-base | Release 0.3.0 | C2.1b, C2.2, C2.3 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.3.0 |
-| `A2.1` | AI-Shipping-Labs/website | Adopt the Studio shell | C2.4 | no | blocked | https://github.com/AI-Shipping-Labs/website/issues/1615 — registration half done and green on branch `a2.1-studio-shell` (every AISL Studio route now has exactly one disposition, down from 272 unclaimed). The shell cutover is blocked on C7.13 (package apps claim Studio routes the site never mounts, no site-side remedy) and C7.14 (the shared shell renders about 51 destinations always-expanded where the donor collapses to 8 headers) |
+| `A2.1` | AI-Shipping-Labs/website | Adopt the Studio shell | C2.4 | no | blocked | https://github.com/AI-Shipping-Labs/website/issues/1615 — registration half done and green on branch `a2.1-studio-shell` (every AISL Studio route now has exactly one disposition, down from 272 unclaimed). C7.14 has since landed, so the shell cutover now waits only on C7.13: package apps claim Studio routes the site never mounts, and no site change can clear it |
 | `A2.2` | AI-Shipping-Labs/website | Users pages from the package | A2.1 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1691 |
 | `A2.3` | AI-Shipping-Labs/website | Content sync through the package engine | C2.4 | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1617 |
 | `D2.1` | DataTalksClub/website | Mount the Studio shell and re-home DTC Studio pages | C2.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/377 |
