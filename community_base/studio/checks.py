@@ -15,6 +15,19 @@ compiled node tree by hand, answers the only question that matters: would a shar
 override actually reach the page. If neither probe's sentinel comes back, the site's
 Studio base does not honour the contract and this check fails loudly, at ``manage.py
 check`` time, rather than the failure staying invisible in a rendered page.
+
+What this check does NOT cover, stated so it cannot be read as more assurance than it is:
+
+- It answers a question about the site's Studio base, not about any individual page. It is
+  sound only in combination with the guarantee that every package Studio template fills
+  both names, which ``tests/studio/test_shell_content_block_contract.py`` enforces over the
+  package tree. Against a release whose templates still fill one name each, a shell
+  exposing the other name would pass this check while its pages rendered empty -- which is
+  exactly the state both consuming sites were in before community-base#279.
+- It says nothing about a site's OWN templates extending the package base. A site template
+  filling a name its own shell does not expose fails the same way and is the site's to
+  catch, on the surfaces it actually mounts. The count that matters to a site is templates
+  filling the unexposed name AND mounted there, which no package-side check can know.
 """
 
 from django.core.checks import CheckMessage, Error, Tags, register
