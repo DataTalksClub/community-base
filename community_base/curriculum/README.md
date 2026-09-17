@@ -174,7 +174,20 @@ block renders as readable but unstyled numbered lines followed by the note list.
 The package does not syntax-highlight. `render_markdown` has no codehilite extension, so a
 fenced block renders as plain escaped text here, and an annotated one is the same text split into
 numbered lines with the language kept on `<code class="language-...">` for a site that wants to
-highlight client-side.
+highlight client-side. A site that wants server-side highlighting registers `codehilite` through
+`COMMUNITY_BASE["MARKDOWN_EXTENSIONS"]`.
+
+`rendering.render_markdown`, `sanitize_rendered_html` and `strip_leading_title_h1` are imports of
+`community_base.content_sync.rendering`, the one renderer and the one sanitizer (issue C7.8). The
+import paths here are unchanged. Two things changed for a unit body: headings carry the ids of
+`FORMAT.md` section 4.1, and the allowlist is the shared one, which keeps `<figure>`, `<details>`
+and `<del>` that the narrower curriculum allowlist used to drop, and drops an `img src` that is
+neither site-absolute nor an absolute `http(s)` URL.
+
+`Unit.body_html_source` says who rendered the unit body, the way
+`KnowledgeBasePage.body_html_source` does. At `markdown`, the default, `save()` renders the body.
+At `site`, set by `unit.set_rendered_html(html)`, `save()` sanitizes the supplied HTML and stores
+it unchanged, which is what a parser that renders at sync time needs.
 
 `rendering.render_annotated_markdown` is the unit-body entry point and `Unit.save()` calls it, so
 annotations are rendered once at ingestion rather than per request. A body with no annotations

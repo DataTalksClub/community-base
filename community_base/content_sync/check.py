@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-import unicodedata
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -54,6 +53,7 @@ from community_base.content_sync.kinds.base import (
     TYPED_REFERENCE_PATTERN,
     check_asset_reference,
 )
+from community_base.content_sync.rendering import HeadingIdAssigner
 
 __all__ = [
     "MANIFEST_NAME",
@@ -560,13 +560,14 @@ def _fenced_blocks(body: str) -> Iterator[tuple[int, str, str]]:
 def heading_ids(body: str) -> list[tuple[int, str, str]]:
     """The heading list of a markdown body: `(level, id, text)`.
 
-    The algorithm is the DataTalks.Club one that `FORMAT.md` section 4.1 keeps,
-    so a fragment written against a rendered page still checks here. Issue C7.8
-    moves the canonical implementation into `content_sync/rendering.py`; this
-    copy is the validator's only reason to know it and goes when C7.8 lands.
+    The ids come from `rendering.HeadingIdAssigner`, the one implementation of
+    the DataTalks.Club algorithm `FORMAT.md` section 4.1 keeps, so the fragment
+    this validator accepts is the fragment the rendered page carries. Only the
+    walk over markdown source is the validator's own: it checks a repository
+    before anything renders it.
     """
 
-    seen: dict[str, int] = {}
+    assigner = HeadingIdAssigner()
     headings: list[tuple[int, str, str]] = []
     fence: str | None = None
     for raw in body.split("\n"):
@@ -582,17 +583,8 @@ def heading_ids(body: str) -> list[tuple[int, str, str]]:
         if match is None:
             continue
         text = match.group(2).strip()
-        base = _heading_slug(text)
-        count = seen.get(base, 0)
-        seen[base] = count + 1
-        headings.append((len(match.group(1)), base if count == 0 else f"{base}-{count}", text))
+        headings.append((len(match.group(1)), assigner.assign(text), text))
     return headings
-
-
-def _heading_slug(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value)
-    ascii_value = normalized.encode("ascii", "ignore").decode("ascii").lower()
-    return re.sub(r"[^a-z0-9]+", "-", ascii_value).strip("-") or "section"
 
 
 if __name__ == "__main__":

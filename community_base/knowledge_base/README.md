@@ -64,7 +64,7 @@ front-matter parents (DataTalks.Club does both) stores both independently.
 `body_html_source` says who rendered the page. At `markdown`, the default,
 `save` renders `body` with `rendering.render_markdown`. At `site`, `save`
 stops rendering and keeps the supplied HTML, which is what a site with its
-own pipeline (mistune, liquid preprocessing, injected heading ids) needs.
+own pipeline, and a sync parser that renders at sync time, both need.
 
 Set it with `page.set_site_rendered_html(html)` or by passing `body_html`
 to `sync.upsert_page`. Supplied HTML is not trusted: every save puts it
@@ -122,14 +122,20 @@ A working example lives in `tests/knowledge_base/fixture_parser.py`.
 
 ## Rendering
 
+`rendering` is a thin import of `community_base.content_sync.rendering`, the
+one renderer and the one sanitizer for synced content (issue C7.8). The import
+path here is unchanged, and so is what it produces for a page body, except that
+headings now carry the ids of `FORMAT.md` section 4.1.
+
 `rendering.render_markdown` renders a page body on save and sanitizes the
 result. The allowlist is lifted from DTC's
 `content/services.py:sanitize_rendered_html` (tags, attribute rules, URL
 protocols) onto `nh3`; one deliberate extension: an `img src` may also be
 an absolute `http(s)` URL, so a site's CDN images render. `class`, `id`,
 `lang` and `title` survive on any allowed tag, which is what carries a
-site's heading anchors; `style`, `data-*`, event handlers, `javascript:`
-links and unadmitted image sources do not.
+site's heading anchors; `style`, event handlers, `javascript:` links,
+unadmitted image sources and every `data-*` attribute outside the embed and
+theme-figure hooks do not.
 
 A site that renders the page itself hands the result to the app
 (`set_site_rendered_html`, or `body_html=` on `upsert_page`) rather than

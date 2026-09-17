@@ -1,86 +1,40 @@
-"""Markdown rendering for curriculum content.
+"""Curriculum rendering: the shared renderer plus structured code annotations.
 
-Renders authored markdown to HTML on save and sanitizes the result so a
-raw ``<script>`` in a synced body is removed rather than executed.
+Issue C7.8 moved markdown, sanitizing, heading ids and the leading-H1 rule to
+``community_base.content_sync.rendering``, the one renderer and the one
+sanitizer (`FORMAT.md` section 4.2). This module keeps the curriculum-specific
+entry point and re-exports the shared names, so existing imports keep working.
 
 ``render_annotated_markdown`` is the unit-body entry point: it adds structured
 code annotations (``community_base.curriculum.code_annotations``) on top of the
-one markdown path in this module. There is no second renderer and no second
-sanitizer -- the annotated block is markup this package generates from a parsed
-structure after sanitization, through a template a site may override.
+one markdown path. There is still no second renderer and no second sanitizer --
+the annotated block is markup this package generates from a parsed structure
+after sanitization, through a template a site may override.
 """
 
-import re
-
-import markdown as markdown_lib
-import nh3
 from django.template.loader import render_to_string
 
+from community_base.content_sync.rendering import (
+    inject_heading_ids,
+    plain_text,
+    render_document,
+    render_markdown,
+    sanitize_rendered_html,
+    strip_leading_title_h1,
+)
 from community_base.curriculum.code_annotations import build_render_plan
 
-_EXTENSIONS = ["fenced_code", "tables", "sane_lists"]
-
-_SANITIZE_TAGS = frozenset(
-    {
-        "a",
-        "abbr",
-        "b",
-        "blockquote",
-        "br",
-        "code",
-        "div",
-        "em",
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "h5",
-        "h6",
-        "hr",
-        "i",
-        "img",
-        "li",
-        "ol",
-        "p",
-        "pre",
-        "span",
-        "strong",
-        "sub",
-        "sup",
-        "table",
-        "tbody",
-        "td",
-        "th",
-        "thead",
-        "tr",
-        "ul",
-    }
-)
-_SANITIZE_ATTRIBUTES = {
-    "a": {"href", "title"},
-    "img": {"src", "alt", "title"},
-    "div": {"class"},
-    "span": {"class"},
-    "code": {"class"},
-    "pre": {"class"},
-    "td": {"align"},
-    "th": {"align"},
-}
-
-# ATX H1: a single ``#`` followed by a space, capturing the heading text.
-_LEADING_H1_RE = re.compile(r"^(?P<hash>#)[ \t]+(?P<text>.+?)[ \t]*#*[ \t]*$")
-_TRAILING_PUNCT_RE = re.compile(r"[.,:;!?]+$")
-_WHITESPACE_RE = re.compile(r"\s+")
-
-
-def render_markdown(text: str) -> str:
-    """Render markdown to sanitized HTML."""
-
-    if not text:
-        return ""
-    rendered = markdown_lib.markdown(text, extensions=_EXTENSIONS)
-    return nh3.clean(rendered, tags=_SANITIZE_TAGS, attributes=_SANITIZE_ATTRIBUTES, link_rel=None)
-
+__all__ = [
+    "ANNOTATED_CODE_BLOCK_HEADING",
+    "ANNOTATED_CODE_BLOCK_TEMPLATE",
+    "inject_heading_ids",
+    "plain_text",
+    "render_annotated_markdown",
+    "render_document",
+    "render_markdown",
+    "sanitize_rendered_html",
+    "strip_leading_title_h1",
+]
 
 ANNOTATED_CODE_BLOCK_TEMPLATE = "curriculum/annotated_code_block.html"
 ANNOTATED_CODE_BLOCK_HEADING = "Code annotations"
@@ -113,52 +67,3 @@ def render_annotated_markdown(text: str) -> str:
         else:
             rendered = rendered.replace(token, markup, 1)
     return rendered
-
-
-def _normalise(text: str | None) -> str:
-    if text is None:
-        return ""
-    text = text.strip()
-    text = _WHITESPACE_RE.sub(" ", text)
-    text = _TRAILING_PUNCT_RE.sub("", text).strip()
-    return text.lower()
-
-
-def strip_leading_title_h1(body: str, title: str) -> str:
-    """Return ``body`` with its leading H1 removed if it matches ``title``.
-
-    The page templates render the authored title as the page heading, so a
-    body that opens with the same H1 would show the title twice. The H1 is
-    only stripped when the first non-blank line is an ATX H1 whose text
-    matches the title case-insensitively, whitespace-collapsed and ignoring
-    trailing punctuation. Every other body is returned unchanged.
-    """
-
-    if not body or not title:
-        return body
-
-    target = _normalise(title)
-    if not target:
-        return body
-
-    lines = body.splitlines(keepends=True)
-
-    idx = 0
-    while idx < len(lines) and lines[idx].strip() == "":
-        idx += 1
-
-    if idx == len(lines):
-        return body
-
-    match = _LEADING_H1_RE.match(lines[idx].rstrip("\r\n"))
-    if not match:
-        return body
-
-    if _normalise(match.group("text")) != target:
-        return body
-
-    drop_to = idx + 1
-    if drop_to < len(lines) and lines[drop_to].strip() == "":
-        drop_to += 1
-
-    return "".join(lines[drop_to:])

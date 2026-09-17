@@ -177,6 +177,41 @@ The module form knows the package kinds only; pass `--kinds <dotted.module>` (re
 a module that registers a site kind. The management command needs no flag, because the site's apps
 have already registered them.
 
+## Rendering
+
+`rendering.py` is the one renderer and the one sanitiser for synced content (`FORMAT.md`
+section 4.2). A second markdown path or a second allowlist is a defect, not an extension point.
+
+| Name | What it does |
+|---|---|
+| `render_document(body, title="")` | the whole pipeline; returns `html`, `headings` and search `text` |
+| `render_markdown(text)` | the same pipeline when only the HTML is wanted |
+| `inject_heading_ids(html)` | adds the ids and returns the heading list |
+| `sanitize_rendered_html(html)` | the one nh3 allowlist, for HTML a parser rendered itself |
+| `plain_text(html)` | the search text of rendered HTML |
+| `strip_leading_title_h1(body, title)` | drops a leading H1 that repeats the title |
+
+The order is render, inject heading ids, sanitise. Sanitising is always last, so nothing an
+extension emits reaches storage unchecked, and it is idempotent, so re-saving stored HTML leaves it
+byte for byte alone.
+
+The dialect is python-markdown with `fenced_code`, `tables` and `sane_lists`, plus the package
+`mermaid` and `embed` fences. `attr_list` and `md_in_html` are not enabled, so a kramdown attribute
+list is inert text the validator rejects.
+
+Heading ids use the DataTalks.Club algorithm: NFKD, ASCII, lowercase, non-alphanumerics to `-`, an
+empty result becoming `section`, and a repeat suffixed by the number of times the id was already
+seen. Three `Setup` headings give `setup`, `setup-1`, `setup-2`. `check.py` assigns ids with the
+same `HeadingIdAssigner`, so the fragment the validator accepts is the fragment the page carries.
+
+`COMMUNITY_BASE["MARKDOWN_EXTENSIONS"]` is a list of dotted paths appended to the package extension
+list. A site extends; it never replaces. An extension's output still passes the package sanitiser,
+so an extension that needs a new attribute needs a package change to the allowlist.
+
+Models store what they are given: `curriculum.Unit` and `knowledge_base.KnowledgeBasePage` both
+carry `body_html_source`, and at `site` their `save()` sanitises the supplied HTML instead of
+rendering markdown.
+
 ## Configuration
 
 Declare source dictionaries in `COMMUNITY_BASE["CONTENT_SOURCES"]`. Each needs `slug`,

@@ -58,6 +58,10 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
    - content kinds registered in `AppConfig.ready()` through
      `community_base.content_sync.kinds.register_kind`, which may add keys to the content format
      but never remove, rename or retype a core key (D23);
+   - markdown extensions appended through `COMMUNITY_BASE["MARKDOWN_EXTENSIONS"]`: synced content
+     has one dialect and one sanitiser, `community_base.content_sync.rendering` (D23), and a site
+     adds an extension to that list rather than forking the dialect or adding a second sanitiser;
+     an extension's output still passes the package sanitiser;
    - API routes registered through `community_base.api.registry`; administrative integrations use
      scoped bearer authentication, while member-owned browser routes explicitly select session
      authentication and retain CSRF protection;
