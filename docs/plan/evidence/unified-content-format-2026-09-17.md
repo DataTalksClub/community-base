@@ -134,3 +134,67 @@ Package. `community_base.curriculum` carries two parsers for two course layouts
 | package curriculum | python-markdown `fenced_code`, `tables`, `sane_lists` | none | nh3 allowlist, narrower than the knowledge base one | none | `curriculum/rendering.py:1-60` |
 | package knowledge base | python-markdown, same extensions | strip a leading H1 equal to the title | nh3, DTC's allowlist lifted plus absolute `img src` | none | `knowledge_base/rendering.py:1-30,150-192` |
 
+## 2. Divergence analysis
+
+The test applied to every row: two expressions converge only when a single reader could serve
+both sites with one meaning. Where the meanings differ, the concepts stay distinct even if the
+key names happen to match.
+
+### 2.1 Same idea, different expression: these converge
+
+| Idea | DTC expression | AISL expression | Package today | Convergent form (section 3) |
+|---|---|---|---|---|
+| Stable item identity | `content_id` UUID in course manifests only; slug or path elsewhere | `content_id` on every file; a slug in curated links | provenance `source_content_id` | `content_id` UUID required on every item of every kind |
+| Where an item's metadata lives | module `units:` list names each lesson's `content_id`, `title`, `path`; lesson files carry only `video_url`, `prev_url`, `next_url`, `code` | every file carries its own front matter | both parsers | front matter in the file; a manifest lists no children |
+| Sibling order | `nav_order` (docs), `sort_order` (faq), manifest list order (lessons), `NN-` prefix (modules), `NNN_` prefix (faq files) | `NN-` prefix, `sort_order` override | `NN-` prefix, `sort_order` override | `NN-` prefix on the file or directory name, `sort_order` override in front matter |
+| Tree parent | `parent:` by page title (docs), directory (faq) | `parent:` by slug (docs), directory (courses) | `parent` FK resolved by slug | the directory tree, nothing else |
+| Cohort declaration | `cohorts/<id>/cohort.yaml` plus a duplicate `cohorts:` list and `current_cohort` in `course.yaml` | inline `cohorts:` list in `course.yaml` | AISL inline, DTC directories | `cohorts/<identifier>/cohort.yaml` only |
+| Course description source | `SITE.md` (schema 1), inline `description` (schema 2) | inline `description`, else `README.md` | both | inline `description`; `README.md` is never read at course level |
+| Module overview | `README.md` beside `module.yaml` (`overview_markdown`) | `README.md` beside `module.yaml` (`overview`) | both | unchanged, `README.md` is the overview |
+| Schema versioning | `schema_version` on every manifest | none | DTC parser demands it | once, in the repository `content.yaml` |
+| Access gate | `published` boolean | `required_level` integer or name, `access`, `is_preview` | `required_level` integer (D5) | `required_level` integer or name; `status` for visibility |
+| Homework page flag | `kind` on the manifest unit entry | `kind: homework` or `is_homework: true` | `kind` with a legacy alias | `kind` only |
+| Bonus flag | `is_bonus` on manifest entries | `bonus` (module.yaml) and `is_bonus` (unit) | `is_bonus` | `is_bonus` |
+| Cover image key | `image`, `cover`, `picture` | `cover_image`, `cover_image_url` | `cover_image_url` | `image` (relative path or URL) |
+| One-line summary key | `description` (article, docs), `bio_short` (person), `short` (podcast), `summary` (wiki, book) | `description` (article, project), `summary` (wiki, docs) | `summary` | `summary` |
+| Image references | site-absolute `/images/...` in raw HTML, Liquid `relative_url`, declared `images:` lists with `{IMAGE:id}` tokens | relative paths, rewritten at sync | relative | relative paths only, resolved from the referencing file, uploaded and rewritten by the engine |
+| Links between items | `prev_url`/`next_url` filenames, Liquid, `[[wikilinks]]` by title, `/workshops/<slug>` style routes | bare sibling filenames rewritten, `/workshops/<slug>` routes | none | relative file links for siblings; typed `kind:slug` links for everything else; no wiki token syntax |
+| Slug alphabet | `[a-z0-9]+(-[a-z0-9]+)*` in course repos; `[A-Za-z0-9._-]` in the wiki; two podcast slugs end in `.md` and two person keys carry `_` or `()` | lowercase, digits, hyphens | `[-a-zA-Z0-9_.]` in the knowledge base | `[a-z0-9]+(-[a-z0-9]+)*` everywhere |
+| Author reference | `authors: [person-key]` resolved to `/people/` | `author: "Alexey Grigorev, Valeriia Kuka"` | none | `authors: [person-id]` plus optional `byline` (section 2.2 explains why both) |
+| Jekyll residue | `layout:`, `permalink:`, `has_children:`, `has_toc:`, `grand_parent:`, `legacy_path:` | none | none | dropped; all are derivable or presentation |
+| Which kind a file is | fixed per parser by source slug and root directory | classifier heuristics on directory names and front-matter sniffing (`classify.py:181-283`) | course parsers sniff the layout | declared once per repository in `content.yaml` |
+| Markdown dialect | mistune plus kramdown and Liquid preprocessing | python-markdown plus extensions | python-markdown | one dialect, section 4 |
+
+### 2.2 Genuinely different ideas: these stay distinct
+
+| Pair | Why they are not the same thing |
+|---|---|
+| Course and workshop | A course is a tree of modules delivered to cohorts with homework, progress and certificates. A workshop is one recording with a landing page, a gate on the recording separate from the pages, and tutorial pages tied to video offsets (`workshops-content/_docs/03-04-frontmatter.md`). Folding a workshop into a one-module course loses the recording gate and the landing semantics. Both follow the same core rules; they keep separate kind schemas. |
+| Course tree and cohort placement | The tree is authored once per course. A cohort places a subset in an order with dates and homework bindings (`community_base/curriculum/models.py:420`, DTC `CohortSharedModule`). This is the ownership decision already shipped in C5.1e and is not reopened. |
+| A `kind: homework` unit and a `homework.yaml` | The unit is a page in the reading order (instructions, prose). The manifest is a gradable assignment with due date, form and encrypted answers, owned by a cohort (`llm-zoomcamp/cohorts/2026/homework/01-agentic-rag/homework.yaml`). AISL puts `questions:` and `due_date:` in the unit file (`_docs/course_yaml.md:195-235`), which welds a cohort artefact to course content and is exactly why AISL needs a one-cohort-per-sync resolution rule. They separate: the page stays in the tree, the assignment moves under the cohort and may point at the page. |
+| `authors` and a byline | DTC authors are references to person records that resolve to profile pages. AISL's `author` is display text. A reference and a display string are different data; the format carries both, `authors` for identity and `byline` for display when no person record exists. |
+| `summary` and `description` | `summary` is one line of plain text for cards, search and meta tags. `description` on a course, workshop or event manifest is long-form markdown copy for a landing page. Articles and pages have no long-form description apart from their body, so they carry only `summary`. |
+| `required_level` and `status` | The gate answers who may read a published item. `status` answers whether the item is published at all. DTC uses `published: true`; AISL uses `status` and `published` on articles. One integer gate and one status enum. |
+| `sort_order` and `date` | Sibling order in a tree versus chronological order in a feed. Articles, projects and podcasts are ordered by date; lessons, pages and modules by position. A date prefix on a filename (DTC articles, `YY-MM-DD-slug.md`) is chronology leaking into identity; it goes. |
+| `tags` and `related` | Free taxonomy versus typed references to other items. `related` becomes a list of typed references, not titles. |
+| Wiki page and docs page | A flat graph of pages versus a tree with one parent per page. Same page model, two sections, as `knowledge_base` already has; the format keeps `wiki/` flat and `docs/` nested. |
+| Podcast `links` and `resources` | Platform-keyed listening URLs versus an ordered list of titled resources. Kind-specific, both kept. |
+| FAQ question `id` and `content_id` | The ten-character id is the key the FAQ automation writes files by and that `_docs/compatibility/faq-fragment-contracts.jsonl` pins. `content_id` is the upsert key. Two keys with two roles. |
+| Unit `video_url` and workshop `recording` | One video per lesson versus one recording per workshop with per-page `video_start` offsets. Different cardinality, both kept. |
+| Content and generated artefacts | `graph/graph.json` and `search/search-corpus.json` in the podwiki are outputs of scripts over the wiki plus four other Jekyll collections. They are not authored content and the format does not describe their insides; they are carried as opaque data files (section 3.9). |
+| Content and site configuration | `tiers.yaml`, `podcast-platforms.yaml`, `slack.yaml` configure a site. They ride in a content repository for convenience and are carried the same opaque way. |
+
+### 2.3 Kinds by how far they unify
+
+| Tier | Kinds | Rule |
+|---|---|---|
+| A, shared kinds | course (with module, unit, cohort, homework), article, wiki page, docs page, person | Both sites have them. Full unified schema in the package; the same parser can serve both sites. |
+| B, single-site kinds | workshop, project, curated link, interview questions, podcast, book, faq, member wiki topic | One site has them. They obey the common core (section 3.2 to 3.6) and keep a site-owned kind schema documented in the same registry. |
+| C, not content | events (decision D7: Studio-authored on both sites; AISL still syncs `events/*.yaml`, recorded in section 6), HTML partials (`events/community-launch/*.html`, `widgets/*.html`), generated artefacts, site configuration | Outside the format, except that data files travel as opaque records. |
+
+A negative finding, stated plainly: the FAQ, podcast and book kinds gain nothing from a
+different layout. They are DTC-only, their YAML shapes are sound, and the FAQ has its own writer
+(`faq_automation/`, GitHub Actions) that produces the current file names. Section 3 applies the
+core rules to them only where a rule is violated (Liquid, absolute asset paths, identity), and
+section 5 prices the FAQ conversion as optional.
+
