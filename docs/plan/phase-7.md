@@ -990,15 +990,39 @@ Read first
 - DTC `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work.
 - DTC `_docs/specs/` for the course platform specs that name the schema branches being retired.
 - the specification, section 3.8 (`course`) and section 6, the defect `C7.10` fixes.
-- `courses/services/curriculum_source.py` and `courses/services/curriculum_import.py`, which both
-  lose their schema branches.
+- every DTC module that reads `course.yaml`, not only the two this issue first named. Measured
+  2026-09-17, nine non-test modules do, and the goal above is not met while any of them remains:
+
+| Module | Lines |
+|---|---|
+| `scripts/build_public_projection.py` | 3377 |
+| `content_sync/course_repository.py` | 1608 |
+| `courses/services/curriculum_import.py` | 1497 |
+| `content_sync/course_repository_v2.py` | 795 |
+| `courses/services/local_course_seed.py` | 415 |
+| `courses/services/curriculum_source.py` | 229 |
+| `content_sync/course_repository_layout.py` | 193 |
+| `content_sync/course_repository_registration.py` | 158 |
+| `courses/services/course_family_identity.py` | 53 |
+
+  An earlier revision of this issue named only `curriculum_source.py` and
+  `curriculum_import.py`, which would have left seven modules parsing the format the issue
+  claims to retire. Note the `_v2` module in particular: the schema-2 handling this issue
+  retires lives in its own file, so deleting schema branches from the other two would not
+  reach it.
 - the `zoomcamp-ops` `check_zoomcamp.py` checker, which `check_content` replaces.
 
 Steps
 1. Point the course import at `community_base.curriculum` and the homework import at
    `community_base.coursework`.
-2. Delete `curriculum_source.py`'s manifest reader and `curriculum_import.py`'s schema 1 and
-   schema 2 branches. One format means one branch.
+2. Delete every reader in the table above, not two of them. One format means one branch, and
+   one parser. The `content_sync/course_repository*` family is four modules and about 2750 lines
+   that `community_base.curriculum.parsers` replaces wholesale.
+2a. Two of the nine are not course-repository parsers and need their own answer rather than
+   deletion: `scripts/build_public_projection.py` is a projection build and
+   `courses/services/local_course_seed.py` seeds a local dataset. Decide per module whether it
+   reads through the package toolkit or stops reading `course.yaml` at all, and say which in the
+   pull request.
 3. Replace the `zoomcamp-ops` layout checks with `check_content` in each course repository's CI.
    The file conversions themselves are `D7.4`.
 4. Keep cohort placement as shipped in `C5.1e`. This issue changes the reader, not the ownership.
