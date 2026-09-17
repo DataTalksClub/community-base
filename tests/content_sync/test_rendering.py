@@ -5,6 +5,8 @@ cases are the load-bearing ones: DataTalks.Club's pinned fragment contracts only
 keep resolving while the suffixes count repeats from zero.
 """
 
+from pathlib import Path
+
 import pytest
 from django.test import override_settings
 
@@ -354,3 +356,42 @@ def test_the_app_modules_re_export_the_shared_renderer():
     assert knowledge_base_rendering.sanitize_rendered_html is sanitize_rendered_html
     assert curriculum_rendering.render_markdown is render_markdown
     assert curriculum_rendering.sanitize_rendered_html is sanitize_rendered_html
+
+
+# --- the validator's fixtures, rendered ---------------------------------------
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+FRAGMENT_TARGETS = [
+    ("valid_course/01-agentic-rag/02-environment.md", "install-the-tools"),
+    ("valid_docs/docs/01-general/01-joining.md", "who-can-join"),
+]
+
+
+def _body(relative_path: str) -> str:
+    text = (FIXTURES / relative_path).read_text()
+    return text.split("---\n", 2)[2]
+
+
+@pytest.mark.parametrize(
+    ("path", "fragment"), FRAGMENT_TARGETS, ids=[p for p, _ in FRAGMENT_TARGETS]
+)
+def test_a_fragment_the_validator_resolves_is_an_id_the_renderer_emits(path, fragment):
+    """One algorithm: `check_content` accepts these links because the page carries them."""
+
+    assert f'id="{fragment}"' in render_markdown(_body(path))
+    assert fragment in {identifier for _, identifier, _ in heading_ids(_body(path))}
+
+
+def test_the_fences_of_a_valid_fixture_render_to_the_documented_markup():
+    rendered = render_markdown(_body("valid_course/01-agentic-rag/01-intro.md"))
+
+    assert '<pre class="mermaid">graph TD; A--&gt;B;</pre>' in rendered
+    assert (
+        '<div class="cb-embed" data-embed-type="youtube" data-embed-id="rQYyFxf1FWw">'
+        '<a href="https://www.youtube.com/watch?v=rQYyFxf1FWw">'
+        "https://www.youtube.com/watch?v=rQYyFxf1FWw</a></div>"
+    ) in rendered
+    # The Liquid inside a fenced block is text, exactly as the validator reads it.
+    assert "{% include youtube.html" in rendered
+    assert '<code class="language-liquid">' in rendered
