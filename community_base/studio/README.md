@@ -111,6 +111,12 @@ A group is hidden when none of its destinations are visible to the current user,
 opens the group that contains the active route. Flat registrations stay unchanged; `route_names`
 claims and `studio_routes --check` cover grouped destinations the same way.
 
+The global search box matches grouped destinations too, under the same `pages` result group as
+flat ones. Each match's `summary` names its section and, for a grouped destination, its group,
+joined with ` · `, so a result found inside a disclosure subsection is not mistaken for a
+top-level link. A grouped destination hidden from the viewer by `superuser_only` or a feature flag
+is left out of the results the same way a hidden flat destination is.
+
 ## Sidebar density and collapse
 
 Every titled section renders a header button that collapses and expands the section. The section
