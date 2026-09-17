@@ -248,9 +248,43 @@ Any element carrying `data-studio-theme-toggle` flips the `dark` class on the do
 the choice under the `theme` key the shell reads on the next page load. Both the read and the write
 are guarded, so a blocked or empty storage falls back to the viewer's `prefers-color-scheme`.
 
+### Messages
+
+The shell renders Django's message queue at the top of the content region, inside the
+`studio_messages` block. The default region carries `data-testid="messages-region"`, and each
+message carries `data-message-tag` holding that message's `tags` plus a tint keyed on its level, so
+a site that overrides nothing can still tell success from error. A message whose level the package
+does not know keeps the neutral card look the shell rendered before tints existed.
+
+Override the block to render a site region instead. The package markup is then not rendered at all,
+so the page carries exactly one region:
+
+```html
+{% block studio_messages %}
+{% include "_partials/messages.html" %}
+{% endblock %}
+```
+
+An empty override suppresses the shell's messages entirely, which is what a site that drains the
+queue somewhere else wants.
+
+### Content banner
+
+`studio_banner` is an empty block between `<main>` and the padded content column. It is where a
+full-bleed strip goes, such as an environment-mismatch warning; overriding `content` instead puts
+the strip inside the column's padding. The block ships with no markup.
+
+### Navigation hooks
+
+Every sidebar link carries `data-testid="studio-nav-<destination key>"` and the focus-visible ring
+`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent`. The test id derives
+from the destination key, which the registry keeps unique, so it survives a change of title,
+section, order or grouping.
+
 Load `{% load studio_filters %}` for:
 
 - `studio_list_filter`, `studio_empty_state`, `studio_status_badge` and `studio_list_action`
+- `studio_message_class`, the tint one flash message gets from its level
 - `studio_header_actions` and `studio_overflow_menu`
 - `studio_list_class` and `studio_action_class`
 - `operator_date`, `operator_datetime`, `operator_datetime_seconds` and `operator_datetime_tz`
