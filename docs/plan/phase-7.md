@@ -5,13 +5,29 @@ both sites already had into the package. This phase decides the remaining cases,
 a capability the other does not, or where the two solved the same problem differently, and either
 brings both onto one implementation or records that the difference stays.
 
-Source: `docs/plan/evidence/site-convergence-analysis-2026-09-16.md`. Decisions D16, D17 and D18.
+The phase carries two bodies of work. The convergence issues (`C7.1` to `C7.6`, `C7.13`, `C7.14`,
+`A7.1`, `D7.1`) settle one capability each. The content-format issues (`C7.7` to `C7.12`, then
+`A7.2`, `D7.2`, `D7.3`, `A7.3`, `D7.4`) replace sixteen content repositories' file shapes, two
+classifiers and five parsers with one declared format and one toolkit.
 
-Freeze: none expected. Every issue here adds a capability or removes an unused one; none moves a
-production table between sites.
+Source: `docs/plan/evidence/site-convergence-analysis-2026-09-16.md` for the convergence issues,
+`docs/plan/evidence/unified-content-format-2026-09-17.md` for the content-format issues. Decisions
+D16 to D31.
+
+`docs/plan/evidence/unified-content-format-2026-09-17.md` is the normative document for `C7.7` to
+`C7.12` and for the five site issues that adopt them. Its sections 3 and 4 are the format; section
+5 is the per-repository conversion cost; section 6 is the findings that make the work urgent;
+section 7 is the breakdown these issues expand. Where an issue below is shorter than the
+specification, the specification governs the detail and the issue governs the scope of its pull
+request. An issue never defers its own verification to the specification.
+
+Freeze: no production freeze. No issue here moves a production table between sites. Two issues take
+a content freeze instead: `A7.3` and `D7.4` freeze writes on the content repositories they convert,
+one day per repository, because a conversion rewrites every file in the repository.
 
 Depends on: 5 for the shared curriculum and coursework apps. The knowledge-base issues depend only
-on the content sync engine and can start once `C7.1` fixes their shape.
+on the content sync engine and can start once `C7.1` fixes their shape. `C7.7` depends on nothing
+and can start now.
 
 Exit criteria:
 
@@ -19,6 +35,9 @@ Exit criteria:
   parsers and site-owned public templates.
 - The candidate table in `C7.1` has no row left in state `undecided`.
 - No shared app carries a legacy path, alias or redirect model (decision D17).
+- One content format is specified in the package, enforced by `check_content`, and read by one
+  toolkit; `parsers_aisl.py` and `parsers_dtc.py` no longer exist.
+- Every content repository of both sites syncs from its default branch with zero errors.
 
 ## C7.1 Site convergence umbrella
 
@@ -33,7 +52,9 @@ and none is `undecided`. A `deferred` row is decided, not open.
 
 Read first
 - `docs/plan/evidence/site-convergence-analysis-2026-09-16.md`, sections 4 and 5.
-- `docs/01-decisions.md`, D16, D17 and D18.
+- `docs/plan/evidence/unified-content-format-2026-09-17.md`, sections 2 and 6, for the content
+  rows.
+- `docs/01-decisions.md`, D16 to D31.
 
 Candidate table
 
@@ -48,6 +69,11 @@ Candidate table
 | Optimistic concurrency and append-only model bases | DTC only | move `RevisionedModel` and `AppendOnlyManager` into the kernel | accepted, D19 | `C7.5` |
 | Custom session model | AISL only | move `AccountSession` into package `accounts` | accepted, D20 | `C7.6` |
 | Article storage shape | AISL concrete model, DTC synced document | each site keeps its own shape; the shared part, the sync engine, is already unified | site-owned, D21 | none |
+| Content format and importer | DTC has nine parsers over Jekyll-shaped files, AISL has a 391-line classifier over its own shapes | one declared format, one repository manifest, one parser toolkit | accepted, D23 | `C7.7` to `C7.12` |
+| Markdown dialect and sanitiser | DTC mistune with kramdown and Liquid preprocessing and bleach, AISL python-markdown with nh3 | one dialect, one sanitiser, rendered once at sync | accepted, D23 | `C7.8` |
+| Course parser | the package carries two, and section 6 of the format document shows neither reads the live repositories | one parser over the declared layout, both donors deleted | accepted, D23 | `C7.10` |
+| Parsers for the wiki, docs and person kinds | each site writes its own | the package owns them because the package owns their storage; amends the parser clause of D16 | accepted, D24 | `C7.9c` |
+| Course entitlement keys | AISL has `access_mode`, `enroll_url`, `program_label`, `maven_course_key`; DTC has none | stay AISL-only `extra` keys until a second program needs them | site-owned, D29 | none |
 | Podcast, FAQ, people, sponsors, event Q and A | DTC only | stays DTC-owned unless the owner asks | site-owned | none |
 | Payments, sprint plans, CRM, book club, analytics, triggers | AISL only | stays AISL-owned | site-owned | none |
 
@@ -1112,9 +1138,9 @@ Docs
 - DTC `_docs/specs/03-github-content-and-people.md` and `_docs/specs/` as that repository's process
   requires; `docs/plan/STATUS.md` here.
 
-Issue numbers C7.7 to C7.12 are reserved for the unified content format work proposed in
-`docs/plan/evidence/unified-content-format-2026-09-17.md`. The two issues below take C7.13 and
-C7.14 so that reservation stays intact.
+Issue numbers `C7.7` to `C7.12` were reserved for the unified content format while its
+specification was under review; they are the issues above. The two issues below took `C7.13` and
+`C7.14` while that reservation stood.
 
 ## C7.13 Studio registration follows the mounted routes
 
