@@ -61,6 +61,10 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
    - template override by path (Django `DIRS` before `APP_DIRS`);
    - extension models: a site adds a `OneToOneField` model in its own app when it needs extra
      fields on a shared model. Shared models are never forked.
+   - site-owned fields on a synced content model: one opaque JSON `record` the package stores
+     and never interprets (`KnowledgeBasePage.record`), plus a nullable site-owned public path
+     and site-supplied rendered HTML where the app has a default for both. Two sites with
+     different record shapes then share one model, and the package grows no per-site column.
 4. Templates. Shared public templates extend `"base.html"` (the site's) and use only the blocks
    and class hooks listed in section 5. Shared Studio templates extend
    `"community_base/studio/base.html"` (the package's, decision D12).

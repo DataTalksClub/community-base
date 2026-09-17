@@ -167,4 +167,4 @@ issues that can start now.
 | `D7.1` | DataTalksClub/website | DTC wiki and docs onto the shared app | C7.2, C7.4 | no | blocked | https://github.com/DataTalksClub/website/issues/406 — blocked on C7.4: the released knowledge base app cannot store DTC docs paths, site-rendered HTML or the wiki record fields (docs/plan/evidence/d71-knowledge-base-gap-2026-09-17.md) |
 | `A7.1` | AI-Shipping-Labs/website | AISL gains wiki and docs | C7.2 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1685#issuecomment-5704258072 (merged as website ac9a7ea3; Deploy Dev 35144001433 green; wiki and nested docs pages 200 on dev, pages in the sitemap) |
 | `C7.3` | community-base | Gate Calendly Studio surfaces behind the Calendly flag |  | no | done | https://github.com/DataTalksClub/community-base/pull/267 |
-| `C7.4` | community-base | Knowledge base: site-owned page identity, rendering and record metadata | C7.2 | no | todo |  |
+| `C7.4` | community-base | Knowledge base: site-owned page identity, rendering and record metadata | C7.2 | no | in-progress | branch c7.4-knowledge-base |
