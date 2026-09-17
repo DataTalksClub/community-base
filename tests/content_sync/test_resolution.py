@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from community_base.content_sync.checkout import ImmutableCheckout
 from community_base.content_sync.documents import read_repository
 from community_base.content_sync.kinds import KeySpec, KindSpec, register_kind
 from community_base.content_sync.kinds.layouts import FlatLayout
@@ -654,3 +655,18 @@ def test_the_same_document_when_the_second_source_lost_the_target(tmp_path):
     assert "Rahul" in page_html
     assert "person:16rahuljain" not in page_html
     assert page_html.count("<a ") == 2
+
+
+def test_the_sync_path_reads_and_uploads_through_the_checkout():
+    """A store is handed the checkout, so the manifest hash still guards bytes."""
+
+    store = FakeStore()
+    with ImmutableCheckout(FIXTURES / "valid_multi") as checkout:
+        result = resolve_repository(read_repository(checkout), media=store)
+
+    assert result.ok
+    assert store.uploads == [
+        "articles/crisp-dm-for-ai/images/cover.png",
+        "articles/crisp-dm-for-ai/images/cover.dark.png",
+        "people/images/alexey-grigorev.png",
+    ]
