@@ -127,11 +127,48 @@ Use the modules under `community_base.accounts.services` as the integration boun
 - `import_users`: adapter registry, reconciliation, audit batches and rollback-only dry run.
 - `profile`: profile version 1 validation, completion and revision compare-and-swap.
 - `account_settings`: bounded member-controlled account updates.
+- `sessions`: erase a member's session rows, and purge rows that have already expired.
 
 Import adapters return `ImportRow` objects. Keep course CSV aggregation, Stripe subscription/tier
 mutation, Slack workspace access and site queue pacing outside the generic service. Dry run performs
 the real reconciliation inside a rolled-back transaction. It returns planned counts but persists no
 user, batch or mail delivery.
+
+## Sessions
+
+`AccountSession` is a queryable view over the `django_session` table that
+`django.contrib.sessions` already owns and manages. It adds one column, `account_id`, so
+a site can answer "which sessions does this member have" and act on them without decoding
+opaque `session_data`.
+
+A site opts in explicitly:
+
+```python
+SESSION_ENGINE = "community_base.accounts.session_backend"
+```
+
+Installing `community_base.accounts` never sets this. Until a site sets it, Django's
+default `django.contrib.sessions.backends.db` backend keeps writing sessions the way it
+always has, `account_id` stays null on every row, and `AccountSession` is read-only from
+the site's point of view. Setting `SESSION_ENGINE` makes the package's `SessionStore`
+populate `account_id` from `_auth_user_id` on every session write.
+
+Two services in `community_base.accounts.services.sessions` cover the two real call sites
+this replaces:
+
+| Service | Purpose |
+|---|---|
+| `erase_member_sessions(user)` | Delete every session row recorded for the member; used by GDPR erasure |
+| `purge_expired_sessions(now=None, limit=None)` | Delete session rows past `expire_date`; a site's own scheduler calls it, optionally batched with `limit` |
+
+Neither ships as a management command; a site wires each into whatever scheduler or
+request-handling code it already has.
+
+The migration that adds `account_id` to `django_session` is provisional, like
+`0001_provisional_initial`: do not tag or release a package containing it until the
+donor inventory and equivalence checks pass. AISL already carries this exact column in
+production (donor `accounts/migrations/0027_accountsession_account_id.py`), so AISL owns
+that check; DTC has no such column and simply gains one (C3.7).
 
 ## Mail purposes
 
