@@ -170,7 +170,16 @@ class KindSpec:
             raise LookupError(f"Kind {self.name} has no part {name}") from None
 
     def asset_key_names(self, part: PartSpec) -> tuple[str, ...]:
-        names = {"image", *self.asset_keys}
+        """The keys of one part whose value is an asset reference (3.6, 3.8).
+
+        `image` is always one, except on a part that carries no core keys: the
+        `data` kind is an opaque record, and an `image` key inside one is the
+        site's to read, not a path the engine resolves and uploads.
+        """
+
+        names = {*self.asset_keys}
+        if part.core_keys:
+            names.add("image")
         names.update(name for name, spec in part.keys.items() if spec.type == "asset")
         return tuple(sorted(names))
 
