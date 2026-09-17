@@ -839,6 +839,279 @@ Done when
 Docs
 - `community_base/content_sync/README.md`, `CHANGELOG.md`, `docs/plan/STATUS.md`.
 
+## A7.2 AISL: adopt the toolkit and the one course parser
+
+Repository: AI-Shipping-Labs/website. Depends on: C7.12. Freeze required: no. Decision D23.
+
+Goal: AISL's `content/sync_parsers/` reads the unified format and nothing else: the classifier is
+gone, tier B kinds are registered kinds, and synced content is rendered and sanitised once by the
+package.
+
+Read first
+- AISL `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work.
+- AISL `_docs/testing-guidelines.md` and `scripts/affected_tests.py`, for the test selection.
+- the specification, section 3.8 and the AISL rows of section 5.
+- `docs/01-decisions.md`, D29, D30 and D31.
+- `content/sync_parsers/classify.py` and `parsing.py`, which are deleted.
+- `content/utils/markdown.py`, whose `sanitize_html`, `normalize_inline_bullets` and
+  `linkify_urls` stop running on synced content.
+
+Steps
+1. Replace `classify.py` and `parsing.py` with the package toolkit. Each source declares its kinds
+   in its own `content.yaml`; the site classifies nothing.
+2. Register the tier B kinds AISL owns: `workshop`, `project`, `curated_link`,
+   `interview_question` and the member wiki topic, each with the kind schema of section 3.8.
+3. Delete the tier A family bodies for `course`, `wiki` and `docs`; those parsers are the
+   package's now.
+4. Keep the article parser as a thin adapter that fills `content.Article` from a `ParsedDocument`.
+   D21 keeps that model site-owned.
+5. Stop running `sanitize_html`, `normalize_inline_bullets` and `linkify_urls` on synced content.
+   They stay where they are for Studio-authored event and email text.
+6. Register `codehilite`, `MermaidExtension`, `ExternalLinksExtension` and `EventWidgetExtension`
+   through `COMMUNITY_BASE["MARKDOWN_EXTENSIONS"]`. An extension needing a new attribute needs a
+   package change to the allowlist; report that rather than adding a second sanitiser.
+7. Decide the question D31 leaves to this issue: keep instructors database-authored, or adopt the
+   `person` kind. Record the choice and its reason in the pull request.
+8. Leave `events/*.yaml` alone. D30 makes retiring that family a separate AISL issue, and this one
+   carries no events decision.
+9. Keep AISL's entitlement keys under `extra` (D29).
+
+Verification
+- `make test-affected` passes; `scripts/affected_tests.py` selects the touched apps.
+- Every AISL source, converted on a branch by the `C7.12` scripts, syncs on a development deploy
+  with zero errors.
+- All three AISL courses import, not one. That is the `content_sync_parsers.py:120-125` defect
+  `C7.10` fixes and `A5.1` needs.
+- The package is pinned by tag in `uv.lock`, and AISL's local-source check passes, so no local or
+  branch package source is committed.
+
+Done when
+- [ ] `classify.py` and `parsing.py` are gone
+- [ ] tier B kinds are registered kinds rather than classifier branches
+- [ ] `sanitize_html` no longer runs on synced content
+- [ ] a development deploy syncs every converted AISL source with zero errors
+- [ ] all three AISL courses import
+- [ ] the person-kind decision is recorded in the pull request
+
+Docs
+- AISL `_docs/` as that repository's process requires; `docs/plan/STATUS.md` here.
+
+## D7.2 DTC: editorial, people and data kinds on the toolkit
+
+Repository: DataTalksClub/website. Depends on: C7.12, D7.1. Freeze required: no. Decision D23.
+
+Goal: DTC's article, book, podcast, person and data parsers are rewritten over the toolkit,
+`SyncedDocument` stays, and the media parser stops uploading every file under `images/`.
+
+Read first
+- DTC `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work.
+- DTC `_docs/specs/03-github-content-and-people.md`, the product authority here, whose adapter
+  sections this issue amends to cite the format.
+- DTC `_docs/architecture/app-boundaries.md`.
+- the specification, section 3.8 (`article`, `person`, `data`) and the tier B rows for `podcast`,
+  `book` and `faq`.
+- `docs/01-decisions.md`, D25, D26 and D27.
+- `content/sync_parsers/media.py` lines 22 to 27 and 131 to 140, which upload every file under
+  `images/` whether a document references it or not.
+
+Steps
+1. Rewrite the article, book, podcast and person parsers as thin adapters over the toolkit. They
+   validate nothing; the toolkit does.
+2. Keep `SyncedDocument` (D21). The format is upstream of storage.
+3. Replace the media parser with the referenced-asset upload of `C7.9b`. An unreferenced file is no
+   longer a media row.
+4. Stop applying the bleach cleaner in `content/services.py` to synced content. `D7.1` moved wiki
+   and docs rendering; this issue finishes the editorial kinds.
+5. Register `faq` as a site kind with its current file shape (D26). Do not convert the questions.
+6. Register `graph/graph.json` and `search/search-corpus.json` as `data` files (D27). The podwiki's
+   own scripts keep producing them; rebuilding the graph from synced references is a later
+   DTC-owned issue.
+7. Register `podcast-platforms.yaml` and `slack.yaml` as `data` files, and delete the two parsers
+   that publish nothing today.
+8. Point the `person` kind at `DataTalksClub/content` rather than `datatalksclub.github.io`. The
+   file move itself is `D7.4` (D25).
+
+Verification
+- The route contract and sitemap contract tests pass unchanged for articles, books, podcasts and
+  people.
+- A development deploy serves the `/images/` route from the referenced assets of a converted
+  repository, and an unreferenced file in that repository is not served.
+- The rendered output of the 55 converted articles matches the human-reviewed rendering diff that
+  `C7.12` produced.
+- The package is pinned by tag in `uv.lock`, and `scripts/check_community_base_source.py` passes.
+
+Done when
+- [ ] article, book, podcast, person and data kinds read through the toolkit
+- [ ] route and sitemap contract tests pass unchanged
+- [ ] only referenced assets are uploaded
+- [ ] the bleach cleaner no longer runs on synced content
+- [ ] `_docs/specs/03-github-content-and-people.md` cites the format
+
+Docs
+- DTC `_docs/specs/03-github-content-and-people.md`; `docs/plan/STATUS.md` here.
+
+## D7.3 DTC: course repositories on the package course parser
+
+Repository: DataTalksClub/website. Depends on: D5.1, C7.12. Freeze required: no. Decision D23.
+
+Goal: DTC imports its six course repositories through `community_base.curriculum` and
+`community_base.coursework`, and no DTC code parses `course.yaml`.
+
+Read first
+- DTC `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work.
+- DTC `_docs/specs/` for the course platform specs that name the schema branches being retired.
+- the specification, section 3.8 (`course`) and section 6, the defect `C7.10` fixes.
+- `courses/services/curriculum_source.py` and `courses/services/curriculum_import.py`, which both
+  lose their schema branches.
+- the `zoomcamp-ops` `check_zoomcamp.py` checker, which `check_content` replaces.
+
+Steps
+1. Point the course import at `community_base.curriculum` and the homework import at
+   `community_base.coursework`.
+2. Delete `curriculum_source.py`'s manifest reader and `curriculum_import.py`'s schema 1 and
+   schema 2 branches. One format means one branch.
+3. Replace the `zoomcamp-ops` layout checks with `check_content` in each course repository's CI.
+   The file conversions themselves are `D7.4`.
+4. Keep cohort placement as shipped in `C5.1e`. This issue changes the reader, not the ownership.
+
+Verification
+- The shared-curriculum route contract passes on a development deploy against a course repository
+  converted on a branch by the `C7.12` scripts.
+- All six course repositories import, including the five that are schema 2 today and the one that
+  is schema 1 with no modules. That is the `parsers_dtc.py:551-554` defect `C7.10` fixes and `D5.1`
+  needs.
+- No DTC module parses `course.yaml`, proven by a grep recorded in the pull request.
+- The package is pinned by tag in `uv.lock`, and `scripts/check_community_base_source.py` passes.
+
+Done when
+- [ ] the six course repositories import through the package
+- [ ] no DTC code parses `course.yaml`
+- [ ] the `zoomcamp-ops` layout checker is replaced by `check_content`
+- [ ] the shared-curriculum route contract passes on a development deploy
+
+Docs
+- DTC `_docs/specs/` as that repository's process requires; `docs/plan/STATUS.md` here.
+
+## A7.3 AISL: convert and cut over the content repositories
+
+Repository: AI-Shipping-Labs/website. Depends on: A7.2. Freeze required: yes. Decision D23.
+
+Goal: every AISL content repository is converted by the `C7.12` scripts, validated by
+`check_content` in its own CI, merged, and synced from `main` with zero errors.
+
+Freeze: one day of no content writes per repository, taken one repository at a time, on
+`AI-Shipping-Labs/wiki`, `AI-Shipping-Labs/content`, `AI-Shipping-Labs/python-course`,
+`AI-Shipping-Labs/workshops-content` and `AI-Shipping-Labs/ai-buildcamp-course`. This is a content
+freeze, not a site production freeze: no database table moves and the site keeps serving. The
+freeze exists because a conversion rewrites every file in the repository, so any content pull
+request opened during the window conflicts with all of them.
+
+Order: `wiki`, `content`, `python-course`, `workshops-content`, then `ai-buildcamp-course` last,
+because a paid cohort is running against it and it converts from the `restructure-1675-maven-tree`
+branch rather than from `main`.
+
+Read first
+- AISL `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work, including who may merge in
+  the content repositories.
+- the specification, section 5, the five AISL rows.
+- the `C7.12` conversion reports for those five repositories.
+
+Steps
+1. Announce the freeze window for the repository being converted, record the pages it serves today,
+   and stop merging content pull requests in it for the day.
+2. Run the `C7.12` conversion script on a branch of that repository.
+3. Add `check_content` to that repository's CI and make it a required check.
+4. Review the conversion report's unconvertible items. Section 5 records none for AISL; anything
+   the report lists is resolved before the merge, not after.
+5. Merge the conversion in the same hour the `A7.2` deploy reaches production, then sync.
+6. Delete `scripts/check_workshops.py`, `scripts/check_content_ids.py` and their siblings from the
+   content repositories; `check_content` replaces them.
+7. Lift the freeze once that repository syncs with zero errors, then take the next one.
+
+Verification
+- Every AISL source syncs from `main` with zero errors and zero warnings.
+- `check_content` is a required check in each of the five repositories.
+- The pages recorded in step 1 are served after the cutover, spot-checked per repository.
+- No script named in step 6 remains in any of the five repositories.
+
+Done when
+- [ ] all five repositories are converted and merged
+- [ ] every AISL source syncs from `main` with zero errors and zero warnings
+- [ ] `check_content` is required in each repository's CI
+- [ ] the replaced repository scripts are deleted
+- [ ] each freeze window was announced and lifted, recorded in the pull request
+
+Docs
+- AISL `_docs/` as that repository's process requires; `docs/plan/STATUS.md` here.
+
+## D7.4 DTC: convert and cut over the content repositories
+
+Repository: DataTalksClub/website. Depends on: D7.2, D7.3. Freeze required: yes. Decision D23.
+
+Goal: every DTC content repository is converted by the `C7.12` scripts, validated by
+`check_content` in its own CI, merged, and synced from `main` with zero errors, and
+`datatalksclub.github.io` stops being a sync source.
+
+Freeze: one day of no content writes per repository, taken one repository at a time, on
+`DataTalksClub/docs`, `DataTalksClub/podwiki`, `DataTalksClub/content`,
+`DataTalksClub/ai-dev-tools-zoomcamp`, `DataTalksClub/data-engineering-zoomcamp`,
+`DataTalksClub/llm-zoomcamp`, `DataTalksClub/machine-learning-zoomcamp`,
+`DataTalksClub/mlops-zoomcamp`, `DataTalksClub/stock-markets-analytics-zoomcamp` and
+`DataTalksClub/faq`. `DataTalksClub/datatalksclub.github.io` freezes for the day its `_people`
+directory moves. This is a content freeze, not a site production freeze: no database table moves
+and the site keeps serving.
+
+Order: `docs`, `podwiki`, `content` with `people/` moved in from `datatalksclub.github.io` (D25),
+then the six course repositories, then `faq` last with its `content.yaml`-only change (D26).
+
+Read first
+- DTC `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work, including who may merge in
+  the content repositories.
+- the specification, section 5, the ten DTC rows.
+- `docs/01-decisions.md`, D25, D26 and D28.
+- the `C7.12` conversion reports for those repositories.
+- `content/route_contracts.py` and `content/sitemap_contract.py`, the pinned inventories the
+  documentation path change edits.
+
+Steps
+1. Announce the freeze window for the repository being converted, record the pages it serves today,
+   and stop merging content pull requests in it for the day.
+2. Run the `C7.12` conversion script on a branch of that repository.
+3. Add `check_content` to that repository's CI and make it a required check.
+4. Resolve the repository's human-review items before the merge: the rendering diff of the 55
+   articles for `content`, the tokens that resolve to nothing for `podwiki`, and the 25 re-parented
+   pages for `docs`.
+5. For `docs`, take the nested paths the section parents imply (D28). Update
+   `content/route_contracts.py` and `content/sitemap_contract.py` for exactly those 25 paths and no
+   others, in the same pull request, so the contract stays a contract.
+6. Move `_people` and `images/authors/` from `datatalksclub.github.io` into `DataTalksClub/content`
+   as a `people/` collection (D25), then remove `datatalksclub.github.io` from `CONTENT_SOURCES`.
+7. Convert `faq` last, with `content.yaml` and the `_questions` to `faq` rename only (D26). Leave
+   the question files and `faq_automation/` alone.
+8. Lift the freeze once that repository syncs with zero errors, then take the next one.
+9. After the last conversion merges, delete `content_sync/convert/` in a package pull request, as
+   `C7.12` step 6 states.
+
+Verification
+- Every DTC source syncs from `main` with zero errors and zero warnings.
+- The route and sitemap contract tests pass with exactly the 25 documentation paths changed and no
+  other path changed.
+- `datatalksclub.github.io` is absent from `CONTENT_SOURCES`, and the people pages still serve.
+- `check_content` is a required check in each of the ten repositories.
+- `content_sync/convert/` is gone from the package.
+
+Done when
+- [ ] all ten repositories are converted and merged
+- [ ] every DTC source syncs from `main` with zero errors and zero warnings
+- [ ] the 25 documentation paths changed and the contracts were updated in the same pull request
+- [ ] `datatalksclub.github.io` is removed from `CONTENT_SOURCES`
+- [ ] the conversion scripts are deleted from the package
+- [ ] each freeze window was announced and lifted, recorded in the pull request
+
+Docs
+- DTC `_docs/specs/03-github-content-and-people.md` and `_docs/specs/` as that repository's process
+  requires; `docs/plan/STATUS.md` here.
+
 Issue numbers C7.7 to C7.12 are reserved for the unified content format work proposed in
 `docs/plan/evidence/unified-content-format-2026-09-17.md`. The two issues below take C7.13 and
 C7.14 so that reservation stays intact.

@@ -179,5 +179,10 @@ issues that can start now.
 | `C7.10` | community-base | One course parser | C7.9b | no | todo |  |
 | `C7.11` | community-base | Coursework: homework manifests from cohort bindings | C7.10, C5.2h | no | todo |  |
 | `C7.12` | community-base | Conversion scripts and the unified format release | C7.9c, C7.10, C7.11 | no | todo |  |
+| `A7.2` | AI-Shipping-Labs/website | AISL: adopt the toolkit and the one course parser | C7.12 | no | todo |  |
+| `D7.2` | DataTalksClub/website | DTC: editorial, people and data kinds on the toolkit | C7.12, D7.1 | no | todo |  |
+| `D7.3` | DataTalksClub/website | DTC: course repositories on the package course parser | D5.1, C7.12 | no | todo |  |
+| `A7.3` | AI-Shipping-Labs/website | AISL: convert and cut over the content repositories | A7.2 | yes | todo |  |
+| `D7.4` | DataTalksClub/website | DTC: convert and cut over the content repositories | D7.2, D7.3 | yes | todo |  |
 | `C7.13` | community-base | Studio registration follows the mounted routes | C2.1a | no | todo |  |
 | `C7.14` | community-base | Studio sidebar collapse and navigation density | C2.1a | no | todo |  |
