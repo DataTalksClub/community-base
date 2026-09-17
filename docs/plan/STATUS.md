@@ -168,3 +168,5 @@ issues that can start now.
 | `A7.1` | AI-Shipping-Labs/website | AISL gains wiki and docs | C7.2 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1685#issuecomment-5704258072 (merged as website ac9a7ea3; Deploy Dev 35144001433 green; wiki and nested docs pages 200 on dev, pages in the sitemap) |
 | `C7.3` | community-base | Gate Calendly Studio surfaces behind the Calendly flag |  | no | done | https://github.com/DataTalksClub/community-base/pull/267 |
 | `C7.4` | community-base | Knowledge base: site-owned page identity, rendering and record metadata | C7.2 | no | todo |  |
+| `C7.5` | community-base | Kernel model bases: optimistic concurrency and append-only |  | no | todo |  |
+| `C7.6` | community-base | Accounts: queryable session record | C3.1e | no | todo |  |
