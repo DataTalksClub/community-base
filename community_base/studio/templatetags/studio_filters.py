@@ -48,6 +48,12 @@ STATUS_CLASSES = {
     "failed": "bg-red-500/20 text-red-700 dark:text-red-300",
     "cancelled": "bg-red-500/20 text-red-700 dark:text-red-300",
 }
+MESSAGE_CLASSES = {
+    "success": "bg-green-500/20 text-green-700 dark:text-green-300",
+    "info": "bg-blue-500/20 text-blue-700 dark:text-blue-300",
+    "warning": "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300",
+    "error": "bg-red-500/20 text-red-700 dark:text-red-300",
+}
 STATUS_OPTIONS = {
     "publication": (("draft", "Draft"), ("published", "Published")),
     "event": (
@@ -93,6 +99,17 @@ def operator_datetime_seconds(value):
 @register.filter
 def operator_datetime_tz(value):
     return _format(value, "Y-m-d H:i:s T")
+
+
+@register.filter
+def studio_message_class(message):
+    """Return the tint for one flash message, keyed on its Django level tag.
+
+    An unknown or missing level keeps the neutral card look the shell rendered
+    before messages were tinted.
+    """
+
+    return MESSAGE_CLASSES.get(getattr(message, "level_tag", ""), "bg-card text-foreground")
 
 
 @register.simple_tag
