@@ -26,6 +26,17 @@ them as `Not run here, needs:` rather than weakening or claiming the check.
 Full-suite rule for AISL: do not run the full Django suite locally. CI runs it on every push to
 `main`. Local scope is `make test-affected` plus the touched app.
 
+Package extras: run `uv sync --all-extras` in any fresh checkout or git worktree before the test
+gates. Several test modules begin with `pytest.importorskip(...)` and are silently NOT COLLECTED
+when their extra is missing, so the suite passes with a lower count instead of failing. At the
+time of writing that is the sixteen tests in `tests/questionnaires/test_ai.py`,
+`test_ai_persistence.py` and `test_ai_views.py`, which need the `ai` extra: a default worktree sync
+collects 1318 where a full sync collects 1334. CI already uses `uv sync --all-extras`, so a
+regression there is caught on push; the risk is a local run reporting a green full suite that never
+executed those modules. Report the collected count alongside the result, and compare it against a
+baseline measured in the same checkout -- counts are not comparable between checkouts with
+different extras installed.
+
 ## 2. Gates for a pull request that touches migrations
 
 Run in addition to section 1.
