@@ -5,14 +5,39 @@ due_at: 2026-09-21T23:59:00+00:00
 initial_state: closed
 form:
   homework_url: true
+  learning_in_public_cap: 3
 questions:
   - content_id: 9a2b3c4d-0006-4000-8000-000000000001
     id: q1
     type: multiple_choice
     prompt: What is a feature?
     points: 1
-    options: [A column, A row]
-    answer_type: exact
+    options:
+      - id: col
+        label: A column
+      - id: row
+        label: A row
     answer:
       version: 1
-      ciphertext: not-read-by-this-issue
+      algorithm: A256GCM
+      kdf: HKDF-SHA256
+      key_id: k1
+      salt: jY7Ynk34DlG-6ccSKHaRt1mqY2e82MLYz7HkxY4VfbE
+      nonce: hMexlk4jVs60oB_U
+      ciphertext: D4cr_Z5j-MQsbcL72PUfErBHQwxrycYbEZHRY5p4MNcKe_kTe_Q
+      context_sha256: 4f7ad58dde48fa30f8f17120aec0ebe55de0486a4831d640265d7dc659612299
+  - content_id: 9a2b3c4d-0006-4000-8000-000000000002
+    id: q2
+    type: free_form
+    prompt: How many rows does the dataset have?
+    points: 2
+    answer_type: integer
+    answer:
+      version: 1
+      algorithm: A256GCM
+      kdf: HKDF-SHA256
+      key_id: k1
+      salt: WA9q_9ZBk6rx8YVH8WlzQgN21LJSDLmjOO0bpTV91gI
+      nonce: zDV0qe-RThOPMyzT
+      ciphertext: l5FjIIB4iGrp15hRZMfeo6_wV-ArTnc8-SabJg
+      context_sha256: 14b6896dba80bbaf124397f0072a4e8f9939096d0c155725da4416aee1bca0a8
