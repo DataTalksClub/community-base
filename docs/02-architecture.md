@@ -108,7 +108,7 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
 
 | Module | App label | Models | Origin | Phase |
 |---|---|---|---|---|
-| `community_base.kernel` | `cb_kernel` | none | DTC `core` (redaction, context, services, idempotency), AISL `studio/decorators.py` | 0 |
+| `community_base.kernel` | `cb_kernel` | none (abstract bases `RevisionedModel`, `AppendOnlyManager`) | DTC `core` (redaction, context, services, idempotency, model bases C7.5), AISL `studio/decorators.py` | 0 |
 | `community_base.config` | `cb_config` | `Setting`, `SettingChange` | AISL `integrations` (registry, cache, Studio UI), DTC `core` (typing, audit) | 0 |
 | `community_base.api` | `cb_api` | `APIKey` | AISL `accounts.Token`, `accounts.MemberAPIKey`, `api/openapi/`, `api/safety.py`; DTC `management_auth` scopes | 0 |
 | `community_base.jobs` | `cb_jobs` | `JobIntent`, `JobLease` | DTC `jobs` (dispatch, leases), AISL `jobs` (Studio page, schedules command), Relay tasks API. Backends: `relay`, `django_q` | 1 |
