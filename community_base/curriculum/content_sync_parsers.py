@@ -15,10 +15,12 @@ active checkout and its read result on the instance between ``discover`` and
 ``upsert``.
 """
 
+from django.apps import apps
+
 from community_base.content_sync.documents import MANIFEST_NAME
 from community_base.content_sync.kinds.layouts import COURSE_MANIFEST
 from community_base.content_sync.parsers import SourceItem
-from community_base.curriculum.importing import apply_curriculum_graph
+from community_base.curriculum.importing import apply_curriculum_graph, graph_commit
 from community_base.curriculum.models import CurriculumImportRun
 from community_base.curriculum.parsers import (
     PARSER_VERSION,
@@ -76,6 +78,8 @@ class CourseParser:
         if parsed.course.content_id:
             self._seen_content_ids.add(parsed.course.content_id)
         course, counts = apply_curriculum_graph(parsed, source, self._checkout)
+        for action, count in self._apply_homework(item, parsed, course).items():
+            counts[action] = counts.get(action, 0) + count
         if counts["created"]:
             action = "created"
         elif counts["updated"]:
@@ -141,6 +145,30 @@ class CourseParser:
             course.status = "draft"
             course.save(update_fields=["status", "updated_at"])
         return drafted
+
+    def _apply_homework(self, item, parsed, course) -> dict:
+        """Import the manifests this course's cohorts bind (`FORMAT.md` 3.8, C7.11).
+
+        The homework rows belong to the coursework app, which is optional: a
+        site may install curriculum for the course tree alone. The import is
+        therefore looked up lazily and skipped when the app is not installed,
+        the same guard the curriculum importer uses for the events ``Host``.
+        The read result is the one this parser already holds, so no manifest is
+        read twice and no second repository walk happens.
+        """
+
+        if not apps.is_installed("community_base.coursework"):
+            return {}
+        from community_base.coursework.importing import apply_homework_graphs
+        from community_base.coursework.manifests import read_cohort_homework
+
+        graphs = read_cohort_homework(self._result, self._collections[item.key], parsed)
+        return apply_homework_graphs(
+            course,
+            graphs,
+            commit=graph_commit(parsed),
+            checkout=self._checkout,
+        )
 
     def _parse(self, item):
         return parse_course(

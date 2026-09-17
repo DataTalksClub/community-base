@@ -126,3 +126,62 @@ precedent), unlike `generate_banner`'s silent `None`. Whether the artifact is a 
 page offering both is a site decision this seam deliberately does not fix (also open in #256):
 `Certificate.url` holds whichever URL comes back either way, so nothing here needs to change once
 that is answered.
+
+## Homework from a content repository
+
+A cohort binds its gradable assignments in `cohort.yaml` (`FORMAT.md` section 3.8):
+
+```yaml
+homework:
+  - module: core
+    source: homework/core/homework.yaml
+    unit: 9a2b3c4d-0003-4000-8000-000000000002
+```
+
+`community_base.coursework.manifests` reads the manifests those bindings name and
+`community_base.coursework.importing` writes the rows. Both run inside the one course sync, from
+the read the course parser already did, so nothing here walks a repository, parses YAML or
+validates a key; the document toolkit and the kind registry did all of that before this app was
+called. What the reader owns is the binding half that no single file states:
+
+- the manifest a binding points at, resolved against the cohort directory and never outside it;
+- whether the cohort actually places the top-level module the binding names;
+- whether the binding's `unit` is a `kind: homework` unit of this course;
+- whether each sealed answer was encrypted for this course, this homework and this question.
+
+Each of those is an error naming the file, the YAML pointer and rule `3.8`, the same shape a
+toolkit diagnostic has.
+
+### Answers are always the encrypted envelope
+
+A manifest question carries the envelope of `answer_crypto.py`, never a plaintext answer. The
+importer holds no key: it calls `answer_crypto.validate_source_envelope`, which runs the check
+`decrypt_answer` runs before it touches a key (the envelope's fields, and that its context binds
+this course, this homework and this question), and then stores the envelope verbatim in
+`Question.answer_envelope`. `Question.correct_answer`, the plaintext column, is cleared on every
+imported row, so a repository-managed answer has one representation and one decryption boundary,
+`answer_resolution.resolve_correct_answer`. A plaintext `correct:` key in a manifest is rejected by
+the registry as an unknown key, before this app runs.
+
+A choice question (`multiple_choice`, `checkboxes`) carries `options` as `{id, label}` pairs and no
+`answer_type`; a free-form question carries an `answer_type` and no options. `answer_type: any` is
+not scored and carries no answer; every other answer type carries one.
+
+### What a re-import does and does not touch
+
+Re-import is idempotent: rows are matched on `content_id` first and on their slug or stable id
+second, written only when a value changed, and removed when a manifest stops declaring them. Two
+fields are deliberately not restored:
+
+- `initial_state` is the state a homework is created in. An operator opens and scores a homework
+  after the import, and a second sync must not close it again.
+- `Homework.module` and `Homework.unit` follow the binding; both are null for a Studio-authored
+  homework, which belongs to no module tree.
+
+### One form, two pages
+
+`coursework/_homework_form.html` is the submission form, and both the homework page and a bound
+unit's page include it; a unit page's form posts to the homework view, so there is one form and one
+POST handler. `submissions.homework_form_context` builds what either page needs. The unit stays a
+page in the reading order and the assignment stays cohort-owned: the unit page shows the cohort's
+homework rather than owning one.

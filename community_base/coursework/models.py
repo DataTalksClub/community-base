@@ -19,7 +19,9 @@ from community_base.curriculum.models import (
     Cohort,
     Course,
     Enrollment,
+    Module,
     SourceProvenanceMixin,
+    Unit,
     provenance_constraint,
 )
 from community_base.curriculum.validators import source_stable_id_validator
@@ -43,6 +45,16 @@ class Homework(SourceProvenanceMixin, models.Model):
     slug = models.SlugField(blank=False)
 
     cohort = models.ForeignKey(Cohort, on_delete=models.CASCADE, related_name="homeworks")
+    # The cohort module this assignment belongs to, and the optional
+    # `kind: homework` unit whose page shows the submission form
+    # (`FORMAT.md` section 3.8, the cohort's `homework` bindings). Both are
+    # null for a Studio-authored homework, which belongs to no module tree.
+    module = models.ForeignKey(
+        Module, on_delete=models.SET_NULL, null=True, blank=True, related_name="homeworks"
+    )
+    unit = models.ForeignKey(
+        Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name="homeworks"
+    )
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)

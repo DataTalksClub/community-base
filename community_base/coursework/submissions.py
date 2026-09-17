@@ -76,3 +76,38 @@ def submit_homework(homework, user, *, answers_by_question_id) -> Submission | N
 
     coursework_hooks.homework_submitted(submission=submission)
     return submission
+
+
+def homework_form_context(homework, user, *, action: str = "") -> dict:
+    """The context `coursework/_homework_form.html` needs, for either page it sits on.
+
+    The homework page and a bound unit's page (`FORMAT.md` section 3.8) show
+    the same form, so they read the same questions, the same existing answers
+    and the same open/closed state from here rather than each building their
+    own. `action` is where the form posts; empty means the page it is on.
+    """
+
+    accepting = homework.state == HomeworkState.OPEN.value
+    questions = list(homework.questions.order_by("id"))
+    submission = None
+    if user.is_authenticated:
+        submission = (
+            Submission.objects.filter(homework=homework, student=user)
+            .select_related("enrollment")
+            .first()
+        )
+    answers = (
+        {answer.question_id: answer for answer in submission.answers.all()}
+        if submission is not None
+        else {}
+    )
+    return {
+        "homework": homework,
+        "question_answers": [(question, answers.get(question.id)) for question in questions],
+        "is_authenticated": user.is_authenticated,
+        "accepting_submissions": accepting,
+        "deadline_passed": homework.due_date < timezone.now(),
+        "disabled": not accepting,
+        "submission": submission,
+        "homework_form_action": action,
+    }

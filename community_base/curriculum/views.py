@@ -1,8 +1,10 @@
 """Public curriculum pages and member (session-authenticated) API views."""
 
+from django.apps import apps
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import NoReverseMatch, reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from community_base.curriculum import services
@@ -125,6 +127,34 @@ def module_overview(request, course_slug: str, cohort_slug: str, module_slug: st
     )
 
 
+def _bound_homework_context(unit: Unit, cohort: Cohort, user) -> dict:
+    """The submission form of the homework this cohort bound to this unit.
+
+    `FORMAT.md` section 3.8 lets a cohort's `homework` binding name a
+    `kind: homework` unit; the unit stays a page in the reading order and the
+    assignment stays cohort-owned, so the page shows the cohort's form rather
+    than owning one. The homework rows belong to the optional coursework app,
+    so the lookup is lazy and guarded and the page renders unchanged without
+    it, as it does when the coursework routes are not mounted.
+    """
+
+    if not apps.is_installed("community_base.coursework"):
+        return {}
+    from community_base.coursework.models import Homework
+    from community_base.coursework.submissions import homework_form_context
+
+    homework = Homework.objects.filter(unit=unit, cohort=cohort).first()
+    if homework is None:
+        return {}
+    try:
+        action = reverse(
+            "coursework_homework", args=[cohort.course.slug, cohort.slug, homework.slug]
+        )
+    except NoReverseMatch:
+        return {}
+    return homework_form_context(homework, user, action=action)
+
+
 @require_GET
 def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, unit_slug: str):
     course = get_object_or_404(_published_courses(), slug=course_slug)
@@ -186,6 +216,7 @@ def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, u
             "prev_unit": services.get_prev_unit(course, unit),
             "completion_url": f"/courses/{course.slug}/units/{unit.pk}/complete/",
             "user_authenticated": user.is_authenticated,
+            **_bound_homework_context(unit, cohort, user),
         },
     )
 

@@ -40,6 +40,13 @@
       {% endif %}
     </div>
 
+    {% if homework %}
+      <section class="cb-card cb-unit-homework">
+        <h2 class="cb-card-title">{{ homework.title }}</h2>
+        {% include "coursework/_homework_form.html" %}
+      </section>
+    {% endif %}
+
     {% if user_authenticated %}
       <form class="cb-form" id="mark-complete" method="post" action="{{ completion_url }}">
         {% csrf_token %}

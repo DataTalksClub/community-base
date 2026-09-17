@@ -157,6 +157,26 @@ def canonical_context(*, course_slug: str, homework_slug: str, question_id: str)
     )
 
 
+def validate_source_envelope(
+    envelope: object, *, course_slug: str, homework_slug: str, question_id: str
+) -> None:
+    """Check a repository-authored envelope without a keyring and without decrypting.
+
+    The importer of a `homework.yaml` manifest holds no key and must never
+    hold a plaintext answer, but it must still refuse an envelope that is
+    malformed or that was encrypted for a different question. That is exactly
+    the check :func:`decrypt_answer` runs before it touches a key, so it is
+    shared from here rather than written a second time in the manifest reader.
+    """
+
+    _validate_envelope(
+        envelope,  # type: ignore[arg-type] -- the check refuses a non-mapping itself
+        context=canonical_context(
+            course_slug=course_slug, homework_slug=homework_slug, question_id=question_id
+        ),
+    )
+
+
 def scalar_answer_payload(value: JsonScalar) -> AnswerPayload:
     """Return a validated canonical scalar-answer payload."""
 

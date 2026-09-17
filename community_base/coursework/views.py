@@ -21,21 +21,18 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from community_base.coursework import certificates, leaderboard, projects, submissions, votes
 from community_base.coursework import review as peer_reviews
 from community_base.coursework.models import (
     Homework,
-    HomeworkState,
     LeaderboardComplaint,
     PeerReview,
     PeerReviewState,
     Project,
     ProjectState,
     ProjectSubmission,
-    Submission,
 )
 from community_base.curriculum.models import Cohort, Enrollment
 
@@ -92,31 +89,25 @@ def homework_view(request, course_slug: str, cohort_identifier: str, homework_sl
 
     cohort = _cohort_or_404(course_slug, cohort_identifier)
     homework = get_object_or_404(Homework, cohort=cohort, slug=homework_slug)
-    accepting_submissions = homework.state == HomeworkState.OPEN.value
-    deadline_passed = homework.due_date < timezone.now()
     previous_homework, next_homework = _homework_navigation(homework)
     context = {
         **_page_context(cohort),
         "homework": homework,
         "instructions_url": homework.instructions_url,
-        "homework_module": None,
+        "homework_module": homework.module,
         "previous_homework": previous_homework,
         "next_homework": next_homework,
-        "accepting_submissions": accepting_submissions,
-        "deadline_passed": deadline_passed,
     }
 
     if not request.user.is_authenticated:
         # Donor parity: anonymous GET and anonymous POST both render the
         # disabled page; no enrollment and no submission are created.
-        question_answers = [(question, None) for question in homework.questions.order_by("id")]
         return render(
             request,
             "coursework/homework.html",
             {
                 **context,
-                "question_answers": question_answers,
-                "is_authenticated": False,
+                **submissions.homework_form_context(homework, request.user),
                 "disabled": True,
             },
         )
@@ -136,29 +127,12 @@ def homework_view(request, course_slug: str, cohort_identifier: str, homework_sl
         return redirect("coursework_homework", course_slug, cohort_identifier, homework_slug)
 
     enrollment = _active_enrollment(cohort, request.user)
-    submission = (
-        Submission.objects.filter(homework=homework, student=request.user)
-        .select_related("enrollment")
-        .first()
-    )
-    answers_by_question = (
-        {answer.question_id: answer for answer in submission.answers.all()}
-        if submission is not None
-        else {}
-    )
-    question_answers = [
-        (question, answers_by_question.get(question.id))
-        for question in homework.questions.order_by("id")
-    ]
     return render(
         request,
         "coursework/homework.html",
         {
             **context,
-            "question_answers": question_answers,
-            "is_authenticated": True,
-            "disabled": not accepting_submissions,
-            "submission": submission,
+            **submissions.homework_form_context(homework, request.user),
             "disable_learning_in_public": (
                 enrollment.disable_learning_in_public if enrollment is not None else False
             ),
