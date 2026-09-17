@@ -18,9 +18,9 @@ not resolve. A parser reads the same repository through the same two modules.
 What is left here, and only here, is the markdown dialect of section 4.1: the
 rules that reject a construct rather than resolve one.
 
-The validator differs from a sync in one argument: it passes no media store, so
-nothing is uploaded, and no route resolver, so a reference to a kind another
-source owns is left for the sync that has that source.
+The validator differs from a sync in the two arguments it does not pass: no
+media store, so nothing is uploaded, and no route resolver, so a reference to a
+kind another source owns is left for the sync that has that source.
 
 Every diagnostic carries the repository-relative path of the file, a YAML
 pointer into that file (`/` names the file as a whole) and the number of the
