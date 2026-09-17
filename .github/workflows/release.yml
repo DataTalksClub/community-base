@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: Tag agrees with the version in the tagged commit
+        run: python scripts/check_release_tag.py
       - run: uv build
       - env:
           GH_TOKEN: ${{ github.token }}

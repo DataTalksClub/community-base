@@ -329,7 +329,17 @@ Package half:
 2. Update `community_base/__init__.py` `__version__` and `CHANGELOG.md` (one line per merged
    issue, with the issue id).
 3. `git tag v<version> && git push origin v<version>`. CI builds the wheel and attaches it to a
-   GitHub release.
+   GitHub release. The release job runs `scripts/check_release_tag.py` first and fails the release
+   if the tag name disagrees with `pyproject.toml` or `community_base/__init__.py` in the commit
+   the tag points at, so a tag cut before its own version bump never ships.
+3a. A published tag is immutable. Never move one, never delete and recreate one. If a tag was cut
+   at the wrong commit, leave it and cut the next version. Moving a tag breaks the guarantee D1
+   relies on: a consumer that re-locks gets different bytes than one that locked earlier, while
+   both records read as the same pin. This is not hypothetical here -- `v0.4.7` was cut at a
+   commit whose `pyproject.toml` still said `0.4.6` (and whose `__version__` already said `0.4.7`,
+   so the two disagreed with each other), a consumer locked that commit, and the tag was then moved
+   to the follow-up carrying the bump. Evidence:
+   `docs/plan/evidence/d71-knowledge-base-gap-2026-09-17.md`, addendum.
 4. Verify: `git ls-remote --tags origin v<version>` lists the tag; the release page shows the
    wheel.
 
