@@ -73,6 +73,13 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     ``project`` seven times). A site whose identity is the whole path may
     store the path as the slug instead. ``parent`` is only meaningful for
     documentation pages: wiki pages are a flat set and must leave it null.
+
+    ``record`` is the site's own, section-shaped metadata. The package stores
+    it opaquely: it never reads a key, ships no field for one, and adds no
+    per-site column. DTC's wiki pages put ``blocks``, ``tags``,
+    ``fragment_ids``, ``unresolved_fragment_ids`` and ``relations`` there;
+    its documentation pages put ``edit_url``, ``has_toc``, ``permalink`` and
+    the rest of their projection record.
     """
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -105,6 +112,14 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
         help_text="Position among siblings; ties break by title, then slug.",
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PUBLISHED)
+    record = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            "Section-shaped metadata owned by the site. The package stores and returns it "
+            "and never reads a key of it; put site-specific fields here, not in new columns."
+        ),
+    )
     public_path = models.CharField(  # noqa: DJ001 -- null means "derive from the tree".
         max_length=PUBLIC_PATH_MAX_LENGTH,
         null=True,
@@ -201,6 +216,8 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
         if not self.public_path:
             self.public_path = None
         errors: dict[str, str] = {}
+        if not isinstance(self.record, dict):
+            errors["record"] = "The record must be a JSON object, so sites can add keys to it."
         if self.section == SECTION_WIKI and self.parent_id is not None:
             errors["parent"] = "Wiki pages are a flat set; a wiki page cannot have a parent."
         if self.parent_id is not None:

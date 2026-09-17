@@ -16,6 +16,8 @@ applies each item through :func:`upsert_page`. The contract:
   ``parent_slug`` (section-wide, which must resolve to exactly one page) or by
   ``parent_path`` (the slug chain from the section root down to the parent),
   which is the shape a tree with repeated leaf slugs needs;
+- a site that needs to keep more than the app's fields passes ``record``, a
+  JSON object the package stores and never interprets;
 - a site that renders the page itself passes ``body_html``, which is
   sanitized and stored instead of the app's markdown rendering;
 - a site that owns its routes passes ``public_path``; a site that does not
@@ -71,6 +73,7 @@ def upsert_page(
     nav_order: int = 0,
     public_path: str | None = None,
     body_html: str | None = None,
+    record: dict | None = None,
     commit_sha: str,
     source_path: str,
     checksum: str,
@@ -84,7 +87,8 @@ def upsert_page(
     repeat; passing both is an error. ``public_path`` is the site's own public
     URL for the page; left out, the page keeps the ancestor-chain path the app
     derives. ``body_html`` is the site's own rendering of the page, sanitized
-    and stored as-is; left out, the app renders ``body`` as markdown. An
+    and stored as-is; left out, the app renders ``body`` as markdown.
+    ``record`` is the site's own metadata, stored opaquely. An
     unchanged page (same checksum and
     commit) is left completely alone except that a previously drafted page is
     republished -- its return to the repository is itself a change.
@@ -139,6 +143,7 @@ def upsert_page(
         page.parent = parent
         page.nav_order = nav_order
         page.public_path = public_path or None
+        page.record = dict(record) if record else {}
         page.status = STATUS_PUBLISHED
         page.source_content_id = getattr(source, "pk", None)
         page.source_path = source_path
