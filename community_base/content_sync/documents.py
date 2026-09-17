@@ -212,6 +212,17 @@ class Repository:
             return self.checkout.read_text(rel)
         return self.files[rel].read_text(encoding="utf-8")
 
+    def read_bytes(self, rel: str) -> bytes:
+        """The bytes of one file, through the checkout when there is one.
+
+        An asset is checked and uploaded by its bytes (section 3.6), so this is
+        the same guarded read the text side uses and not a second path to disk.
+        """
+
+        if self.checkout is not None:
+            return self.checkout.read_bytes(rel)
+        return self.files[rel].read_bytes()
+
     def size(self, rel: str) -> int:
         return self.files[rel].stat().st_size
 

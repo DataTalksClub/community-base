@@ -184,6 +184,26 @@ being invisible as an asset. A reference to an ignored file is an unresolved ref
 against the referencing file, not a silent success. The alternative, letting `ignore` hide a file
 from collection discovery but keep it uploadable, would make `ignore` mean two things.
 
+Package ruling, when the rewrite happens: an asset path and a cross-reference are resolved after
+the markdown is rendered and before the sanitiser runs; `rendering.render_html` is that seam.
+Section 4.1 said "before rendering", and that order cannot hold. The sanitiser drops a relative
+`img src` (section 4.2), so a rewrite that ran after it would rewrite an attribute that is already
+gone, and a reference-style link or an autolink is only a destination once the markdown is HTML.
+The stored HTML still carries the rewritten reference, which is what this section asks for.
+
+Package ruling, the paired markup: `theme_pairs` replaces the image with two `<img>` tags, adjacent
+and with no whitespace between them as in the AI Shipping Labs donor, each carrying
+`data-theme-figure` (`light` or `dark`) and the classes `cb-theme-figure cb-theme-figure-light` or
+`cb-theme-figure cb-theme-figure-dark`. A site styles those hooks; the package ships no stylesheet
+(D18). The dark half is never itself a light base, so no `name.dark.dark.ext` is ever looked for,
+and a dark sibling that fails a rule of this section is not paired.
+
+Package ruling, what the reference is rewritten to: the URL the media store returned. The sanitiser
+admits an `img src` that is site-absolute or an absolute `http(s)` URL and drops every other one
+(section 4.2), so a store returning neither leaves a stored image without a `src`. The default
+`null` backend returns the repository path unchanged and is one such store; a site that renders
+synced images configures a store whose URL is one of the two admitted shapes.
+
 ## 3.7 Cross-references
 
 One link syntax: a standard markdown link or image. Three destination forms.
@@ -212,6 +232,18 @@ Rules.
   the second `Setup` heading is `setup-1`, the third `setup-2`.
 - The resolved references of a document are stored as a list of `{kind, target, label, href}` on
   the record.
+
+Package ruling, what a stored reference holds: `kind` and `target` name the destination, `href` is
+the route it resolved to, and `label` is the link text of a body reference and the empty string for
+a front-matter one, which has no link wrapper. An external URL is left alone and is not recorded,
+because it has no kind.
+
+Package ruling, the route: `href` is `/` plus the kind's `route(path)`, or `/<kind>/<path>` when
+the kind declares no route. A site whose public URLs differ, and a reference to a kind no
+collection of this repository declares, both go through one seam: the toolkit takes a
+`routes(kind, target)` callable, which answers with a route or with None. Without that callable a
+reference to a kind another source owns is neither resolved nor reported, which is what lets
+`check_content` run over one repository and still fail closed at sync.
 
 ## 3.8 Kind registry and kind schemas
 
@@ -250,7 +282,7 @@ register_kind(
 | `shape` | `document`, `manifest`, `tree`, `data` | the primary file shape of the kind's items |
 | `layout` | layout object | how files under the collection path become items; the package ships `FlatLayout`, `TreeLayout`, `ItemDirectoryLayout`, `DataLayout` and `CourseLayout` |
 | `keys` | mapping of name to `KeySpec` | kind keys; a name that collides with a core key is refused at registration |
-| `asset_keys` | tuple of key names | keys whose value is an asset reference; `image` is always one |
+| `asset_keys` | tuple of key names | keys whose value is an asset reference; `image` is always one, except on a part that carries no core keys (the `data` kind), where an `image` key is opaque site data and not a path the engine resolves |
 | `reference_keys` | derived from `keys` | keys whose value is a typed reference or a fixed-kind reference |
 | `depends_on` | tuple of kind names | kinds whose rows must exist before this kind's references resolve |
 | `requires_date` | boolean | whether `date` is required (and, when false, forbidden) by section 3.3 |
@@ -639,7 +671,8 @@ process exits 1 when any error was reported, and 0 when only warnings were.
   (`content/docs_projection.py`) counts from zero and suffixes `-1` first. That is the rule here.
 - `~~strikethrough~~` has no python-markdown built-in; the validator warns and the conversion
   writes `<del>`.
-- Links are resolved and images rewritten before rendering (sections 3.6 and 3.7).
+- Links are resolved and images rewritten after rendering and before sanitising; section 3.6
+  owns that order and says why the design document's "before rendering" cannot hold.
 - Plain text for search is derived from the rendered HTML by the package.
 
 ## 4.2 Where rendering lives and who owns what
@@ -681,14 +714,13 @@ process exits 1 when any error was reported, and 0 when only warnings were.
 
 ## 5 Not yet implemented
 
-C7.7 shipped this document, the kind registry and the validator, and C7.9a the reading half of the
-toolkit. The rest of the chain is named here so a reader does not mistake a rule for shipped
-behaviour.
+C7.7 shipped this document, the kind registry and the validator; C7.8 the renderer and the
+sanitiser; C7.9a the reading half of the toolkit; C7.9b its resolving half, which is assets,
+cross-references, source ordering and `theme_pairs`. The rest of the chain is named here so a
+reader does not mistake a rule for shipped behaviour.
 
 | Rule | Issue that implements it |
 |---|---|
-| One renderer and sanitiser, heading ids, `mermaid` and `embed` fences | C7.8 |
-| Asset upload, reference resolution at sync, source ordering by `depends_on`, `theme_pairs` | C7.9b |
 | Package parsers for `wiki`, `docs` and `person`, and the `source_content_id` repair with its migration | C7.9c |
 | One course parser over this format | C7.10 |
 | The `homework.yaml` reader | C7.11 |

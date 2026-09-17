@@ -20,6 +20,7 @@ from community_base.content_sync.rendering import (
     markdown_extensions,
     plain_text,
     render_document,
+    render_html,
     render_markdown,
     sanitize_rendered_html,
 )
@@ -395,3 +396,18 @@ def test_the_fences_of_a_valid_fixture_render_to_the_documented_markup():
     # The Liquid inside a fenced block is text, exactly as the validator reads it.
     assert "{% include youtube.html" in rendered
     assert '<code class="language-liquid">' in rendered
+
+
+def test_render_html_is_the_seam_before_the_sanitizer():
+    """Sections 3.6 and 3.7 rewrite here, so the seam has to be pre-sanitizer."""
+
+    body = "# Title\n\n![Cover](images/cover.png)\n"
+
+    rendered, headings = render_html(body)
+
+    assert 'src="images/cover.png"' in rendered
+    assert headings == ({"level": 1, "id": "title", "title": "Title"},)
+    # The same HTML through the sanitizer is what `render_document` returns,
+    # and a relative `img src` does not survive it.
+    assert sanitize_rendered_html(rendered) == render_document(body).html
+    assert 'src="images/cover.png"' not in render_document(body).html

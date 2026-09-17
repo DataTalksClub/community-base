@@ -151,8 +151,73 @@ consumer sees a move or a rename as a change.
 An unknown top-level key in `content.yaml` is an error. Files outside every collection path are
 ignored rather than errors.
 
-The toolkit ships the reading half only. Asset upload, reference resolution and the rendered HTML
-are `C7.9b`; the package parsers that consume `ParsedDocument` are `C7.9c` and `C7.10`.
+## Resolving a repository: assets and references
+
+`community_base.content_sync.resolution` is the resolving half, sections 3.6 and 3.7 of
+`FORMAT.md`. It takes what `read_repository` read, resolves every relative asset and every
+cross-reference against the repository, uploads the assets a document references, rewrites both in
+the rendered HTML and in the stored asset keys, and returns the reference list a record stores:
+
+```python
+from community_base.content_sync.documents import read_repository
+from community_base.content_sync.media import media_store
+from community_base.content_sync.resolution import resolve_repository
+
+read = read_repository(checkout)
+resolved = resolve_repository(read, media=media_store(), source=source, routes=site_route)
+for document in resolved.documents:
+    upsert(document.document, html=document.html, references=document.reference_records())
+```
+
+| Argument | Meaning |
+|---|---|
+| `media` | a store from `media.py`; without one nothing uploads and a reference keeps its repository path, which is what the validator wants |
+| `source` | the `ContentSource` row a store keys its uploads by |
+| `routes` | the site's route resolver, `(kind, target) -> route or None`; it also answers for a kind another source owns |
+
+`ResolvedDocument` carries the `ParsedDocument` it came from plus `html`, `headings`, `text`,
+`assets`, `references` and `values`, which is the document's values with every asset key rewritten
+to its uploaded URL.
+
+A resolved reference is stored as `{kind, target, label, href}`:
+
+| Key | Meaning |
+|---|---|
+| `kind` | the kind of the target: the `kind:` prefix, or the kind of the document a relative link resolved to |
+| `target` | the target's slug, or its path for a tree kind |
+| `label` | the link text of a body reference; the empty string for a front-matter one, which has no link wrapper |
+| `href` | the route it resolved to: the site's, else `/` plus the kind's `route(path)`, with the fragment kept |
+
+An external URL is left alone and is not recorded. A reference to a kind no collection of this
+repository declares needs the other source's rows: with `routes` it resolves or fails, and without
+`routes` it is left for the sync that has that source, which is what lets `check_content` run over
+one repository.
+
+Assets follow section 3.6. Only a referenced file is an asset, so an unreferenced file is never
+uploaded, and an asset may live outside every collection. Each one is resolved from the referencing
+file's directory, held to the allowed types, the 16 MiB maximum and the signature and unsafe-SVG
+checks of `media.asset_payload_defect`, then uploaded once and keyed by its repository path. A file
+matched by `ignore` is invisible as an asset too, so referencing it is an unresolved reference.
+
+A reference is rewritten to the URL the store returned. The sanitiser admits an `img src` that is
+site-absolute or an absolute `http(s)` URL and drops every other one, so a site that renders synced
+images configures a store whose URL has one of those two shapes; the default `null` backend returns
+the repository path unchanged and is not one of them.
+
+`theme_pairs` in `content.yaml` turns a `name.dark.ext` sibling of a referenced image into a pair:
+two adjacent `<img>` tags carrying `data-theme-figure="light"` and `data-theme-figure="dark"` and
+the classes `cb-theme-figure cb-theme-figure-light` and `cb-theme-figure cb-theme-figure-dark`. The
+site styles those hooks; the package ships no stylesheet.
+
+`strict_references` decides what an unresolved reference costs: `true`, the default, is an error
+that fails the sync; `false` records a warning, drops the link and keeps its label.
+
+`order_sources(sources)` returns sources in the order the declared kind dependencies imply, so a
+source whose kinds another source depends on syncs first. The order comes from `kind_order()` and
+from nothing hand-written, and a declared cycle raises `KindDependencyError` naming its members.
+
+The toolkit ships both halves. The package parsers that consume `ResolvedDocument` are `C7.9c` and
+`C7.10`.
 
 ## Checking a repository
 
@@ -162,9 +227,11 @@ uv run python manage.py check_content <path>
 ```
 
 Both entry points call `check.run_check`, need no database and exit non-zero on any error.
-`run_check` reads the repository through `documents.read_repository` and adds sections 3.6, 3.7
-and 4.1 to what the toolkit already reported, so the validator and a parser cannot disagree
-about a manifest, a key, a slug, the nesting or an identity. Each
+`run_check` reads the repository through `documents.read_repository`, resolves it through
+`resolution.resolve_repository` with no media store and no route resolver, and adds only the
+markdown dialect of section 4.1 on top. There is no rule it owns twice, so the validator and a
+parser cannot disagree about a manifest, a key, a slug, the nesting, an identity, an asset or a
+reference. Each
 diagnostic names the repository-relative file, a YAML pointer into it (`/` is the whole file) and
 the rule number in `FORMAT.md`:
 
@@ -185,6 +252,7 @@ section 4.2). A second markdown path or a second allowlist is a defect, not an e
 | Name | What it does |
 |---|---|
 | `render_document(body, title="")` | the whole pipeline; returns `html`, `headings` and search `text` |
+| `render_html(body, title="")` | the dialect and the heading ids, before the sanitiser: the seam sections 3.6 and 3.7 rewrite in |
 | `render_markdown(text)` | the same pipeline when only the HTML is wanted |
 | `inject_heading_ids(html)` | adds the ids and returns the heading list |
 | `sanitize_rendered_html(html)` | the one nh3 allowlist, for HTML a parser rendered itself |
@@ -194,6 +262,10 @@ section 4.2). A second markdown path or a second allowlist is a defect, not an e
 The order is render, inject heading ids, sanitise. Sanitising is always last, so nothing an
 extension emits reaches storage unchecked, and it is idempotent, so re-saving stored HTML leaves it
 byte for byte alone.
+
+Resolution rewrites between the heading ids and the sanitiser, through `render_html`: a relative
+`img src` does not survive the allowlist, so a rewrite after the sanitiser would rewrite an
+attribute that is already gone. There is still one markdown pass and one allowlist.
 
 The dialect is python-markdown with `fenced_code`, `tables` and `sane_lists`, plus the package
 `mermaid` and `embed` fences. `attr_list` and `md_in_html` are not enabled, so a kramdown attribute

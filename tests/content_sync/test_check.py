@@ -50,6 +50,7 @@ INVALID = (
     ("escaping_asset", "3.6", "wiki/a-page.md", "leaves the repository"),
     ("bad_asset_type", "3.6", "wiki/a-page.md", "asset type is not allowed"),
     ("http_image", "3.6", "wiki/a-page.md", "http:// references are not allowed"),
+    ("ignored_asset", "3.6", "wiki/a-page.md", "is ignored by content.yaml"),
     ("unresolved_link", "3.7", "wiki/a-page.md", "resolves to no document of this collection"),
     ("bad_fragment", "3.7", "wiki/a-page.md", "no heading 'setup' in wiki/b-page.md"),
     ("unresolved_reference", "3.7", "wiki/a-page.md", "unresolved reference"),
