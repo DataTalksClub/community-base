@@ -87,6 +87,23 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
    `community_base.studio.checks.check_studio_content_block_contract` runs on every `manage.py
    check` and fails with `community_base.studio.E001` when a site's replacement exposes neither
    (community-base#279).
+
+   Three pieces cover this contract and none is sufficient alone. A package-tree test asserts
+   every shared template fills both names, so a single-name template cannot ship from here. The
+   system check answers whether a site's replacement exposes either name. The third piece is
+   unownable from the package: whether a consuming site mounts the surface at all. Two blank AISL
+   pages were reachable only because that site mounts `community_base.api.urls` and
+   `community_base.jobs.studio_urls`; a site mounting neither has the same broken templates
+   installed and no symptom. The count that matters to a site is templates filling the unexposed
+   name and mounted there, and only the site can know it.
+
+   The failure is worth describing because it is a shape, not an incident. Two failures stacked:
+   a site added an override to its Studio base specifically so the package jobs page would render
+   in its shell, and the page filled the other block name, so the fix and the bug never met.
+   Neither half looked wrong on its own, and the page returned 200 throughout. An empty page
+   returning 200 looks like an empty list, and a fix addressing the wrong half of a two-part
+   contract looks like a fix. Both sites carried a different half of this for months
+   (AI-Shipping-Labs/website#1615 comment thread, community-base#279).
 5. Migrations in the package are append-only after a tag. Never edit a migration that shipped in
    a tag; add a new one. A kept-label initial migration is provisional and must remain untagged
    until its compatibility issue verifies the exact donor migration inventory and state. Once
