@@ -941,8 +941,11 @@ Read first
   `images/` whether a document references it or not.
 
 Steps
-1. Rewrite the article, book, podcast and person parsers as thin adapters over the toolkit. They
-   validate nothing; the toolkit does.
+1. Rewrite the article, book and podcast parsers as thin adapters over the toolkit. They validate
+   nothing; the toolkit does. The `person` parser is NOT rewritten here: D24 moved it into the
+   package and C7.9c shipped it, so DTC stops having a person parser at all and configures the
+   package one. An earlier revision of this step listed `person` among the site adapters, which
+   contradicted D24; D24 is the later owner decision and wins.
 2. Keep `SyncedDocument` (D21). The format is upstream of storage.
 3. Replace the media parser with the referenced-asset upload of `C7.9b`. An unreferenced file is no
    longer a media row.
@@ -954,8 +957,8 @@ Steps
    DTC-owned issue.
 7. Register `podcast-platforms.yaml` and `slack.yaml` as `data` files, and delete the two parsers
    that publish nothing today.
-8. Point the `person` kind at `DataTalksClub/content` rather than `datatalksclub.github.io`. The
-   file move itself is `D7.4` (D25).
+8. Point the `person` kind at `DataTalksClub/content` rather than `datatalksclub.github.io`, and
+   delete DTC's own person parser rather than adapting it. The file move itself is `D7.4` (D25).
 
 Verification
 - The route contract and sitemap contract tests pass unchanged for articles, books, podcasts and
