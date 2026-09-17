@@ -31,6 +31,7 @@ MARKDOWN_IN_TEXT_PATTERN = re.compile(r"\]\(|`|\*\*|^\s*[-*]\s", re.MULTILINE)
 MAX_SLUG_LENGTH = 100
 MAX_ASSET_BYTES = 16 * 1024 * 1024
 ASSET_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".pdf")
+DATA_SUFFIXES = (".yaml", ".yml", ".json")
 
 SHAPE_DOCUMENT = "document"
 SHAPE_MANIFEST = "manifest"
@@ -205,15 +206,20 @@ CORE_KEYS: Mapping[str, KeySpec] = {
     "content_id": KeySpec("uuid", required=True, rule="3.3"),
     "title": KeySpec("string", required=True, max_length=300, rule="3.3"),
     "slug": KeySpec("slug", rule="3.3"),
-    "summary": KeySpec("text", max_length=500, rule="3.3"),
+    "summary": KeySpec("text", max_length=500, default="", rule="3.3"),
     "status": KeySpec("choice", choices=STATUS_CHOICES, default="published", rule="3.3"),
     "required_level": KeySpec("level", rule="3.3"),
     "sort_order": KeySpec("integer", rule="3.3"),
-    "tags": KeySpec("slug_list", rule="3.3"),
-    "image": KeySpec("asset", rule="3.3"),
+    "tags": KeySpec("slug_list", default=(), rule="3.3"),
+    "image": KeySpec("asset", default="", rule="3.3"),
     "date": KeySpec("date", rule="3.3"),
-    "extra": KeySpec("mapping", rule="3.3"),
+    "extra": KeySpec("mapping", default=None, rule="3.3"),
 }
+
+# Key types whose absent value is an empty container rather than nothing
+# (section 3.3: `tags` defaults to `[]`, `extra` to `{}`).
+_LIST_TYPES = ("slug_list", "list", "reference_list", "object_list")
+_MAPPING_TYPES = ("mapping",)
 
 
 def effective_keys(part: PartSpec) -> Mapping[str, KeySpec]:
@@ -222,6 +228,59 @@ def effective_keys(part: PartSpec) -> Mapping[str, KeySpec]:
     if not part.core_keys:
         return dict(part.keys)
     return {**CORE_KEYS, **part.keys}
+
+
+def default_value(spec: KeySpec) -> Any:
+    """What a key holds when the file does not declare it (sections 3.3, 3.8).
+
+    The registry is the one place a default is written down, so the validator,
+    the document toolkit and a parser never disagree about what an absent key
+    means.
+    """
+
+    if spec.default is not None:
+        return list(spec.default) if isinstance(spec.default, tuple) else spec.default
+    if spec.type in _LIST_TYPES:
+        return []
+    if spec.type in _MAPPING_TYPES:
+        return {}
+    return None
+
+
+def applied_defaults(data: Mapping[str, Any], part: PartSpec) -> dict[str, Any]:
+    """One item's declared values with the registry's defaults filled in.
+
+    A key the file declares wins. A key it leaves out, or leaves null, takes
+    the default of its `KeySpec`; a key with no default is absent rather than
+    null, so a consumer can tell "not written" from "written empty".
+    """
+
+    values: dict[str, Any] = {}
+    for name, spec in effective_keys(part).items():
+        default = default_value(spec)
+        if default is not None:
+            values[name] = default
+    for name, value in data.items():
+        if value is not None:
+            values[name] = value
+    return values
+
+
+def resolve_level(value: Any) -> int | None:
+    """An access level as an integer, or None when the key is not declared.
+
+    Section 3.3 resolves `required_level` through `curriculum.source.ACCESS_NAMES`;
+    a value this does not recognise is already a key-check error and resolves to
+    nothing here.
+    """
+
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        return ACCESS_NAMES.get(value)
+    return None
 
 
 def check_item_keys(data: Mapping[str, Any], part: PartSpec) -> list[Problem]:
