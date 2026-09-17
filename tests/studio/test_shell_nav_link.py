@@ -1,4 +1,4 @@
-"""Keyboard focus on every sidebar link."""
+"""Keyboard focus and per-destination selectors on every sidebar link."""
 
 import re
 from types import SimpleNamespace
@@ -94,3 +94,30 @@ def test_the_active_nav_anchor_carries_the_focus_ring_too():
 
     assert len(active) == 1
     assert FOCUS_RING in active[0]
+
+
+def test_every_destination_carries_a_test_id_derived_from_its_key():
+    register_mixed_section()
+
+    html = render_shell()
+
+    for key in ("flat_destination", "external_destination", "grouped_destination"):
+        assert f'data-testid="studio-nav-{key}"' in html
+
+
+def test_every_nav_anchor_carries_a_test_id():
+    register_mixed_section()
+
+    anchors = nav_anchors(render_shell())
+
+    assert [anchor for anchor in anchors if 'data-testid="studio-nav-' not in anchor] == []
+
+
+def test_the_test_id_does_not_move_when_the_destination_becomes_active():
+    register_mixed_section()
+
+    inactive = render_shell()
+    active = render_shell("studio_flat_detail")
+
+    assert 'data-testid="studio-nav-flat_destination"' in inactive
+    assert 'data-testid="studio-nav-flat_destination"' in active

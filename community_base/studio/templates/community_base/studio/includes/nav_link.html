@@ -1,6 +1,7 @@
 <li>
   <a href="{{ row.url }}"{% if row.destination.new_tab %} target="_blank" rel="noopener"{% endif %}
      class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent {% if row.active %}bg-secondary text-foreground{% else %}text-muted-foreground hover:bg-secondary hover:text-foreground{% endif %}"
+     data-testid="studio-nav-{{ row.destination.key }}"
      {% if row.active %}aria-current="page"{% endif %}>
     {% if row.destination.icon %}<i data-lucide="{{ row.destination.icon }}" class="h-4 w-4 flex-shrink-0" aria-hidden="true"></i>{% endif %}
     <span>{{ row.destination.title }}</span>
