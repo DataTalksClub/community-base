@@ -1,0 +1,14 @@
+content_id: "e79727f3-f540-4176-ae98-9b9cb42abdc7"
+title: LLM Zoomcamp
+slug: llm-zoomcamp
+summary: Build, evaluate and monitor production-style LLM applications.
+image: images/cover.png
+tags: [llm, rag]
+description: |
+  A free, hands-on course on building real-world applications with large
+  language models.
+outcome: Build, evaluate and monitor production-style LLM applications.
+repository_url: https://github.com/DataTalksClub/llm-zoomcamp
+hashtag: llmzoomcamp
+extra:
+  starting_point: You have documents and questions but no working application.

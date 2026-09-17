@@ -95,6 +95,7 @@ class RawItem:
     container: str
     name: str
     parent: str | None = None
+    contributes_slug: bool = True
 
 
 @dataclass(frozen=True, slots=True)

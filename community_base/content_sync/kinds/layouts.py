@@ -104,6 +104,9 @@ class TreeLayout(Layout):
                     container=parent_container,
                     name=_base_name(node.path) or self.index,
                     parent=parent_path,
+                    # The collection root is the tree root: its path is empty,
+                    # so `docs:courses/llm-zoomcamp` counts from below it.
+                    contributes_slug=depth > 0,
                 )
             )
             parent_path = index_path
@@ -195,22 +198,22 @@ class DataLayout(Layout):
 
     def walk(self, root: DirNode) -> Found:
         items: list[RawItem] = []
-        self._walk(root, root.path, items)
+        self._walk(root, items)
         return items, []
 
-    def _walk(self, node: DirNode, base: str, items: list[RawItem]) -> None:
+    def _walk(self, node: DirNode, items: list[RawItem]) -> None:
         for name in node.files:
             if name.endswith(self.suffixes):
                 items.append(
                     RawItem(
                         part=self.part,
                         path=node.joined(name),
-                        container=base,
+                        container=node.path,
                         name=name,
                     )
                 )
         for child in node.dirs:
-            self._walk(child, base, items)
+            self._walk(child, items)
 
 
 class CourseLayout(Layout):
