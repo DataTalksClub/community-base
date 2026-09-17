@@ -1,36 +1,25 @@
 # Changelog
 
-## 0.4.3 - 2026-09-16
+## 0.4.7 - 2026-09-17
 
-- Restore `config.service.unset`, which a merge resolution dropped after v0.3.9: sites calling it failed startup against v0.4.0 to v0.4.2.
-
-## 0.4.3 - 2026-09-16
-
-- Restore `config.service.unset`, which a merge resolution dropped after v0.3.9: sites calling it failed startup against v0.4.0 to v0.4.2.
-
-## 0.4.4 - 2026-09-16
-
-- Curriculum's events-dependent API and Studio surfaces register only when the package events app is installed, so a site can install `community_base.curriculum` for the knowledge base provenance models without owning the package events tables (A7.1).
-
-## 0.4.4 - 2026-09-16
-
-- Curriculum's events-dependent API and Studio surfaces register only when the package events app is installed, so a site can install `community_base.curriculum` for the knowledge base provenance models without owning the package events tables (A7.1).
-
-## 0.4.5 - 2026-09-16
-
-- Import the events `Host` lazily in the curriculum importer so the sync parsers register on sites that install curriculum without the package events app (A7.1).
-
-## 0.4.5 - 2026-09-16
-
-- Import the events `Host` lazily in the curriculum importer so the sync parsers register on sites that install curriculum without the package events app (A7.1).
+- Import the accounts email-resolution service lazily in the events registration, guest-invitation and anonymous-registration paths, so a site can install the package events app without adopting shared accounts (D4.1).
+- Restore the changelog entries for 0.4.4-0.4.6, which the v0.4.6 release commit lost in a merge resolution.
 
 ## 0.4.6 - 2026-09-16
 
 - Move `SourceProvenanceMixin` and `provenance_constraint` to the app-neutral `community_base.content_sync.provenance` (`curriculum.models` re-exports them): the knowledge base no longer imports curriculum models, so a site can install it without the package curriculum or events apps (A7.1).
 
-## 0.4.6 - 2026-09-16
+## 0.4.5 - 2026-09-16
 
-- Move `SourceProvenanceMixin` and `provenance_constraint` to the app-neutral `community_base.content_sync.provenance` (`curriculum.models` re-exports them): the knowledge base no longer imports curriculum models, so a site can install it without the package curriculum or events apps (A7.1).
+- Import the events `Host` lazily in the curriculum importer so the sync parsers register on sites that install curriculum without the package events app (A7.1).
+
+## 0.4.4 - 2026-09-16
+
+- Curriculum's events-dependent API and Studio surfaces register only when the package events app is installed, so a site can install `community_base.curriculum` for the knowledge base provenance models without owning the package events tables (A7.1).
+
+## 0.4.3 - 2026-09-16
+
+- Restore `config.service.unset`, which a merge resolution dropped after v0.3.9: sites calling it failed startup against v0.4.0 to v0.4.2.
 
 ## 0.4.2 - 2026-09-16
 
@@ -40,14 +29,15 @@
 
 - C7.2: ship the knowledge base fixture repository as regular files instead of a mode-160000 gitlink, so git-dependency installs (uv, pip) resolve the package and fresh clones run the fixture tests.
 
-## 0.4.1 - 2026-09-16
-
-- C7.2: ship the knowledge base fixture repository as regular files instead of a mode-160000 gitlink, so git-dependency installs (uv, pip) resolve the package and fresh clones run the fixture tests.
-
 ## 0.4.0 - 2026-09-16
 
 - C4.1e: remove `EventAlias`, `add_alias`, the `event_alias` view and the trailing `<path:alias>/` route (decision D17). An event is addressed only by its canonical URL and a path below `events/` that matches no event returns 404. Breaking for any site that mounted the alias route, created `EventAlias` rows, or resolved superseded paths through them.
 - C7.2: add the `knowledge_base` app (`cb_knowledge_base`): wiki and documentation pages with `content_sync` provenance, the donor docs hierarchy resolution, the lifted donor sanitizer allowlist, a search-corpus service, Studio inspection screens and overridable default public routes for `/wiki/` and `/docs/` (community-base#260).
+
+## 0.3.9 - 2026-09-13
+
+- C6.2a: surface the verified email on the double opt-in `RelayVerificationConfirmation` so the adopting site can mirror the confirmation onto its own user (cherry-pick of main 68b3593).
+
 ## 0.3.8 - 2026-09-13
 
 - C6.2a: surface the verified email on the double opt-in `RelayVerificationConfirmation` so the adopting site can mirror the confirmation onto its own user.
@@ -59,6 +49,12 @@
 ## 0.3.6 - 2026-09-12
 
 - Studio: add nested destination groups and the `COMMUNITY_BASE["STUDIO_EXTRA_CSS"]` shell stylesheet hook (community-base#220).
+
+## 0.3.5 - 2026-09-12
+
+- A0.2: clear blank optional integer overrides with audited `service.unset`, and expose restart metadata and save feedback.
+- A1.2: preserve SES reply-to, configuration sets, plain text, backend key declarations and worker context enrichment from later releases.
+- Maintenance release based on `v0.3.0`; excludes later provisional kept-label capabilities.
 
 ## 0.3.4 - 2026-09-12
 
