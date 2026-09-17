@@ -63,7 +63,7 @@ def test_course_strips_leading_h1_matching_title():
 def test_course_keeps_leading_h1_with_different_text():
     course = make_course(description="# Welcome aboard\n\nBody text.")
 
-    assert "<h1>" in course.description_html
+    assert '<h1 id="welcome-aboard">' in course.description_html
 
 
 def test_course_description_html_is_sanitized():

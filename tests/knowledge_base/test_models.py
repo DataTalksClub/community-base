@@ -52,7 +52,7 @@ def test_slug_allows_dots_and_path_segments():
 
 def test_body_html_is_rendered_and_sanitized_on_save():
     page = make_page(slug="intro", title="Intro", body="# Heading\n\n**bold** text")
-    assert "<h1>Heading</h1>" in page.body_html
+    assert '<h1 id="heading">Heading</h1>' in page.body_html
     assert "<strong>bold</strong>" in page.body_html
 
 
