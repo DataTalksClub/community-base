@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 - 2026-09-17
 
 Adoption-provisional. This release contains the nine provisional kept-label migrations listed in `docs/plan/evidence/release-readiness-2026-09-17.md`; `C3.7` and `C4.3` may still rewrite them, and donor adoption happens from `C5.3`, not from this tag.
 
