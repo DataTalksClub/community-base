@@ -85,6 +85,7 @@ def serialize_series(item):
         "timezone": item.timezone,
         "required_level": item.required_level,
         "is_active": item.is_active,
+        "visibility": item.visibility,
     }
 
 

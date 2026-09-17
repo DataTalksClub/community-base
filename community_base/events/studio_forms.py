@@ -58,6 +58,7 @@ class EventSeriesForm(forms.ModelForm):
             "timezone",
             "required_level",
             "is_active",
+            "visibility",
         )
 
 
