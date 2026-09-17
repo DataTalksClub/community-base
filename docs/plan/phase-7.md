@@ -339,6 +339,506 @@ Done when
 Docs
 - `community_base/accounts/README.md`, `docs/02-architecture.md`, `CHANGELOG.md`.
 
+## C7.7 Content format: specification, kind registry and validator
+
+Repository: community-base. Depends on: nothing. Freeze required: no. Decision D23.
+
+Goal: the package states the content format normatively, registers the kinds that enforce it, and
+can check a content repository against it without a database and without a site.
+
+Filing this issue closes GitHub issue `DataTalksClub/community-base#253`. Issue 253 asked for one
+content format and one importer across both sites; section 8 of the specification maps its five
+stages onto this issue list and answers the three questions it put to the owner. Close 253 with a
+link to the specification and to this issue; its remaining work is `C7.7` to `C7.12`.
+
+Read first
+- `docs/plan/evidence/unified-content-format-2026-09-17.md`, sections 3 and 4 in full. This issue
+  implements them.
+- `docs/01-decisions.md`, D23, D26, D27, D29 and D30, which settle the questions the specification
+  left open.
+- `community_base/content_sync/parsers.py`, for `register_parser`, the registry pattern the kind
+  registry copies.
+- `community_base/content_sync/provenance.py`, whose `SourceProvenanceMixin` docstring does not say
+  what `source_content_id` holds.
+
+Steps
+1. Add `community_base/content_sync/FORMAT.md` carrying sections 3 and 4 of the specification as
+   normative package text. That file is the contract a content repository is checked against.
+2. Add `community_base/content_sync/kinds/` with `register_kind(name, spec)` and `get_kind(name)`,
+   the core key schema of section 3.3, and the six package kinds `course`, `article`, `person`,
+   `wiki`, `docs` and `data`.
+3. A kind declares its file shape, its kind keys with type, required flag and default, which keys
+   are asset references, which are typed references, and a route resolver. A kind never removes,
+   renames or retypes a core key; `extra` is the only site escape hatch.
+4. A site registers its own kinds from `AppConfig.ready()`, the same way it registers a parser.
+5. Add `content_sync/check.py` and the `check_content` management command. It validates
+   `content.yaml`, collection paths, file shapes, naming and ordering prefixes, identity
+   uniqueness, asset resolution, in-repository references and the dialect rules of section 4.1.
+6. `check_content` runs against a directory, needs no database, and exits non-zero on any
+   violation. Every diagnostic carries the repository-relative path and a YAML pointer, never
+   prose alone.
+7. Fix the meaning of `source_content_id`. State in `FORMAT.md` section 3.4 and in the
+   `SourceProvenanceMixin` docstring that it holds the item's own `content_id`.
+   `community_base/curriculum/importing.py:265` already does that.
+   `community_base/knowledge_base/sync.py:152` stores the `ContentSource` primary key instead, and
+   `sync.py:120` scopes `delete_missing` by it. Both fields are `UUIDField`s, so the two meanings
+   collide silently rather than failing. Record the contradiction in the docstring and in the pull
+   request; the model repair is `C7.9c` step 2, because it needs a migration this issue does not
+   carry.
+8. Add fixture repositories under `tests/content_sync/fixtures/`: a single-course repository, a
+   multi-collection repository, and a docs tree with leaf slugs repeated under different parents.
+
+Verification
+- `uv run pytest tests/content_sync` passes, with one failing fixture per rule in sections 3.1 to
+  3.7.
+- `uv run python -m community_base.content_sync.check tests/content_sync/fixtures/<name>` exits 0
+  for each valid fixture, and non-zero with a path and a pointer for each invalid one.
+- `uv run python manage.py check_content <path>` in the test project gives the same result as the
+  module entry point for the same fixture.
+- `uv run pytest tests/test_boundaries.py` passes; the kind registry imports no site code.
+- `uv run pytest -q` does not regress.
+
+Done when
+- [ ] `FORMAT.md` carries sections 3 and 4 as normative package text
+- [ ] the six package kinds are registered and documented
+- [ ] a site can register a kind from `AppConfig.ready()` without touching the package
+- [ ] `check_content` reports every violation of sections 3.1 to 3.7 with a path and a pointer
+- [ ] the `source_content_id` contract is written down, and the knowledge base contradiction is
+      recorded with `C7.9c` named as its repair
+- [ ] issue 253 is closed with a link to the specification
+
+Docs
+- `community_base/content_sync/FORMAT.md` (new), `community_base/content_sync/README.md`,
+  `docs/02-architecture.md`, `CHANGELOG.md`.
+
+## C7.8 Shared rendering: one dialect, one sanitiser, rendered at sync
+
+Repository: community-base. Depends on: C7.7, C7.4. Freeze required: no. Decision D23.
+
+Goal: `content_sync.rendering` is the only renderer and the only sanitiser for synced content, and
+no model renders markdown in `save()`.
+
+Read first
+- the specification, section 4 in full: the dialect, the ownership split, and the break list.
+- `community_base/knowledge_base/rendering.py`, the donor: python-markdown plus the allowlist
+  lifted from DTC.
+- `community_base/curriculum/rendering.py`, the narrower second sanitiser that goes away.
+- `~/git/dtc-website/content/docs_projection.py` lines 111 to 139, the heading-id algorithm the
+  package adopts.
+- `~/git/dtc-website/_docs/compatibility/faq-fragment-contracts.jsonl` and
+  `podwiki-graph-fragment-contracts.jsonl`, the pinned fragments that algorithm keeps meaningful.
+
+Steps
+1. Move `knowledge_base/rendering.py` to `content_sync/rendering.py`, exposing `render_document`,
+   `inject_heading_ids`, `sanitize_rendered_html` and `plain_text`.
+2. Keep the lifted DTC allowlist and add the attributes the shared extensions emit: `class` on
+   `div`, `pre`, `code`, `span` and `img`; `data-embed-type` and `data-embed-id` on `div`;
+   `data-theme-figure` on `img`.
+3. Inject heading ids after rendering with DTC's algorithm: NFKD, ASCII, lowercase,
+   non-alphanumerics to `-`, duplicates suffixed `-1` and `-2`. Return and store the heading list
+   of `{level, id, title}`.
+4. Add the `mermaid` fence: the source is escaped into `<pre class="mermaid">` and the site's
+   JavaScript draws it.
+5. Add the `embed` fence: the body is a YAML mapping `{type, id}` with `type` in `youtube` or
+   `loom`, rendering to a `div` with the data attributes and a plain link inside. No iframe is ever
+   stored.
+6. Add `COMMUNITY_BASE["MARKDOWN_EXTENSIONS"]`, a list of dotted paths appended to the package
+   extension list. A site extends; it never replaces. Extension output still passes the package
+   sanitiser.
+7. `curriculum.Unit` and `KnowledgeBasePage` stop rendering in `save()`; the importer supplies
+   `body_html`. `C7.4` step 3 already lets the page accept supplied HTML; make the same change for
+   the unit.
+8. `curriculum/rendering.py` and `knowledge_base/rendering.py` become re-exports of the shared
+   module, so existing imports keep working.
+
+Verification
+- `uv run pytest tests/content_sync tests/curriculum tests/knowledge_base` passes.
+- A fixture body containing a Liquid tag, a kramdown attribute list and a `<script>` renders with
+  the first two rejected by `check_content` and the third removed by the sanitiser.
+- Heading ids for a fixture body equal DTC's `_heading_ids` output for the same input, asserted
+  against expected values copied into the test rather than against a DTC import.
+- A `mermaid` fence and an `embed` fence render to the documented markup and survive the sanitiser.
+- A unit and a page saved with supplied `body_html` keep it unchanged through `save()`.
+- `uv run pytest -q` does not regress.
+
+Done when
+- [ ] one renderer and one sanitiser serve every synced content path in the package
+- [ ] no model renders markdown in `save()`
+- [ ] the heading-id algorithm is DTC's and a test pins it
+- [ ] `MARKDOWN_EXTENSIONS` is documented in the kernel README settings list
+
+Docs
+- `community_base/content_sync/README.md`, `community_base/kernel/README.md`,
+  `docs/02-architecture.md`, `CHANGELOG.md`.
+
+## C7.9a Document toolkit: collections, front matter, identity and checksums
+
+Repository: community-base. Depends on: C7.7. Freeze required: no. Decision D23.
+
+Goal: `content_sync.documents` turns a checkout plus its `content.yaml` into validated
+`ParsedDocument` values, so no parser walks files, parses YAML or validates keys again.
+
+Scope: this issue is the toolkit's reading half. Assets and references are `C7.9b`. The parsers
+that consume the toolkit are `C7.9c` for the knowledge base kinds and `C7.10` for courses.
+
+Read first
+- the specification, sections 3.1 to 3.5: the manifest, the two file shapes, the core keys, naming
+  and nesting.
+- `community_base/content_sync/checkout.py`, the interface the toolkit reads a repository through.
+- `community_base/content_sync/parsers.py`, for `SourceItem` and the `discover` and `upsert`
+  contract a toolkit-based parser still fulfils.
+- `~/git/ai-shipping-labs/content/sync_parsers/families/classify.py`, the 391 lines of directory
+  and front-matter heuristics the repository manifest replaces.
+
+Steps
+1. Read and validate `content.yaml`: `schema_version`, `collections`, `ignore`,
+   `strict_references` and `theme_pairs`. A repository without it is not synced: record one error
+   and stop for that source.
+2. Walk each collection path, apply the `ignore` globs, skip names starting with `_` or `.`, and
+   classify each file as a document or a manifest by the rules of section 3.2. A `.md` file inside
+   a collection with no front matter is an error.
+3. Validate the core keys of section 3.3 and the kind keys the `C7.7` registry declares. An unknown
+   top-level key is an error.
+4. Derive `slug` from the file or directory name with the ordering prefix stripped, `sort_order`
+   from that prefix unless front matter overrides it, and `path` from the chain of ancestor slugs.
+5. Enforce identity: `content_id` is required, is a UUID, and is unique across the whole repository
+   regardless of kind. Two siblings whose names strip to the same slug are an error.
+6. Enforce the nesting rules of section 3.5 per kind: a docs directory carries `index.md` and
+   nests at most four deep, a wiki collection is flat, a course allows at most two module levels.
+7. Emit one `ParsedDocument` per item carrying the core keys, the kind keys, the raw body, the
+   repository path, the sort key, and a checksum over the whole derived record rather than over the
+   file bytes alone.
+8. Report errors bounded and named: the toolkit lists every violation it finds in a collection
+   rather than raising on the first.
+
+Verification
+- `uv run pytest tests/content_sync` passes.
+- A fixture repository yields one `ParsedDocument` per item, and the checksum changes when a
+  derived field changes while the file bytes stay equal.
+- Fixtures covering a missing `content_id`, a duplicate `content_id`, an unknown top-level key, a
+  `.md` file with no front matter, two siblings stripping to one slug, a nested wiki directory and
+  a five-level docs tree each produce a bounded error naming the file.
+- A test runs `check_content` and the toolkit over the same fixtures and asserts they agree on
+  every rejection.
+- `uv run pytest tests/test_boundaries.py` passes.
+- `uv run pytest -q` does not regress.
+
+Done when
+- [ ] a fixture repository yields one `ParsedDocument` per item with the checksum covering the
+      whole derived record
+- [ ] unknown keys, a missing or duplicate `content_id`, and colliding slugs are bounded errors
+      naming the file
+- [ ] reading a repository needs no site code
+- [ ] the README documents `ParsedDocument` and every `content.yaml` key
+
+Docs
+- `community_base/content_sync/README.md`, `CHANGELOG.md`.
+
+## C7.9b Document toolkit: assets and references
+
+Repository: community-base. Depends on: C7.9a, C7.8. Freeze required: no. Decision D23.
+
+Goal: the toolkit resolves every relative asset and every cross-reference, uploads the assets it
+finds, rewrites both in the rendered HTML, and stores the resolved reference list on the record.
+
+Scope: this issue is the toolkit's resolving half. It renders through `C7.8` and reads through
+`C7.9a`. It registers no parser of its own.
+
+Read first
+- the specification, sections 3.6 and 3.7: assets and cross-references.
+- `community_base/content_sync/media.py`, the upload boundary the toolkit uses.
+- `~/git/dtc-website/content/sync_parsers/media.py` lines 53 to 73, the signature and unsafe-SVG
+  checks that become the package's.
+- `~/git/dtc-website/content/sync_parsers/podwiki.py` lines 265 to 299 and 363 to 374, the
+  hand-written source ordering and the fail-on-unresolved behaviour the format generalises.
+
+Steps
+1. Collect asset references from document bodies, from manifest keys the kind declares as asset
+   type, and from HTML `<img src>`. Resolve each from the referencing file's directory.
+2. Reject an escape from the repository, an absolute `/path`, a Liquid expression, an
+   `{IMAGE:id}` token, an `http://` URL and a `data:` URL. Leave `https://` references alone.
+3. Enforce the allowed asset types `png`, `jpg`, `jpeg`, `gif`, `webp`, `svg` and `pdf`, a 16 MiB
+   maximum, and the signature and unsafe-SVG checks.
+4. An asset may live outside every collection as long as a document references it. An unreferenced
+   file is not an asset and is not uploaded.
+5. Upload each referenced asset through `content_sync.media` keyed by its repository path, and
+   rewrite the reference in the rendered HTML and in the stored asset keys.
+6. Resolve the three destination forms of section 3.7: a relative file link to another document in
+   the same collection, a typed `kind:slug` or `kind:path` reference through the kind's route
+   resolver, and an external URL left alone. A fragment on a same-source relative link must name a
+   heading of the target.
+7. Resolve front-matter references in the same typed form, including the keys whose kind is fixed:
+   `authors`, `instructors` and `guests` are person references written without a prefix.
+8. Apply `strict_references`: `true` fails the sync on an unresolved reference; `false` drops the
+   link, keeps its label and records a warning.
+9. Order sources by the kind dependencies their collections declare, so a reference to a kind from
+   another source resolves against rows already synced.
+10. Store the resolved references as a list of `{kind, target, label, href}` on the record.
+11. Implement the `theme_pairs` opt-in: a `name.dark.ext` sibling of a referenced image becomes a
+    paired asset emitted with the class hook a site styles.
+
+Verification
+- `uv run pytest tests/content_sync` passes.
+- A fixture with a sibling relative link, a `wiki:` reference and a `person:` reference into a
+  second source resolves all three, and the stored reference list carries the four documented keys.
+- The same fixture with the target removed from the second source fails the sync under
+  `strict_references: true`, and under `false` keeps the label, drops the link and records one
+  warning.
+- A fixture asset that is an unsafe SVG, one over 16 MiB, one behind an absolute path and one
+  behind an `{IMAGE:id}` token each produce an error naming the file.
+- A fixture repository whose two sources declare a kind dependency syncs in dependency order
+  without a hand-written ordering.
+- A fixture with `theme_pairs: true` emits the paired image markup, and the sanitiser keeps its
+  attributes.
+- `uv run pytest -q` does not regress.
+
+Done when
+- [ ] relative assets are uploaded once, keyed by repository path, and rewritten everywhere
+- [ ] the three reference forms resolve, and the unresolved case follows `strict_references`
+- [ ] source ordering comes from declared kind dependencies, not from hand-written lists
+- [ ] `theme_pairs` emits the paired image markup
+- [ ] the README documents the stored reference record shape
+
+Docs
+- `community_base/content_sync/README.md`, `CHANGELOG.md`.
+
+## C7.9c Package parsers for the wiki, docs and person kinds
+
+Repository: community-base. Depends on: C7.9b, C7.4. Freeze required: no. Decisions D24 and D31.
+
+Goal: the knowledge base is filled by package parsers for the `wiki` and `docs` kinds, a package
+person record is filled by a `person` parser, and neither site writes a parser for these three.
+
+Scope: this is the toolkit's consuming half for the kinds whose storage the package owns. D24
+amends the parser clause of D16 for exactly those three. The article parser stays per site, because
+article storage is site-owned (D21). Routes and public templates stay site-owned (D16, D18).
+
+Read first
+- the specification, section 3.8 (`wiki`, `docs`, `person`) and section 6, the `source_content_id`
+  finding.
+- `docs/01-decisions.md`, D24 and D31.
+- `community_base/knowledge_base/models.py`, `sync.py` and `README.md`, as `C7.4` leaves them.
+- `~/git/ai-shipping-labs/content/sync_parsers/families/knowledge_base.py`, which after this issue
+  has nothing left to do.
+- `~/git/dtc-website/content/sync_parsers/podwiki.py` and `docs.py`, the DTC donors that `D7.1` and
+  `D7.2` retire.
+
+Steps
+1. Register `wiki` and `docs` parsers in `knowledge_base.apps`. Each stores the HTML rendered by
+   `C7.8`, the heading list, and the resolved reference list, using the record field `C7.4` added.
+2. Fix `source_content_id` in the knowledge base to hold the item's own `content_id`, as `C7.7`
+   wrote into `FORMAT.md` and as `curriculum/importing.py:265` already does. Add a separate source
+   foreign key for the ownership scope `knowledge_base/sync.py:120` currently takes from
+   `source_content_id`, and migrate existing rows. Both fields are `UUIDField`s today, so the
+   migration must treat the stored value as a source primary key, not as corrupt data.
+3. Add a package person model and a `person` parser: `title` is the display name, `summary` the
+   short bio, `image` the picture, the body the long bio, and `links` a list of `{label, url}`.
+4. Make the person record the resolution target for the `authors`, `instructors` and `guests`
+   reference keys, so `C7.9b`'s fixed-kind front-matter references have somewhere to land.
+5. The person kind is an optional instructor source (D31). The package defines the shape; a site
+   decides whether to use it, and `A7.2` records AISL's choice.
+6. Remove the fixture parser's dependence on site code in `tests/knowledge_base`.
+7. Add no public routes and no public templates for any of the three kinds.
+
+Verification
+- `uv run pytest tests/knowledge_base tests/content_sync` passes, boundary test included.
+- A three-level docs fixture whose leaf slugs repeat under different parents syncs and reads back
+  at its own path.
+- A wiki fixture stores the rendered HTML, the heading list and the resolved references, and a page
+  removed from the source is soft deleted through the source foreign key rather than through
+  `source_content_id`.
+- A person fixture resolves an `authors:` reference made from a document in a second source.
+- Migrations apply from empty and each reverses.
+- `uv run pytest -q` does not regress.
+
+Done when
+- [ ] `wiki`, `docs` and `person` are parsed by the package, not by either site
+- [ ] `source_content_id` holds the item `content_id` everywhere in the package
+- [ ] `delete_missing` scopes by an explicit source foreign key
+- [ ] a three-level docs fixture with repeated leaf slugs round-trips
+- [ ] AISL's `families/knowledge_base.py` has nothing left to do, recorded in the pull request
+
+Docs
+- `community_base/knowledge_base/README.md`, `community_base/content_sync/README.md`,
+  `docs/02-architecture.md`, `CHANGELOG.md`.
+
+## C7.10 One course parser
+
+Repository: community-base. Depends on: C7.9b. Freeze required: no. Decision D23.
+
+Goal: one course parser reads the layout of specification section 3.8, and `parsers_aisl.py` and
+`parsers_dtc.py` are both deleted.
+
+The defect this fixes: neither package course parser works against the real course repositories
+today, so neither is a baseline worth keeping. Retiring both is not a clean-up; this is the first
+course parser that would read what the repositories actually contain.
+
+| Defect | Where | Effect |
+|---|---|---|
+| Demands schema 1 | `curriculum/parsers_dtc.py:551-554`, with `SCHEMA_VERSION = 1` at line 46 | five of the six DTC course repositories are schema 2 (`llm-zoomcamp`, `data-engineering-zoomcamp`, `machine-learning-zoomcamp`, `mlops-zoomcamp`, `ai-dev-tools-zoomcamp`); only `stock-markets-analytics-zoomcamp` is schema 1, and it holds no module |
+| Lesson front matter allows only `video_url` and `code` | `curriculum/parsers_dtc.py:356` | 71 of 72 `llm-zoomcamp` lessons carry `prev_url` and `next_url`, so the file is rejected |
+| A root-level `course.yaml` is skipped | `curriculum/content_sync_parsers.py:120-125`, the `len(path.parts) > 1` guard | `ai-buildcamp-course` and `python-course` both keep `course.yaml` at the root and have no `schema_version`, so the AISL parser ignores them and the DTC parser rejects them; only `content/courses/aihero` is parsed |
+
+Consequence: `D5.1` stops on its first repository and `A5.1` imports one course of three. Both are
+blocked on this issue.
+
+Read first
+- the specification, section 3.8 (`course`) and section 6, the two findings tabulated above.
+- `community_base/curriculum/parsers_dtc.py` and `parsers_aisl.py`, both of which are deleted.
+- `community_base/curriculum/content_sync_parsers.py`, whose layout sniffing is deleted.
+- `community_base/curriculum/source.py` for `ParsedCurriculum` and `validate_module_tree`, which
+  stay.
+- `community_base/curriculum/models.py` around `CohortGraph`, for the placement contract shipped in
+  `C5.1e` and not reopened here.
+
+Steps
+1. Add `community_base/curriculum/parsers.py` reading the section 3.8 layout over
+   `content_sync.documents`: `course.yaml`, module directories, optional submodule directories,
+   unit documents, and `cohorts/<identifier>/cohort.yaml`, producing `ParsedCurriculum`.
+2. Map a cohort's `modules` list to `CohortGraph.module_refs` and `CohortModule` placements. An
+   absent `modules` means the full course tree in module order.
+3. Map `archive: true` to an empty placement: the cohort places nothing, and its `README.md` is the
+   notice for GitHub readers.
+4. Map a cohort's `homework` bindings to a new `CohortGraph.homework_bindings` tuple of
+   `{module, source, unit}`, which `C7.11` consumes. This issue does not read `homework.yaml`.
+5. Read the unit keys of section 3.8 only: `kind`, `video_url`, `timestamps`, `session_position`,
+   `is_bonus` and `code`. `prev_url`, `next_url`, `is_homework`, `is_preview` and `access` are not
+   in the format, so the parser names them in its error rather than failing for an unrelated
+   reason.
+6. Delete `parsers_dtc.py`, `parsers_aisl.py`, their tests, and the layout sniffing in
+   `content_sync_parsers.py`. Register exactly one course parser.
+7. Rewrite `community_base/curriculum/README.md` around the one layout.
+
+Verification
+- `uv run pytest tests/curriculum` passes.
+- Four fixture repositories, two in the converted DTC shape and two in the converted AISL shape,
+  parse to hand-written expected `ParsedCurriculum` graphs.
+- A fixture repository with a root-level `course.yaml` and no `schema_version` parses. That is the
+  case `content_sync_parsers.py:120-125` skips today.
+- A fixture course tree of two module levels with a cohort placing a subset parses to the expected
+  placements.
+- A fixture lesson carrying `prev_url` is rejected with the file and the key named.
+- `grep -R "parsers_dtc\|parsers_aisl" community_base tests` returns nothing.
+- `uv run pytest -q` does not regress.
+
+Done when
+- [ ] exactly one course parser is registered
+- [ ] `parsers_aisl.py` and `parsers_dtc.py` are gone, with their tests
+- [ ] a root-level `course.yaml` with no `schema_version` parses
+- [ ] a lesson carrying a retired key is rejected with that key named
+- [ ] `curriculum/README.md` documents one layout
+
+Docs
+- `community_base/curriculum/README.md`, `docs/02-architecture.md`, `CHANGELOG.md`.
+
+## C7.11 Coursework: homework manifests from cohort bindings
+
+Repository: community-base. Depends on: C7.10, C5.2h. Freeze required: no. Decision D23.
+
+Goal: the coursework app imports the `homework.yaml` manifests a cohort binds into homework and
+question rows with encrypted answers, and links a binding's `unit` to the page that shows the
+submission form.
+
+Why this is its own issue: the package coursework app has the answer envelope
+(`community_base/coursework/answer_crypto.py`) but no manifest reader. DTC's
+`courses/services/curriculum_source.py` lines 114 to 160 is the only implementation of the manifest
+shape the format keeps, and it is site code that `D7.3` retires.
+
+Read first
+- the specification, section 3.8, the `cohort.yaml` and `homework/<module-slug>/homework.yaml`
+  tables.
+- the specification, section 2.2, the row that separates a `kind: homework` unit from a
+  `homework.yaml`.
+- `community_base/coursework/answer_crypto.py` lines 40 to 43, the answer envelope.
+- `community_base/coursework/models.py`, the homework and question models.
+- `~/git/dtc-website/courses/services/curriculum_source.py` lines 114 to 160, the donor reader.
+
+Steps
+1. Read each manifest named by a `CohortGraph.homework_bindings` entry, resolved relative to the
+   cohort directory.
+2. Validate the manifest keys: core keys plus `instructions_path` (default `homework.md`), `due_at`
+   as an ISO datetime with an offset, `initial_state` in `closed`, `open` or `scored`, `form`, and
+   `questions`.
+3. Create homework and question rows keyed by `content_id`, with each question's answer stored as
+   the existing encrypted envelope.
+4. A plaintext `correct:` answer is an error. AISL's plaintext `questions:` shape in unit front
+   matter is not read anywhere.
+5. Bind the homework to the cohort module that the entry's `module` slug names.
+6. When a binding carries `unit`, link that `kind: homework` unit so its page renders the
+   submission form. The unit stays a page in the reading order; the assignment stays cohort-owned.
+7. Make re-import idempotent: a second run of the same manifest updates rows rather than
+   duplicating them.
+
+Verification
+- `uv run pytest tests/coursework tests/curriculum` passes.
+- A fixture cohort binding one manifest creates the homework, its questions and their encrypted
+  answers, and a second import leaves every row count unchanged.
+- A fixture binding carrying `unit` renders the submission form on that unit's page.
+- A fixture manifest carrying a plaintext `correct:` key is rejected with the file and key named.
+- A fixture binding naming a module the cohort does not place is rejected.
+- `uv run pytest -q` does not regress.
+
+Done when
+- [ ] a bound manifest creates the homework, its questions and their encrypted answers
+- [ ] a binding with `unit` renders the submission form on that unit's page
+- [ ] re-import is idempotent
+- [ ] no plaintext answer shape is read anywhere in the package
+
+Docs
+- `community_base/coursework/README.md`, `CHANGELOG.md`.
+
+## C7.12 Conversion scripts and the unified format release
+
+Repository: community-base. Depends on: C7.9c, C7.10, C7.11. Freeze required: no. Decision D23.
+
+Goal: `content_sync/convert/` holds the two conversion scripts of specification section 5, each
+exercised against a scratch copy of every real content repository, and the package is tagged so the
+five site issues can pin it.
+
+Read first
+- the specification, section 5 in full: the per-repository conversion table and the three places
+  where human review concentrates.
+- `docs/03-playbooks.md`, playbook P15, the tag-before-a-site-issue rule.
+- `docs/04-quality-gates.md`, for what a release pull request must show.
+- `docs/01-decisions.md`, D25, D26, D27 and D28, which fix what each repository converts to.
+
+Steps
+1. Add `content_sync/convert/courses.py`: manifest to front matter, the `units:` list pushed into
+   unit files, the cohort rewrite, `ignore` moved into `content.yaml`, retired keys dropped, and
+   `content_id` carried where it exists or minted where it does not.
+2. Add `content_sync/convert/documents.py`: file rename and directory reshape, key mapping, link
+   and image rewrite, Liquid and kramdown handling, and `content.yaml` generation.
+3. Make each script idempotent, and have it write a report naming every file it changed and every
+   construct it could not convert. That report is the input to the human review step.
+4. Run both scripts against a scratch copy of each of the sixteen repositories in section 5, and
+   record the result per repository in the pull request.
+5. Record the three human-review concentrations as open items against the site issues that own
+   them, rather than resolving them here: the rendering diff of the 55 DTC articles, the 25
+   re-parented DTC documentation pages (D28), and the podwiki tokens whose title resolves to
+   nothing.
+6. State in each module docstring that both scripts are deleted after the last conversion merges,
+   which is `D7.4`.
+7. Tag a release and write the format into `CHANGELOG.md`.
+
+Verification
+- `uv run pytest tests/content_sync` passes.
+- Each of the sixteen repositories converts on a scratch copy, and the converted copy passes
+  `check_content` with zero errors. The pull request carries the sixteen result lines.
+- Running a script twice over the same copy produces no second diff.
+- The cross-repository check is green against both sites' default branches.
+- The release tag exists and `CHANGELOG.md` names the format version.
+- Not run here, needs: `A7.3` and `D7.4`. A conversion merged into a content repository, and a
+  production sync of it, belong to those issues.
+
+Done when
+- [ ] both conversion scripts exist, are idempotent, and report what they could not convert
+- [ ] all sixteen repositories convert on a scratch copy and pass `check_content`
+- [ ] the three human-review items are recorded against the site issues that own them
+- [ ] the release tag exists and both sites' cross-repository check is green
+
+Docs
+- `community_base/content_sync/README.md`, `CHANGELOG.md`, `docs/plan/STATUS.md`.
+
 Issue numbers C7.7 to C7.12 are reserved for the unified content format work proposed in
 `docs/plan/evidence/unified-content-format-2026-09-17.md`. The two issues below take C7.13 and
 C7.14 so that reservation stays intact.
