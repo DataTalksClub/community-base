@@ -1368,3 +1368,51 @@ Done when
 
 Docs
 - `community_base/studio/README.md`, `CHANGELOG.md`.
+
+## C7.17 Studio: a landing page that does not open fully collapsed
+
+Repository: community-base. Depends on: C7.14. Freeze required: no.
+
+Goal: a site with enough destinations to trigger collapse still opens its Studio landing page on
+something. Found by the A2.1 cutover (AI-Shipping-Labs/website#1615), which is otherwise complete.
+
+The defect: `registry._apply_collapse_state` expands a section when it is the active one, and
+`active_state` takes the active section from the destination matching the current route. On
+`/studio/` that destination is the built-in Dashboard, which lives in the headerless `home`
+section. So above `STUDIO_NAV_COLLAPSE_THRESHOLD` every titled section renders collapsed on the
+landing page, and the viewer arrives at a sidebar of closed headers. AISL has 52 destinations
+against a default threshold of 24. The donor shell opened Events there and a browser test pinned
+it.
+
+There is no site-side fix, which is what makes it a package issue rather than an adoption note.
+`claim_section_only('studio_dashboard', ...)` is overwritten by the built-in's own match, and
+raising the threshold disables collapse everywhere rather than on one page.
+
+Read first
+- `community_base/studio/registry.py`, `_apply_collapse_state` and `active_state`.
+- `community_base/studio/builtin.py`, which registers the headerless `home` section.
+- C7.14's rule that the active section is expanded server-side, which this must not break.
+
+Steps
+1. Choose one shape and say why. Either a `STUDIO_NAV_DEFAULT_SECTION` setting naming the section
+   to open when the active one is headerless, or letting a headerless active section fall through
+   to the first titled section. The second needs no site configuration and is the smaller contract;
+   the first is explicit. Prefer the smaller contract unless a site needs to differ.
+2. Keep C7.14's guarantee intact: the section owning the active route is still expanded
+   server-side, and a stored collapse still cannot hide the current page.
+3. Leave behaviour unchanged below the threshold, where every section is expanded anyway.
+
+Verification
+- A synthetic registry above the threshold, rendered at the landing route, opens exactly one
+  titled section.
+- The same registry at a deep route still opens that route's section and no other.
+- Below the threshold nothing changes.
+- `uv run pytest tests/studio` passes and no existing test needed changing.
+
+Done when
+- [ ] a landing page above the threshold opens one section rather than none
+- [ ] C7.14's active-route guarantee is unchanged, proven by its existing tests passing untouched
+- [ ] the chosen shape is documented in the studio README
+
+Docs
+- `community_base/studio/README.md`, `CHANGELOG.md`.
