@@ -134,3 +134,88 @@ class KbFixtureParser:
                 "commit_sha": self._checkout.commit_sha,
             },
         )
+
+
+class KbDocsTreeFixtureParser:
+    """A documentation-tree parser shaped like DataTalks.Club's docs parser.
+
+    Layout under the fixture root: ``docs/<dir>/.../<stem>.md``. A directory's
+    own page is its ``index.md``; every other file is a leaf page of that
+    directory. The page slug is the leaf segment only, so the same slug
+    (``project``) repeats under different parents, and the path is carried by
+    ``parent_path``. Item keys are source paths, which identify a page even
+    when its slug does not.
+    """
+
+    def __init__(self):
+        self._checkout = None
+
+    def discover(self, checkout, source):
+        self._checkout = checkout
+        items: list[SourceItem] = []
+        paths = [
+            PurePosixPath(str(relative))
+            for relative in checkout.files()
+            if PurePosixPath(str(relative)).suffix == ".md"
+            and PurePosixPath(str(relative)).parts[0] == DOCS_ROOT
+        ]
+        # Parents before children: a shorter chain is always an ancestor's, and
+        # a directory's own index.md precedes the leaves beside it.
+        for path in sorted(paths, key=lambda path: (len(self._chain(path)), path.as_posix())):
+            metadata, body = parse_fixture_page(checkout.read_text(path.as_posix()))
+            items.append(self._item(path, metadata, body))
+        return items
+
+    def upsert(self, item, source, media):
+        data = item.data
+        page, action = sync.upsert_page(
+            source,
+            section=SECTION_DOCS,
+            slug=data["slug"],
+            title=data["title"],
+            body=data["body"],
+            parent_path=data["parent_path"],
+            nav_order=data["nav_order"],
+            commit_sha=data["commit_sha"],
+            source_path=data["source_path"],
+            checksum=data["checksum"],
+        )
+        return UpsertResult(page, action)
+
+    def soft_delete_missing(self, seen_keys, source):
+        return sync.delete_missing(source, SECTION_DOCS, seen_source_paths=set(seen_keys))
+
+    @staticmethod
+    def _chain(path: PurePosixPath) -> list[str]:
+        """The slug chain from the section root down to this page."""
+
+        parts = list(path.with_suffix("").parts[1:])
+        if parts[-1] == "index":
+            parts.pop()
+        return parts
+
+    def _item(self, path: PurePosixPath, metadata: dict, body: str) -> SourceItem:
+        source_path = path.as_posix()
+        chain = self._chain(path)
+        slug = chain[-1] if chain else "index"
+        parent_path = "/".join(chain[:-1]) or None
+        nav_order = int(metadata.get("nav_order") or 0)
+        checksum = hashlib.sha256(
+            "|".join(
+                (source_path, parent_path or "", body, json.dumps(metadata, sort_keys=True))
+            ).encode()
+        ).hexdigest()
+        return SourceItem(
+            key=source_path,
+            path=path,
+            data={
+                "slug": slug,
+                "title": str(metadata.get("title") or slug),
+                "body": body,
+                "parent_path": parent_path,
+                "nav_order": nav_order,
+                "source_path": source_path,
+                "checksum": checksum,
+                "commit_sha": self._checkout.commit_sha,
+            },
+        )

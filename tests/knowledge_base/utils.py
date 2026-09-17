@@ -9,6 +9,7 @@ from community_base.content_sync.models import ContentSource
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 KB_REPO = FIXTURES / "kb-repo"
+DOCS_TREE_REPO = FIXTURES / "docs-tree-repo"
 
 # upsert_page validates the full 40-hex commit the sync orchestration would pass.
 COMMIT_SHA = "b" * 40

@@ -33,20 +33,30 @@ SLUG_MAX_LENGTH = 300
 TITLE_MAX_LENGTH = 300
 
 # The donor slug alphabets (DTC wiki `[A-Za-z0-9._-]`, docs path segments) both
-# carry dots, so this is one step wider than Django's ``validate_slug``.
-SLUG_PATTERN = r"^[-a-zA-Z0-9_.]+$"
+# carry dots, so a segment is one step wider than Django's ``validate_slug``.
+# A slug may also be several such segments joined by ``/``: a site whose page
+# identity is a path (DTC's docs stable key) stores the whole path as the slug,
+# while a site whose identity is a leaf segment (AISL) stores one segment and
+# lets ``parent`` carry the path. Neither a leading, trailing nor doubled ``/``
+# is a segment, so both shapes stay unambiguous.
+SLUG_SEGMENT_PATTERN = r"[-a-zA-Z0-9_.]+"
+SLUG_PATTERN = rf"^{SLUG_SEGMENT_PATTERN}(?:/{SLUG_SEGMENT_PATTERN})*$"
 slug_validator = RegexValidator(
-    SLUG_PATTERN, "Enter a slug: letters, digits, dots, dashes or underscores."
+    SLUG_PATTERN,
+    "Enter a slug: letters, digits, dots, dashes or underscores, "
+    "optionally in several segments joined by a slash.",
 )
 
 
 class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     """One wiki or documentation page, with its rendered HTML stored alongside.
 
-    ``slug`` is the site's stable key within the section (for a documentation
-    tree it is typically the source path without extension, for the wiki the
-    page stem). ``parent`` is only meaningful for documentation pages: wiki
-    pages are a flat set and must leave it null.
+    ``slug`` is the site's stable key among its siblings: unique per
+    ``(section, parent)``, not per section, so the same leaf segment may
+    appear under different parents (DTC's documentation tree repeats
+    ``project`` seven times). A site whose identity is the whole path may
+    store the path as the slug instead. ``parent`` is only meaningful for
+    documentation pages: wiki pages are a flat set and must leave it null.
     """
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -74,9 +84,18 @@ class KnowledgeBasePage(SourceProvenanceMixin, models.Model):
     class Meta:
         ordering = ("section", "slug")
         constraints = [
+            # A NULL parent does not compare equal to itself in a unique index,
+            # so the root level needs its own conditional constraint; without
+            # it two root pages could share a slug within one section.
+            models.UniqueConstraint(
+                fields=("section", "parent", "slug"),
+                condition=models.Q(parent__isnull=False),
+                name="cb_kb_page_child_slug_unique",
+            ),
             models.UniqueConstraint(
                 fields=("section", "slug"),
-                name="cb_kb_page_section_slug_unique",
+                condition=models.Q(parent__isnull=True),
+                name="cb_kb_page_root_slug_unique",
             ),
             provenance_constraint(name="cb_kb_page_source_complete"),
         ]
