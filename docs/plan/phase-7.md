@@ -1287,3 +1287,57 @@ Done when
 
 Docs
 - `community_base/studio/README.md`, `CHANGELOG.md`.
+
+## C7.16 Studio quick jump and the sidebar scroll affordance
+
+Repository: community-base. Depends on: C7.15. Freeze required: no.
+
+Goal: the shared shell owns the keyboard command palette and the mobile sidebar scroll
+affordance that today exist only in the donor shell, so an adopting site deletes them along with
+the rest of its shell.
+
+Why the package and not the site, the row `C7.15` left open: the palette is the package's own
+search capability under a second trigger. It queries `studio_global_search`, the endpoint the
+package already ships, and renders the same grouped results the sidebar box renders. The package
+also already claims the keybinding: `static/community_base/studio.js` binds Ctrl/Cmd-K and calls
+`preventDefault()` to focus the sidebar search box, so a site palette on the same chord is
+double-handled and fights the package for focus. Two implementations of one capability, over one
+endpoint, on one keybinding, is the duplication this plan exists to remove. Until this issue
+lands the adopting site keeps its own palette and accepts that conflict; nothing else in the
+shell depends on it.
+
+Read first
+- `community_base/studio/static/community_base/studio.js`, the `[data-studio-search]` block and
+  its Ctrl/Cmd-K handler.
+- `community_base/studio/templates/community_base/studio/base.html`, the sidebar search box.
+- `~/git/ai-shipping-labs/templates/studio/base.html`, `data-studio-quick-jump` and
+  `studio-sidebar-scroll-affordance`.
+
+Steps
+1. Render a quick-jump overlay in the shell, hidden by default, opened by Ctrl/Cmd-K and closed by
+   Escape, reusing the existing fetch and result rendering instead of a second copy of them.
+2. Keep the sidebar search box working unchanged, including when the overlay is absent because a
+   site overrode it away.
+3. Add the mobile scroll affordance at the foot of the sidebar nav, visible only while the nav can
+   scroll further.
+4. Rebuild `static/community_base/studio.css` from `assets/tailwind.css` with `npm run css:build`
+   in `community_base/studio/assets`. Both surfaces need utilities the shipped build does not
+   contain, the affordance gradient among them; C7.15 deliberately stopped at the classes the
+   shipped build already carries.
+5. Name the hooks so the donor selectors survive the cutover: `data-studio-quick-jump` on the
+   overlay, plus test ids on its input and its result list.
+
+Verification
+- `uv run pytest tests/studio` passes and no existing test needed changing.
+- The shell renders the overlay hidden, and the sidebar search box keeps its own markup.
+- The rebuilt stylesheet contains the new utilities and still contains every class the shell used
+  before the rebuild.
+
+Done when
+- [ ] Ctrl/Cmd-K opens one palette that the package owns
+- [ ] the sidebar search box is unchanged for a site that ignores the palette
+- [ ] the sidebar shows a scroll affordance on a narrow viewport
+- [ ] the stylesheet is rebuilt from the package's own Tailwind source
+
+Docs
+- `community_base/studio/README.md`, `CHANGELOG.md`.
