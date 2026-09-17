@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}{{ project.title }}{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>{{ project.title }} <small>({{ project.cohort.course.title }} / {{ project.cohort.title }})</small></h1>
 <p>State {{ project.get_state_display }} · submissions due {{ project.submission_due_date }} · reviews due {{ project.peer_review_due_date }}</p>
 <form method="post" action="{% url 'coursework_studio_project_assign_reviews' project.pk %}">{% csrf_token %}<button type="submit">Assign peer reviews</button></form>
@@ -51,4 +51,4 @@
   <label>Volunteer email <input name="email" type="email"></label>
   <button type="submit">Add volunteer</button>
 </form>
-{% endblock %}
+{% endblock %}{% endblock %}

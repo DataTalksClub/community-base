@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}Wrapped{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>Wrapped statistics</h1>
 <form method="post" action="{% url 'coursework_studio_wrapped_recalculate' %}">{% csrf_token %}
   <label for="wrapped-year">Year</label>
@@ -51,4 +51,4 @@
     {% endfor %}
   </tbody>
 </table>
-{% endblock %}
+{% endblock %}{% endblock %}

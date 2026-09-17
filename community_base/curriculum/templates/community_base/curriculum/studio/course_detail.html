@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}{{ course.title }}{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>{{ course.title }} <small>({{ course.slug }})</small></h1>
 <p><a href="{% url 'curriculum_studio_course_edit' course.pk %}">Edit</a> · <a href="{% url 'curriculum_studio_cohort_create' course.pk %}">Add cohort</a></p>
 {% if source_locked %}<p>Source-managed course: content edits happen in the repository; re-sync to update.</p>{% endif %}
@@ -91,4 +91,4 @@ top-level module here, in order (see the cohort page to curate a subset instead)
 
 <h2>Danger zone</h2>
 <form method="post" action="{% url 'curriculum_studio_course_delete' course.pk %}">{% csrf_token %}<button type="submit">Delete course</button></form>
-{% endblock %}
+{% endblock %}{% endblock %}

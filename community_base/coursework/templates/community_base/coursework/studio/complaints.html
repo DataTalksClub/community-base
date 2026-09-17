@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}Leaderboard complaints{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>Leaderboard complaints</h1>
 <h2>Open</h2>
 <table>
@@ -27,4 +27,4 @@
   {% empty %}<li>None.</li>
   {% endfor %}
 </ul>
-{% endblock %}
+{% endblock %}{% endblock %}

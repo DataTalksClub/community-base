@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}{{ homework.title }}{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>{{ homework.title }} <small>({{ homework.cohort.course.title }} / {{ homework.cohort.title }})</small></h1>
 <p>
   <a href="{% url 'coursework_studio_homework_edit' homework.pk %}">Edit</a> ·
@@ -31,4 +31,4 @@
 </tbody></table>
 
 <p>States: {% for state in states %}{{ state.value }}={{ state.name|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
-{% endblock %}
+{% endblock %}{% endblock %}

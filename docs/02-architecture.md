@@ -79,7 +79,14 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
      storage the package owns (D24).
 4. Templates. Shared public templates extend `"base.html"` (the site's) and use only the blocks
    and class hooks listed in section 5. Shared Studio templates extend
-   `"community_base/studio/base.html"` (the package's, decision D12).
+   `"community_base/studio/base.html"` (the package's, decision D12) and fill their body inside
+   both `{% block content %}` and, nested inside it, `{% block studio_content %}`. A site may
+   still replace `"community_base/studio/base.html"` outright with its own shell (both AISL and
+   DTC do, transitionally); that replacement must expose a reachable slot for at least one of the
+   two names, or every shared Studio page it serves renders as an empty shell with no error.
+   `community_base.studio.checks.check_studio_content_block_contract` runs on every `manage.py
+   check` and fails with `community_base.studio.E001` when a site's replacement exposes neither
+   (community-base#279).
 5. Migrations in the package are append-only after a tag. Never edit a migration that shipped in
    a tag; add a new one. A kept-label initial migration is provisional and must remain untagged
    until its compatibility issue verifies the exact donor migration inventory and state. Once

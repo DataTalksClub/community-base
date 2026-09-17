@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}Coursework homework{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>Homework</h1>
 <form method="get">
   <label for="cohort-filter">Cohort</label>
@@ -29,4 +29,4 @@
     {% endfor %}
   </tbody>
 </table>
-{% endblock %}
+{% endblock %}{% endblock %}

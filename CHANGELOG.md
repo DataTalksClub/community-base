@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Every shared Studio content template now fills its body inside both `{% block content %}` and,
+  nested inside it, `{% block studio_content %}`, instead of picking one name. A site that
+  replaces `community_base/studio/base.html` outright with its own shell, as both
+  AI-Shipping-Labs/website and DataTalksClub/website already do, only ever exposed one of the two
+  names, so every package page that had picked the other one rendered as an empty shell -- HTTP
+  200, correct title, no body, nothing in the response to say why. `api_keys.html` was the
+  reported instance (AI Shipping Labs, community-base#279); a repository-wide check found 59 more
+  templates split about evenly between the two names, so both sites had latent broken pages the
+  other direction. Filling both names in every package template fixes all 60 without requiring
+  either site to change a template. `community_base.studio.checks.check_studio_content_block_contract`
+  now runs on every `manage.py check` and fails with `community_base.studio.E001` when a site's
+  Studio base replacement exposes neither contracted name, so a genuinely incompatible shell is
+  caught at check time instead of shipping a silently empty page (community-base#279).
+
 ## 0.5.0 - 2026-09-17
 
 Adoption-provisional. This release contains the nine provisional kept-label migrations listed in `docs/plan/evidence/release-readiness-2026-09-17.md`; `C3.7` and `C4.3` may still rewrite them, and donor adoption happens from `C5.3`, not from this tag.

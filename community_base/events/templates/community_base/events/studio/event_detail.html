@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}{{ event.title }}{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>{{ event.title }}</h1>
 <p>{{ event.start_datetime }} · {{ event.status }} · public ID {{ event.public_id|default:"not allocated" }}</p>
 <nav><a href="{% url 'events_studio_edit' event.pk %}">Edit event</a> · <a href="{{ event.get_absolute_url }}">Public page</a></nav>
@@ -12,4 +12,4 @@
 </tbody></table></section>
 
 <form method="post" action="{% url 'events_studio_delete' event.pk %}">{% csrf_token %}<button type="submit">Delete event</button></form>
-{% endblock %}
+{% endblock %}{% endblock %}

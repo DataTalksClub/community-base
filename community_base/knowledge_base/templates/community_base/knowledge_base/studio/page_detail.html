@@ -1,6 +1,6 @@
 {% extends "community_base/studio/base.html" %}
 {% block studio_title %}{{ page.title }}{% endblock %}
-{% block studio_content %}
+{% block content %}{% block studio_content %}
 <h1>{{ page.title }}</h1>
 <p>{{ page.get_section_display }} / {{ page.slug }}{% if page.parent %} under {{ page.parent.title }}{% endif %} - order {{ page.nav_order }} - {{ page.status }} - {% if page.source_checksum %}repo{% else %}manual{% endif %}</p>
 <p>Path: {{ page.get_absolute_url }}{% if page.public_path %} (site-owned){% else %} (from the tree){% endif %} - body rendered by {{ page.get_body_html_source_display|lower }}</p>
@@ -9,4 +9,4 @@
 {% if page.summary %}<h2>Summary</h2><p>{{ page.summary }}</p>{% endif %}
 {% if page.record %}<h2>Record</h2><pre>{{ page.record }}</pre>{% endif %}
 <h2>Body</h2>{{ page.body_html }}
-{% endblock %}
+{% endblock %}{% endblock %}
