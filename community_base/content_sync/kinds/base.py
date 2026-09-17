@@ -476,9 +476,20 @@ def _check_level(value: Any, spec: KeySpec, pointer: str) -> list[Problem]:
 
 
 def _check_mapping(value: Any, spec: KeySpec, pointer: str) -> list[Problem]:
+    """A mapping, and its own keys when the kind declared `item_keys`.
+
+    `extra` (section 3.3) is the opaque case and declares none, so nothing
+    inside it is read or refused. A kind that does name the keys of a nested
+    mapping -- the course kind's `form` -- gets the same required and unknown
+    key rules an object list item gets, so key validation stays in the registry
+    and no parser writes a second one.
+    """
+
     if not isinstance(value, Mapping):
         return [Problem(pointer, spec.rule, f"must be a mapping, found {_type_name(value)}")]
-    return []
+    if not spec.item_keys:
+        return []
+    return _check_object(value, spec.item_keys, spec, pointer)
 
 
 def _check_list(value: Any, spec: KeySpec, pointer: str) -> list[Problem]:
@@ -600,20 +611,29 @@ def _check_object_list(value: Any, spec: KeySpec, pointer: str) -> list[Problem]
                 Problem(item_pointer, spec.rule, f"must be a mapping, found {_type_name(item)}")
             )
             continue
-        for name, nested in item_keys.items():
-            nested_pointer = f"{item_pointer}/{name}"
-            if name not in item or item[name] is None:
-                if nested.required:
-                    problems.append(
-                        Problem(nested_pointer, spec.rule, f"required key {name} is missing")
-                    )
-                continue
-            problems.extend(check_value(item[name], nested, nested_pointer))
-        for name in item:
-            if item_keys and name not in item_keys:
+        if item_keys:
+            problems.extend(_check_object(item, item_keys, spec, item_pointer))
+    return problems
+
+
+def _check_object(
+    value: Mapping[str, Any], item_keys: Mapping[str, KeySpec], spec: KeySpec, pointer: str
+) -> list[Problem]:
+    """One declared mapping: its required keys present, its unknown keys named."""
+
+    problems: list[Problem] = []
+    for name, nested in item_keys.items():
+        nested_pointer = f"{pointer}/{name}"
+        if name not in value or value[name] is None:
+            if nested.required:
                 problems.append(
-                    Problem(f"{item_pointer}/{name}", spec.rule, f"unknown key: {name}")
+                    Problem(nested_pointer, spec.rule, f"required key {name} is missing")
                 )
+            continue
+        problems.extend(check_value(value[name], nested, nested_pointer))
+    for name in value:
+        if name not in item_keys:
+            problems.append(Problem(f"{pointer}/{name}", spec.rule, f"unknown key: {name}"))
     return problems
 
 

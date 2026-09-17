@@ -15,6 +15,9 @@ from community_base.content_sync.kinds.layouts import CourseLayout
 UNIT_KINDS = ("lesson", "homework", "event", "checklist_item")
 DELIVERY_CHOICES = ("live", "self_paced")
 HOMEWORK_STATES = ("closed", "open", "scored")
+QUESTION_TYPES = ("multiple_choice", "checkboxes", "free_form", "free_form_long")
+ANSWER_TYPES = ("any", "float", "integer", "exact_string", "contains_string")
+FORM_FLAGS = ("homework_url", "time_spent_lectures", "time_spent_homework", "faq_contribution")
 
 COURSE = PartSpec(
     name="course",
@@ -103,19 +106,38 @@ HOMEWORK = PartSpec(
     shape=SHAPE_MANIFEST,
     keys={
         "instructions_path": KeySpec("string", default="homework.md"),
-        "due_at": KeySpec("datetime"),
+        "due_at": KeySpec("datetime", required=True),
         "initial_state": KeySpec("choice", choices=HOMEWORK_STATES, default="closed"),
-        "form": KeySpec("mapping"),
+        # Every form key is optional; an absent one takes the field default the
+        # coursework model carries. `learning_in_public_cap` is the one that is
+        # not a flag, so it is typed on its own.
+        "form": KeySpec(
+            "mapping",
+            item_keys={
+                **{name: KeySpec("boolean") for name in FORM_FLAGS},
+                "learning_in_public_cap": KeySpec("integer"),
+            },
+        ),
         "questions": KeySpec(
             "object_list",
+            required=True,
             item_keys={
                 "content_id": KeySpec("uuid", required=True),
-                "id": KeySpec("string"),
-                "type": KeySpec("string", required=True),
-                "prompt": KeySpec("markdown"),
-                "points": KeySpec("integer"),
-                "options": KeySpec("list"),
-                "answer_type": KeySpec("string"),
+                "id": KeySpec("slug", required=True),
+                "type": KeySpec("choice", choices=QUESTION_TYPES, required=True),
+                "prompt": KeySpec("markdown", required=True),
+                "points": KeySpec("integer", required=True),
+                "options": KeySpec(
+                    "object_list",
+                    item_keys={
+                        "id": KeySpec("slug", required=True),
+                        "label": KeySpec("string", required=True),
+                    },
+                ),
+                "answer_type": KeySpec("choice", choices=ANSWER_TYPES),
+                # The envelope of `coursework/answer_crypto.py`, checked there
+                # and nowhere else: a second field-by-field schema here would
+                # be a second envelope validator.
                 "answer": KeySpec("mapping"),
             },
         ),

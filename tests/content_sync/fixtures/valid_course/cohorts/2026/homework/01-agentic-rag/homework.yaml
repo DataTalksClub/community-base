@@ -11,8 +11,17 @@ questions:
     type: multiple_choice
     prompt: Which retriever did you use?
     points: 1
-    options: [minsearch, elasticsearch]
-    answer_type: string
+    options:
+      - id: minsearch
+        label: minsearch
+      - id: elasticsearch
+        label: Elasticsearch
     answer:
-      envelope: v1
-      ciphertext: "not-a-real-secret"
+      version: 1
+      algorithm: A256GCM
+      kdf: HKDF-SHA256
+      key_id: k1
+      salt: jY7Ynk34DlG-6ccSKHaRt1mqY2e82MLYz7HkxY4VfbE
+      nonce: hMexlk4jVs60oB_U
+      ciphertext: D4cr_Z5j-MQsbcL72PUfErBHQwxrycYbEZHRY5p4MNcKe_kTe_Q
+      context_sha256: 4f7ad58dde48fa30f8f17120aec0ebe55de0486a4831d640265d7dc659612299
