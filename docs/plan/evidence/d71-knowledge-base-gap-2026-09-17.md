@@ -145,7 +145,7 @@ the tagged commit, and leave `v0.4.7` where it is.
 ### Bumping the DTC pin needs a mapping change in the same release-adoption issue
 
 On unchanged `origin/main` with the package linked to community-base main,
-`scripts.tests.test_import_shared_course_platform` fails with 17 errors, all `MappingCoverageDrift`
+`scripts.tests.test_import_shared_course_platform` fails 17 of its 18 tests on one `MappingCoverageDrift`
 naming `cb_coursework.Project: pooled_review_window_days`, `cb_coursework.ProjectSubmission:
 review_state` and `cb_coursework.PeerReview: batch`. Those are the C5.2f, C5.2g and C5.2h fields,
 merged to main and still unreleased.
