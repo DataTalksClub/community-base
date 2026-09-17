@@ -157,6 +157,7 @@ def test_staff_manages_series_and_hosts(client):
             "timezone": "UTC",
             "required_level": 0,
             "is_active": True,
+            "visibility": "public",
         },
     )
     host = request(

@@ -6,7 +6,13 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from community_base.events.models import Event, EventRegistration, EventSeries, Host
+from community_base.events.models import (
+    VISIBILITY_HIDDEN,
+    Event,
+    EventRegistration,
+    EventSeries,
+    Host,
+)
 from community_base.mail.models import EmailDelivery
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -78,6 +84,7 @@ def test_staff_manages_series_and_hosts(client):
             "timezone": "UTC",
             "required_level": 0,
             "is_active": "on",
+            "visibility": "public",
         },
     )
     host_response = client.post(
@@ -94,6 +101,35 @@ def test_staff_manages_series_and_hosts(client):
     assert host_response.status_code == 302
     assert EventSeries.objects.filter(slug="office-hours").exists()
     assert Host.objects.filter(slug="speaker").exists()
+
+
+def test_studio_series_list_shows_hidden_pill_and_keeps_series_manageable(client):
+    _staff, client = staff_client(client)
+    hidden = EventSeries.objects.create(
+        name="Cohort office hours", cadence="none", visibility=VISIBILITY_HIDDEN
+    )
+    EventSeries.objects.create(name="Public meetups", cadence="none")
+
+    listing = client.get(reverse("events_studio_series_list"))
+    edited = client.post(
+        reverse("events_studio_series_edit", kwargs={"series_id": hidden.pk}),
+        {
+            "name": hidden.name,
+            "slug": hidden.slug,
+            "cadence": "none",
+            "timezone": "UTC",
+            "required_level": 0,
+            "is_active": "on",
+            "visibility": "public",
+        },
+    )
+
+    hidden.refresh_from_db()
+    assert listing.status_code == 200
+    assert "Hidden" in listing.content.decode()
+    assert list(listing.context["series_list"]) == list(EventSeries.objects.order_by("-created_at"))
+    assert edited.status_code == 302
+    assert hidden.visibility == "public"
 
 
 def test_staff_invites_guest_and_updates_attendance(client):

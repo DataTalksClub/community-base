@@ -6,7 +6,13 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from community_base.events.models import Event, EventFeedback, EventRegistration
+from community_base.events.models import (
+    VISIBILITY_HIDDEN,
+    Event,
+    EventFeedback,
+    EventRegistration,
+    EventSeries,
+)
 from community_base.events.routing import event_url
 from community_base.events.services import reserve_public_id
 from community_base.events.tokens import generate_registration_token
@@ -89,6 +95,51 @@ def test_list_renders_only_public_events(client):
     assert list(response.context["upcoming_events"]) == [upcoming]
     assert list(response.context["past_events"]) == [past]
     assert "Draft" not in response.content.decode()
+
+
+def test_hidden_series_events_excluded_from_list_but_reachable_directly(client):
+    hidden_series = EventSeries.objects.create(
+        name="Cohort office hours",
+        cadence="none",
+        visibility=VISIBILITY_HIDDEN,
+    )
+    hidden = event(
+        title="Office hours #1",
+        slug="office-hours-1",
+        reserved_public_id=21,
+        event_series=hidden_series,
+        series_position=1,
+    )
+    visible = event(title="Upcoming", slug="upcoming", reserved_public_id=22)
+
+    listing = client.get("/events/")
+    detail = client.get(hidden.get_absolute_url())
+
+    assert list(listing.context["upcoming_events"]) == [visible]
+    assert "Office hours #1" not in listing.content.decode()
+    assert detail.status_code == 200
+
+
+def test_member_can_register_for_hidden_series_event(client):
+    hidden_series = EventSeries.objects.create(
+        name="Cohort office hours",
+        cadence="none",
+        visibility=VISIBILITY_HIDDEN,
+    )
+    item = event(
+        title="Office hours #1",
+        slug="office-hours-1",
+        reserved_public_id=23,
+        event_series=hidden_series,
+        series_position=1,
+    )
+    user = get_user_model().objects.create_user(email="member@example.com")
+    client.force_login(user)
+
+    response = client.post(reverse("event_register", kwargs={"slug": item.slug}))
+
+    assert response.status_code == 302
+    assert EventRegistration.objects.filter(event=item, user=user).exists()
 
 
 def test_member_can_register_and_unregister_from_detail(client):

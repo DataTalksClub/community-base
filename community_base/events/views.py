@@ -13,7 +13,7 @@ from community_base.events.anonymous_registration import (
 from community_base.events.feedback import submit_feedback
 from community_base.events.forms import AnonymousEventRegistrationForm, EventFeedbackForm
 from community_base.events.integrations.calendar import generate_ics
-from community_base.events.models import Event, EventRegistration
+from community_base.events.models import VISIBILITY_HIDDEN, Event, EventRegistration
 from community_base.events.registration import register_for_event, unregister_from_event
 from community_base.events.routing import event_url
 from community_base.events.services import can_register_for_event
@@ -63,8 +63,10 @@ def _registration_for_user(event, user):
 
 @require_GET
 def event_list(request):
-    events = Event.objects.filter(status__in=PUBLIC_STATUSES).prefetch_related(
-        "event_host_links__host"
+    events = (
+        Event.objects.filter(status__in=PUBLIC_STATUSES)
+        .exclude(event_series__visibility=VISIBILITY_HIDDEN)
+        .prefetch_related("event_host_links__host")
     )
     upcoming = sorted(
         (event for event in events if event.is_upcoming), key=lambda item: item.start_datetime
