@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Studio shell: the icon library is vendored instead of loaded from `unpkg.com/lucide@latest`.
+  The shell now serves `community_base/vendor/lucide.min.js`, the unmodified UMD build of lucide
+  1.47.0 taken from the npm tarball, from the site's own static files. The old tag was unpinned,
+  so whatever unpkg served that day executed on a staff surface, and it was blocked outright by a
+  site setting `script-src 'self'`, which left Studio with no icons and no remedy short of forking
+  the shell. The script now sits in a `studio_icon_script` block, so a site that already loads
+  lucide can empty it rather than download the library twice; emptying it without loading lucide
+  elsewhere leaves `data-lucide` elements blank, which is the site's call to make.
+  `community_base/studio/static/community_base/vendor/README.txt` records the version, source URL,
+  license and sha256, and how to re-derive them. Run `collectstatic` after upgrading.
+
+- Studio shell: `body_start`, an empty block immediately inside `<body>`, and `id="main-content"`
+  with `tabindex="-1"` on `<main>`. A site can now put its own skip link on every Studio page
+  without replacing the shell. `main-content` is the conventional id and the one DataTalksClub's
+  skip link and accessibility tests already target, so it is a contract and will not change. The
+  package ships no skip-link markup or styling; a site that overrides nothing renders exactly what
+  it rendered before, the landmark id and `tabindex` aside.
+
 - D37: `NullMediaStore`, the default media backend, returns a site-absolute URL instead of the
   repository path. The sanitiser admits an `img src` only when it is site-absolute or an absolute
   `http(s)` URL, so every site running the default backend stored synced images with a source the

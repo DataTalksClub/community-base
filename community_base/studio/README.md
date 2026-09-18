@@ -234,8 +234,11 @@ adapter before enabling tag edits on a user model without that attribute.
 
 Shared Studio pages extend `community_base/studio/base.html`. The compatibility template
 `studio/base.html` extends the same shell. The shell exposes `title`, `content`, `extra_head`,
-`extra_js` and `header_actions`, plus the AISL compatibility blocks `studio_title`,
-`studio_content` and `extra_scripts`.
+`extra_js`, `header_actions`, `body_start` and `studio_icon_script`, plus the AISL compatibility
+blocks `studio_title`, `studio_content` and `extra_scripts`.
+
+`body_start` ships empty and `studio_icon_script` ships exactly the one script tag described
+below, so a site that overrides neither renders what it rendered before they existed.
 
 ### The content-block contract
 
@@ -252,6 +255,58 @@ title, no body, nothing in the response to say why (community-base#279).
 and raises `community_base.studio.E001` when the resolved `community_base/studio/base.html`
 exposes neither name, so a genuinely incompatible site shell fails the check instead of shipping a
 silently empty page.
+
+### Skip link and the main landmark
+
+`body_start` is an empty block immediately inside `<body>`, above the impersonation banner and the
+sidebar, and `<main>` carries `id="main-content"` with `tabindex="-1"`. Together they let a site
+put its own skip link on every Studio page without replacing the shell:
+
+```html
+{% block body_start %}
+<a class="skip-link" href="#main-content">Skip to content</a>
+{% endblock %}
+```
+
+`main-content` is the id DataTalksClub/website's skip link and accessibility tests already target,
+and the conventional one for this landmark; it is a contract, so it does not change. `tabindex="-1"`
+is what makes the jump move keyboard focus and not only the viewport. The package ships no skip
+link and no styling for one: the markup, the visually-hidden-until-focused CSS and the wording are
+the site's, because they belong to the site's design system and its language.
+
+The block takes anything that must come first in the body, not only a skip link: a live region, a
+consent strip, an analytics `noscript` pixel.
+
+### Vendored icon library
+
+The shell loads lucide from the package's own static files, inside the `studio_icon_script` block:
+
+```html
+<script src="{% static 'community_base/vendor/lucide.min.js' %}"></script>
+```
+
+It is served same-origin because it must run under a `script-src 'self'` Content-Security-Policy,
+which DataTalksClub/website sets, and because an unpinned third-party script on a staff surface
+executes whatever that host serves that day. The file is the unmodified UMD build of a pinned
+lucide release; `community_base/studio/static/community_base/vendor/README.txt` records the
+version, the source it was downloaded from, the license and the sha256, and says how to re-derive
+and verify it.
+
+Override the block when the site already loads lucide itself, to avoid downloading it twice:
+
+```html
+{% block studio_icon_script %}{% endblock %}
+```
+
+Emptying the block with nothing else providing lucide leaves every `data-lucide` element blank,
+because `community_base/studio.js` calls `window.lucide.createIcons()` and finds nothing. The
+package cannot tell from the template whether a site loads the library elsewhere, so no check
+catches that; it is a deliberate opt-out and a site that takes it owns loading an equivalent build.
+Any replacement must define `window.lucide` with `createIcons()` and honour `data-lucide`, and must
+load before `community_base/studio.js`, which the head position gives it.
+
+A site that uses lucide icons in its own templates and runs `collectstatic` gets this file for
+free at `community_base/vendor/lucide.min.js`; there is no need to vendor a second copy.
 
 ### Sidebar footer
 

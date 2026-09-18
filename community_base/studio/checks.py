@@ -28,6 +28,18 @@ What this check does NOT cover, stated so it cannot be read as more assurance th
   filling a name its own shell does not expose fails the same way and is the site's to
   catch, on the surfaces it actually mounts. The count that matters to a site is templates
   filling the unexposed name AND mounted there, which no package-side check can know.
+
+Why the other shell blocks are not in ``CONTRACT_BLOCK_NAMES``. The contract exists for names a
+shared page template FILLS and a site shell must therefore EXPOSE: drop one and the page's body
+goes missing with no error. Every other block in the shell -- ``body_start``,
+``studio_icon_script``, ``studio_banner``, ``studio_messages``, ``studio_sidebar_footer``,
+``studio_quick_jump`` -- is the reverse: no package page fills it, so a shell that omits one loses
+an extension point a site may not even use, and the page still renders. ``studio_icon_script`` is
+the closest call, because a site emptying it and loading lucide nowhere else gets blank icons.
+That is still not this check's failure mode: it is an opt-out a site takes deliberately, its
+effect is visible on the page rather than silent, and the package cannot see from a template
+render whether the site loads an equivalent build from its own ``extra_head`` or bundle. Adding it
+here would fail the check for sites doing exactly the supported thing.
 """
 
 from django.core.checks import CheckMessage, Error, Tags, register

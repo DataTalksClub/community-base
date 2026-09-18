@@ -18,10 +18,11 @@
   {% for stylesheet in studio_extra_stylesheets %}
   <link rel="stylesheet" href="{% static stylesheet %}">
   {% endfor %}
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  {% block studio_icon_script %}<script src="{% static 'community_base/vendor/lucide.min.js' %}"></script>{% endblock %}
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-background text-foreground">
+{% block body_start %}{% endblock %}
 {% studio_sidebar_state request as state %}
 {% studio_impersonation_banner %}
 <div class="flex min-h-screen">
@@ -101,7 +102,7 @@
     </nav>
     {% block studio_sidebar_footer %}{% endblock %}
   </aside>
-  <main class="min-w-0 flex-1 overflow-hidden">
+  <main id="main-content" tabindex="-1" class="min-w-0 flex-1 overflow-hidden">
     {% block studio_banner %}{% endblock %}
     <div class="p-4 pt-16 md:p-8">
       {% block studio_messages %}
