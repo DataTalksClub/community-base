@@ -144,8 +144,21 @@ Repository: community-base. Depends on: C2.1b, C2.2, C2.3. Playbook P15.
 
 Repository: AI-Shipping-Labs/website. Depends on: C2.4.
 
+Scope note added 2026-09-18, after C7.20's work established the starting state rather than assuming
+it. This site does not render the package shell today and never has. It ships a one-line
+`templates/community_base/studio/base.html` that shadows the package's own template path and
+extends its own 1297-line `templates/studio/base.html`, so Django's loader resolves the package
+path to the site's file. The same is true of DataTalksClub, in D2.1c.
+
+That makes this a first adoption rather than a migration from a working state, and it changes what
+the work is: not swapping one base template for another, but stopping the shadow. Everything the
+1297-line shell does that the package shell does not has to be either re-homed onto a package
+extension point or given up deliberately, and each of those is a decision rather than a move. Size
+the issue against that file, not against the diff between two base templates.
+
 Steps
-1. Install `community_base.studio`. Delete `templates/studio/base.html`, `studio/sidebar.py`,
+1. Install `community_base.studio`. Delete the shadowing
+   `templates/community_base/studio/base.html` and `templates/studio/base.html`, `studio/sidebar.py`,
    `studio/decorators.py` (import from the kernel), the generic templatetags moved in C2.1,
    `studio/views/global_search.py`, `impersonate.py`, `dashboard.py` (dashboard cards become
    registered providers).
@@ -283,6 +296,11 @@ Read first
   `core/tests/test_non_identity_security.py` which asserts it.
 - `core/accessibility_registry.py`, the registered Studio states.
 - `templates/core/_site_shell_head.html`, the skip link every DTC page ships.
+
+The same starting-state correction as A2.1 applies here: DTC does not render the package shell
+today. The one-line `templates/community_base/studio/base.html` shadows the package's template
+path, so this is a first adoption rather than a migration, and the work is stopping the shadow
+rather than swapping a base.
 
 Steps
 1. Delete `templates/studio/base.html` and the `templates/community_base/` override; DTC Studio
