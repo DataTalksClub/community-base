@@ -12,6 +12,32 @@
   rather than producing a URL. Behaviour change to a default: a site already relying on the bare
   repository path sets the prefix to `""` to keep a leading slash only.
 
+- `scripts/plan.py check`: a `done` issue whose dependency is not itself `done` or `skipped` is
+  now reported, every occurrence rather than the first. Previously `check` only verified that
+  dependency ids resolve and that the graph has no cycles, and never compared statuses across an
+  edge, so `D2.2b` could read `done` while its dependency `D2.2a` read `in-progress` and `check`
+  called the graph clean. The repository has exactly this violation today; it is reported by
+  `check` rather than silently fixed by this change.
+
+- `scripts/plan.py check`: a `blocked` row whose `Link` column names an issue that is now `done`
+  or `skipped` is reported as a warning. The `Link` column is free text, so this is a scan for
+  issue ids inside it rather than a structured field; a Link may legitimately still mention a
+  done issue for context, so this never fails `check` on its own. Motivated by `A2.1` having sat
+  `blocked` citing `C7.13` and `C7.14` after `C7.14` had merged, so half its stated reason was
+  stale. `A2.1`'s row has since moved on and the repository has no such row today, so this warning
+  does not fire on the repository as it stands.
+
+- `docs/01-decisions.md` gains an optional `Lands in:` field: a decision that requires
+  implementation names the issue that lands it (`Lands in: `C7.12`.`), or states `Lands in:
+  none.` when it lands nothing, since not every decision implies an issue (D21 is `site-owned`).
+  `scripts/plan.py check` verifies every issue a `Lands in:` field names exists in the phase
+  files, and leaves alone the decisions that do not carry the field. Motivated by D34, D38 and
+  D39 being written into that file and carried nowhere else, so `FORMAT.md` still contradicted
+  them the next day; a decision recorded in one place and implemented in none looks settled in
+  review and is not. No existing decision carries the field yet, so this check does not fire on
+  the repository as it stands; retrofitting D34, D38 and D39 (landed by C7.12 and C7.18
+  respectively) with it is left as a small follow-up.
+
 - C7.18: the kind registry and the reference resolver now implement what decisions D38 and D39
   ruled and `FORMAT.md` already stated. A cohort's `archive` is a mapping with one optional
   `notice_path` defaulting to `README.md`, not a boolean: seventeen real archived cohorts carry the
