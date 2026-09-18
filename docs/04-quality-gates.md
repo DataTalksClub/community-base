@@ -110,3 +110,30 @@ Stop, do not work around, and report to the owner when:
 - the phase's exit criteria in `docs/plan/phase-<n>.md` are verified with the listed commands;
 - `docs/plan/README.md` status table is updated in the same pull request that closes the last
   issue.
+
+## A gate that measures the wrong thing
+
+A failing gate is a signal. A gate that passes while measuring something other than what it claims
+is worse than no gate, because it produces confidence instead. Five instances inside twenty-four
+hours, all found by accident rather than by a check:
+
+- A DataTalksClub main run reported green having executed no tests at all: playwright ran in reused
+  mode. Months of accumulated breakage sat behind a gate that reported success the whole time.
+- A cached template loader made four separate mutations render identically, so a mutation test
+  passed on all four.
+- A missing CSS build artefact left a hidden element clickable, so a test asserting it could be
+  clicked passed for the wrong reason.
+- Playwright's `to_have_count` passes against elements with `display: none`, so a count assertion
+  held while nothing was visible.
+- A local editable install repointed a whole site suite onto unreleased package code, so every
+  local run in that checkout measured something the site does not ship.
+
+The shape is the same each time: the gate's subject was not what the reader assumed. So when a
+gate passes on something that matters, ask what it would take for it to pass while the thing it
+names is broken, and check that case specifically. A green run is evidence only about the thing it
+actually measured.
+
+Two habits that catch this cheaply. Prove a new gate fails: write it, watch it go red against a
+deliberately broken input, and only then fix the input. And when a gate passes unexpectedly early
+or unexpectedly fast, treat that as a reason to look rather than a result.
+
