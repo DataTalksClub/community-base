@@ -175,6 +175,29 @@ A deep route is claimed only through its destination's home route. Mounting an a
 module while the destination's `url_name` is missing leaves that module's routes `mounted but
 unclaimed`, so a wrong `url_name` stays an error instead of disappearing quietly.
 
+## Namespaces and the mount path
+
+Nothing reserves `studio/`, and a site's Studio URL module may declare `app_name`. Both shapes are
+read from the URLconf rather than assumed, so a site that mounts the package's Studio URLs at
+`manage/` under an `app_name` needs no setting.
+
+A site whose Studio URL module declares `app_name` mounts its routes under a namespace, so they
+reverse and resolve as `studio:settings`. Register such a destination with the namespaced
+`url_name`, the spelling `reverse()` takes. `route_names` may be written either way: a bare entry is
+read in the namespace the destination's own `url_name` names, and a destination whose `url_name` is
+itself bare is read in the namespace the site mounted the package's Studio URLs under.
+`section_only_routes` and `routes_without_home` have no destination to read a namespace from, so a
+bare entry there is read in the package's Studio namespace. A site that mounts Studio without a
+namespace writes bare names throughout and is unaffected.
+
+Package templates link with `{% studio_url 'studio_user_detail' user.pk %}` rather than `{% url %}`,
+and package views redirect through `studio_reverse`. `{% url %}` takes the name exactly as written,
+so a hardcoded bare name raises `NoReverseMatch` on a namespaced mount and takes down the whole page
+rather than one link. A site template that links to a package Studio route uses the same tag.
+
+`studio_routes --check` reads the mount the same way. Pass `--mount manage/` for a site whose Studio
+routes live somewhere other than where the package's own Studio URL module is mounted.
+
 Run the route partition check after mounting Studio URLs:
 
 ```console

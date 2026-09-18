@@ -9,6 +9,7 @@ from django.utils.safestring import mark_safe
 from community_base.kernel.conf import get
 from community_base.studio.impersonation import SESSION_KEY
 from community_base.studio.registry import active_state
+from community_base.studio.route_names import studio_reverse
 
 register = template.Library()
 
@@ -213,3 +214,16 @@ def studio_impersonation_banner(context):
         else None
     )
     return {"request": request, "impersonator": actor}
+
+
+@register.simple_tag
+def studio_url(view_name, *args, **kwargs):
+    """Reverse a package Studio route wherever the site mounted it.
+
+    `{% url %}` takes the name as written, so a package template that hardcodes
+    `studio_dashboard` raises `NoReverseMatch` on a site that mounts the
+    package's Studio URLs under a namespace, taking down every Studio page
+    rather than one link. This tag reads the mount instead of assuming it.
+    """
+
+    return studio_reverse(view_name, args=args, kwargs=kwargs)

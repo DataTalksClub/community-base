@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 
 from community_base.kernel.decorators import staff_required
 from community_base.studio.models import MemberNote
+from community_base.studio.route_names import studio_reverse
 from community_base.studio.user_registry import user_badges, user_columns, user_panels
 from community_base.studio.user_tags import get_tags, normalize_tag, normalize_tags, set_tags
 from community_base.studio.utils import studio_pagination_context
@@ -169,7 +170,7 @@ def user_tag_add(request, user_id):
         messages.success(request, f'Added tag "{tag}".')
     else:
         messages.error(request, "Enter a tag.")
-    return redirect("studio_user_detail", user_id=user.pk)
+    return redirect(studio_reverse("studio_user_detail", kwargs={"user_id": user.pk}))
 
 
 @staff_required
@@ -179,7 +180,7 @@ def user_tag_remove(request, user_id, tag):
     normalized = normalize_tag(tag)
     set_tags(user, [item for item in get_tags(user) if item != normalized])
     messages.success(request, f'Removed tag "{normalized}".')
-    return redirect("studio_user_detail", user_id=user.pk)
+    return redirect(studio_reverse("studio_user_detail", kwargs={"user_id": user.pk}))
 
 
 @staff_required
@@ -203,7 +204,7 @@ def note_create(request, user_id):
             tags=normalize_tags(request.POST.get("tags", "").split(",")),
         )
         messages.success(request, "Member note added.")
-    return redirect("studio_user_detail", user_id=member.pk)
+    return redirect(studio_reverse("studio_user_detail", kwargs={"user_id": member.pk}))
 
 
 @staff_required
@@ -223,7 +224,7 @@ def note_edit(request, user_id, note_id):
             note.tags = normalize_tags(request.POST.get("tags", "").split(","))
             note.save()
             messages.success(request, "Member note updated.")
-            return redirect("studio_user_detail", user_id=member.pk)
+            return redirect(studio_reverse("studio_user_detail", kwargs={"user_id": member.pk}))
     return render(
         request,
         "community_base/studio/users/note_form.html",
@@ -244,4 +245,4 @@ def note_delete(request, user_id, note_id):
     note = get_object_or_404(MemberNote, pk=note_id, member=member)
     note.delete()
     messages.success(request, "Member note deleted.")
-    return redirect("studio_user_detail", user_id=member.pk)
+    return redirect(studio_reverse("studio_user_detail", kwargs={"user_id": member.pk}))
