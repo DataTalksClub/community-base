@@ -1806,3 +1806,20 @@ Done when
 - [ ] shared public-resource API responses expose the documented canonical `public_url` field
 - [ ] private operational API shapes remain unchanged
 - [ ] the website event API can adopt the package contract without reconstructing event URLs
+
+## C7.29 Ship the source map referenced by the vendored Lucide bundle
+
+Repository: community-base. Depends on: C7.20. Freeze required: no. Related: DataTalksClub/community-base#282.
+
+Goal: the pinned Studio icon bundle ships every asset it references, so a consuming site can run
+WhiteNoise `collectstatic` without a package-owned missing-file failure.
+
+Verification
+- The matching upstream `lucide.min.js.map` is tracked beside the pinned bundle.
+- Package tests prove the bundle reference and source map are both shipped in the wheel.
+- Consumer static collection no longer raises `MissingFileError` for the Lucide source map.
+- Release `v0.5.3` passes the package quality gates and cross-repository consumer checks.
+
+Done when
+- [ ] the source map is present in the package and release
+- [ ] consumer deployment static collection passes
