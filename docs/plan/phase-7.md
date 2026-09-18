@@ -88,8 +88,12 @@ A row in state `deferred` is decided, not open: the owner has ruled that it does
 and recorded why. It does not hold this issue open.
 
 Done when
-- [ ] no row is in state `undecided`
-- [ ] every `accepted` row names at least one issue that is `done`
+- [x] no row is in state `undecided` -- the last four were settled by D19 to D22 and D29 on
+      2026-09-17, and D22 records `deferred` as a decided state rather than an open one
+- [x] every `accepted` row names at least one issue that is `done` -- wiki and docs through C7.2,
+      event aliases through C4.1e, Calendly through C7.3, the kernel model bases through C7.5, the
+      session record through C7.6, the content format through C7.7, the dialect through C7.8, the
+      course parser through C7.10, and the wiki, docs and person parsers through C7.9c
 
 Docs
 - `docs/plan/phase-7.md`, `docs/01-decisions.md`.
