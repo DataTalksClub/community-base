@@ -213,6 +213,60 @@ Repository: community-base. Depends on: C0.1a.
     assert "OK: 2 issues, STATUS.md consistent" in capsys.readouterr().out
 
 
+def test_check_warns_on_blocked_row_citing_a_now_done_blocker(monkeypatch, tmp_path, capsys):
+    phase_text = """# Phase 0
+
+## C0.1 First
+
+Repository: community-base. Depends on: nothing.
+
+## C0.2 Second
+
+Repository: community-base. Depends on: nothing.
+"""
+    configure_plan(
+        monkeypatch,
+        tmp_path,
+        phase_text,
+        status={
+            "C0.1": {"status": "done", "link": ""},
+            "C0.2": {"status": "blocked", "link": "blocked on C0.1 landing"},
+        },
+    )
+
+    assert plan.cmd_check() == 0
+    output = capsys.readouterr().out
+    assert "warning: C0.2 is blocked, citing C0.1, which is now done" in output
+    assert "OK:" not in output
+
+
+def test_check_does_not_warn_while_the_cited_blocker_is_still_open(monkeypatch, tmp_path, capsys):
+    phase_text = """# Phase 0
+
+## C0.1 First
+
+Repository: community-base. Depends on: nothing.
+
+## C0.2 Second
+
+Repository: community-base. Depends on: nothing.
+"""
+    configure_plan(
+        monkeypatch,
+        tmp_path,
+        phase_text,
+        status={
+            "C0.1": {"status": "in-progress", "link": ""},
+            "C0.2": {"status": "blocked", "link": "blocked on C0.1 landing"},
+        },
+    )
+
+    assert plan.cmd_check() == 0
+    output = capsys.readouterr().out
+    assert "warning:" not in output
+    assert "OK: 2 issues, STATUS.md consistent" in output
+
+
 def test_next_can_select_package_repository(monkeypatch, tmp_path, capsys):
     configure_plan(
         monkeypatch,

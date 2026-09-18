@@ -185,6 +185,32 @@ def done_with_unfinished_dependencies(issues: list[dict], status: dict[str, dict
     return sorted(violations)
 
 
+def blocked_rows_with_closed_blockers(issues: list[dict], status: dict[str, dict]) -> list[str]:
+    """Return one entry per `blocked` row whose Link column names an issue now done or skipped.
+
+    The Link column is free text (the reason a row is blocked, not a structured field), so this
+    is a scan for issue ids inside it. Reported as a warning rather than a `check` failure: a
+    Link may legitimately mention a done issue for context, and a row blocked on several things
+    can still be genuinely blocked after one of them closes.
+    """
+
+    ids = {i["id"] for i in issues}
+    finished = {"done", "skipped"}
+    warnings = []
+    for issue_id in sorted(status):
+        row = status[issue_id]
+        if row["status"] != "blocked":
+            continue
+        mentioned = sorted({m for m in ID_RE.findall(row["link"]) if m != issue_id and m in ids})
+        for candidate in mentioned:
+            candidate_status = status.get(candidate, {"status": "todo"})["status"]
+            if candidate_status in finished:
+                warnings.append(
+                    f"{issue_id} is blocked, citing {candidate}, which is now {candidate_status}"
+                )
+    return warnings
+
+
 def cmd_check() -> int:
     issues = load_issues()
     status = load_status()
@@ -198,6 +224,7 @@ def cmd_check() -> int:
     )
     cycles = dependency_cycles(issues)
     unfinished_dependencies = done_with_unfinished_dependencies(issues, status)
+    stale_blockers = blocked_rows_with_closed_blockers(issues, status)
     expected_status = render(issues, status) + "\n"
     generated_drift = STATUS.read_text() != expected_status if STATUS.exists() else True
     problems = 0
@@ -212,6 +239,8 @@ def cmd_check() -> int:
         if items:
             problems += 1
             print(f"{label}: {', '.join(items)}")
+    for entry in stale_blockers:
+        print(f"warning: {entry}")
     if cycles:
         problems += 1
         print(
@@ -220,7 +249,7 @@ def cmd_check() -> int:
     if generated_drift:
         problems += 1
         print("STATUS generated columns drift: run `python scripts/plan.py sync`")
-    if not problems:
+    if not problems and not stale_blockers:
         print(f"OK: {len(issues)} issues, STATUS.md consistent")
     return 1 if problems else 0
 

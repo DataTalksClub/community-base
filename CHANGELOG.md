@@ -9,6 +9,14 @@
   called the graph clean. The repository has exactly this violation today; it is reported by
   `check` rather than silently fixed by this change.
 
+- `scripts/plan.py check`: a `blocked` row whose `Link` column names an issue that is now `done`
+  or `skipped` is reported as a warning. The `Link` column is free text, so this is a scan for
+  issue ids inside it rather than a structured field; a Link may legitimately still mention a
+  done issue for context, so this never fails `check` on its own. Motivated by `A2.1` having sat
+  `blocked` citing `C7.13` and `C7.14` after `C7.14` had merged, so half its stated reason was
+  stale. `A2.1`'s row has since moved on and the repository has no such row today, so this warning
+  does not fire on the repository as it stands.
+
 - C7.18: the kind registry and the reference resolver now implement what decisions D38 and D39
   ruled and `FORMAT.md` already stated. A cohort's `archive` is a mapping with one optional
   `notice_path` defaulting to `README.md`, not a boolean: seventeen real archived cohorts carry the
