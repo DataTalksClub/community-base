@@ -167,6 +167,14 @@ services on the sites today are account merge, deactivation, and GDPR export; gr
 rather than trusting that list, since two of those three had already missed the same model
 (AI-Shipping-Labs/website#1744) and neither was found by a test.
 
+Enumerate from BOTH directions when you write the guard. The defect recurs one level down, and it
+caught the first guard written against it: a ratchet asserting that a moved relation is the only
+one of its kind enumerated the relations declared ON the strategy models, so a relation declared
+elsewhere but targeting one of those rows slipped past it. That is the original failure shape
+again, at the level of the check rather than the service. An enumerator walking from one end goes
+quietly no-op for anything declared at the other, whichever end it starts from, so a guard that
+walks one way is half a guard.
+
 The general rule this is an instance of: a green run against a baseline answers "did I break what
 exists". It never answers "did I leave something unchanged that should have changed". Moving a
 field makes the second question the important one, and no suite asks it unprompted.
