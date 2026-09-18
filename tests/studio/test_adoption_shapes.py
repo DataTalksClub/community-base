@@ -92,9 +92,22 @@ def test_extra_css_accepts_every_sequence_shape_a_site_may_configure():
         ([], ()),
         (["site/a.css"], ("site/a.css",)),
         (("site/a.css", "site/b.css"), ("site/a.css", "site/b.css")),
+        # A single path as a plain string, the obvious reading of a sequence-typed
+        # setting's default: treated as one item, never iterated into characters.
+        ("site/studio.css", ("site/studio.css",)),
+        ("", ()),
     ):
         with override_settings(COMMUNITY_BASE={"STUDIO_EXTRA_CSS": configured}):
             assert studio_filters.studio_extra_css() == expected
+
+
+def test_extra_css_refuses_a_shape_that_is_not_a_string_or_sequence():
+    """A dict, set or int is refused rather than iterated blind or silently dropped."""
+
+    for configured in ({"site/a.css": True}, {"site/a.css"}, 3):
+        with override_settings(COMMUNITY_BASE={"STUDIO_EXTRA_CSS": configured}):
+            with pytest.raises(ImproperlyConfigured):
+                studio_filters.studio_extra_css()
 
 
 def test_tags_accessor_refuses_a_user_model_without_tags():

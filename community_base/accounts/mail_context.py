@@ -2,14 +2,14 @@ from community_base.accounts.tokens import (
     generate_password_reset_token,
     generate_verification_token,
 )
-from community_base.kernel.conf import get
+from community_base.kernel.conf import require
 
 
 def resolve_delivery_context(*, delivery, context):
     resolved = dict(context)
     user = delivery.recipient_user
-    site_url = get("SITE_URL").rstrip("/")
     if delivery.purpose == "accounts.verify_email" and user is not None:
+        site_url = require("SITE_URL").rstrip("/")
         token = generate_verification_token(
             user,
             return_path=resolved.get("return_path", ""),
@@ -19,6 +19,7 @@ def resolve_delivery_context(*, delivery, context):
         resolved.pop("return_path", None)
         resolved["verify_url"] = f"{site_url}/api/verify-email?token={token}"
     elif delivery.purpose == "accounts.password_reset" and user is not None:
+        site_url = require("SITE_URL").rstrip("/")
         token = generate_password_reset_token(
             user,
             issued_at=delivery.created_at,
@@ -33,6 +34,7 @@ def resolve_delivery_context(*, delivery, context):
 
             change = EmailChangeRequest.objects.filter(pk=change_id).first()
             if change is not None:
+                site_url = require("SITE_URL").rstrip("/")
                 token = email_change_token(change)
                 resolved["confirm_url"] = f"{site_url}/account/change-email/confirm?token={token}"
     return resolved

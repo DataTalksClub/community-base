@@ -111,3 +111,21 @@ def get(name):
         raise ImproperlyConfigured(f"Unknown COMMUNITY_BASE setting: {name}")
     configured = getattr(settings, "COMMUNITY_BASE", {}) if settings.configured else {}
     return configured.get(name, DEFAULTS[name])
+
+
+def require(name):
+    """Return `get(name)`, raising if the value is empty.
+
+    For a setting whose empty default is a legal Python value but not a usable one: an
+    empty `SITE_URL` still concatenates into a string, it is just a relative path nobody
+    can open from a mail client. Call this instead of `get` at the point the value is
+    about to be used to build something a site depends on, never at import or `ready()`
+    time, so a site that does not exercise that particular feature is unaffected by
+    never having configured it. See `community_base/kernel/README.md`, "Settings that
+    must not degrade silently", for the rule this implements.
+    """
+
+    value = get(name)
+    if not value:
+        raise ImproperlyConfigured(f"COMMUNITY_BASE['{name}'] must be configured.")
+    return value
