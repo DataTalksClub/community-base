@@ -231,3 +231,31 @@ load-bearing. The first log line that looks like an error is not the same as the
 line that failed the build. Find the step that actually returned non-zero before
 explaining anything.
 
+## An enumeration that finds nothing passes silently
+
+The most frequent failure of 2026-09-18, by some distance. A check that walks a
+set and asserts something about each member passes trivially when the walk finds
+no members, and it reports the same green as a check that examined everything.
+
+Four instances in one day, in four different mechanisms:
+
+- A ratchet enumerating relations declared on the strategy models, which found
+  none declared at the other end and so asserted nothing about them.
+- An inventory baseline whose enumerator matched two of the three import forms a
+  Python module can be reached by, reported no importers for seventeen files, and
+  produced a dependency list a third of the true size.
+- A mutation table measured through a cached template loader, which rendered four
+  distinct mutations identically, so the comparison had nothing to distinguish.
+- A Playwright suite running in reused mode that executed no tests at all and
+  recorded the run as green, for months.
+
+So every enumerating check needs a second assertion that the enumeration is not
+empty, and where the expected size is knowable, that it is the size you expect.
+`tests/test_static_asset_references.py` carries one as
+`test_the_package_ships_at_least_one_static_file`; the comment there says why.
+
+The deeper habit is to distrust a green that arrives cheaply. A check that passes
+without having done work looks identical, in a log, to one that passed having
+done it. When a new gate goes green on the first run, make it fail on purpose
+before believing it.
+
