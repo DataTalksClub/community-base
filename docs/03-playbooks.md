@@ -434,3 +434,45 @@ commit, not a stale snapshot. It can also be run by hand against a non-default r
    first (P15), then bump the site pin. Whether a red run here blocks merging a pull request in
    this repository is a GitHub branch-protection setting, not something this workflow file
    controls; confirm with the owner/orchestrator before relying on it as a hard gate.
+
+## P17. Prove a symbol is unreferenced before deleting it
+
+Used before any deletion or trim of a shared module. Grep is not sufficient evidence, and reading
+the diff is not either.
+
+The failure this exists to prevent, recorded because it happened three times on one file in one
+day. `scripts/build_public_projection.py` in DataTalksClub/website was scheduled for a trim. The
+first dependency list was twelve names, taken by reading the two files of the issue that prompted
+the question. The second was eight, from a syntax-tree scan that matched
+`from scripts.build_public_projection import X` and `import scripts.build_public_projection as X`.
+The real number was 42, because every sync parser imports it as
+`from scripts import build_public_projection as builder` and then reaches through the alias, which
+is a third import form that neither earlier attempt matched. The eight-name scan reported no
+importers at all for seventeen files and raised nothing: it went quietly no-op, which is the same
+shape P7 describes, one level further out.
+
+The three forms a Python module can be reached by, all of which a scan must cover:
+
+- `from package.module import name` -- an `ImportFrom` whose module is the full dotted path.
+- `from package import module as alias` -- an `ImportFrom` whose module is the PACKAGE, with the
+  module as one of its names. This is the one that gets missed.
+- `import package.module as alias` -- an `Import` of the full dotted path.
+
+For the two alias forms the imported names are not in the import statement at all. Collect the
+alias, then collect every attribute access whose value is that alias. Constants are reached this
+way too, so a scan that enumerates function definitions misses them by construction.
+
+Steps
+1. Walk every source file in the repository, excluding only build and dependency directories.
+2. Collect all three import forms and the alias attribute accesses.
+3. Split the result into names used by live code and names used only by tests, and report both. A
+   name used only by tests is still a dependency: removing it does not break the site, it breaks
+   the suite that proves the site works.
+4. Anything the union does not contain is genuinely unreferenced. Everything else stays.
+5. Run the scan as a gate on the deletion commit, not as a review of it. A reviewer reading a diff
+   cannot see an import form that is not in the diff.
+
+The general rule: a deletion is safe when a check that would have failed before it passes after it.
+Absence of a grep hit is not that check, because grep answers "does this string appear", and the
+question is "can this name be reached".
+
