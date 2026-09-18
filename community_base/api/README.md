@@ -77,3 +77,23 @@ uv run python manage.py openapi --check --output api/openapi.json
 ```
 
 Commit the generated file. CI uses `--check` so route or schema drift fails.
+
+## Public resource URLs
+
+Representations of package-owned resources that have a public page may include the additive
+`public_url` field. It is an absolute URL built from `COMMUNITY_BASE["SITE_URL"]` and the
+resource's canonical root-relative `get_absolute_url()` result. The configured site URL supplies
+the origin; API request hosts are never used. A missing site URL, an unpublished resource, or an
+unreachable route produces `null`.
+
+The current public-resource responses are:
+
+| Resource | Responses | Existing route |
+|---|---|---|
+| Event | list, create, detail, update | `Event.get_absolute_url()` |
+| Published course | curriculum list and detail JSON APIs | `Course.get_absolute_url()` |
+
+The event `url` field remains root-relative and unchanged. External fields such as
+`certificate.url` and `recording_url` are also unchanged. Operational resources, including API
+keys, settings, mail deliveries, registrations, event series and hosts, do not receive a
+`public_url` field without a package-owned public page.

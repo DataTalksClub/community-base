@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
 from django.views.decorators.http import require_GET, require_POST
 
+from community_base.api.public_urls import public_url
 from community_base.curriculum import services
 from community_base.curriculum.access import can_access, gated_reason
 from community_base.curriculum.models import Cohort, Course, Module, Unit
@@ -294,6 +295,7 @@ def _course_payload(course: Course, user) -> dict:
         "is_free": course.is_free,
         "required_level": course.required_level,
         "is_locked": not can_access(user, course),
+        "public_url": public_url(course, is_public=course.is_published and course.visible),
     }
 
 
