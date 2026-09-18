@@ -8,9 +8,12 @@ Every test here has a twin on `plain_site`, which mounts the same routes with no
 namespace, so the namespace-free behaviour is pinned rather than assumed.
 """
 
+from io import StringIO
 from types import SimpleNamespace
 
 import pytest
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.template.loader import render_to_string
 from django.urls import resolve
 
@@ -23,8 +26,16 @@ from community_base.studio.registry import (
     route_name_for,
     section_only_routes,
 )
-from community_base.studio.route_checks import route_claims
-from community_base.studio.route_names import urlconf_route_names
+from community_base.studio.route_checks import (
+    mounted_route_names,
+    route_claims,
+    route_partition_errors,
+)
+from community_base.studio.route_names import (
+    studio_mount_prefix,
+    studio_namespace,
+    urlconf_route_names,
+)
 
 
 @pytest.fixture
@@ -214,3 +225,72 @@ def test_an_unnamed_route_still_resolves_to_no_route_name(site, request):
 
     assert route_name_for("/studio/unnamed/") == ""
     assert route_name_for(shell_request("/studio/unnamed/")) == ""
+
+
+@pytest.fixture
+def namespaced_site_at_another_path(settings):
+    settings.ROOT_URLCONF = "tests.studio.site_with_namespaced_studio_at_another_path"
+
+
+@pytest.fixture
+def site_at_another_path(settings):
+    settings.ROOT_URLCONF = "tests.studio.site_with_studio_at_another_path"
+
+
+def test_the_package_studio_mount_is_found_rather_than_assumed(namespaced_site_at_another_path):
+    assert studio_mount_prefix() == "manage/"
+    assert studio_namespace() == "studio"
+
+
+def test_the_package_mount_defaults_are_unchanged_without_a_namespace(plain_site):
+    assert studio_mount_prefix() == "studio/"
+    assert studio_namespace() == ""
+
+
+def test_the_shell_renders_on_a_namespaced_mount_at_another_path(
+    namespaced_site_at_another_path,
+):
+    """The acceptance case: both adoption shapes at once, sidebar links working.
+
+    Every one of these hrefs was a `NoReverseMatch` that took the whole page
+    down, not a missing link: the shell hardcoded `studio_dashboard` and
+    `studio_global_search` as bare names.
+    """
+
+    html = render_shell("/manage/")
+
+    assert 'href="/manage/"' in html
+    assert html.count('data-endpoint="/manage/search/"') == 2
+    assert 'href="/manage/jobs/"' in nav_link(html, "jobs")
+    assert 'href="/manage/users/"' in nav_link(html, "users")
+
+
+def test_a_deep_package_route_is_active_on_a_namespaced_mount_at_another_path(
+    namespaced_site_at_another_path,
+):
+    state = active_state(shell_request("/manage/jobs/"))
+
+    assert state["route_name"] == "studio:community_base_jobs"
+    assert state["active_destination"] == "jobs"
+
+
+def test_the_route_check_passes_on_a_namespaced_mount_at_another_path(
+    namespaced_site_at_another_path,
+):
+    assert route_partition_errors() == []
+    assert mounted_route_names() >= {"studio:studio_dashboard", "studio:community_base_jobs"}
+
+
+def test_the_route_check_passes_on_a_mount_at_another_path(site_at_another_path):
+    """Finding 9 without the namespace: the prefix was hardcoded to `studio/`."""
+
+    assert route_partition_errors() == []
+
+
+def test_the_management_command_checks_the_mount_it_is_given(namespaced_site_at_another_path):
+    stdout = StringIO()
+    call_command("studio_routes", "--check", stdout=stdout)
+
+    assert stdout.getvalue().strip() == "OK"
+    with pytest.raises(CommandError):
+        call_command("studio_routes", "--check", "--mount", "nowhere/", stdout=StringIO())
