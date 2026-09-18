@@ -111,8 +111,8 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
 6. Settings. Package configuration reads one dictionary, `settings.COMMUNITY_BASE`, with
    documented keys and defaults (`community_base/kernel/conf.py`). Shared code may also use the
    narrow Django framework settings that define integration contracts: `AUTH_USER_MODEL`,
-   `LOGIN_URL`, `SECRET_KEY`, and a Django setting explicitly named as a declared config fallback.
-   It never reads other arbitrary `settings.X`. The declared kernel keys include
+   `LOGIN_URL`, `SECRET_KEY`, `AUTHENTICATION_BACKENDS`, and a Django setting explicitly named as
+   a declared config fallback. It never reads other arbitrary `settings.X`. The declared kernel keys include
    `ACCOUNT_BEFORE_DELETE_HOOK`, `ACCOUNT_DELETION_BLOCKER`, `ACCOUNT_MERGE_HOOK`,
    `ACCOUNT_PRIVACY_EXPORT_HOOK`, `ACCOUNT_UNVERIFIED_TTL_DAYS`, `SITE_KEY`, `SITE_URL`,
    `ACCESS_POLICY`, `COURSE_ACCESS_GRANTS`, `COURSEWORK_ANSWER_KEYRING`,

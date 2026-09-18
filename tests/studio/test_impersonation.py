@@ -1,9 +1,14 @@
 import pytest
+from django.contrib.auth import BACKEND_SESSION_KEY
 from django.contrib.auth import SESSION_KEY as AUTH_SESSION_KEY
 
 from community_base.studio.impersonation import SESSION_KEY
 
 pytestmark = pytest.mark.django_db
+
+CUSTOM_BACKEND = "tests.studio.custom_auth_backend.DurableAccountBackend"
+ALTERNATE_MOUNT_URLCONF = "tests.studio.site_with_studio_at_another_path"
+ALTERNATE_NAMESPACED_MOUNT_URLCONF = "tests.studio.site_with_namespaced_studio_at_another_path"
 
 
 @pytest.fixture
@@ -93,3 +98,95 @@ def test_stop_rejects_malformed_and_sensitive_next_urls(client, users, audit_eve
     response = client.post("/studio/impersonate/stop/", {"next": unsafe_next})
 
     assert response["Location"] == "/"
+
+
+def test_default_site_still_uses_model_backend(client, users, audit_events):
+    """A site that never configures `AUTHENTICATION_BACKENDS` gets Django's own
+    default, `["django.contrib.auth.backends.ModelBackend"]`, which is also the
+    first entry in the package's own test settings. Pinned so picking the first
+    configured backend does not change this, the one shape every current site
+    already exercises.
+    """
+
+    actor, target = users
+    client.force_login(actor)
+
+    client.post(f"/studio/impersonate/{target.pk}/")
+
+    assert client.session[BACKEND_SESSION_KEY] == "django.contrib.auth.backends.ModelBackend"
+
+
+def test_impersonation_works_on_a_site_with_only_its_own_authentication_backend(
+    client, users, audit_events, settings
+):
+    """The DataTalks.Club shape: `AUTHENTICATION_BACKENDS` names one backend, and
+    it is not `ModelBackend`. The former hardcoded backend would return 302 and
+    still break the very next request; this asserts the operator resolves
+    correctly on the request right after `start`, and is restored correctly by
+    `stop`, not merely that the redirect happened.
+    """
+
+    settings.AUTHENTICATION_BACKENDS = [CUSTOM_BACKEND]
+    actor, target = users
+    client.force_login(actor, backend=CUSTOM_BACKEND)
+
+    start = client.post(f"/studio/impersonate/{target.pk}/")
+
+    assert start.status_code == 302
+    assert client.session[BACKEND_SESSION_KEY] == CUSTOM_BACKEND
+    assert int(client.session[AUTH_SESSION_KEY]) == target.pk
+
+    after_start = client.get("/studio/")
+    assert after_start.wsgi_request.user.is_authenticated
+    assert after_start.wsgi_request.user.pk == target.pk
+
+    stop = client.post("/studio/impersonate/stop/")
+
+    assert stop.status_code == 302
+    assert client.session[BACKEND_SESSION_KEY] == CUSTOM_BACKEND
+    assert int(client.session[AUTH_SESSION_KEY]) == actor.pk
+
+    after_stop = client.get("/studio/")
+    assert after_stop.wsgi_request.user.is_authenticated
+    assert after_stop.wsgi_request.user.pk == actor.pk
+
+
+@pytest.mark.parametrize(
+    "urlconf",
+    [ALTERNATE_MOUNT_URLCONF, ALTERNATE_NAMESPACED_MOUNT_URLCONF],
+)
+def test_return_guard_refuses_sensitive_pages_wherever_studio_is_mounted(
+    client, users, audit_events, settings, urlconf
+):
+    """`/studio` used to be a literal, so a site mounting Studio at `manage/`
+    (namespaced or not, both `tests/studio/site_with_*_at_another_path.py`
+    fixtures from C7.19/C7.22) kept a guard shaped like it worked while it
+    matched nothing: `/manage/users/` passed straight through.
+    """
+
+    settings.ROOT_URLCONF = urlconf
+    actor, target = users
+    client.force_login(actor)
+    client.post(f"/manage/impersonate/{target.pk}/")
+
+    response = client.post("/manage/impersonate/stop/", {"next": "/manage/users/"})
+
+    assert response["Location"] == "/"
+
+
+def test_return_guard_still_allows_a_page_outside_the_alternate_mount(
+    client, users, audit_events, settings
+):
+    """The guard degrading to matching nothing would pass silently; so would it
+    degrading to matching everything. This pins the other side: a page outside
+    the Studio mount and outside the fixed prefixes is still a legal target.
+    """
+
+    settings.ROOT_URLCONF = ALTERNATE_MOUNT_URLCONF
+    actor, target = users
+    client.force_login(actor)
+    client.post(f"/manage/impersonate/{target.pk}/")
+
+    response = client.post("/manage/impersonate/stop/", {"next": "/blog/post-1/"})
+
+    assert response["Location"] == "/blog/post-1/"
