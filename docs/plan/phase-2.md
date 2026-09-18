@@ -209,9 +209,11 @@ Read first
 - `core/tests/test_deployment_workflow.py` lines 87-88 and 898-899.
 
 Steps
-1. Name `cb_curriculum.Unit.body_html_source` in the import mapping. v0.5.0 adds the field and the
-   mapping does not name it, so `_refuse_mapping_drift()` raises `MappingCoverageDrift`: 18 of the
-   19 errors, one root cause. The drift guard is working as designed; the mapping is what is stale.
+1. Re-measure the mapping drift against the tag being pinned, and name every field it reports. Do
+   not assume it is one field: `cb_curriculum.Unit.body_html_source` is what v0.5.0 added, and a
+   separate run linking current `main` produced 18 errors from 94 commits' worth of accumulated
+   drift since the v0.4.7 pin. The count depends on how far the pin moves, so it is a measurement
+   and not a constant. The drift guard is working as designed; the mapping is what is stale.
 2. Regenerate `STUDIO_COURSES_PYPROJECT_SHA256` and `SECURITY_REMEDIATED_UV_LOCK_SHA256`. These
    freeze the sha256 of `pyproject.toml` and `uv.lock`, so every pin bump breaks them by
    construction. Regenerate them from the files rather than editing them to whatever makes the test

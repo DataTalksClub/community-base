@@ -438,6 +438,26 @@ branch, not just this package's own tests (AGENTS.md, "After changing this packa
 diff of site files, and a package-only change leaves the site checkout undiffed. Run each site's
 full suite.
 
+Three failures are artefacts of this procedure rather than findings, and every run will meet them.
+Classify them before reporting anything, or a clean package change reads as a regression.
+
+The link step edits the site's `pyproject.toml` and `uv.lock`. DataTalksClub/website freezes the
+sha256 of both files in `core/tests/test_deployment_workflow.py`, so linking anything at all fails
+that test. It is not evidence about the package.
+
+Linking current `main` into a site pinned to an old release replays every package change since that
+pin, not only yours. DataTalksClub/website's `scripts/prod/import_shared_course_platform.py` refuses
+on mapping coverage drift, and one measured run produced 18 errors from 94 commits' worth of
+accumulated drift. Attribute by re-running against the commit immediately before your change: if
+the failure is identical there, it belongs to the pin gap and to that site's pin-bump issue.
+
+The sites build CSS outside Python. A worktree that has never run the site's asset build fails its
+own build-artefact test on a missing stylesheet. Run the build before concluding anything.
+
+A fourth to watch for rather than expect: these suites are long and the box is often loaded, so a
+test asserting wall-clock elapsed time can fail on load alone. Re-run it in isolation before either
+reporting or dismissing it.
+
 It runs on every push and pull request in this repository (`.github/workflows/cross-repo-check.yml`),
 under D15's owner-scoped exception to D1 (`docs/01-decisions.md`, issue C0.6): each job checks out
 the site at its default branch as of the trigger, so it always tests against that site's latest
