@@ -237,8 +237,8 @@ Shared Studio pages extend `community_base/studio/base.html`. The compatibility 
 `extra_js`, `header_actions`, `body_start` and `studio_icon_script`, plus the AISL compatibility
 blocks `studio_title`, `studio_content` and `extra_scripts`.
 
-Every block except `content` and `studio_content` ships empty or with exactly the markup described
-below, so a site that overrides nothing renders what it renders today.
+`body_start` ships empty and `studio_icon_script` ships exactly the one script tag described
+below, so a site that overrides neither renders what it rendered before they existed.
 
 ### The content-block contract
 
@@ -289,7 +289,8 @@ It is served same-origin because it must run under a `script-src 'self'` Content
 which DataTalksClub/website sets, and because an unpinned third-party script on a staff surface
 executes whatever that host serves that day. The file is the unmodified UMD build of a pinned
 lucide release; `community_base/studio/static/community_base/vendor/README.txt` records the
-version, the upstream URL, the license and the sha256, and says how to re-derive and verify it.
+version, the source it was downloaded from, the license and the sha256, and says how to re-derive
+and verify it.
 
 Override the block when the site already loads lucide itself, to avoid downloading it twice:
 
