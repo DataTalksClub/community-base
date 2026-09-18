@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 0.5.4
+
+- C7.25: shared public templates extend a package-owned seam,
+  `community_base/public/base.html`, instead of the site's `base.html` directly. Django drops the
+  content of an undefined block in silence, so a site whose chrome names its slots differently was
+  serving package pages with the body missing and nothing raised: AI-Shipping-Labs' mounted
+  unsubscribe page returned 21kB of chrome and no form. A site whose base defines `title`,
+  `meta_description`, `page_head_metadata`, `content` and `extra_js` does nothing and renders
+  byte-identically; a site that names them differently overrides that one path and maps its names
+  on, instead of forking templates. `manage.py check` now reads the chain above the seam:
+  `community_base.kernel.E001` (a missing `content`) is an error, the other four are warnings, and
+  `E002` means the chain could not be read. Adopting sites need the override before pinning this,
+  because the error is a system check and Django runs those before tests.
+- C7.26: Studio impersonation resolves the site's own authentication backend from
+  `AUTHENTICATION_BACKENDS` rather than hardcoding `ModelBackend`, and derives its sensitive
+  return prefixes from the mounted Studio URLconf rather than from literal paths. A site with only
+  a custom backend previously had the operator go anonymous on the next request with no way to
+  stop the session, and a site mounting Studio elsewhere had a return guard that matched nothing
+  while appearing to work.
+- C7.27: three settings whose shape only happened to match one site now fail loudly. An empty
+  `SITE_URL` raises at first use instead of silently making outbound mail links relative;
+  `STUDIO_EXTRA_CSS` set to a single string is accepted as one path instead of iterating into
+  fifteen character-long stylesheet links; and `community_base.curriculum` tests app installation
+  with `apps.is_installed()` instead of a string membership test that did not recognise the
+  AppConfig spelling Django accepts, which silently unregistered its Studio section and API views.
+
 ## 0.5.3
 
 - C7.29: ship the upstream source map referenced by the pinned Lucide Studio bundle so consumer
@@ -12,7 +38,11 @@
 - C7.28: add the additive absolute `public_url` field to shared event and published curriculum
   course API representations, sourced from the configured canonical site origin.
 
-## 0.5.1
+## 0.5.1 (never tagged)
+
+No `v0.5.1` tag exists. The version bump landed but the release was superseded by 0.5.2 before it was cut, so everything below shipped to sites in v0.5.2. The
+section is kept rather than folded away because a reader looking for where C7.19 and C7.20
+landed should find them here.
 
 Cut so the two sites can consume fixes that were stranded on `main`. Both sites' source check
 accepts only a `vX.Y.Z` tag (D0.2), so nothing here was reachable by a site before this tag.
