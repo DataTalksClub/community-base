@@ -1630,3 +1630,41 @@ Steps
 
 Done when
 - [ ] a behaviour change to a default ships with its own test and a CHANGELOG line
+
+## C7.24 Wire up the config override reset and the restart warning
+
+Repository: community-base. Depends on: nothing. Freeze required: no.
+
+Goal: two config capabilities that exist in the code and reach no operator start working, or stop
+pretending to exist.
+
+Found by the 2026-09-18 survey of leftover branches. `config/service.py` declares
+`unset(key, actor_ref, reason)`, and `config/registry.py` carries `requires_restart` through
+`declare()` onto the schema. Neither reaches a view, a template or a test: `unset` has no caller
+and no test at all, and `requires_restart` is written and never read. So an operator who sets an
+override in Studio has no way to clear it back to the fallback, and a setting whose change needs a
+restart warns nobody. A declared field that nothing reads is worse than a missing one, because it
+reads as a working feature in review.
+
+A stale branch, `a02-config-maintenance`, implements both against the 0.3.0-era package. It is not
+merged and should not be: its only change to shared state regresses the `MAIL_PREFERENCE_RESOLVER`
+default from `community_base.accounts.preferences.resolve_mail_preference` back to the pre-accounts
+`community_base.mail.preferences.allow_all`, and being forked at the 0.3.0 release point it also
+collides on the changelog, the version, the lockfile and the version-count assertions in
+`tests/test_smoke.py` and `tests/config/test_registry.py`. Read it for the shape of the UI and
+write the code against current main.
+
+Steps
+1. Decide first whether both are wanted. Removing `unset` and `requires_restart` is a legitimate
+   outcome and is better than leaving them declared and unreachable. Say which and why.
+2. If kept: a Studio control that clears an override back to its fallback, through `unset`, with
+   the same audit trail a set gets.
+3. If kept: surface `requires_restart` where the operator changes such a setting, at the moment of
+   the change rather than in a page they may not read.
+
+Verification
+- `unset` has a test that proves the value falls back and the change is audited.
+- A setting declared `requires_restart=True` shows the warning; one declared without it does not.
+
+Done when
+- [ ] no field in the config schema is written by `declare()` and read by nothing
