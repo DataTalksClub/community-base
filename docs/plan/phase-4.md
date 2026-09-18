@@ -192,6 +192,16 @@ Done when
 
 Repository: AI-Shipping-Labs/website. Depends on: C5.3, C4.3, A4.1. Freeze required: yes. Playbook P4 steps 9 and 10, P13.
 
+Prerequisite found on 2026-09-18, before it could be discovered at delivery time: this site sets no
+`SITE_URL` in its `COMMUNITY_BASE` dict, and C7.27 makes the package raise `ImproperlyConfigured`
+rather than silently build a relative link when a mail purpose needs one. That raise is unreachable
+today only because this site installs none of `community_base.accounts`, `.events` or `.curriculum`,
+and routes mail through its own `MAIL_CONTEXT_RESOLVER` that builds URLs from
+`integrations.config.site_base_url`. The moment the package apps are installed and the package
+resolver builds those links, the six package purposes need a real `SITE_URL` or their deliveries
+raise. Set it in the same change that installs the apps. That is the fix working as designed, not
+a regression.
+
 Production checks
 - events list and detail render; a registered member sees the join link within the window;
 - Studio: create an event with Zoom -> meeting created; series page renders;

@@ -328,6 +328,16 @@ Verification
 
 Repository: AI-Shipping-Labs/website. Depends on: C5.3, C3.7, A3.2. Freeze required: yes. Playbook P4 for each app, P13.
 
+Prerequisite found on 2026-09-18, before it could be discovered at delivery time: this site sets no
+`SITE_URL` in its `COMMUNITY_BASE` dict, and C7.27 makes the package raise `ImproperlyConfigured`
+rather than silently build a relative link when a mail purpose needs one. That raise is unreachable
+today only because this site installs none of `community_base.accounts`, `.events` or `.curriculum`,
+and routes mail through its own `MAIL_CONTEXT_RESOLVER` that builds URLs from
+`integrations.config.site_base_url`. The moment the package apps are installed and the package
+resolver builds those links, the six package purposes need a real `SITE_URL` or their deliveries
+raise. Set it in the same change that installs the apps. That is the fix working as designed, not
+a regression.
+
 Steps
 1. Delete local `accounts` (keep `accounts_ext` if created), `questionnaires`, `community`,
    `notifications`, `comments`, `voting`; install the package apps; pin `v0.6.0`.
