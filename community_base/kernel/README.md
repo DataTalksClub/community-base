@@ -100,6 +100,7 @@ DTC side, how to keep that allowance if it still needs it.
 | `CONTENT_SYNC_HTTP_TIMEOUT` | positive seconds | `30` |
 | `CONTENT_SYNC_MAX_ARCHIVE_BYTES` | positive bytes | `100000000` |
 | `CONTENT_SYNC_MEDIA_BACKEND` | `"null"` or `"s3"` | `"null"` |
+| `CONTENT_SYNC_NULL_MEDIA_URL_PREFIX` | site-absolute path prefix | `"/media/content-sync/"` |
 | `CONTENT_SYNC_S3_BUCKET` | `str` | `""` |
 | `CONTENT_SYNC_S3_PREFIX` | object-key prefix | `"content-sync"` |
 | `CONTENT_SYNC_S3_PUBLIC_URL` | absolute URL or empty | `""` |

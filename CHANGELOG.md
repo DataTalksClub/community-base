@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- D37: `NullMediaStore`, the default media backend, returns a site-absolute URL instead of the
+  repository path. The sanitiser admits an `img src` only when it is site-absolute or an absolute
+  `http(s)` URL, so every site running the default backend stored synced images with a source the
+  renderer then dropped, and nothing said so until someone looked at a page. The URL is now the
+  repository path under `CONTENT_SYNC_NULL_MEDIA_URL_PREFIX`, defaulting to `/media/content-sync/`;
+  serving that prefix is the site's job, and a site that serves it nowhere now gets a visible 404
+  rather than an invisible omission. A path that escapes the checkout raises `MediaStoreError`
+  rather than producing a URL. Behaviour change to a default: a site already relying on the bare
+  repository path sets the prefix to `""` to keep a leading slash only.
+
 - C7.18: the kind registry and the reference resolver now implement what decisions D38 and D39
   ruled and `FORMAT.md` already stated. A cohort's `archive` is a mapping with one optional
   `notice_path` defaulting to `README.md`, not a boolean: seventeen real archived cohorts carry the
