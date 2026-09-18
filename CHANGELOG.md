@@ -2,6 +2,102 @@
 
 ## Unreleased
 
+## 0.5.1
+
+Cut so the two sites can consume fixes that were stranded on `main`. Both sites' source check
+accepts only a `vX.Y.Z` tag (D0.2), so nothing here was reachable by a site before this tag.
+
+Note for anyone reading only this file: v0.5.0 shipped a regression, fixed here. C7.13's
+mounted-route filter could not serve a Studio URLconf that declares `app_name`, so a site with a
+namespaced Studio lost every registered sidebar destination silently. No site had adopted a
+namespaced Studio yet, so nothing broke in production.
+
+- C7.19: the Studio serves a URLconf that declares `app_name`, mounted wherever the site puts it.
+  A Studio URL module with `app_name` mounts under a namespace, so its routes reverse and resolve as
+  `studio:settings`, and v0.5.0 broke that case: `urlconf_route_names` recorded the bare name while
+  `reverse()` and the registration needed the namespaced one, so `mounted_sections()` dropped every
+  destination registered with `url_name="studio:settings"`, and registering the bare name instead
+  rendered an empty href. C7.13 introduced it by adding `mounted_sections()` and the `_is_live`
+  filter over that name set; before it nothing filtered on the set and a namespaced `url_name`
+  worked. `urlconf_route_names` now records the name the way `reverse()` takes it, joining nested
+  namespaces in mount order, and `route_name_for` returns the resolver match's `view_name`, which
+  carries the namespace, instead of its bare `url_name`. A route with no name still has no route
+  name.
+
+  The C7.22 audit found two more places the same assumption was baked in, and they are fixed here
+  rather than left as a follow-up. The shell hardcoded `{% url 'studio_dashboard' %}` and
+  `{% url 'studio_global_search' %}`, which is `NoReverseMatch` on a namespaced mount, so every
+  Studio page returned 500 rather than losing a link; package templates now link through
+  `{% studio_url %}` and package views redirect through `studio_reverse`, both of which read where
+  the site mounted the package's Studio URL module. `route_checks` hardcoded the `studio/` prefix,
+  so a site mounting the Studio at `manage/` saw every claimed route reported as `claimed but not
+  mounted`; the prefix is now found from that same mount, and `studio_routes --check` takes
+  `--mount` for a site whose Studio routes live elsewhere.
+
+  A site that mounts Studio at `studio/` without a namespace is unaffected: with no namespace to
+  record `view_name` equals `url_name`, the found mount is the old default, and the tests pin the
+  namespace-free case against the same routes. A namespaced site registers `url_name` with the
+  namespace, which is what `reverse()` needs; `route_names`, `section_only_routes` and
+  `routes_without_home` may be written either way, since a bare entry is read in the namespace of
+  the destination's own `url_name`, or of the package's Studio mount, so no existing registration
+  has to be rewritten. A site that overrides a package Studio template and links to a package route
+  with `{% url %}` keeps working on an unnamespaced mount and should move to `{% studio_url %}`
+  before namespacing one.
+
+- Studio shell: the icon library is vendored instead of loaded from `unpkg.com/lucide@latest`.
+  The shell now serves `community_base/vendor/lucide.min.js`, the unmodified UMD build of lucide
+  1.47.0 taken from the npm tarball, from the site's own static files. The old tag was unpinned,
+  so whatever unpkg served that day executed on a staff surface, and it was blocked outright by a
+  site setting `script-src 'self'`, which left Studio with no icons and no remedy short of forking
+  the shell. The script now sits in a `studio_icon_script` block, so a site that already loads
+  lucide can empty it rather than download the library twice; emptying it without loading lucide
+  elsewhere leaves `data-lucide` elements blank, which is the site's call to make.
+  `community_base/studio/static/community_base/vendor/README.txt` records the version, source URL,
+  license and sha256, and how to re-derive them. Run `collectstatic` after upgrading.
+
+- Studio shell: `body_start`, an empty block immediately inside `<body>`, and `id="main-content"`
+  with `tabindex="-1"` on `<main>`. A site can now put its own skip link on every Studio page
+  without replacing the shell. `main-content` is the conventional id and the one DataTalksClub's
+  skip link and accessibility tests already target, so it is a contract and will not change. The
+  package ships no skip-link markup or styling; a site that overrides nothing renders exactly what
+  it rendered before, the landmark id and `tabindex` aside.
+
+- D37: `NullMediaStore`, the default media backend, returns a site-absolute URL instead of the
+  repository path. The sanitiser admits an `img src` only when it is site-absolute or an absolute
+  `http(s)` URL, so every site running the default backend stored synced images with a source the
+  renderer then dropped, and nothing said so until someone looked at a page. The URL is now the
+  repository path under `CONTENT_SYNC_NULL_MEDIA_URL_PREFIX`, defaulting to `/media/content-sync/`;
+  serving that prefix is the site's job, and a site that serves it nowhere now gets a visible 404
+  rather than an invisible omission. A path that escapes the checkout raises `MediaStoreError`
+  rather than producing a URL. Behaviour change to a default: a site already relying on the bare
+  repository path sets the prefix to `""` to keep a leading slash only.
+
+- `scripts/plan.py check`: a `done` issue whose dependency is not itself `done` or `skipped` is
+  now reported, every occurrence rather than the first. Previously `check` only verified that
+  dependency ids resolve and that the graph has no cycles, and never compared statuses across an
+  edge, so `D2.2b` could read `done` while its dependency `D2.2a` read `in-progress` and `check`
+  called the graph clean. The repository has exactly this violation today; it is reported by
+  `check` rather than silently fixed by this change.
+
+- `scripts/plan.py check`: a `blocked` row whose `Link` column names an issue that is now `done`
+  or `skipped` is reported as a warning. The `Link` column is free text, so this is a scan for
+  issue ids inside it rather than a structured field; a Link may legitimately still mention a
+  done issue for context, so this never fails `check` on its own. Motivated by `A2.1` having sat
+  `blocked` citing `C7.13` and `C7.14` after `C7.14` had merged, so half its stated reason was
+  stale. `A2.1`'s row has since moved on and the repository has no such row today, so this warning
+  does not fire on the repository as it stands.
+
+- `docs/01-decisions.md` gains an optional `Lands in:` field: a decision that requires
+  implementation names the issue that lands it (`Lands in: `C7.12`.`), or states `Lands in:
+  none.` when it lands nothing, since not every decision implies an issue (D21 is `site-owned`).
+  `scripts/plan.py check` verifies every issue a `Lands in:` field names exists in the phase
+  files, and leaves alone the decisions that do not carry the field. Motivated by D34, D38 and
+  D39 being written into that file and carried nowhere else, so `FORMAT.md` still contradicted
+  them the next day; a decision recorded in one place and implemented in none looks settled in
+  review and is not. No existing decision carries the field yet, so this check does not fire on
+  the repository as it stands; retrofitting D34, D38 and D39 (landed by C7.12 and C7.18
+  respectively) with it is left as a small follow-up.
+
 - C7.18: the kind registry and the reference resolver now implement what decisions D38 and D39
   ruled and `FORMAT.md` already stated. A cohort's `archive` is a mapping with one optional
   `notice_path` defaulting to `README.md`, not a boolean: seventeen real archived cohorts carry the

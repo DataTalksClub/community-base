@@ -175,6 +175,29 @@ A deep route is claimed only through its destination's home route. Mounting an a
 module while the destination's `url_name` is missing leaves that module's routes `mounted but
 unclaimed`, so a wrong `url_name` stays an error instead of disappearing quietly.
 
+## Namespaces and the mount path
+
+Nothing reserves `studio/`, and a site's Studio URL module may declare `app_name`. Both shapes are
+read from the URLconf rather than assumed, so a site that mounts the package's Studio URLs at
+`manage/` under an `app_name` needs no setting.
+
+A site whose Studio URL module declares `app_name` mounts its routes under a namespace, so they
+reverse and resolve as `studio:settings`. Register such a destination with the namespaced
+`url_name`, the spelling `reverse()` takes. `route_names` may be written either way: a bare entry is
+read in the namespace the destination's own `url_name` names, and a destination whose `url_name` is
+itself bare is read in the namespace the site mounted the package's Studio URLs under.
+`section_only_routes` and `routes_without_home` have no destination to read a namespace from, so a
+bare entry there is read in the package's Studio namespace. A site that mounts Studio without a
+namespace writes bare names throughout and is unaffected.
+
+Package templates link with `{% studio_url 'studio_user_detail' user.pk %}` rather than `{% url %}`,
+and package views redirect through `studio_reverse`. `{% url %}` takes the name exactly as written,
+so a hardcoded bare name raises `NoReverseMatch` on a namespaced mount and takes down the whole page
+rather than one link. A site template that links to a package Studio route uses the same tag.
+
+`studio_routes --check` reads the mount the same way. Pass `--mount manage/` for a site whose Studio
+routes live somewhere other than where the package's own Studio URL module is mounted.
+
 Run the route partition check after mounting Studio URLs:
 
 ```console
@@ -234,8 +257,11 @@ adapter before enabling tag edits on a user model without that attribute.
 
 Shared Studio pages extend `community_base/studio/base.html`. The compatibility template
 `studio/base.html` extends the same shell. The shell exposes `title`, `content`, `extra_head`,
-`extra_js` and `header_actions`, plus the AISL compatibility blocks `studio_title`,
-`studio_content` and `extra_scripts`.
+`extra_js`, `header_actions`, `body_start` and `studio_icon_script`, plus the AISL compatibility
+blocks `studio_title`, `studio_content` and `extra_scripts`.
+
+`body_start` ships empty and `studio_icon_script` ships exactly the one script tag described
+below, so a site that overrides neither renders what it rendered before they existed.
 
 ### The content-block contract
 
@@ -252,6 +278,58 @@ title, no body, nothing in the response to say why (community-base#279).
 and raises `community_base.studio.E001` when the resolved `community_base/studio/base.html`
 exposes neither name, so a genuinely incompatible site shell fails the check instead of shipping a
 silently empty page.
+
+### Skip link and the main landmark
+
+`body_start` is an empty block immediately inside `<body>`, above the impersonation banner and the
+sidebar, and `<main>` carries `id="main-content"` with `tabindex="-1"`. Together they let a site
+put its own skip link on every Studio page without replacing the shell:
+
+```html
+{% block body_start %}
+<a class="skip-link" href="#main-content">Skip to content</a>
+{% endblock %}
+```
+
+`main-content` is the id DataTalksClub/website's skip link and accessibility tests already target,
+and the conventional one for this landmark; it is a contract, so it does not change. `tabindex="-1"`
+is what makes the jump move keyboard focus and not only the viewport. The package ships no skip
+link and no styling for one: the markup, the visually-hidden-until-focused CSS and the wording are
+the site's, because they belong to the site's design system and its language.
+
+The block takes anything that must come first in the body, not only a skip link: a live region, a
+consent strip, an analytics `noscript` pixel.
+
+### Vendored icon library
+
+The shell loads lucide from the package's own static files, inside the `studio_icon_script` block:
+
+```html
+<script src="{% static 'community_base/vendor/lucide.min.js' %}"></script>
+```
+
+It is served same-origin because it must run under a `script-src 'self'` Content-Security-Policy,
+which DataTalksClub/website sets, and because an unpinned third-party script on a staff surface
+executes whatever that host serves that day. The file is the unmodified UMD build of a pinned
+lucide release; `community_base/studio/static/community_base/vendor/README.txt` records the
+version, the source it was downloaded from, the license and the sha256, and says how to re-derive
+and verify it.
+
+Override the block when the site already loads lucide itself, to avoid downloading it twice:
+
+```html
+{% block studio_icon_script %}{% endblock %}
+```
+
+Emptying the block with nothing else providing lucide leaves every `data-lucide` element blank,
+because `community_base/studio.js` calls `window.lucide.createIcons()` and finds nothing. The
+package cannot tell from the template whether a site loads the library elsewhere, so no check
+catches that; it is a deliberate opt-out and a site that takes it owns loading an equivalent build.
+Any replacement must define `window.lucide` with `createIcons()` and honour `data-lucide`, and must
+load before `community_base/studio.js`, which the head position gives it.
+
+A site that uses lucide icons in its own templates and runs `collectstatic` gets this file for
+free at `community_base/vendor/lucide.min.js`; there is no need to vendor a second copy.
 
 ### Sidebar footer
 

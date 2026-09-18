@@ -7,6 +7,7 @@ module.exports = {
       '../../**/templates/**/*.html',
       '../../**/*.py',
       '../../**/static/**/*.js',
+      '!../../**/static/**/vendor/**',
       '!../../**/tests/**',
       '!../../**/migrations/**',
     ],

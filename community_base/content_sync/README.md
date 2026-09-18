@@ -332,9 +332,15 @@ Private repositories require `CONTENT_SYNC_GITHUB_APP_ID`,
 `CONTENT_SYNC_GITHUB_INSTALLATION_ID` and `CONTENT_SYNC_GITHUB_PRIVATE_KEY`. GitHub API URL,
 timeout and archive bounds have safe defaults listed in the kernel README.
 
-Media is unchanged by default. Set `CONTENT_SYNC_MEDIA_BACKEND` to `s3`, install the `s3` extra,
-and configure `CONTENT_SYNC_S3_BUCKET`. Region, object-key prefix and public base URL are optional.
-AWS credentials use the standard boto3 credential chain and are not package settings.
+Media uploads nowhere by default. The null backend keeps the authored repository path as the
+stored path and returns it as a site-absolute URL under `CONTENT_SYNC_NULL_MEDIA_URL_PREFIX`,
+because the sanitiser admits an `img src` only when it is site-absolute or an absolute `http(s)`
+URL. A site on the default backend serves that prefix itself; a site that serves it nowhere gets a
+404 it can see rather than an image the renderer silently dropped.
+
+Set `CONTENT_SYNC_MEDIA_BACKEND` to `s3`, install the `s3` extra, and configure
+`CONTENT_SYNC_S3_BUCKET` to upload instead. Region, object-key prefix and public base URL are
+optional. AWS credentials use the standard boto3 credential chain and are not package settings.
 
 ## Operations
 

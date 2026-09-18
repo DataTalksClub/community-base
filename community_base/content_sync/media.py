@@ -66,16 +66,41 @@ class MediaResult:
     url: str
 
 
+class MediaStoreError(RuntimeError):
+    pass
+
+
+def _null_media_url(path) -> str:
+    """Derive a site-absolute URL for a path the null store does not upload."""
+
+    relative = PurePosixPath(str(path))
+    if relative.is_absolute() or any(part in {".", ".."} for part in relative.parts):
+        raise MediaStoreError("Unsafe media path")
+    prefix = str(conf.get("CONTENT_SYNC_NULL_MEDIA_URL_PREFIX")).strip("/")
+    parts = tuple(part for part in (prefix, relative.as_posix()) if part)
+    return "/" + quote("/".join(parts), safe="/")
+
+
 class NullMediaStore:
-    """Default media boundary that leaves authored paths unchanged."""
+    """Default media boundary that uploads nothing and links back to the site.
+
+    The store has no storage of its own, so the stored path stays the authored
+    repository path.  The URL cannot: the sanitiser admits an ``img src`` only
+    when it is site-absolute or an absolute ``http(s)`` URL, so returning the
+    bare repository path made every site on the default backend store synced
+    images with a source the renderer then dropped, and nothing said so until
+    someone looked at a page (D37).  The URL is therefore the repository path
+    under ``CONTENT_SYNC_NULL_MEDIA_URL_PREFIX``.
+
+    Serving that prefix is the site's job.  The package guarantees only that the
+    URL is shaped so the renderer keeps it; a site that maps the prefix at no
+    route gets a 404 it can see, which is the point -- an invisible failure is
+    traded for a visible one.
+    """
 
     def upload(self, checkout, path, source):
         checkout.read_bytes(path)
-        return MediaResult(str(path), str(path))
-
-
-class MediaStoreError(RuntimeError):
-    pass
+        return MediaResult(str(path), _null_media_url(path))
 
 
 class S3MediaStore:

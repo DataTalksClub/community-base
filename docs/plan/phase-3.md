@@ -369,6 +369,26 @@ Course-platform readers read the ten moved fields through `LearnerProfile` inste
 `CustomUser`; regression coverage forces new submitter-rendering surfaces through
 `learner_profile` from day one.
 
+This is the deploy that closes the expand window, so it ships a refresh migration and a written
+rollback plan, per decision D41 and playbook P7. The refresh copies into `LearnerProfile` for every
+user whose row is missing or whose values differ from the `CustomUser` columns, and it creates the
+missing rows rather than only updating existing ones: users created after D3.1a's one-time copy
+have no profile row at all, and an update-only refresh would leave exactly those accounts reading
+`profile_field_default(...)` -- empty certificate name, empty country, dark mode off. Switching readers switches writers: from this deploy onward the ten values land in
+`LearnerProfile` and the `CustomUser` columns stop being updated, so reverting the code alone
+serves stale values for every row touched in the meantime, silently. The rollback is revert the
+code, copy back what was written during the window, then reverse the migration if it is being
+reversed at all -- in that order, because reversing the migration first destroys the rows the
+back-copy reads. The back-copy is written and rehearsed on a development copy before this deploys,
+not after.
+
+Verification
+- The back-copy script exists, is rehearsed under P14, and its counts are recorded in the pull
+  request.
+
+Done when
+- [ ] a rollback plan naming all three steps is in the pull request description
+
 ## D3.1c Switch identity-window readers to accounts_ext.IdentityState
 
 Repository: DataTalksClub/website. Depends on: D3.1b. The groomed tracker issue
@@ -377,6 +397,25 @@ Repository: DataTalksClub/website. Depends on: D3.1b. The groomed tracker issue
 Identity-window readers go through `accounts_ext.IdentityState`, including the
 `identity_state_eligible()` accessor call sites confirmed by grep; the reader table carries
 the corrected `scripts/prod/registrant_import.py` path from the re-scope drift audit.
+
+Ships a refresh migration on the same terms as D3.1b, per D41, and this one is the more urgent of
+the two. `identity_state` is synced by nothing at all during the window -- `accounts_ext/signals.py`
+covers only `normalized_email` -- and the live writers include
+`accounts/auth.py::_activate_verified_identity`, a queryset update that runs on every first
+verified social sign-in. Without the refresh, an account absorbed or quarantined during the window
+reads back as `legacy`, which `identity_state_eligible()` treats as eligible: the middleware
+ABSORBED redirect never fires and the account signs in again on its own id, and `can_login_as`
+stops refusing a quarantined account. That is an authorisation failure, not stale data.
+
+The back-copy for these two fields must be separable from the expand. `accounts_ext.0001_initial`
+today both creates `IdentityState` and copies into it, so reversing it restores the values, drops
+the table and reverses four state-only model moves in one irreversible step -- there is no state in
+which the values are back and the expand still stands, which is the state a rollback needs. Split
+the create from the copy, or ship a standalone back-copy script.
+
+Verification
+- An account absorbed through the reviewed merge during a simulated window reads `absorbed` after
+  the refresh, and `identity_state_eligible()` refuses it.
 
 ## D3.1d Remove the twelve moved fields from CustomUser (contract)
 

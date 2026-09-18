@@ -144,8 +144,21 @@ Repository: community-base. Depends on: C2.1b, C2.2, C2.3. Playbook P15.
 
 Repository: AI-Shipping-Labs/website. Depends on: C2.4.
 
+Scope note added 2026-09-18, after C7.20's work established the starting state rather than assuming
+it. This site does not render the package shell today and never has. It ships a one-line
+`templates/community_base/studio/base.html` that shadows the package's own template path and
+extends its own 1297-line `templates/studio/base.html`, so Django's loader resolves the package
+path to the site's file. The same is true of DataTalksClub, in D2.1c.
+
+That makes this a first adoption rather than a migration from a working state, and it changes what
+the work is: not swapping one base template for another, but stopping the shadow. Everything the
+1297-line shell does that the package shell does not has to be either re-homed onto a package
+extension point or given up deliberately, and each of those is a decision rather than a move. Size
+the issue against that file, not against the diff between two base templates.
+
 Steps
-1. Install `community_base.studio`. Delete `templates/studio/base.html`, `studio/sidebar.py`,
+1. Install `community_base.studio`. Delete the shadowing
+   `templates/community_base/studio/base.html` and `templates/studio/base.html`, `studio/sidebar.py`,
    `studio/decorators.py` (import from the kernel), the generic templatetags moved in C2.1,
    `studio/views/global_search.py`, `impersonate.py`, `dashboard.py` (dashboard cards become
    registered providers).
@@ -193,33 +206,142 @@ Verification
   database -> same counts per content type as before the change (record both in the PR).
 - `make test-affected` -> pass.
 
-## D2.1 Mount the Studio shell and re-home DTC Studio pages
+## D2.1a Bump the package pin to v0.5.1 and pay its two costs
 
-Repository: DataTalksClub/website. Depends on: C2.4.
+Repository: DataTalksClub/website. Depends on: C7.21.
+
+Part 1 of 4 of the split of the former single Studio issue, one landing per part.
+
+Goal: the pin moves from v0.4.7 to v0.5.1 on its own, so that the two things a pin bump breaks are
+fixed by a change that is about the pin and nothing else. Measured at DTC `eeea8747`: the bump
+alone takes `test-django-full` from green on those labels to 19 errors, none of them Studio work.
 
 Read first
-- `templates/studio/base.html`, `studio/views.py`, `studio/urls.py`, `studio_courses/`,
-  `management_registry.py`, `accounts/studio_authorization.py`, `accounts/studio_roles.py`.
+- `scripts/prod/import_shared_course_platform.py`, the `_mapping()` function and
+  `_refuse_mapping_drift()` around line 297.
+- `core/tests/test_deployment_workflow.py` lines 87-88 and 898-899.
 
 Steps
-1. Install `community_base.studio`. Delete `templates/studio/base.html`; DTC Studio templates
-   extend `community_base/studio/base.html`. Keep DTC's `authorize_studio_request` roles by
-   implementing the kernel hook `STUDIO_AUTHORIZER` (default: `is_staff`).
-2. Register sections: Site (settings, navigation, sponsors), Access (API keys from the package,
-   credentials until `management_api` migrates), Audit, Events (identities, historical totals,
-   Q&A), Courses (all `studio_courses` pages).
-3. Remove the Studio adapter half of `management_registry.py`; `management_api` keeps its routes
-   until its endpoints are re-declared through `community_base.api` in later phases.
-4. Exempt Studio routes from the public-page inline-stylesheet test; keep the test for public
-   pages.
+1. Re-measure the mapping drift against the tag being pinned, and name every field it reports. Do
+   not assume it is one field: `cb_curriculum.Unit.body_html_source` is what v0.5.0 added, and a
+   separate run linking current `main` produced 18 errors from 94 commits' worth of accumulated
+   drift since the v0.4.7 pin. The count depends on how far the pin moves, so it is a measurement
+   and not a constant. The drift guard is working as designed; the mapping is what is stale.
+2. Regenerate `STUDIO_COURSES_PYPROJECT_SHA256` and `SECURITY_REMEDIATED_UV_LOCK_SHA256`. These
+   freeze the sha256 of `pyproject.toml` and `uv.lock`, so every pin bump breaks them by
+   construction. Regenerate them from the files rather than editing them to whatever makes the test
+   pass, and say in the pull request which files produced which hash.
 
 Verification
-- `uv run python manage.py studio_routes --check` -> `OK`.
-- `uv run pytest studio studio_courses -q` -> pass; accessibility Playwright markers for Studio
-  pass.
+- `uv run python scripts/check_community_base_source.py` names the v0.5.1 tag.
+- `uv run python scripts/ci.py test-django-full` is green, or its failures are attributed to a
+  cause that is neither the pin nor this change, with the attribution run recorded.
+
+Done when
+- [ ] the pin is v0.5.1 and no test asserts a hash of a file this change did not regenerate
+
+## D2.1b Install and mount the Studio shell behind DTC's own shell
+
+Repository: DataTalksClub/website. Depends on: D2.1a.
+
+Part 2 of 4 of the split of the former single Studio issue.
+
+Goal: the package Studio app is installed, mounted and registered, and `studio_routes --check`
+reports `OK`, while DTC keeps rendering its own shell. Separating the mount from the cutover means
+a broken sidebar and a broken page template cannot arrive in the same landing.
+
+Read first
+- `studio/urls.py`, which sets `app_name = "studio"`. C7.19 is what makes a namespaced Studio
+  URLconf work at all; without it every registered destination is silently dropped.
+- `studio/views.py`, `studio_courses/`, `accounts/studio_authorization.py`,
+  `accounts/studio_roles.py`.
+- The route inventory on the abandoned attempt, preserved at `rescue/issue-377-20260918`. Its
+  section and route breakdown is still correct and is the most reusable thing it produced; its
+  code is built on v0.3.4 and is not.
+
+Steps
+1. Install `community_base.studio`. Keep `templates/studio/base.html` for now.
+2. Implement `STUDIO_AUTHORIZER` so DTC's `authorize_studio_request` roles keep deciding access.
+3. Register sections: Site (settings, navigation, sponsors), Access (API keys from the package,
+   credentials until `management_api` migrates), Audit, Events (identities, historical totals,
+   Q&A), Courses (all `studio_courses` pages).
+4. Retire `studio:home` against the package landing route, or say why it stays.
+
+Verification
+- `uv run python manage.py studio_routes --check` -> `OK`, with neither a claimed-but-not-mounted
+  nor a mounted-but-unclaimed line.
+- `uv run pytest studio studio_courses -q` -> pass.
+
+Done when
+- [ ] every DTC Studio route is claimed by exactly one registered destination
+- [ ] the sidebar renders non-empty hrefs for all of them
+
+## D2.1c Cut over to the package shell
+
+Repository: DataTalksClub/website. Depends on: D2.1b, C7.20.
+
+Part 3 of 4 of the split of the former single Studio issue.
+
+Goal: DTC Studio templates extend the package shell and DTC's own shell is deleted, without
+forking the package base. C7.20 is what makes this possible: until the shell carries a body-start
+block, an id on `main` and a self-hosted icon set, the only way to satisfy DTC's skip link, its
+accessibility registry and its `script-src 'self'` policy is a verbatim fork, which is the
+anti-pattern this issue exists to end. The abandoned attempt forked 152 lines and its own header
+comment predicted this.
+
+Read first
+- `templates/studio/base.html` and the 1-line override at
+  `templates/community_base/studio/base.html`, whose comment already says D2.1 deletes it.
+- `core/middleware.py`, the Content-Security-Policy, and
+  `core/tests/test_non_identity_security.py` which asserts it.
+- `core/accessibility_registry.py`, the registered Studio states.
+- `templates/core/_site_shell_head.html`, the skip link every DTC page ships.
+
+The same starting-state correction as A2.1 applies here: DTC does not render the package shell
+today. The one-line `templates/community_base/studio/base.html` shadows the package's template
+path, so this is a first adoption rather than a migration, and the work is stopping the shadow
+rather than swapping a base.
+
+Steps
+1. Delete `templates/studio/base.html` and the `templates/community_base/` override; DTC Studio
+   templates extend `community_base/studio/base.html`.
+2. Move DTC's admin CSS behind `STUDIO_EXTRA_CSS` and the shell's head block rather than into a
+   fork.
+3. Supply the skip link through the shell's body-start block and point it at the shell's own
+   `main` id.
+4. Exempt Studio routes from the public-page inline-stylesheet test; keep the test for public
+   pages.
+5. Update the accessibility registry and the browser contracts for the new markup.
+
+Verification
+- `uv run pytest studio studio_courses -q` -> pass; the accessibility Playwright markers for
+  Studio pass.
+- No file under `templates/community_base/` overrides the package shell.
+- Desktop and mobile screenshots recorded in the pull request.
 
 Done when
 - [ ] `_docs/design/design-system.md` states that Studio uses the package design (D12)
+- [ ] no page loads a script from a third-party origin
+
+## D2.1d Remove the Studio adapter half of management_registry
+
+Repository: DataTalksClub/website. Depends on: D2.1c.
+
+Part 4 of 4 of the split of the former single Studio issue.
+
+Goal: the Studio half of the adapter registry goes, now that the package registry owns navigation.
+Scoped separately because it is a wide mechanical change with its own validation surface: 24
+`studio=AdapterMetadata` declarations across 14 files, 13 attribute reads, the `studio` field on
+`Capability` and its validator, and the management-parity check.
+
+Steps
+1. Remove the Studio adapter declarations, the `studio` field and its validation.
+2. `management_api` keeps its routes until its endpoints are re-declared through
+   `community_base.api` in a later phase.
+
+Verification
+- `uv run python scripts/ci.py django-check` reports management capability parity current.
+- `uv run pytest -q` -> pass.
 
 ## D2.2a Content sync adoption: articles and people through the package engine
 
@@ -258,16 +380,20 @@ Verification
 - `uv run pytest content -q` -> pass; the public URL compatibility suite (`_docs/compatibility/`)
   passes.
 
-## D2.2c Content sync adoption: docs, FAQ and podwiki, retire the staged pipeline
+## D2.2c Content sync adoption: docs, FAQ and podwiki
 
 Repository: DataTalksClub/website. Depends on: D2.2b. Part 3 of 3 of the split, one landing
 per part.
 
+Scope corrected on 2026-09-18. This issue is the parser and reader cutover only. The retirement
+that used to be step 2 moved to D2.2d, because the step as written was wrong in a way that would
+have destroyed live code: `content_sync/` is DTC's live course-repository app (webhook, ingest,
+snapshot, drafts, registration), not the staged pipeline. Only its `dtc_content/` subpackage was
+staged, and that is already deleted.
+
 Steps
-1. Write site parsers for docs, FAQ and podwiki.
-2. Delete `content_sync/`, the `ContentRelease`, `ActiveContentPath`, `FrozenReleaseChild` models
-   and `content/services.py` release graph; route resolution reads the synced rows directly with
-   the existing draft filter.
+1. Write site parsers for docs, FAQ and podwiki and register them with the package engine.
+2. Route resolution reads the synced rows directly with the existing draft filter.
 
 Verification
 - `uv run python manage.py sync_content --from-disk <checkout>` on a fresh database: counts per
@@ -275,5 +401,40 @@ Verification
 - `uv run pytest content -q` -> pass; the public URL compatibility suite (`_docs/compatibility/`)
   passes.
 
+## D2.2d Retire the staged content pipeline
+
+Repository: DataTalksClub/website. Depends on: D2.2c, D7.1.
+
+Goal: the staged release graph is deleted, now that nothing reads it. Split out of D2.2c on
+2026-09-18 because it is a deletion of roughly 7,680 lines with its own migration and its own
+rehearsal, and because it cannot start until D7.1 lands.
+
+Why it waits for D7.1: the docs asset records have to be built in `content/docs_reader.py`, which
+D7.1 introduces, not in `content/docs_projection.py`, which D7.1 deletes.
+
+Read first
+- `content/models.py`, the `ContentSource.active_release -> ContentRelease` foreign key with
+  `PROTECT`, which is what blocks the deletion. No migration anywhere contains a `DeleteModel` yet.
+- `scripts/build_public_projection.py`. It is NOT part of the staged pipeline and must survive:
+  eleven live sync parsers and `content/public_records.py` import it. It was listed once in a
+  dead-mechanism cluster and is not dead.
+- `_docs/specs/01-platform-architecture.md`, the "Content refresh" section.
+
+Steps
+1. Build the docs asset records in `content/docs_reader.py`, replacing the file-backed
+   `DOCS_ASSET_ROOT` projection.
+2. Delete the `ContentRelease`, `ActiveContentPath` and `FrozenReleaseChild` models, the
+   `content/services.py` release graph, `content/queries.py` and `catalogue.manifest()`, none of
+   which has a non-test caller.
+3. Rehearse the storage drop on a development copy per playbook P14 and record the counts.
+4. Rewrite the "Content refresh" section. It is not a pure deletion: steps 1 to 3 of that section
+   still describe the live course-repository ingest and stay. Only steps 4 to 10 are staged.
+
+Verification
+- `uv run pytest content -q` -> pass; the public URL compatibility suite (`_docs/compatibility/`)
+  passes.
+- The P14 rehearsal counts are recorded in the pull request.
+
 Done when
 - [ ] `_docs/specs/01-platform-architecture.md` "Content refresh" section rewritten to the direct-upsert workflow
+- [ ] `scripts/build_public_projection.py` still exists and its importers still pass

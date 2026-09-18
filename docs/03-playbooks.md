@@ -179,6 +179,53 @@ The general rule this is an instance of: a green run against a baseline answers 
 exists". It never answers "did I leave something unchanged that should have changed". Moving a
 field makes the second question the important one, and no suite asks it unprompted.
 
+The expand step must dual-write, and a one-time copy is not an expand. This is the part that gets
+got wrong before the rollback question is even reached. A data migration that copies one row per
+user at migrate time leaves the new location correct for exactly as long as it takes the next write
+to land in the old one. From the expand deploy until the reader switch deploys, every value written
+to a moved field goes to the old column only, and nothing refreshes the new one: rows created in
+the window have no extension row at all, and rows edited in the window have a stale one. The reader
+switch then makes the stale copy authoritative and the contract step drops the original, so the
+values are not recoverable. Confirmed on DataTalksClub/website's D3.1 stack on 2026-09-18, where
+ten course-platform fields and two identity fields were all exposed this way.
+
+So the expand pull request ships one of three things, and which one is a decision to make
+explicitly rather than discover: a dual-write from the moment the new location exists, a refresh
+migration shipped with the reader switch that copies where the extension row is absent or differs,
+or a single deploy carrying expand and switch together. The third contradicts one-landing-per-part
+and should be chosen deliberately if at all.
+
+A signal-based dual-write has its own trap: a `post_save` receiver does not see `queryset.update()`
+or `bulk_update()`, and those are exactly what an activation or reconciliation path uses. Before
+relying on a receiver, grep for every writer of each moved field and check how it writes, not just
+that it writes. A field whose only dual-write is a receiver, written in production by a queryset
+update, is not dual-written at all. Saying the receiver is "bypassed, unchanged" by such a call is
+the wrong frame: before the move that call wrote the authoritative column, and after it the same
+call writes a column nobody reads. The code shape is unchanged; the behaviour is not.
+
+Rolling back the reader switch is not a code-only revert, and this is the part of expand/contract
+that is usually got wrong. The expand step is safe to leave in place on a rollback: it only adds a
+table and copies rows. The reader switch is not, because switching readers switches writers with
+them. From the moment it deploys, the new location is where new values land, and the old column
+stops being updated. Revert the code alone and the site silently serves the old column's values,
+which are correct for every row nobody touched and stale for every row somebody did. Nothing
+raises, and the damage is proportional to how long the window stayed open.
+
+Keep the back-copy separable from the expand. If one migration both creates the new table and
+copies into it, reversing it runs the back-copy and drops the table in the same irreversible step,
+so there is no state in which the values have been restored and the expand is still in place. P7
+requires the expand to be safe to leave on a rollback; a combined migration makes that impossible.
+Split the create and the copy, or write the back-copy as a standalone script.
+
+So a rollback of the reader switch has three parts, and a deploy plan that lists fewer than three
+is not a rollback plan: revert the code, copy the values written during the window back to the old
+column, and only then, if the migration is being unwound at all, reverse it. Reversing the
+migration first destroys the rows the back-copy needs. Write the back-copy before the reader switch
+deploys, not after something has gone wrong, and rehearse it on a development copy under P14 the
+same way the forward copy is rehearsed. If a back-copy cannot be written for some field, say so
+before deploying: that field's reader switch is one-way, and the group has to be sized so that is
+an acceptable risk.
+
 AISL (label and table already match):
 
 1. Move site-specific fields off `User` first, one pull request per group, expand then contract:
@@ -391,6 +438,26 @@ branch, not just this package's own tests (AGENTS.md, "After changing this packa
 diff of site files, and a package-only change leaves the site checkout undiffed. Run each site's
 full suite.
 
+Three failures are artefacts of this procedure rather than findings, and every run will meet them.
+Classify them before reporting anything, or a clean package change reads as a regression.
+
+The link step edits the site's `pyproject.toml` and `uv.lock`. DataTalksClub/website freezes the
+sha256 of both files in `core/tests/test_deployment_workflow.py`, so linking anything at all fails
+that test. It is not evidence about the package.
+
+Linking current `main` into a site pinned to an old release replays every package change since that
+pin, not only yours. DataTalksClub/website's `scripts/prod/import_shared_course_platform.py` refuses
+on mapping coverage drift, and one measured run produced 18 errors from 94 commits' worth of
+accumulated drift. Attribute by re-running against the commit immediately before your change: if
+the failure is identical there, it belongs to the pin gap and to that site's pin-bump issue.
+
+The sites build CSS outside Python. A worktree that has never run the site's asset build fails its
+own build-artefact test on a missing stylesheet. Run the build before concluding anything.
+
+A fourth to watch for rather than expect: these suites are long and the box is often loaded, so a
+test asserting wall-clock elapsed time can fail on load alone. Re-run it in isolation before either
+reporting or dismissing it.
+
 It runs on every push and pull request in this repository (`.github/workflows/cross-repo-check.yml`),
 under D15's owner-scoped exception to D1 (`docs/01-decisions.md`, issue C0.6): each job checks out
 the site at its default branch as of the trigger, so it always tests against that site's latest
@@ -417,3 +484,73 @@ commit, not a stale snapshot. It can also be run by hand against a non-default r
    first (P15), then bump the site pin. Whether a red run here blocks merging a pull request in
    this repository is a GitHub branch-protection setting, not something this workflow file
    controls; confirm with the owner/orchestrator before relying on it as a hard gate.
+
+## P17. Prove a symbol is unreferenced before deleting it
+
+Used before any deletion or trim of a shared module. Grep is not sufficient evidence, and reading
+the diff is not either.
+
+The failure this exists to prevent, recorded because it happened three times on one file in one
+day. `scripts/build_public_projection.py` in DataTalksClub/website was scheduled for a trim. The
+first dependency list was twelve names, taken by reading the two files of the issue that prompted
+the question. The second was eight, from a syntax-tree scan that matched
+`from scripts.build_public_projection import X` and `import scripts.build_public_projection as X`.
+The real number was 42, because every sync parser imports it as
+`from scripts import build_public_projection as builder` and then reaches through the alias, which
+is a third import form that neither earlier attempt matched. The eight-name scan reported no
+importers at all for seventeen files and raised nothing: it went quietly no-op, which is the same
+shape P7 describes, one level further out.
+
+The three forms a Python module can be reached by, all of which a scan must cover:
+
+- `from package.module import name` -- an `ImportFrom` whose module is the full dotted path.
+- `from package import module as alias` -- an `ImportFrom` whose module is the PACKAGE, with the
+  module as one of its names. This is the one that gets missed.
+- `import package.module as alias` -- an `Import` of the full dotted path.
+
+For the two alias forms the imported names are not in the import statement at all. Collect the
+alias, then collect every attribute access whose value is that alias. Constants are reached this
+way too, so a scan that enumerates function definitions misses them by construction.
+
+Steps
+1. Walk every source file in the repository, excluding only build and dependency directories.
+2. Collect all three import forms and the alias attribute accesses.
+3. Split the result into names used by live code and names used only by tests, and report both. A
+   name used only by tests is still a dependency: removing it does not break the site, it breaks
+   the suite that proves the site works.
+4. Anything the union does not contain is genuinely unreferenced. Everything else stays.
+5. Run the scan as a gate on the deletion commit, not as a review of it. A reviewer reading a diff
+   cannot see an import form that is not in the diff.
+
+The general rule: a deletion is safe when a check that would have failed before it passes after it.
+Absence of a grep hit is not that check, because grep answers "does this string appear", and the
+question is "can this name be reached".
+
+## P18. Compute a merge before performing it
+
+Used before merging any long-lived branch, and before telling anyone whether their work survives it.
+
+`git merge-tree --write-tree <a> <b>` computes the merge and prints the conflicts without touching
+a worktree, a branch, an index or the stash. It is safe to run in a repository another session is
+working in, which is what makes it usable here: the alternative, creating a worktree or starting a
+merge to see what happens, changes state someone else may be depending on.
+
+What it answers that nothing else does: whether a specific change survives. Two edits to the same
+function in different regions auto-merge and both survive; two in the same region conflict. Reading
+the two diffs by hand does not reliably tell you which case you are in, and the answer matters most
+exactly when someone is deciding whether to hold their work back.
+
+Steps
+1. Run it and record the result tree, the conflict list and the conflict kinds.
+2. For each conflict, decide which side wins and write the reason down before the merge, not during
+   it. A conflict resolved under time pressure is where a ruling made weeks earlier gets quietly
+   reversed.
+3. Read the merged blob for anything you care about, rather than trusting that a clean auto-merge
+   kept it. `git show <tree>:<path>` reads out of the computed tree directly.
+4. Put the conflict list where the person who performs the merge will find it, which is the issue
+   row or the pull request, not a message.
+
+One trap worth naming. A modify/delete conflict prints "Version <branch> of <path> left in tree",
+which reads as guidance and is not: it is a statement about what git did, and the deleted side is
+often the correct resolution. Decide from the reason the file was deleted, not from the message.
+

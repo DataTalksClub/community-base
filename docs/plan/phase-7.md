@@ -1471,3 +1471,338 @@ Done when
 
 Docs
 - `community_base/content_sync/README.md`, `CHANGELOG.md`.
+
+## C7.19 Studio registration works on a namespaced URLconf
+
+Repository: community-base. Depends on: C7.13. Freeze required: no.
+
+Goal: a site whose Studio URLconf declares `app_name` can register destinations that are both live
+and linkable. Today it cannot, and this is a v0.5.0 regression I introduced in C7.13.
+
+The defect, measured against DataTalksClub/website's real URLconf: `route_names.py` walks the
+resolver tree and records the bare `entry.name`, discarding the namespace, so the mounted set holds
+`audit-detail` and never `studio:audit-detail`. `registry._is_live` then tests
+`destination.url_name in mounted`, while `registry._destination_url` calls
+`reverse(destination.url_name)`, which needs the namespace. Those two cannot both be satisfied:
+registering `studio:settings` makes `mounted_sections()` return an empty tuple, and registering
+`settings` makes `reverse()` raise `NoReverseMatch` so the link renders with an empty href. DTC has
+62 bare names under `studio/` and 26 namespaced routes, and none of the 26 is found in the mounted
+set. `route_name_for` has the same defect, reading `resolver_match.url_name` rather than
+`view_name`.
+
+Why it was not caught: there is no namespaced-URLconf test anywhere in `tests/studio/`, and
+AI-Shipping-Labs mounts Studio without a namespace, so the only consumer that would have shown it
+had not adopted yet. Before C7.13 there was no mounted-route filter, so a namespaced `url_name`
+worked; the filter is what made the two halves disagree.
+
+Read first
+- `community_base/studio/route_names.py`, the `walk()` function.
+- `community_base/studio/registry.py`: `_is_live`, `_destination_url`, `route_name_for`.
+- `docs/03-playbooks.md` P7's both-directions rule. This is the same shape: a guard that reads one
+  spelling of a name while the resolver writes another.
+
+Steps
+1. Record the namespaced name in `route_names.py` when a resolver declares a namespace.
+2. Make `route_name_for` prefer `resolver_match.view_name`.
+3. Decide what `route_names` tuples must contain once `route_name_for` returns a namespaced value,
+   and say whether that is breaking for an existing site. Prefer accepting both spellings over
+   forcing every registration to be rewritten.
+4. Decide whether a namespace nested more than one level deep needs handling.
+
+Verification
+- A namespaced Studio URLconf: destinations live, hrefs non-empty and correct, active link detected.
+- The same with no namespace, unchanged.
+- An `external_url` destination stays live under both, per C7.14.
+- The AI-Shipping-Labs suite is unaffected, measured rather than asserted.
+
+Done when
+- [ ] a namespaced site can register a destination that is both live and linkable
+- [ ] a test would fail if either half regressed on its own
+
+## C7.20 Studio shell: extension points instead of a fork
+
+Repository: community-base. Depends on: C7.15. Freeze required: no.
+
+Goal: a site can adopt the shell without copying it. Two missing extension points currently force a
+verbatim fork, which is exactly what community-base#279 exists to prevent: the abandoned DTC
+attempt forked 152 lines, and its own header comment predicted this issue.
+
+Read first
+- `community_base/studio/templates/community_base/studio/base.html`.
+- `community_base/studio/checks.py`, `check_studio_content_block_contract` and error code
+  `community_base.studio.E001`, which exists because a site fork of this shell once dropped the
+  `content` block and served 38 empty pages.
+
+Steps
+1. The head hardcodes `https://unpkg.com/lucide@latest/...` outside any block. Two problems, each
+   sufficient on its own: an unpinned third-party script executes with staff privileges in every
+   consuming site, and a site with `script-src 'self'` blocks it outright, losing every icon with
+   no remedy short of a fork. Vendor lucide as a package static file at a pinned version, next to
+   `studio.css` and `studio.js`, and record the version and upstream URL.
+2. Add a block at the top of `body` and an id on `main`. A skip link must be the first element of
+   the body and needs a target; a site running accessibility checks over its Studio states cannot
+   supply either through a child template today.
+3. Decide whether the new blocks belong in the E001 contract. If a site can now override a block in
+   a way that breaks the page, the check is where that is caught.
+
+Verification
+- A site overriding nothing renders exactly as before, measured rather than asserted.
+- `grep -rn "unpkg\|@latest" community_base/` finds nothing.
+- The AI-Shipping-Labs suite is unaffected.
+
+Done when
+- [ ] no page loads a script from a third-party origin
+- [ ] a site can supply a skip link and a main target without copying the shell
+
+## C7.21 Release 0.5.1
+
+Repository: community-base. Depends on: C7.19, C7.20. Freeze required: no.
+
+Goal: the fixes DTC needs are consumable. `scripts/check_community_base_source.py` in both sites
+accepts only a `vX.Y.Z` tag, so anything on package `main` is unreachable to a site by design
+(D0.2). Three things are currently stranded there: the #279 content-block fix and its E001 check,
+C7.17's headerless-landing fallthrough, and C7.19 and C7.20.
+
+C7.17 matters more than it looks for DTC specifically: its roughly 35 destinations sit above the
+default `STUDIO_NAV_COLLAPSE_THRESHOLD` of 24, so without the fallthrough its Studio landing page
+opens on an entirely closed sidebar.
+
+Steps
+1. Follow playbook P15. A published tag is immutable: never move one, never delete and recreate one.
+2. `uv run python scripts/check_release_tag.py` before `uv build`, so the tag cannot disagree with
+   `pyproject.toml` and `community_base/__init__.py`.
+3. Note in the CHANGELOG that v0.5.0 carried the C7.19 regression, so a site reading only the
+   changelog learns it without finding this file.
+
+Done when
+- [ ] the tag exists, the cross-repository check is green against it, and D2.1a can pin it
+
+## C7.22 Audit the package for assumptions only AI-Shipping-Labs satisfies
+
+Repository: community-base. Depends on: nothing. Freeze required: no.
+
+Goal: find the rest of the class of defect C7.19 belongs to, before a second site pays for each one
+separately.
+
+The package has had exactly one adopting site, so every behaviour that happens to match how
+AI-Shipping-Labs is configured is untested against any other shape, and the package's own suite
+cannot see the gap because its test settings were written alongside that site. C7.19 is the
+archetype: DataTalksClub declares `app_name` on its Studio URLconf, AI-Shipping-Labs does not, and
+the two halves of the package disagreed with each other for every namespaced route without raising
+anything. C7.20 is two more of the same shape.
+
+Steps
+1. Enumerate from the package: every place it reads something about the site and would behave
+   differently, or silently do nothing, depending on the answer. URL and route-name handling,
+   template block and override contracts, static asset assumptions, settings read through
+   `conf` and what a missing or differently-shaped value does, the access policy and authorizer
+   hooks, app-label and table assumptions, anything enumerating `_meta.get_fields()`,
+   `INSTALLED_APPS` or the URLconf, anything comparing a name or key by string equality.
+2. Enumerate from the other site: where DataTalksClub's real configuration differs in a way the
+   package touches.
+3. Classify every candidate by evidence. Reproduced, or clearly dependent but not reproduced, or
+   checked and fine. The cleared list is what makes the audit worth trusting.
+
+This issue fixes nothing except by adding tests. Each finding that needs a fix gets its own issue;
+a branch that fixes everything at once is unreviewable.
+
+Done when
+- [ ] the audit is in `docs/plan/evidence/`, ranked with silent wrong behaviour above loud errors
+- [ ] every shape confirmed handled is pinned by a test that would fail if it regressed
+- [ ] the audit says where it stopped
+
+## C7.23 D37: the null media backend returns a site-absolute URL
+
+Repository: community-base. Depends on: nothing. Freeze required: no. Decision D37.
+
+Goal: the default media backend produces a URL the renderer keeps.
+
+`NullMediaStore` returned the repository path as the URL, while the sanitiser admits an `img src`
+only when it is site-absolute or an absolute `http(s)` URL. Every site on the default backend
+therefore stored synced images with a source the renderer then dropped, and nothing said so until
+someone looked at a page. Filed after the fact so the decision has a landing issue: D37 was ruled
+and implemented in the same session, which is the opposite failure from D34, D38 and D39, and it
+left the decision with nowhere to point.
+
+Steps
+1. Return the repository path under `CONTENT_SYNC_NULL_MEDIA_URL_PREFIX`, percent-quoted.
+2. Refuse a path that escapes the checkout rather than producing a URL for it.
+
+Done when
+- [ ] a behaviour change to a default ships with its own test and a CHANGELOG line
+
+## C7.24 Wire up the config override reset and the restart warning
+
+Repository: community-base. Depends on: nothing. Freeze required: no.
+
+Goal: two config capabilities that exist in the code and reach no operator start working, or stop
+pretending to exist.
+
+Found by the 2026-09-18 survey of leftover branches. `config/service.py` declares
+`unset(key, actor_ref, reason)`, and `config/registry.py` carries `requires_restart` through
+`declare()` onto the schema. Neither reaches a view, a template or a test: `unset` has no caller
+and no test at all, and `requires_restart` is written and never read. So an operator who sets an
+override in Studio has no way to clear it back to the fallback, and a setting whose change needs a
+restart warns nobody. A declared field that nothing reads is worse than a missing one, because it
+reads as a working feature in review.
+
+A stale branch, `a02-config-maintenance`, implements both against the 0.3.0-era package. It is not
+merged and should not be: its only change to shared state regresses the `MAIL_PREFERENCE_RESOLVER`
+default from `community_base.accounts.preferences.resolve_mail_preference` back to the pre-accounts
+`community_base.mail.preferences.allow_all`, and being forked at the 0.3.0 release point it also
+collides on the changelog, the version, the lockfile and the version-count assertions in
+`tests/test_smoke.py` and `tests/config/test_registry.py`. Read it for the shape of the UI and
+write the code against current main.
+
+Steps
+1. Decide first whether both are wanted. Removing `unset` and `requires_restart` is a legitimate
+   outcome and is better than leaving them declared and unreachable. Say which and why.
+2. If kept: a Studio control that clears an override back to its fallback, through `unset`, with
+   the same audit trail a set gets.
+3. If kept: surface `requires_restart` where the operator changes such a setting, at the moment of
+   the change rather than in a page they may not read.
+
+Verification
+- `unset` has a test that proves the value falls back and the change is audited.
+- A setting declared `requires_restart=True` shows the warning; one declared without it does not.
+
+Done when
+- [ ] no field in the config schema is written by `declare()` and read by nothing
+
+## C7.25 A site's base template must honour the block contract, and something must check it
+
+Repository: community-base. Depends on: C7.22. Freeze required: no.
+
+Goal: a package page mounted by a site renders its content, or the site is told at check time that
+it will not.
+
+`docs/02-architecture.md` section 5 has named this contract since the architecture was written and
+nothing has ever enforced it. Django drops content for an undefined block silently: no exception,
+no warning, nothing in the logs. So a site whose `base.html` omits a block the package fills serves
+the site chrome with the package's content missing, and the page looks fine.
+
+Both sites are affected today, in opposite directions. AI-Shipping-Labs defines `body` rather than
+`content` and defines no `extra_js`, so the mounted public unsubscribe page returns 200 with 21kB
+of chrome and no form. DataTalksClub defines `content` but neither `meta_description` nor
+`page_head_metadata`, so the `noindex, nofollow` on those pages silently disappears. 41 package
+templates extend `base.html` across five contracted blocks, so this is a class rather than two
+pages.
+
+Severity note for the unsubscribe page specifically: it is public rather than superuser-only, so
+leaving it blank until a fix lands is a weaker option than it would be for a Studio page.
+AI-Shipping-Labs confirmed its outbound mail carries its own unsubscribe route rather than the
+package one, so no member is stuck, but a public route serving an empty body is still a defect.
+
+Steps
+1. Enumerate the blocks the package's templates fill and write the contract down as data rather
+   than prose, so a check can read it.
+2. Add a Django system check that fails when an installed package app's templates fill a block the
+   site's base does not define. Decide whether it is an error or a warning and say why; an error a
+   site cannot start with may be right here, given the failure is otherwise invisible.
+3. Decide whether the package should shrink its block surface instead. Five contracted blocks
+   across 41 templates is a wide contract to impose on an adopting site, and a narrower one may be
+   the better fix than a check that enforces a wide one.
+
+Verification
+- A test site whose base omits `content` fails the check, naming the block and a template.
+- A test site whose base defines every contracted block passes.
+
+Done when
+- [ ] no package template can fill a block a site does not define without something saying so
+
+## C7.26 Studio impersonation assumes ModelBackend and literal paths
+
+Repository: community-base. Depends on: C7.22. Freeze required: no.
+
+Goal: impersonation works on a site with its own authentication backend, and its safety guard
+stops depending on where Studio is mounted.
+
+`community_base/studio/impersonation.py` line 13 hardcodes `AUTH_BACKEND` to
+`django.contrib.auth.backends.ModelBackend`. DataTalksClub's `AUTHENTICATION_BACKENDS` is
+`["accounts.backends.DurableAccountBackend"]` and nothing else. The POST returns 302 and the
+session records the target, and then the next request cannot load the backend, so the operator
+becomes anonymous and is bounced to login, and `stop` cannot restore them.
+
+Lines 14 to 20 hold `SENSITIVE_RETURN_PREFIXES` as literal paths. A site that mounts Studio at
+`manage/` or `backoffice/` gets `/manage/users/` and `/backoffice/users/` past the guard that
+exists to block `/studio/users/`. The guard is doing nothing on such a site while appearing to.
+
+Steps
+1. Resolve the backend from the site's configured `AUTHENTICATION_BACKENDS` rather than naming one.
+2. Derive the sensitive prefixes from the mounted Studio URLconf rather than from literals.
+
+Done when
+- [ ] impersonation works on a site with exactly one non-default authentication backend
+- [ ] the return guard refuses the same pages regardless of where Studio is mounted
+
+## C7.27 Three settings-shape defects the package handles inconsistently
+
+Repository: community-base. Depends on: C7.22. Freeze required: no.
+
+Goal: the package treats a missing or differently-shaped setting the same way everywhere, and
+loudly.
+
+Three instances found by C7.22, grouped because the fix is one decision applied three times.
+
+1. `community_base/accounts/mail_context.py` line 10 and `community_base/events/mail_context.py`
+   line 15 read `SITE_URL`, which defaults to the empty string and which AI-Shipping-Labs never
+   sets. Verify, reset, change and manage links in outbound mail become relative paths and are
+   useless in an email client. `calendar.py` and `jobs/relay.py` raise on the same empty value, so
+   the package already disagrees with itself about whether an empty `SITE_URL` is acceptable.
+2. `community_base/studio/studio_filters.py` line 199 iterates `STUDIO_EXTRA_CSS`. Set to a single
+   path string rather than a list, it iterates as characters and emits 15 stylesheet links. Silent
+   on AI-Shipping-Labs, a `ValueError` under DataTalksClub's manifest storage.
+3. `community_base/curriculum/apps.py` line 16 tests `"community_base.events" in set(INSTALLED_APPS)`.
+   That is False for the AppConfig-path spelling Django accepts everywhere, so the curriculum
+   Studio section and its API views silently never register. Nine sibling gates use
+   `apps.is_installed()` and are correct; this is the one raw membership test.
+
+Steps
+1. Decide the rule: a setting whose absence breaks a feature raises at startup rather than
+   degrading. Apply it to `SITE_URL` and say what a site that legitimately has no site URL does.
+2. Accept a string where a sequence is expected, or refuse it. Do not iterate it.
+3. Replace the raw membership test with `apps.is_installed()`.
+
+Done when
+- [ ] no package module reads a setting whose empty value silently changes behaviour
+- [ ] no package module tests `INSTALLED_APPS` membership by string
+
+## C7.28 Canonical public URLs in shared API representations
+
+Repository: community-base. Depends on: C7.22. Freeze required: no. Related: DataTalksClub/community-base#280 and AI-Shipping-Labs/website#1752.
+
+Goal: every shared API representation for a package-owned public resource carries its canonical
+absolute public URL in a new `public_url` field, so callers do not reconstruct route shapes from
+ids and slugs. Private operational records keep their existing shapes and do not receive
+fabricated links.
+
+Steps
+1. Inventory the shared API serializers and classify each response as a public resource,
+   private operational resource, or an operation/result envelope.
+2. Define one package serialization helper and field contract for public URLs. It must join the
+   configured `SITE_URL` with the resource's canonical root-relative URL hook, normalize the
+   origin/path boundary, never trust the request host, and return `null` when the resource is not
+   publicly reachable or has no package-owned public route.
+3. Apply the contract to every applicable shared API representation, including event list,
+   detail, create and update responses and published curriculum course list/detail responses.
+   Preserve existing relative `url` fields and external URL fields. Do not add URLs to API keys,
+   mail deliveries, settings, registrations, credentials, event-series or host records, or other
+   private operational rows without a public page.
+4. Document the field in the relevant OpenAPI schemas and package API README. Keep site-owned
+   route differences behind the existing model or site hook rather than importing a site app.
+
+Verification
+- Focused package API tests prove public event list/detail/create/update responses include the
+  canonical `public_url`, including the configured slug and `public_id` URL styles.
+- Focused package API tests prove published curriculum course list/detail responses include the
+  canonical `public_url`, while draft courses return `null`.
+- Focused package tests prove origin/path joining with and without a trailing slash, and private
+  API responses do not gain a public URL field.
+- OpenAPI output and its checked-in snapshot pass without drift.
+- `uv run ruff check .`, `uv run ruff format --check .`, package system checks, migration checks,
+  boundary checks and the affected package tests pass.
+
+Done when
+- [ ] shared public-resource API responses expose the documented canonical `public_url` field
+- [ ] private operational API shapes remain unchanged
+- [ ] the website event API can adopt the package contract without reconstructing event URLs

@@ -1,10 +1,12 @@
 import datetime
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
 
 from community_base.curriculum.models import Cohort
 from community_base.curriculum.services import ensure_enrollment
+from community_base.curriculum.views import _course_payload
 from tests.curriculum.test_models import make_cohort, make_course, make_module, make_unit
 
 pytestmark = pytest.mark.django_db
@@ -231,6 +233,8 @@ def test_api_courses_lists_with_lock_flags(client, django_user_model):
     by_slug = {item["slug"]: item for item in data["courses"]}
     assert by_slug["test-course"]["is_locked"] is False
     assert by_slug["paid"]["is_locked"] is True
+    assert by_slug["test-course"]["public_url"] == "http://testserver/courses/test-course"
+    assert by_slug["paid"]["public_url"] == "http://testserver/courses/paid"
 
 
 def test_api_course_detail_with_progress(client, django_user_model):
@@ -246,6 +250,13 @@ def test_api_course_detail_with_progress(client, django_user_model):
     data = response.json()
     assert data["progress"] == {"completed": 0, "total": 1}
     assert data["syllabus"][0]["modules"][0]["units"][0]["slug"] == unit.slug
+    assert data["public_url"] == f"http://testserver/courses/{course.slug}"
+
+
+def test_unpublished_course_payload_has_no_public_url():
+    course = make_course(status="draft")
+
+    assert _course_payload(course, AnonymousUser())["public_url"] is None
 
 
 def test_api_unit_detail_gates_paid_content(client):

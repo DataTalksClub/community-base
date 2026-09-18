@@ -18,6 +18,11 @@ class Checkout:
         return b"image-bytes"
 
 
+class Escaping:
+    def read_bytes(self, path):
+        return b"image-bytes"
+
+
 class Client:
     def __init__(self, error=None):
         self.error = error
@@ -32,6 +37,38 @@ class Client:
 @override_settings(COMMUNITY_BASE={})
 def test_null_store_is_the_safe_default():
     assert isinstance(media_store(), NullMediaStore)
+
+
+@override_settings(COMMUNITY_BASE={})
+def test_null_store_returns_a_site_absolute_url():
+    # The sanitiser drops an img src that is neither site-absolute nor an
+    # absolute http(s) URL, so a repository path returned as the URL would be
+    # silently discarded at render time (D37).
+    result = NullMediaStore().upload(Checkout(), "images/a picture.png", SimpleNamespace())
+
+    assert result.path == "images/a picture.png"
+    assert result.url == "/media/content-sync/images/a%20picture.png"
+
+
+@override_settings(COMMUNITY_BASE={"CONTENT_SYNC_NULL_MEDIA_URL_PREFIX": "/assets/"})
+def test_null_store_url_prefix_is_configurable():
+    result = NullMediaStore().upload(Checkout(), "images/a picture.png", SimpleNamespace())
+
+    assert result.url == "/assets/images/a%20picture.png"
+
+
+@override_settings(COMMUNITY_BASE={"CONTENT_SYNC_NULL_MEDIA_URL_PREFIX": ""})
+def test_null_store_url_stays_site_absolute_without_a_prefix():
+    result = NullMediaStore().upload(Checkout(), "images/a picture.png", SimpleNamespace())
+
+    assert result.url == "/images/a%20picture.png"
+
+
+@pytest.mark.parametrize("path", ["../secrets/key.png", "/etc/passwd"])
+@override_settings(COMMUNITY_BASE={})
+def test_null_store_refuses_a_path_that_escapes_the_checkout(path):
+    with pytest.raises(MediaStoreError):
+        NullMediaStore().upload(Escaping(), path, SimpleNamespace())
 
 
 @override_settings(
