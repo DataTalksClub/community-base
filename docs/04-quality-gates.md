@@ -137,3 +137,37 @@ Two habits that catch this cheaply. Prove a new gate fails: write it, watch it g
 deliberately broken input, and only then fix the input. And when a gate passes unexpectedly early
 or unexpectedly fast, treat that as a reason to look rather than a result.
 
+## A bad change rides in on a good one
+
+Two unrelated edits sitting in one working tree get committed together by a single `git add -A`,
+and the commit is then reviewed as the change its message names. This survives review by
+construction, not by bad luck: a reviewer looking at a commit that adds a canonical URL to an event
+API is checking whether that URL logic is sound. A one-line dependency entry at the bottom of the
+file list reads as incidental, and nobody reviewing a good change looks hard at it. The broken half
+gets in on the good half's back.
+
+Observed on 2026-09-18, where a shared site checkout held real, wanted API work and a local
+editable dependency pin at the same time. The pin would have failed CI, because the local path does
+not exist on a build machine -- but only after being approved.
+
+So: stage by explicit path, never `git add -A`, in any checkout you do not know you are alone in.
+Read `git status` before every commit and account for every line of it, including the ones you did
+not write. If a file you did not touch is modified, find out why before committing, and do not
+assume a checkout is yours because you have been using it all day.
+
+## Work in a repository other sessions may be using
+
+Three habits, each of which removes a whole class of accident:
+
+- Merge from a throwaway detached worktree at `origin/main` and push `HEAD:main`. This never reads
+  or writes the shared working tree, so it cannot pick up someone else's uncommitted change, cannot
+  conflict with their files, and cannot rewrite files underneath a test run someone is about to
+  read as evidence. That last one matters most: a suite whose files changed mid-run gives a result
+  that is worthless whether or not anyone notices.
+- Do not revert someone else's change while a run may be using it. A run that completes against a
+  wrong state and reports green is recoverable if you know it happened; it is not recoverable if
+  the state was reverted underneath it and the result was kept.
+- A clean worktree isolates the files, not the machine. A run there still shares CPU with whatever
+  else is executing, so a starved run in a clean worktree can still be caused by a contended one.
+  Isolation of state is not isolation of measurement.
+
