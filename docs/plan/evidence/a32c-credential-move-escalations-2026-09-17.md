@@ -152,3 +152,29 @@ Two open questions rather than three, and neither now rests on an unexecuted cod
 reading. The pinning tests for both live uncommitted in
 `/data/agents/ai-shipping-labs/worktrees/verify-1656`, and both issues point at
 them, so whoever fixes each one inverts the tests rather than starting over.
+
+## Addendum, 2026-09-18: finding 2 is fixed upstream
+
+AI-Shipping-Labs merged #1736 as `5a4b295b`, "Revoke a community-base API key on account merge
+instead of moving it". It touches `accounts/services/account_merge.py`, `api/views/user_merge.py`,
+the Studio merge-plan template and the regenerated OpenAPI snapshot, and carries no migration.
+
+So the second of the three escalations is closed at source rather than by the credential move
+working around it. That matters for sequencing: the fix had to move three surfaces beyond the merge
+strategy itself, because otherwise an operator still gets no signal a credential changed hands --
+the hard-coded credentials dictionary in the merge API's already-merged short circuit, the fixed
+two-row Credentials block in the Studio merge-plan template, and the OpenAPI snapshot.
+
+The grooming also confirmed the package-model behaviour recorded separately in
+`community_base/api/README.md`: the revocation must go through a queryset `update()`, because
+`APIKey.save()` runs `full_clean()` and `clean()` raises on a `kind="staff"` row whose owner is no
+longer staff.
+
+Two escalations remain, and the wildcard one is unchanged in weight: it compounds with what #1736
+just fixed rather than sitting beside it. A transferred `kind="staff"` key carrying `scopes=["*"]`
+still satisfied `settings.write`, so the merge path and the copy mapping were one exposure. With
+the merge path closed, the copy mapping is now the whole of it. Decision D35 answers it, choosing a
+narrow scope over the wildcard for its failure direction.
+
+Still open: the `Token.name` fallback, and the unfiltered `/studio/api-keys/` queryset, which
+AI-Shipping-Labs#1737 pairs with the template block so the page cannot come back to life leaking.
