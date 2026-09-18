@@ -68,6 +68,26 @@ def _iter_destinations(section: Section):
         yield from group.destinations
 
 
+def destination_route_names(destination: Destination) -> tuple[str, ...]:
+    """Return a destination's route names in the spelling routes resolve under.
+
+    A Studio URLconf that declares ``app_name`` is mounted under a namespace, so
+    its routes reverse and resolve as ``studio:audit-detail``. ``url_name`` must
+    carry that namespace, since ``reverse()`` needs it. ``route_names`` may be
+    written either way: an entry that already names a namespace is left alone, a
+    bare entry is read in the namespace the destination's own ``url_name`` names.
+    A registration written before its mount gained a namespace therefore keeps
+    highlighting the right link, and a bare entry can never match a same-named
+    route in some other namespace. Without a namespace this returns the tuple
+    unchanged.
+    """
+
+    namespace = destination.url_name.rpartition(":")[0]
+    if not namespace:
+        return destination.route_names
+    return tuple(name if ":" in name else f"{namespace}:{name}" for name in destination.route_names)
+
+
 def register(section: Section) -> Section:
     """Register one section, rejecting ambiguous navigation ownership."""
 
@@ -92,17 +112,18 @@ def register(section: Section) -> Section:
         route_name
         for existing in _sections.values()
         for item in _iter_destinations(existing)
-        for route_name in item.route_names
+        for route_name in destination_route_names(item)
     }
     for destination in _iter_destinations(section):
         if destination.key in claimed_keys:
             raise ValueError(f"Studio destination already registered: {destination.key}")
-        overlap = claimed_routes.intersection(destination.route_names)
+        route_names = destination_route_names(destination)
+        overlap = claimed_routes.intersection(route_names)
         if overlap:
             route_name = sorted(overlap)[0]
             raise ValueError(f"Studio route already registered: {route_name}")
         claimed_keys.add(destination.key)
-        claimed_routes.update(destination.route_names)
+        claimed_routes.update(route_names)
 
     if existing_section:
         merged_groups: dict[str, DestinationGroup] = {
@@ -216,17 +237,33 @@ def mounted_sections(*, resolver=None) -> tuple[Section, ...]:
     return tuple(live)
 
 
+def _match_route_name(resolver_match) -> str:
+    """Read one resolver match as the name its route reverses under.
+
+    ``view_name`` carries the namespaces the match resolved through and equals
+    ``url_name`` when there are none, so it is the spelling that matches both a
+    mounted route name and a registered ``url_name``. A route with no name has
+    no route name here, even though ``view_name`` falls back to the view's
+    import path; the empty string is what callers already expect.
+    """
+
+    url_name = getattr(resolver_match, "url_name", "") or ""
+    if not url_name:
+        return ""
+    return getattr(resolver_match, "view_name", "") or url_name
+
+
 def route_name_for(target) -> str:
     """Resolve a request or path to a URL name, degrading safely to empty."""
 
     resolver_match = getattr(target, "resolver_match", None)
     if resolver_match is not None:
-        return getattr(resolver_match, "url_name", "") or ""
+        return _match_route_name(resolver_match)
     path = target if isinstance(target, str) else getattr(target, "path", "")
     if not path:
         return ""
     try:
-        return resolve(path).url_name or ""
+        return _match_route_name(resolve(path))
     except Resolver404:
         return ""
 
@@ -319,7 +356,7 @@ def active_state(request) -> dict:
         for destination in section.destinations:
             if not _visible(destination, is_superuser):
                 continue
-            is_active = route_name in destination.route_names
+            is_active = route_name in destination_route_names(destination)
             if is_active:
                 active_section = section.slug
                 active_destination = destination.key
@@ -334,7 +371,7 @@ def active_state(request) -> dict:
             for destination in group.destinations:
                 if not _visible(destination, is_superuser):
                     continue
-                is_active = route_name in destination.route_names
+                is_active = route_name in destination_route_names(destination)
                 if is_active:
                     active_section = section.slug
                     active_destination = destination.key

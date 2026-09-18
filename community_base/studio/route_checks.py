@@ -3,6 +3,7 @@
 from collections import defaultdict
 
 from community_base.studio.registry import (
+    destination_route_names,
     mounted_sections,
     routes_without_home,
     section_only_routes,
@@ -18,11 +19,11 @@ def route_claims(*, resolver=None) -> dict[str, list[str]]:
     claims = defaultdict(list)
     for section in mounted_sections(resolver=resolver):
         for destination in section.destinations:
-            for route_name in destination.route_names:
+            for route_name in destination_route_names(destination):
                 claims[route_name].append(f"destination:{section.slug}/{destination.key}")
         for group in section.groups:
             for destination in group.destinations:
-                for route_name in destination.route_names:
+                for route_name in destination_route_names(destination):
                     claims[route_name].append(
                         f"destination:{section.slug}/{group.key}/{destination.key}"
                     )
