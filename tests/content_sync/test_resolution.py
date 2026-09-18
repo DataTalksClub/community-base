@@ -670,3 +670,88 @@ def test_the_sync_path_reads_and_uploads_through_the_checkout():
         "articles/crisp-dm-for-ai/images/cover.dark.png",
         "people/images/alexey-grigorev.png",
     ]
+
+
+# --- the repository-file destination, section 3.7, decision D39 ---------------
+
+
+def test_a_link_to_a_repository_file_resolves_to_the_hosting_url(tmp_path):
+    root = write_repository(
+        tmp_path / "repo",
+        pages=[("wiki/a.md", page("See [the notebook](../code/rag.ipynb)."))],
+        files=[("code/rag.ipynb", b"{}")],
+    )
+
+    result = resolve(root, hosting_url="https://github.com/o/r/blob/abc")
+
+    assert not result.diagnostics
+    assert 'href="https://github.com/o/r/blob/abc/code/rag.ipynb"' in result.documents[0].html
+    assert result.documents[0].references == ()
+
+
+def test_a_link_to_a_repository_directory_resolves_too(tmp_path):
+    root = write_repository(
+        tmp_path / "repo",
+        pages=[("wiki/a.md", page("All [the code](../code/)."))],
+        files=[("code/rag.py", b"x = 1\n")],
+    )
+
+    result = resolve(root, hosting_url="https://github.com/o/r/blob/abc/")
+
+    assert not result.diagnostics
+    assert 'href="https://github.com/o/r/blob/abc/code"' in result.documents[0].html
+
+
+def test_a_repository_file_hidden_by_ignore_still_resolves(tmp_path):
+    manifest = WIKI_MANIFEST + 'ignore:\n  - "**/code/**"\n'
+    root = write_repository(
+        tmp_path / "repo",
+        manifest=manifest,
+        pages=[("wiki/a.md", page("See [the notebook](../code/rag.ipynb)."))],
+        files=[("code/rag.ipynb", b"{}")],
+    )
+
+    result = resolve(root, hosting_url="https://github.com/o/r/blob/abc")
+
+    assert not result.diagnostics
+    assert 'href="https://github.com/o/r/blob/abc/code/rag.ipynb"' in result.documents[0].html
+
+
+def test_without_a_hosting_url_a_repository_file_is_left_as_written(tmp_path):
+    root = write_repository(
+        tmp_path / "repo",
+        pages=[("wiki/a.md", page("See [the notebook](../code/rag.ipynb)."))],
+        files=[("code/rag.ipynb", b"{}")],
+    )
+
+    result = resolve(root)
+
+    assert not result.diagnostics
+    assert 'href="../code/rag.ipynb"' in result.documents[0].html
+
+
+def test_a_destination_the_repository_does_not_hold_is_still_unresolved(tmp_path):
+    root = write_repository(
+        tmp_path / "repo",
+        pages=[("wiki/a.md", page("See [the notebook](../code/missing.ipynb)."))],
+    )
+
+    result = resolve(root, hosting_url="https://github.com/o/r/blob/abc")
+
+    assert [item.rule for item in result.diagnostics] == ["3.7"]
+    assert "resolves to no document" in result.diagnostics[0].message
+
+
+def test_a_document_is_a_reference_and_not_a_repository_file(tmp_path):
+    root = write_repository(
+        tmp_path / "repo",
+        pages=[
+            ("wiki/a.md", page("See [b](b.md).")),
+            ("wiki/b.md", page("Body.", title="B")),
+        ],
+    )
+
+    result = resolve(root, hosting_url="https://github.com/o/r/blob/abc")
+
+    assert not result.diagnostics
+    assert result.documents[0].references[0].kind == "wiki"

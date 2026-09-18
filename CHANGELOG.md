@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- C7.18: the kind registry and the reference resolver now implement what decisions D38 and D39
+  ruled and `FORMAT.md` already stated. A cohort's `archive` is a mapping with one optional
+  `notice_path` defaulting to `README.md`, not a boolean: seventeen real archived cohorts carry the
+  mapping and two point at a leaderboard rather than a README, which a boolean cannot express.
+  Presence is what archives a cohort, read from the file rather than from the defaulted values,
+  because a mapping key defaults to `{}`. Section 3.7's fourth destination form works: a relative
+  destination the checkout holds and no collection claims is a repository file, resolving to the
+  source's hosting URL, neither uploaded nor recorded as a reference, while a destination the
+  checkout does not hold stays an unresolved reference. `resolve_repository` takes `hosting_url` and
+  the knowledge-base parser passes the source's GitHub repository at the synced commit, so no
+  setting is added; `check_content` has no source and leaves such a destination as written. Real
+  lesson bodies link to `code/`, to `.py` and `.ipynb` files and to sibling cohort directories, and
+  every one of them failed the sync before this (refs #253).
+- C7.12: the package gains the one-off conversion of the sixteen content repositories.
+  `community_base/content_sync/convert/` holds two scripts, one for course repositories and one for
+  document collections. Both are idempotent, both refuse rather than guess, and both write a
+  per-file inventory taken before and after that refuses to call a run a success while one path is
+  unaccounted for; every key a rewrite stops writing is printed with the value it held, and a key
+  the format cannot express is moved under `extra` rather than dropped. The course script writes the
+  cohort `title` that decision D34 makes required, since no real cohort manifest carries one. A
+  directory whose every file `ignore` hides is now invisible rather than an empty node, which is
+  what section 3.1 already said and what a course repository's archived cohort and tool directories
+  need; a declared collection path stays the exception, so an empty collection is empty rather than
+  missing. Six of the eight real course repositories convert with no refusal and pass
+  `check_content` with zero errors and zero warnings;
+  `docs/plan/evidence/conversion-runs-2026-09-18.md` records every run. The directory is deleted
+  once the last conversion merges, which is `D7.4` step 9 (refs #253).
 - C7.17: a Studio landing page above `STUDIO_NAV_COLLAPSE_THRESHOLD` no longer opens on a sidebar
   of closed headers. The active section is the headerless built-in `home` section there, which has
   no header of its own to expand server-side, so every titled section rendered collapsed; the

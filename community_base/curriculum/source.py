@@ -84,7 +84,7 @@ class CohortGraph:
     # None) this cohort places. ``None`` means "the full course tree, in module
     # order" -- a course whose cohorts curate nothing. A non-empty tuple curates a
     # subset or order, DataTalks.Club's case; an empty tuple places nothing, which
-    # is what ``archive: true`` means (`FORMAT.md` section 3.8).
+    # is what a present ``archive`` mapping means (`FORMAT.md` section 3.8).
     module_refs: tuple[str, ...] | None = None
     # The cohort's homework bindings, ``{module, source, unit}`` each, straight
     # from ``cohort.yaml``. ``module`` is a top-level module slug, ``source`` the

@@ -4,6 +4,10 @@ Date: 2026-09-17. Raised by C7.10, which parsed all eight real course repositori
 than relying on fixtures. None blocked C7.10. The first will block C7.12 on every cohort it
 converts, so it needs an answer before that issue starts.
 
+Update, 2026-09-18: findings 1, 2 and 3 are answered by decisions D34, D38 and D39, and C7.12
+applied all three to `FORMAT.md` and to the registry before writing the conversion scripts. Each
+section below carries the answer. Finding 4 is unchanged and still wants an issue of its own.
+
 ## 1. The cohort title default is unreachable, and every real cohort needs it
 
 Section 3.8 says a cohort's `title` defaults to `<course title> <identifier>`. Section 3.3 makes
@@ -18,6 +22,9 @@ supply a default for a core key, or section 3.8 drops the default and the conver
 `title` into every cohort manifest. The second is more files changed but keeps the core-key rule
 absolute, which is the rule that has held the format together so far.
 
+Answered by D34, the second way. Section 3.8 no longer states the default and the conversion writes
+the title.
+
 ## 2. Archive is specified as a boolean and is not one in practice
 
 Section 3.8 types `archive` as a boolean. Every real archived cohort carries a mapping,
@@ -28,6 +35,9 @@ The format only ever reads a cohort's `README.md` as its notice, so converting t
 which file the notice actually is. Either `archive` becomes a mapping with an optional notice path,
 or the conversion moves those two notices into `README.md` and the information is deliberately
 discarded.
+
+Answered by D38, the mapping. `KeySpec("mapping", item_keys={"notice_path": ...})` is what the
+cohort part declares, and the curriculum parser reads presence rather than truth.
 
 ## 3. A course's non-content relative links have no destination form
 
@@ -42,6 +52,11 @@ sync. This is why C7.10 does not call `resolve_repository` for courses.
 The format needs either a fourth destination form for a file that lives in the repository but is
 not content, or an explicit statement that such links are rewritten to the repository's hosting URL.
 Until one exists, course asset and reference resolution cannot be switched on.
+
+Answered by D39, the fourth form. A relative destination the checkout holds and no collection
+claims resolves to the source's hosting URL, is not uploaded and is not recorded as a reference; a
+destination the checkout does not hold is still an error. `check_content` has no source and leaves
+such a destination as written.
 
 ## 4. An empty placement and an absent placement are indistinguishable
 

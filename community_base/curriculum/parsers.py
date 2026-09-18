@@ -22,7 +22,7 @@ Package rulings, written here because section 3.8 is silent about them.
   self-paced cohort placing the full tree. The shared model delivers a course
   through a cohort, and `curriculum.services.get_or_create_self_paced_cohort`
   already mints the same row on demand; parsing it is the same answer, earlier.
-- `archive: true` and a `modules` list in one cohort contradict each other and
+- a present `archive` mapping and a `modules` list in one cohort contradict each other and
   are an error naming both keys, rather than one of them silently winning.
 - A unit's `required_level` is carried only when the unit or one of its module
   ancestors declares one. The course's own level is not pushed down, so
@@ -349,11 +349,15 @@ def _cohort_graph(
     identifier = document.slug
     status = values.get("status") or PUBLISHED
     delivery = values.get("delivery")
-    archive = bool(values.get("archive"))
+    # Decision D38: `archive` is a mapping, so presence is what makes a cohort
+    # archived; an empty mapping archives it as much as one with a notice path.
+    # The file is read rather than `values`, whose default for a mapping key is
+    # `{}` and would make every cohort look archived.
+    archive = document.data.get("archive") is not None
     declared = document.data.get("modules")
     if archive and declared:
         raise CurriculumParseError(
-            f"{path}: archive is true and modules is declared; an archived cohort places nothing"
+            f"{path}: archive and modules are both declared; an archived cohort places nothing"
         )
     start_date = _date(values.get("start_date"), path, "/start_date")
     end_date = _date(values.get("end_date"), path, "/end_date")

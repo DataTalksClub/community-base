@@ -87,7 +87,12 @@ COHORT = PartSpec(
         "start_date": KeySpec("date"),
         "end_date": KeySpec("date"),
         "modules": KeySpec("slug_list"),
-        "archive": KeySpec("boolean", default=False),
+        # Decision D38: a mapping carrying an optional notice path, not a
+        # boolean. Two of the seventeen real archived cohorts point their
+        # notice at `cohorts/<year>/leaderboard.md` rather than `README.md`.
+        "archive": KeySpec(
+            "mapping", item_keys={"notice_path": KeySpec("string", default="README.md")}
+        ),
         "registration_url": KeySpec("url"),
         "hashtag": KeySpec("hashtag"),
         "homework": KeySpec(
