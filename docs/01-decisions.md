@@ -3,6 +3,14 @@
 Taken by the owner on 2026-09-05. An executor does not re-open these. If a step in the plan
 appears to contradict one of them, the plan is wrong: stop and report.
 
+A decision that requires implementation names the issue that lands it: `Lands in:` followed by
+the issue id or ids, ending the sentence with a period, for example `Lands in: `C7.12`.` A
+decision that lands nothing writes `Lands in: none.` instead. The field is optional: not every
+decision implies an issue, D21 is `site-owned` and lands nothing, so a blunt rule requiring the
+field everywhere would be noise. `scripts/plan.py check` reads whichever decisions do carry the
+field and verifies that every issue it names exists in the phase files, catching a decision that
+names an issue that was renamed, split or never opened.
+
 | # | Decision | Consequence for the plan |
 |---|---|---|
 | D1 | Separate repository and Python distribution named `community-base`, importable as `community_base`. Public, in the DataTalksClub organisation. No monorepo. | Sites pin a git tag in `uv.lock`; local development uses an editable path override. |

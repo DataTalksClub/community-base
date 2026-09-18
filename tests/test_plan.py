@@ -3,13 +3,16 @@ from pathlib import Path
 import scripts.plan as plan
 
 
-def configure_plan(monkeypatch, tmp_path: Path, phase_text: str, status=None):
+def configure_plan(monkeypatch, tmp_path: Path, phase_text: str, status=None, decisions_text=""):
     plan_dir = tmp_path / "plan"
     plan_dir.mkdir()
     (plan_dir / "phase-0.md").write_text(phase_text)
     status_path = plan_dir / "STATUS.md"
+    decisions_path = tmp_path / "01-decisions.md"
     monkeypatch.setattr(plan, "PLAN", plan_dir)
     monkeypatch.setattr(plan, "STATUS", status_path)
+    monkeypatch.setattr(plan, "DECISIONS", decisions_path)
+    decisions_path.write_text(decisions_text)
     issues = plan.load_issues()
     status = status or {issue["id"]: {"status": "todo", "link": ""} for issue in issues}
     status_path.write_text(plan.render(issues, status) + "\n")
@@ -265,6 +268,84 @@ Repository: community-base. Depends on: nothing.
     output = capsys.readouterr().out
     assert "warning:" not in output
     assert "OK: 2 issues, STATUS.md consistent" in output
+
+
+def test_check_rejects_decision_landing_on_unknown_issue(monkeypatch, tmp_path, capsys):
+    phase_text = """# Phase 0
+
+## C0.1 First
+
+Repository: community-base. Depends on: nothing.
+"""
+    decisions_text = (
+        "# Decisions\n\n"
+        "| # | Decision | Consequence for the plan |\n"
+        "|---|---|---|\n"
+        "| D1 | A rule that requires code. | Lands in: `C0.99`. |\n"
+    )
+    configure_plan(monkeypatch, tmp_path, phase_text, decisions_text=decisions_text)
+
+    assert plan.cmd_check() == 1
+    assert "decisions naming an issue that does not exist: D1 names unknown issue C0.99" in (
+        capsys.readouterr().out
+    )
+
+
+def test_check_accepts_decision_landing_on_a_real_issue(monkeypatch, tmp_path, capsys):
+    phase_text = """# Phase 0
+
+## C0.1 First
+
+Repository: community-base. Depends on: nothing.
+"""
+    decisions_text = (
+        "# Decisions\n\n"
+        "| # | Decision | Consequence for the plan |\n"
+        "|---|---|---|\n"
+        "| D1 | A rule that requires code. | Lands in: `C0.1`. |\n"
+    )
+    configure_plan(monkeypatch, tmp_path, phase_text, decisions_text=decisions_text)
+
+    assert plan.cmd_check() == 0
+    assert "OK: 1 issues, STATUS.md consistent" in capsys.readouterr().out
+
+
+def test_check_accepts_a_decision_declared_to_land_nothing(monkeypatch, tmp_path, capsys):
+    phase_text = """# Phase 0
+
+## C0.1 First
+
+Repository: community-base. Depends on: nothing.
+"""
+    decisions_text = (
+        "# Decisions\n\n"
+        "| # | Decision | Consequence for the plan |\n"
+        "|---|---|---|\n"
+        "| D1 | A rule that lands nothing. | Lands in: none. |\n"
+    )
+    configure_plan(monkeypatch, tmp_path, phase_text, decisions_text=decisions_text)
+
+    assert plan.cmd_check() == 0
+    assert "OK: 1 issues, STATUS.md consistent" in capsys.readouterr().out
+
+
+def test_check_ignores_a_decision_with_no_lands_in_field(monkeypatch, tmp_path, capsys):
+    phase_text = """# Phase 0
+
+## C0.1 First
+
+Repository: community-base. Depends on: nothing.
+"""
+    decisions_text = (
+        "# Decisions\n\n"
+        "| # | Decision | Consequence for the plan |\n"
+        "|---|---|---|\n"
+        "| D1 | Article storage stays site-owned. | No issue; not every decision lands code. |\n"
+    )
+    configure_plan(monkeypatch, tmp_path, phase_text, decisions_text=decisions_text)
+
+    assert plan.cmd_check() == 0
+    assert "OK: 1 issues, STATUS.md consistent" in capsys.readouterr().out
 
 
 def test_next_can_select_package_repository(monkeypatch, tmp_path, capsys):

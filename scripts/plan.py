@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PLAN = ROOT / "docs" / "plan"
 STATUS = PLAN / "STATUS.md"
+DECISIONS = ROOT / "docs" / "01-decisions.md"
 
 REPO_BY_LETTER = {
     "C": "community-base",
@@ -33,6 +34,10 @@ ISSUE_RE = re.compile(r"^## ([CADR]\d+\.\d+[a-z]*) (.+)$")
 DEPENDS_RE = re.compile(r"Depends on:\s*([^\n]*)")
 ID_RE = re.compile(r"\b[CADR]\d+\.\d+[a-z]*\b")
 FREEZE_RE = re.compile(r"Freeze required: (yes|no)", re.IGNORECASE)
+DECISION_ROW_RE = re.compile(r"^\| (D\d+) \| (.*) \| (.*) \|\s*$")
+# Non-greedy up to a period that ends the sentence (followed by space or end of text), not one
+# of the periods inside an issue id such as `C7.12`.
+LANDS_IN_RE = re.compile(r"Lands in:\s*(.*?)\.(?:\s|$)")
 
 
 def load_issues() -> list[dict]:
@@ -94,6 +99,25 @@ def load_status() -> dict[str, dict]:
             "link": cells[6],
         }
     return rows
+
+
+def load_decisions() -> list[dict]:
+    """Load the decisions table, one row per decision, with its full row text kept for scanning.
+
+    Only the `Lands in:` field (see `docs/01-decisions.md`) is read back out of that text; a
+    decision that does not carry the field is not otherwise interpreted.
+    """
+
+    decisions = []
+    if not DECISIONS.exists():
+        return decisions
+    for line in DECISIONS.read_text().splitlines():
+        m = DECISION_ROW_RE.match(line)
+        if not m:
+            continue
+        decision_id, decision_text, consequence_text = m.groups()
+        decisions.append({"id": decision_id, "text": f"{decision_text} {consequence_text}"})
+    return decisions
 
 
 def render(issues: list[dict], status: dict[str, dict]) -> str:
@@ -211,6 +235,32 @@ def blocked_rows_with_closed_blockers(issues: list[dict], status: dict[str, dict
     return warnings
 
 
+def decisions_landing_on_unknown_issues(decisions: list[dict], issue_ids: set[str]) -> list[str]:
+    """Return one entry per decision whose `Lands in:` field names an issue that does not exist.
+
+    Not every decision implies an issue (D21 rules that article storage stays site-owned and
+    lands nothing), so a blunt "every decision must name an issue" rule would be noise. This only
+    checks decisions that opt into the `Lands in:` convention documented in
+    `docs/01-decisions.md`; a decision with no such field is left alone. D34, D38 and D39 were
+    written into that file and carried nowhere else, so `FORMAT.md` still contradicted them the
+    next day: recording where a decision lands, and catching when that record points at an issue
+    that was renamed, split or never opened, is the checkable part of that failure.
+    """
+
+    violations = []
+    for decision in decisions:
+        m = LANDS_IN_RE.search(decision["text"])
+        if not m:
+            continue
+        value = m.group(1).strip()
+        if value.lower() == "none":
+            continue
+        for issue_id in ID_RE.findall(value):
+            if issue_id not in issue_ids:
+                violations.append(f"{decision['id']} names unknown issue {issue_id}")
+    return sorted(violations)
+
+
 def cmd_check() -> int:
     issues = load_issues()
     status = load_status()
@@ -225,6 +275,7 @@ def cmd_check() -> int:
     cycles = dependency_cycles(issues)
     unfinished_dependencies = done_with_unfinished_dependencies(issues, status)
     stale_blockers = blocked_rows_with_closed_blockers(issues, status)
+    unknown_landings = decisions_landing_on_unknown_issues(load_decisions(), ids)
     expected_status = render(issues, status) + "\n"
     generated_drift = STATUS.read_text() != expected_status if STATUS.exists() else True
     problems = 0
@@ -235,6 +286,7 @@ def cmd_check() -> int:
         ("rows with an unknown status", bad),
         ("dependencies that do not exist", dangling),
         ("done issues with a dependency that is not done or skipped", unfinished_dependencies),
+        ("decisions naming an issue that does not exist", unknown_landings),
     ):
         if items:
             problems += 1
