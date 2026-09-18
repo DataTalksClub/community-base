@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- C7.17: a Studio landing page above `STUDIO_NAV_COLLAPSE_THRESHOLD` no longer opens on a sidebar
+  of closed headers. The active section is the headerless built-in `home` section there, which has
+  no header of its own to expand server-side, so every titled section rendered collapsed; the
+  A2.1 cutover (AI-Shipping-Labs/website#1615) found it live, with 52 destinations against the
+  default threshold of 24. `registry._apply_collapse_state` now falls through to the first titled
+  section, in registry order, whenever the active section is headerless; a section that genuinely
+  owns the active route is unaffected, and behaviour below the threshold is unchanged. No new
+  setting is added: the alternative considered, a `STUDIO_NAV_DEFAULT_SECTION` naming which section
+  to open, would need every adopting site to carry it for a case only the landing page hits.
 - Every shared Studio content template now fills its body inside both `{% block content %}` and,
   nested inside it, `{% block studio_content %}`, instead of picking one name. A site that
   replaces `community_base/studio/base.html` outright with its own shell, as both

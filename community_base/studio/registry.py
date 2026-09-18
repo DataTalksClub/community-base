@@ -247,6 +247,15 @@ def _apply_collapse_state(rendered_sections: list[dict]) -> None:
     Below the threshold every section renders expanded, which is the behaviour a
     site with a small registry had before collapse existed. Above it only the
     active section starts open; the rest are one click away.
+
+    The active section can itself be headerless, such as the built-in `home`
+    section that owns the landing route: there is then no header for the
+    active-route guarantee to open, and a dense registry would render every
+    titled section collapsed on the page the viewer just landed on. When that
+    happens, the first titled section (in the same display order as the
+    sidebar) falls open instead, so the landing page never opens on a wall of
+    closed headers. This never overrides a real active titled section, and it
+    has no effect below the threshold, where every section is already open.
     """
 
     visible = sum(
@@ -254,10 +263,23 @@ def _apply_collapse_state(rendered_sections: list[dict]) -> None:
         for item in rendered_sections
     )
     dense = visible > _collapse_threshold()
+
+    active_titled_section = any(
+        item["active"] and item["section"].title for item in rendered_sections
+    )
+    fallback_slug = ""
+    if dense and not active_titled_section:
+        for item in rendered_sections:
+            if item["section"].title:
+                fallback_slug = item["section"].slug
+                break
+
     for item in rendered_sections:
         collapsible = bool(item["section"].title)
         item["collapsible"] = collapsible
-        item["expanded"] = not collapsible or not dense or item["active"]
+        item["expanded"] = (
+            not collapsible or not dense or item["active"] or item["section"].slug == fallback_slug
+        )
 
 
 def _destination_url(destination: Destination) -> str:
