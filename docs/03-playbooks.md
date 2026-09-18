@@ -506,3 +506,31 @@ The general rule: a deletion is safe when a check that would have failed before 
 Absence of a grep hit is not that check, because grep answers "does this string appear", and the
 question is "can this name be reached".
 
+## P18. Compute a merge before performing it
+
+Used before merging any long-lived branch, and before telling anyone whether their work survives it.
+
+`git merge-tree --write-tree <a> <b>` computes the merge and prints the conflicts without touching
+a worktree, a branch, an index or the stash. It is safe to run in a repository another session is
+working in, which is what makes it usable here: the alternative, creating a worktree or starting a
+merge to see what happens, changes state someone else may be depending on.
+
+What it answers that nothing else does: whether a specific change survives. Two edits to the same
+function in different regions auto-merge and both survive; two in the same region conflict. Reading
+the two diffs by hand does not reliably tell you which case you are in, and the answer matters most
+exactly when someone is deciding whether to hold their work back.
+
+Steps
+1. Run it and record the result tree, the conflict list and the conflict kinds.
+2. For each conflict, decide which side wins and write the reason down before the merge, not during
+   it. A conflict resolved under time pressure is where a ruling made weeks earlier gets quietly
+   reversed.
+3. Read the merged blob for anything you care about, rather than trusting that a clean auto-merge
+   kept it. `git show <tree>:<path>` reads out of the computed tree directly.
+4. Put the conflict list where the person who performs the merge will find it, which is the issue
+   row or the pull request, not a message.
+
+One trap worth naming. A modify/delete conflict prints "Version <branch> of <path> left in tree",
+which reads as guidance and is not: it is a statement about what git did, and the deleted side is
+often the correct resolution. Decide from the reason the file was deleted, not from the message.
+
