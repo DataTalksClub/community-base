@@ -25,6 +25,7 @@ from community_base.studio.registry import (
     register,
     route_name_for,
     section_only_routes,
+    sections,
 )
 from community_base.studio.route_checks import (
     mounted_route_names,
@@ -294,3 +295,23 @@ def test_the_management_command_checks_the_mount_it_is_given(namespaced_site_at_
     assert stdout.getvalue().strip() == "OK"
     with pytest.raises(CommandError):
         call_command("studio_routes", "--check", "--mount", "nowhere/", stdout=StringIO())
+
+
+def test_registration_never_reads_the_urlconf(monkeypatch):
+    """`AppConfig.ready()` calls `register()`, and it must not resolve URLs.
+
+    Walking the resolver there imports the root URLconf mid-startup, before
+    every app has registered what that URLconf builds itself from: the API
+    endpoints registered after this app lose their routes, silently. The
+    contract predates this issue; qualifying route names is what nearly broke
+    it.
+    """
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("registration read the URLconf")
+
+    monkeypatch.setattr("community_base.studio.route_names.get_resolver", refuse)
+
+    register_site_section(url_name="studio:settings", route_names=("settings",))
+
+    assert any(item.slug == "site719" for item in sections())

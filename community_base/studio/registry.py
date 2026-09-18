@@ -130,16 +130,20 @@ def register(section: Section) -> Section:
     claimed_keys = {
         item.key for existing in _sections.values() for item in _iter_destinations(existing)
     }
+    # Registration never reads the URLconf: `AppConfig.ready()` calls this, and
+    # walking the resolver there imports the root URLconf mid-startup, before
+    # every app has registered what the URLconf needs. Names are compared as
+    # written, qualified only by what the registration itself says.
     claimed_routes = {
         route_name
         for existing in _sections.values()
         for item in _iter_destinations(existing)
-        for route_name in destination_route_names(item)
+        for route_name in destination_route_names(item, studio_ns="")
     }
     for destination in _iter_destinations(section):
         if destination.key in claimed_keys:
             raise ValueError(f"Studio destination already registered: {destination.key}")
-        route_names = destination_route_names(destination)
+        route_names = destination_route_names(destination, studio_ns="")
         overlap = claimed_routes.intersection(route_names)
         if overlap:
             route_name = sorted(overlap)[0]
