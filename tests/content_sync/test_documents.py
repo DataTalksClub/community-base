@@ -477,3 +477,35 @@ def test_the_validator_reads_the_repository_through_the_toolkit(tmp_path):
     assert sorted(item.render() for item in diagnostics if item.severity == "error") == sorted(
         item.render() for item in checked if item.severity == "error"
     )
+
+
+def test_a_directory_ignore_empties_is_invisible(tmp_path):
+    """Section 3.1: `ignore` hides the directory, not only its files."""
+
+    (tmp_path / "content.yaml").write_text(
+        "schema_version: 1\ncollections:\n  - kind: wiki\n    path: wiki\n"
+        'ignore:\n  - "wiki/tools/**"\n'
+    )
+    (tmp_path / "wiki" / "tools").mkdir(parents=True)
+    (tmp_path / "wiki" / "tools" / "build.py").write_text("x = 1\n")
+    (tmp_path / "wiki" / "a.md").write_text(
+        '---\ncontent_id: "88888888-8888-4888-8888-888888888888"\ntitle: A\n---\n\nBody.\n'
+    )
+
+    result = read_repository(tmp_path)
+
+    assert result.ok
+    assert [item.raw.path for item in result.documents] == ["wiki/a.md"]
+
+
+def test_an_empty_collection_root_is_not_a_missing_directory(tmp_path):
+    (tmp_path / "content.yaml").write_text(
+        'schema_version: 1\ncollections:\n  - kind: wiki\n    path: wiki\nignore:\n  - "wiki/**"\n'
+    )
+    (tmp_path / "wiki").mkdir()
+    (tmp_path / "wiki" / "draft.md").write_text("no front matter\n")
+
+    result = read_repository(tmp_path)
+
+    assert result.ok
+    assert result.documents == ()

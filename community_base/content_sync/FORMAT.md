@@ -70,6 +70,13 @@ reference to an asset is made under one `theme_pairs` value. A per-collection or
 is therefore not part of version 1, and a kind cannot declare one. C7.9b owns assets and may
 propose one, but it then also owns the answer for a shared asset.
 
+Package ruling, an ignored directory: a directory whose every file `ignore` hides, and which holds
+no visible subdirectory, is itself invisible. The alternative, keeping it as an empty directory,
+made a layout demand a manifest for a directory that carries no content: a course repository's
+archived cohort directories and its tool directories are exactly that, and `ignore` is the key an
+author names them with. A declared collection path is the exception; an empty collection is an
+empty collection, not a missing directory.
+
 Glob syntax for `ignore` is the `pathlib.PurePosixPath.full_match` syntax: `*` does not cross a
 directory separator, `**` does, and a pattern is matched against the repository-relative path.
 

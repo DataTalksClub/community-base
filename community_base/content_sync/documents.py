@@ -482,6 +482,15 @@ def _read_repository(root: Path, patterns: tuple[str, ...], checkout: Any = None
 
 
 def _read_dir(directory: Path, rel: str, patterns: tuple[str, ...], repo: Repository) -> DirNode:
+    """One visible directory: ignored, hidden and empty children are gone.
+
+    Section 3.1 makes a file matched by `ignore` invisible to every collection.
+    A directory whose every file is invisible carries nothing, so it is
+    invisible too; keeping it as an empty node would make a layout demand a
+    manifest for a directory that holds no content, which is what a course
+    repository's archived cohort directories and tool directories are.
+    """
+
     files: list[str] = []
     dirs: list[DirNode] = []
     for entry in sorted(directory.iterdir(), key=lambda item: item.name):
@@ -489,8 +498,11 @@ def _read_dir(directory: Path, rel: str, patterns: tuple[str, ...], repo: Reposi
             continue
         child_rel = f"{rel}/{entry.name}" if rel else entry.name
         if entry.is_dir():
-            dirs.append(_read_dir(entry, child_rel, patterns, repo))
-        elif entry.is_file():
+            child = _read_dir(entry, child_rel, patterns, repo)
+            if child.files or child.dirs:
+                dirs.append(child)
+            continue
+        if entry.is_file():
             if _matches(child_rel, patterns):
                 repo.ignored.add(child_rel)
                 continue
@@ -522,6 +534,11 @@ def _read_collection(
     repository: Repository, collection: Collection, diagnostics: list[Diagnostic]
 ) -> list[ParsedDocument]:
     node = _node_at(repository.tree, collection.path)
+    if node is None and (repository.root / collection.path).is_dir():
+        # A collection root the repository holds but whose every file `ignore`
+        # hides, or which is empty, is an empty collection and not a missing
+        # directory.
+        node = DirNode(path=collection.path)
     if node is None:
         diagnostics.append(
             Diagnostic(
