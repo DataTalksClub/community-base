@@ -1710,6 +1710,75 @@ Verification
 Done when
 - [ ] no package template can fill a block a site does not define without something saying so
 
+Resolution: the block surface was shrunk before the check was written. Shared public templates now
+extend a package-owned seam, `community_base/public/base.html`, whose shipped copy is a
+pass-through to the site's `base.html`; a site whose chrome names those slots differently overrides
+that one path instead of taking five package-named blocks into its own base.
+`community_base.kernel.checks.check_public_base_block_contract` then reports what the chain above
+the seam leaves unreachable, as an error for `content` and a warning for the other four. The
+decision and what it rejected are in
+`docs/plan/evidence/c7.25-block-contract-decision-2026-09-18.md`. The two sites remediate in A7.4
+and D7.5.
+
+## A7.4 AISL adds the public base seam so its unsubscribe page has a body
+
+Repository: AI-Shipping-Labs/website. Depends on: C7.25. Freeze required: no.
+
+Goal: the mounted public unsubscribe page serves its form instead of 21kB of chrome and nothing.
+
+The site's `templates/base.html` names its body slot `body` and its script slot `extra_scripts`,
+so every shared public page it has not forked renders with no body. C7.25 makes that an error at
+`manage.py check` time (`community_base.kernel.E001`), which this site will not start under until
+the seam is in place. Note the ordering: the package release carrying C7.25 must be tagged before
+the pin is bumped (playbook P15), and the pin bump and this template land together.
+
+Steps
+1. Add `templates/community_base/public/base.html`:
+
+   ```
+   {% extends "base.html" %}
+   {% block body %}{% block content %}{% endblock %}{% endblock %}
+   {% block extra_scripts %}{% block extra_js %}{% endblock %}{% endblock %}
+   ```
+
+2. Bump the `community-base` pin to the release carrying C7.25 in the same pull request.
+3. Consider retiring the three forked knowledge-base templates in `templates/knowledge_base/`,
+   which exist only to rename `content` to `body`. Keep any that carry real site content.
+
+Verification
+- `uv run python manage.py check` reports no `community_base.kernel` error.
+- A request to the mounted unsubscribe path returns a body containing the form, not only chrome.
+
+Done when
+- [ ] the public unsubscribe page renders its form
+- [ ] `manage.py check` is clean
+
+## D7.5 DTC decides what to do about the two head blocks it drops
+
+Repository: DataTalksClub/website. Depends on: C7.25. Freeze required: no.
+
+Goal: the `noindex, nofollow` the package sets on two mail pages either reaches the page or is
+knowingly declined.
+
+`course_platform_templates/base.html` defines `content` and `extra_js`, so no page loses its body,
+but it defines neither `meta_description` nor `page_head_metadata`. C7.25 reports both as warnings
+(`community_base.kernel.W002` and `W003`). The site's robots answer lives in its own `meta_robots`
+block, so this is a naming question rather than a defect, and the decision is the site's.
+
+Steps
+1. Either add `templates/community_base/public/base.html` mapping the two contracted blocks onto
+   the site's own head slots, or silence the two ids in `SILENCED_SYSTEM_CHECKS` with a comment
+   saying which site mechanism answers them instead.
+2. Whichever is chosen, confirm on a rendered mail unsubscribe page whether `noindex` is present.
+
+Verification
+- `uv run python scripts/ci.py django-check` is clean or carries only the silenced ids.
+- The rendered unsubscribe page either contains `noindex` or the pull request records why it
+  should not.
+
+Done when
+- [ ] the two warnings are answered rather than ignored
+
 ## C7.26 Studio impersonation assumes ModelBackend and literal paths
 
 Repository: community-base. Depends on: C7.22. Freeze required: no.

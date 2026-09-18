@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% comment %}
+The seam between a shared public page and the consuming site's own chrome.
+
+Every shared public template in this package extends THIS file rather than "base.html"
+directly, so that a site which names its chrome blocks differently has one place to say so
+instead of forty-one.
+
+The default, above, is a pass-through: a site whose base.html defines title, meta_description,
+page_head_metadata, content and extra_js (docs/02-architecture.md section 5) needs to do
+nothing, and this file changes nothing about how its pages render.
+
+A site whose base.html names those slots differently overrides this path by putting its own
+community_base/public/base.html in its templates/ directory, and maps its names onto the
+contracted ones there. Django resolves blocks by name across the whole inheritance chain
+rather than by lexical nesting, so wrapping one contracted block in a site block makes the
+contracted name reachable from a page template. For a base.html whose body slot is called
+"body" and whose script slot is called "extra_scripts":
+
+    {% templatetag openblock %} extends "base.html" {% templatetag closeblock %}
+    ... block body wrapping block content, and block extra_scripts wrapping block extra_js.
+
+See docs/02-architecture.md section 5 for the worked example.
+
+A contracted block that no template in the chain defines is dropped by Django in silence: no
+exception, no warning, nothing in the logs, and a page that serves the site chrome with its
+body missing. community_base.kernel.checks reports that at manage.py check time.
+{% endcomment %}
