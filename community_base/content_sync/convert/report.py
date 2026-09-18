@@ -256,6 +256,23 @@ def write_front_matter(data: Mapping[str, Any], body: str) -> str:
     return f"{FENCE}\n{dump_yaml(data)}{FENCE}\n\n{body.lstrip(chr(10))}"
 
 
+class _Dumper(yaml.SafeDumper):
+    """The one dumper a conversion writes with.
+
+    Multi-line strings come out as literal blocks, because a course
+    description folded into quoted YAML is unreadable and a reviewer has to
+    read every converted file. Everything else is `safe_dump`.
+    """
+
+
+def _literal_string(dumper: yaml.SafeDumper, value: str):
+    style = "|" if "\n" in value.rstrip("\n") else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", value, style=style)
+
+
+_Dumper.add_representer(str, _literal_string)
+
+
 def dump_yaml(data: Mapping[str, Any]) -> str:
     """One mapping as the YAML a conversion writes.
 
@@ -264,8 +281,9 @@ def dump_yaml(data: Mapping[str, Any]) -> str:
     deterministic, which is what makes a second run produce no diff.
     """
 
-    return yaml.safe_dump(
+    return yaml.dump(
         dict(data),
+        Dumper=_Dumper,
         sort_keys=False,
         allow_unicode=True,
         default_flow_style=False,
