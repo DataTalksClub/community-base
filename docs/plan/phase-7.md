@@ -1471,3 +1471,108 @@ Done when
 
 Docs
 - `community_base/content_sync/README.md`, `CHANGELOG.md`.
+
+## C7.19 Studio registration works on a namespaced URLconf
+
+Repository: community-base. Depends on: C7.13. Freeze required: no.
+
+Goal: a site whose Studio URLconf declares `app_name` can register destinations that are both live
+and linkable. Today it cannot, and this is a v0.5.0 regression I introduced in C7.13.
+
+The defect, measured against DataTalksClub/website's real URLconf: `route_names.py` walks the
+resolver tree and records the bare `entry.name`, discarding the namespace, so the mounted set holds
+`audit-detail` and never `studio:audit-detail`. `registry._is_live` then tests
+`destination.url_name in mounted`, while `registry._destination_url` calls
+`reverse(destination.url_name)`, which needs the namespace. Those two cannot both be satisfied:
+registering `studio:settings` makes `mounted_sections()` return an empty tuple, and registering
+`settings` makes `reverse()` raise `NoReverseMatch` so the link renders with an empty href. DTC has
+62 bare names under `studio/` and 26 namespaced routes, and none of the 26 is found in the mounted
+set. `route_name_for` has the same defect, reading `resolver_match.url_name` rather than
+`view_name`.
+
+Why it was not caught: there is no namespaced-URLconf test anywhere in `tests/studio/`, and
+AI-Shipping-Labs mounts Studio without a namespace, so the only consumer that would have shown it
+had not adopted yet. Before C7.13 there was no mounted-route filter, so a namespaced `url_name`
+worked; the filter is what made the two halves disagree.
+
+Read first
+- `community_base/studio/route_names.py`, the `walk()` function.
+- `community_base/studio/registry.py`: `_is_live`, `_destination_url`, `route_name_for`.
+- `docs/03-playbooks.md` P7's both-directions rule. This is the same shape: a guard that reads one
+  spelling of a name while the resolver writes another.
+
+Steps
+1. Record the namespaced name in `route_names.py` when a resolver declares a namespace.
+2. Make `route_name_for` prefer `resolver_match.view_name`.
+3. Decide what `route_names` tuples must contain once `route_name_for` returns a namespaced value,
+   and say whether that is breaking for an existing site. Prefer accepting both spellings over
+   forcing every registration to be rewritten.
+4. Decide whether a namespace nested more than one level deep needs handling.
+
+Verification
+- A namespaced Studio URLconf: destinations live, hrefs non-empty and correct, active link detected.
+- The same with no namespace, unchanged.
+- An `external_url` destination stays live under both, per C7.14.
+- The AI-Shipping-Labs suite is unaffected, measured rather than asserted.
+
+Done when
+- [ ] a namespaced site can register a destination that is both live and linkable
+- [ ] a test would fail if either half regressed on its own
+
+## C7.20 Studio shell: extension points instead of a fork
+
+Repository: community-base. Depends on: C7.15. Freeze required: no.
+
+Goal: a site can adopt the shell without copying it. Two missing extension points currently force a
+verbatim fork, which is exactly what community-base#279 exists to prevent: the abandoned DTC
+attempt forked 152 lines, and its own header comment predicted this issue.
+
+Read first
+- `community_base/studio/templates/community_base/studio/base.html`.
+- `community_base/studio/checks.py`, `check_studio_content_block_contract` and error code
+  `community_base.studio.E001`, which exists because a site fork of this shell once dropped the
+  `content` block and served 38 empty pages.
+
+Steps
+1. The head hardcodes `https://unpkg.com/lucide@latest/...` outside any block. Two problems, each
+   sufficient on its own: an unpinned third-party script executes with staff privileges in every
+   consuming site, and a site with `script-src 'self'` blocks it outright, losing every icon with
+   no remedy short of a fork. Vendor lucide as a package static file at a pinned version, next to
+   `studio.css` and `studio.js`, and record the version and upstream URL.
+2. Add a block at the top of `body` and an id on `main`. A skip link must be the first element of
+   the body and needs a target; a site running accessibility checks over its Studio states cannot
+   supply either through a child template today.
+3. Decide whether the new blocks belong in the E001 contract. If a site can now override a block in
+   a way that breaks the page, the check is where that is caught.
+
+Verification
+- A site overriding nothing renders exactly as before, measured rather than asserted.
+- `grep -rn "unpkg\|@latest" community_base/` finds nothing.
+- The AI-Shipping-Labs suite is unaffected.
+
+Done when
+- [ ] no page loads a script from a third-party origin
+- [ ] a site can supply a skip link and a main target without copying the shell
+
+## C7.21 Release 0.5.1
+
+Repository: community-base. Depends on: C7.19, C7.20. Freeze required: no.
+
+Goal: the fixes DTC needs are consumable. `scripts/check_community_base_source.py` in both sites
+accepts only a `vX.Y.Z` tag, so anything on package `main` is unreachable to a site by design
+(D0.2). Three things are currently stranded there: the #279 content-block fix and its E001 check,
+C7.17's headerless-landing fallthrough, and C7.19 and C7.20.
+
+C7.17 matters more than it looks for DTC specifically: its roughly 35 destinations sit above the
+default `STUDIO_NAV_COLLAPSE_THRESHOLD` of 24, so without the fallthrough its Studio landing page
+opens on an entirely closed sidebar.
+
+Steps
+1. Follow playbook P15. A published tag is immutable: never move one, never delete and recreate one.
+2. `uv run python scripts/check_release_tag.py` before `uv build`, so the tag cannot disagree with
+   `pyproject.toml` and `community_base/__init__.py`.
+3. Note in the CHANGELOG that v0.5.0 carried the C7.19 regression, so a site reading only the
+   changelog learns it without finding this file.
+
+Done when
+- [ ] the tag exists, the cross-repository check is green against it, and D2.1a can pin it
