@@ -1767,3 +1767,42 @@ Done when
 - [ ] no package module reads a setting whose empty value silently changes behaviour
 - [ ] no package module tests `INSTALLED_APPS` membership by string
 
+## C7.28 Canonical public URLs in shared API representations
+
+Repository: community-base. Depends on: C7.22. Freeze required: no. Related: DataTalksClub/community-base#280 and AI-Shipping-Labs/website#1752.
+
+Goal: every shared API representation for a package-owned public resource carries its canonical
+absolute public URL in a new `public_url` field, so callers do not reconstruct route shapes from
+ids and slugs. Private operational records keep their existing shapes and do not receive
+fabricated links.
+
+Steps
+1. Inventory the shared API serializers and classify each response as a public resource,
+   private operational resource, or an operation/result envelope.
+2. Define one package serialization helper and field contract for public URLs. It must join the
+   configured `SITE_URL` with the resource's canonical root-relative URL hook, normalize the
+   origin/path boundary, never trust the request host, and return `null` when the resource is not
+   publicly reachable or has no package-owned public route.
+3. Apply the contract to every applicable shared API representation, including event list,
+   detail, create and update responses and published curriculum course list/detail responses.
+   Preserve existing relative `url` fields and external URL fields. Do not add URLs to API keys,
+   mail deliveries, settings, registrations, credentials, event-series or host records, or other
+   private operational rows without a public page.
+4. Document the field in the relevant OpenAPI schemas and package API README. Keep site-owned
+   route differences behind the existing model or site hook rather than importing a site app.
+
+Verification
+- Focused package API tests prove public event list/detail/create/update responses include the
+  canonical `public_url`, including the configured slug and `public_id` URL styles.
+- Focused package API tests prove published curriculum course list/detail responses include the
+  canonical `public_url`, while draft courses return `null`.
+- Focused package tests prove origin/path joining with and without a trailing slash, and private
+  API responses do not gain a public URL field.
+- OpenAPI output and its checked-in snapshot pass without drift.
+- `uv run ruff check .`, `uv run ruff format --check .`, package system checks, migration checks,
+  boundary checks and the affected package tests pass.
+
+Done when
+- [ ] shared public-resource API responses expose the documented canonical `public_url` field
+- [ ] private operational API shapes remain unchanged
+- [ ] the website event API can adopt the package contract without reconstructing event URLs
