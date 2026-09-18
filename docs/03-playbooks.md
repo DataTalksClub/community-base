@@ -149,6 +149,28 @@ Used when a package app gets a `cb_` label and the site had the same models unde
 Used once per site in Phase 3. The shared model is `community_base.accounts.models.User`, label
 `accounts`, table `accounts_user`.
 
+Before the contract half of any group, audit every service that ENUMERATES relations from `User`.
+This step exists because skipping it shipped a data-correctness defect that no test caught
+(AI-Shipping-Labs/website#1692, guarded for the class by #1746).
+
+The failure shape: a generic enumerator walks the relations declared ON `User`. Move a relation
+onto an extension model that `User` merely points at, and the enumerator no longer sees it. It
+does not raise; it goes quietly no-op. The tests that exercise the service assert on the relations
+the service still knows about, so the coverage gap is invisible exactly where it matters. In that
+case account merge stopped clearing a merged-away account's tags, `/studio/tags/` counted the
+scrubbed row, and every automated check passed.
+
+For each field or relation the group moves, find every service that reaches it by enumeration
+rather than by name, and decide per service: extend the enumerator to reach the new location, add
+an explicit strategy, or record that it intentionally needs no handling. Known enumerating
+services on the sites today are account merge, deactivation, and GDPR export; grep for others
+rather than trusting that list, since two of those three had already missed the same model
+(AI-Shipping-Labs/website#1744) and neither was found by a test.
+
+The general rule this is an instance of: a green run against a baseline answers "did I break what
+exists". It never answers "did I leave something unchanged that should have changed". Moving a
+field makes the second question the important one, and no suite asks it unprompted.
+
 AISL (label and table already match):
 
 1. Move site-specific fields off `User` first, one pull request per group, expand then contract:
