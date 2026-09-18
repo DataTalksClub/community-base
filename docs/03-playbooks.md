@@ -179,6 +179,23 @@ The general rule this is an instance of: a green run against a baseline answers 
 exists". It never answers "did I leave something unchanged that should have changed". Moving a
 field makes the second question the important one, and no suite asks it unprompted.
 
+Rolling back the reader switch is not a code-only revert, and this is the part of expand/contract
+that is usually got wrong. The expand step is safe to leave in place on a rollback: it only adds a
+table and copies rows. The reader switch is not, because switching readers switches writers with
+them. From the moment it deploys, the new location is where new values land, and the old column
+stops being updated. Revert the code alone and the site silently serves the old column's values,
+which are correct for every row nobody touched and stale for every row somebody did. Nothing
+raises, and the damage is proportional to how long the window stayed open.
+
+So a rollback of the reader switch has three parts, and a deploy plan that lists fewer than three
+is not a rollback plan: revert the code, copy the values written during the window back to the old
+column, and only then, if the migration is being unwound at all, reverse it. Reversing the
+migration first destroys the rows the back-copy needs. Write the back-copy before the reader switch
+deploys, not after something has gone wrong, and rehearse it on a development copy under P14 the
+same way the forward copy is rehearsed. If a back-copy cannot be written for some field, say so
+before deploying: that field's reader switch is one-way, and the group has to be sized so that is
+an acceptable risk.
+
 AISL (label and table already match):
 
 1. Move site-specific fields off `User` first, one pull request per group, expand then contract:

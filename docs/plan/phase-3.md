@@ -369,6 +369,22 @@ Course-platform readers read the ten moved fields through `LearnerProfile` inste
 `CustomUser`; regression coverage forces new submitter-rendering surfaces through
 `learner_profile` from day one.
 
+This is the deploy that opens the expand window, so it ships with a written rollback plan, per
+playbook P7. Switching readers switches writers: from this deploy onward the ten values land in
+`LearnerProfile` and the `CustomUser` columns stop being updated, so reverting the code alone
+serves stale values for every row touched in the meantime, silently. The rollback is revert the
+code, copy back what was written during the window, then reverse the migration if it is being
+reversed at all -- in that order, because reversing the migration first destroys the rows the
+back-copy reads. The back-copy is written and rehearsed on a development copy before this deploys,
+not after.
+
+Verification
+- The back-copy script exists, is rehearsed under P14, and its counts are recorded in the pull
+  request.
+
+Done when
+- [ ] a rollback plan naming all three steps is in the pull request description
+
 ## D3.1c Switch identity-window readers to accounts_ext.IdentityState
 
 Repository: DataTalksClub/website. Depends on: D3.1b. The groomed tracker issue
