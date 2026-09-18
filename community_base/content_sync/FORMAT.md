@@ -209,12 +209,13 @@ synced images configures a store whose URL is one of the two admitted shapes.
 
 ## 3.7 Cross-references
 
-One link syntax: a standard markdown link or image. Three destination forms.
+One link syntax: a standard markdown link or image. Four destination forms.
 
 | Form | Example | Resolution |
 |---|---|---|
 | Relative file | `[setup](02-environment.md)`, `[intro](../01-intro/index.md#running-example)` | another document in the same collection; resolved to that document's route; the fragment must name a heading of the target when both are in the same source |
 | Typed reference | `[A/B testing](wiki:a-b-testing)`, `[Rahul](person:16rahuljain)`, `[project rules](docs:courses/llm-zoomcamp/project)`, `[module 1](course:llm-zoomcamp/agentic-rag)` | `kind:` prefix is a registered kind; the remainder is the target's slug, or its path for a tree kind; resolved through the kind's route resolver, site-provided for site-routed kinds |
+| Repository file | `[the code](code/rag_helper.py)`, `[notebook](code/ingest.ipynb)`, `[last cohort](../cohorts/2025/)` | a file or directory that lives in the repository but is not content: rewritten to the repository's hosting URL, never uploaded and never validated as content. Decision D39: real lesson bodies link to these constantly, and without this form every one is an unresolved reference that fails the sync under the default `strict_references` |
 | External URL | `[docs](https://...)` | left alone |
 
 Front-matter references use the same typed form without the link wrapper:
@@ -398,7 +399,7 @@ the file. It follows the slug pattern (`2026`, `self-paced`, `4`).
 | `delivery` | `live` or `self_paced` | yes | none |
 | `start_date`, `end_date` | ISO dates | when `delivery: live` and `status: published` | `null` |
 | `modules` | ordered list of top-level module slugs | no | absent means the full course tree in module order |
-| `archive` | boolean | no | `false`; `true` means the cohort places no modules and points GitHub readers at its own directory |
+| `archive` | mapping | no | absent means not archived. Present means the cohort places no modules and points GitHub readers at its own directory. One optional key, `notice_path`, a repository-relative path to the notice, defaulting to the cohort's `README.md`. Decision D38: it is a mapping rather than a boolean because every real archived cohort carries one, and two of seventeen point at `leaderboard.md` rather than `README.md`, which a boolean cannot express |
 | `registration_url` | https URL | no | `""` |
 | `hashtag` | as course | no | `""` |
 | `homework` | list of `{module, source, unit}` | no | `[]` |
@@ -406,7 +407,10 @@ the file. It follows the slug pattern (`2026`, `self-paced`, `4`).
 `homework[].module` is a top-level module slug that the cohort places; `homework[].source` is the
 manifest path relative to the cohort directory (`homework/01-agentic-rag/homework.yaml`);
 `homework[].unit` is the optional `content_id` of a `kind: homework` unit whose page shows the
-submission form. `title` defaults to `<course title> <identifier>`. `identifier`, `course`,
+submission form. `title` is required, as section 3.3 makes it for every part. Decision D34
+removed the `<course title> <identifier>` default this table used to state: it was unreachable,
+because `register_kind` refuses a part that overrides a core key, so a cohort omitting `title` was
+rejected before a parser saw it. The conversion writes the key. `identifier`, `course`,
 `published`, `legacy_slug`, `year`, `format` and `flow` do not exist.
 
 `homework/<module-slug>/homework.yaml` keeps the DTC manifest: core keys plus `instructions_path`
