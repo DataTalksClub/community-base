@@ -143,6 +143,16 @@ The section owning the active route always renders expanded, including when the 
 deep detail, form or action route listed in a destination's `route_names`. That holds server-side,
 so it survives a viewer with no JavaScript.
 
+The Studio landing route (`studio_dashboard`) lives in the built-in `home` section, which carries
+no title because it has nothing to disclose. A headerless section has no header to expand, so a
+site above the threshold arriving on the landing page would otherwise open on a sidebar of closed
+headers. When the active section is headerless, the first titled section, in the same order the
+sidebar renders, falls open instead. This needs no site configuration: it is the smaller of the two
+shapes considered, the alternative being a setting naming which section to open, which every
+adopting site would then have to carry even though only the landing page needs it. A section that
+genuinely owns the active route is never affected; the fallthrough only ever applies when no titled
+section does.
+
 `community_base/studio-nav.js` remembers each section's state per viewer in `localStorage` under
 `community-base-studio-nav`. Storage is allowed to be missing, blocked or corrupt: every read and
 write is guarded and falls back to the server-rendered state, so the sidebar renders correctly in a

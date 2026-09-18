@@ -101,17 +101,36 @@ def run_node(body):
     return json.loads(completed.stdout)
 
 
-def test_a_dense_registry_renders_every_inactive_section_collapsed():
+def test_a_dense_registry_collapses_every_other_section_when_a_real_route_is_active():
+    register_dense_registry()
+
+    html = render_to_string(
+        "community_base/studio/base.html", {"request": shell_request("studio_dense0_0_list")}
+    )
+    states = toggle_states(html)
+
+    assert len(states) == 19
+    assert states == {**{key: "false" for key in states}, "dense0": "true"}
+    assert " hidden>" in section_markup(html, "dense10")
+    assert " hidden>" not in section_markup(html, "dense0")
+
+
+def test_a_dense_registry_opens_the_first_titled_section_on_the_landing_page():
+    """`shell_request()` defaults to `studio_dashboard`, the literal `url_name` of the Studio
+    landing route, which is also the built-in headerless Dashboard destination's only route name.
+    C7.14's version of this test asserted every section collapsed here, pinning the C7.17 defect
+    (the landing page opening on a wall of closed headers) rather than an intended behaviour.
+    C7.17 makes the first titled section, in registry order, fall open instead.
+    """
     register_dense_registry()
 
     html = render_to_string("community_base/studio/base.html", {"request": shell_request()})
     states = toggle_states(html)
 
     assert len(states) == 19
-    assert states["dense0"] == "false"
-    assert states["dense10"] == "false"
-    assert set(states.values()) == {"false"}
+    assert states == {**{key: "false" for key in states}, "people": "true"}
     assert " hidden>" in section_markup(html, "dense0")
+    assert " hidden>" not in section_markup(html, "people")
 
 
 def test_a_dense_registry_keeps_the_active_section_open():
