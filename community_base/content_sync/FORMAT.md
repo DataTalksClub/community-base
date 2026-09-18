@@ -242,6 +242,23 @@ the route it resolved to, and `label` is the link text of a body reference and t
 a front-matter one, which has no link wrapper. An external URL is left alone and is not recorded,
 because it has no kind.
 
+Package ruling, the repository-file form (decision D39): a relative destination that names no
+document of the collection is a repository file when the checkout holds that path, and an
+unresolved reference only when it does not. Real lesson bodies link to `code/`, to `.py` and
+`.ipynb` files and to sibling cohort directories; none is a document or an asset, so under the
+default `strict_references` every one of them failed. Rewriting them during conversion was
+rejected, because it would bake one hosting provider's URL shape into thousands of content files.
+
+- The destination is resolved against the checkout on disk, which includes a path `ignore` hides
+  from every collection. `ignore` says what is not content; this form says the same thing, so a
+  reference to an ignored path is a repository file and not the unresolved reference the ruling of
+  section 3.6 makes an ignored asset. A path the checkout does not hold stays an error.
+- The engine rewrites the destination to the source's hosting URL plus the repository-relative
+  path. `check_content` has no source and therefore no hosting URL, so it leaves the destination as
+  written and still reports a destination that names nothing.
+- The reference is not recorded in the document's reference list. It has no kind, as an external
+  URL has none.
+
 Package ruling, the route: `href` is `/` plus the kind's `route(path)`, or `/<kind>/<path>` when
 the kind declares no route. A site whose public URLs differ, and a reference to a kind no
 collection of this repository declares, both go through one seam: the toolkit takes a
@@ -412,6 +429,10 @@ removed the `<course title> <identifier>` default this table used to state: it w
 because `register_kind` refuses a part that overrides a core key, so a cohort omitting `title` was
 rejected before a parser saw it. The conversion writes the key. `identifier`, `course`,
 `published`, `legacy_slug`, `year`, `format` and `flow` do not exist.
+
+Package ruling, `archive` and `modules` together: a present `archive` mapping, empty or not, is
+what makes a cohort archived, and a cohort that declares both `archive` and `modules` contradicts
+itself. The curriculum parser rejects it rather than choosing one.
 
 `homework/<module-slug>/homework.yaml` keeps the DTC manifest: core keys plus `instructions_path`
 (default `homework.md`), `due_at` (ISO datetime with offset), `initial_state` (`closed`, `open`,

@@ -32,6 +32,7 @@ from community_base.content_sync.parsers import SourceItem
 from community_base.content_sync.resolution import (
     ResolutionResult,
     ResolvedDocument,
+    hosting_url_for,
     resolve_repository,
 )
 from community_base.knowledge_base import sync
@@ -77,6 +78,7 @@ class _RepositoryView:
                 media=media,
                 source=self.source,
                 routes=route_resolver(self.declared),
+                hosting_url=hosting_url_for(self.source, self.commit_sha),
             )
             self._by_path = self._resolved.by_path()
         return self._resolved

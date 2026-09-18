@@ -366,3 +366,36 @@ def test_a_repository_with_no_course_collection_parses_nothing(tmp_path):
     assert parse_all(root) == []
     with pytest.raises(CurriculumParseError):
         parse(root)
+
+
+def test_an_archived_cohort_keeps_its_notice_path(tmp_path):
+    """Decision D38: the notice path survives the parse as written."""
+
+    root = copy(DTC_REPO, tmp_path, "archive-notice")
+    manifest = root / "cohorts" / "2024" / "cohort.yaml"
+    manifest.write_text(
+        manifest.read_text().replace(
+            "notice_path: cohorts/2024/README.md",
+            "notice_path: cohorts/2024/leaderboard.md",
+        )
+    )
+
+    course = parse(root).course
+    archived = {cohort.slug: cohort for cohort in course.cohorts}["2024"]
+
+    assert archived.module_refs == ()
+
+
+def test_an_empty_archive_mapping_still_archives(tmp_path):
+    root = copy(DTC_REPO, tmp_path, "archive-empty")
+    manifest = root / "cohorts" / "2024" / "cohort.yaml"
+    manifest.write_text(
+        manifest.read_text().replace(
+            "archive:\n  notice_path: cohorts/2024/README.md\n", "archive: {}\n"
+        )
+    )
+
+    course = parse(root).course
+    archived = {cohort.slug: cohort for cohort in course.cohorts}["2024"]
+
+    assert archived.module_refs == ()

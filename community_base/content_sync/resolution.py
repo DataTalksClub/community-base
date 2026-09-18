@@ -69,6 +69,7 @@ __all__ = [
     "ResolvedAsset",
     "ResolvedDocument",
     "ResolvedReference",
+    "hosting_url_for",
     "order_sources",
     "resolve_repository",
 ]
@@ -184,6 +185,7 @@ def resolve_repository(
     media: Any = None,
     source: Any = None,
     routes: Callable[[str, str], str | None] | None = None,
+    hosting_url: str = "",
 ) -> ResolutionResult:
     """Resolve the assets and references of one already-read repository.
 
@@ -198,11 +200,35 @@ def resolve_repository(
     target lives; a kind another source owns is resolved by `routes` alone, and
     without one such a reference is left for the sync that has the other source
     rather than reported.
+
+    `hosting_url` is where this repository's own files are served, the base a
+    repository-file destination is rewritten against (section 3.7, decision
+    D39). Without one such a destination is left as written, which is what the
+    validator wants: it has no source and therefore no hosting URL.
     """
 
     if result.repository is None:
         return ResolutionResult()
-    return _Resolution(result, media=media, source=source, routes=routes).run()
+    return _Resolution(
+        result, media=media, source=source, routes=routes, hosting_url=hosting_url
+    ).run()
+
+
+def hosting_url_for(source: Any, commit_sha: str = "") -> str:
+    """Where a source's own files are served, for the fourth destination form.
+
+    Section 3.7 resolves a repository-file destination against the repository's
+    hosting URL. A `ContentSource` names a GitHub repository, so the URL is that
+    repository at the synced commit, and at its default branch when the commit
+    is not known. A source without a repository name has no hosting URL and the
+    destination is left as written.
+    """
+
+    repo_name = str(getattr(source, "repo_name", "") or "").strip("/")
+    if not repo_name:
+        return ""
+    reference = commit_sha.strip() or "HEAD"
+    return f"https://github.com/{repo_name}/blob/{reference}"
 
 
 def order_sources(
@@ -256,8 +282,10 @@ class _Resolution:
         media: Any,
         source: Any,
         routes: Callable[[str, str], str | None] | None,
+        hosting_url: str = "",
     ) -> None:
         self.read = result
+        self.hosting_url = hosting_url.rstrip("/")
         self.repository: Repository = result.repository
         self.manifest = result.manifest
         self.media = media
@@ -398,12 +426,20 @@ class _Resolution:
                 reference = self._typed(item, destination, "/body", label, line)
             elif _names_an_asset(destination):
                 # A link to a file of an allowed asset type is an asset, not a
-                # document: this is how a PDF is uploaded and rewritten.
+                # document: this is how a PDF is uploaded and rewritten. An
+                # asset is decided before the repository-file form, so a PDF of
+                # this repository stays an upload.
                 asset = self._asset(item, destination, "/body", line)
                 if asset is None:
                     return tag
                 assets.append(asset)
                 return _with_href(tag, asset.url)
+            elif self._is_repository_file(item, destination):
+                # Section 3.7, the fourth destination form: a file or directory
+                # of this repository that is not content. The validator has no
+                # hosting URL and leaves the destination as written.
+                href = self._repository_href(item, destination)
+                return tag if href is None else _with_href(tag, href)
             else:
                 reference = self._relative(item, destination, label, line)
             if reference is None:
@@ -526,6 +562,44 @@ class _Resolution:
                 self._route(target_item.kind, target_item.path, target_item.collection), fragment
             ),
         )
+
+    # -- the fourth destination form, section 3.7 ----------------------------
+
+    def _is_repository_file(self, item: ParsedDocument, destination: str) -> bool:
+        """Whether a destination names a repository path that is not content.
+
+        A document of this repository is content and resolves as a reference; a
+        path the checkout holds and no collection claims is a repository file.
+        The lookup goes to the checkout rather than to the visible tree, so a
+        path `ignore` hides from every collection is a repository file and not
+        the unresolved asset the ruling of section 3.6 makes it.
+        """
+
+        resolved = self._repository_path(item, destination)
+        return resolved is not None and resolved not in self.by_document
+
+    def _repository_href(self, item: ParsedDocument, destination: str) -> str | None:
+        """The hosting URL of a repository file, or None without one."""
+
+        resolved = self._repository_path(item, destination)
+        if resolved is None or not self.hosting_url:
+            return None
+        _, _, fragment = destination.partition("#")
+        return _with_fragment(f"{self.hosting_url}/{resolved}", fragment)
+
+    def _repository_path(self, item: ParsedDocument, destination: str) -> str | None:
+        """The repository path a destination names, when the checkout holds it."""
+
+        if destination.startswith("/"):
+            return None
+        target, _, _ = destination.partition("#")
+        target = target.split("?")[0]
+        if not target:
+            return None
+        resolved = _resolve_relative(item.raw.path, target)
+        if not resolved:
+            return None
+        return resolved if (self.repository.root / resolved).exists() else None
 
     def _route(self, kind: str, target: str, collection: Collection) -> str:
         """Where a resolved target lives: the site's route, else the kind's."""

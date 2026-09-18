@@ -418,3 +418,25 @@ def test_the_homework_manifest_states_its_question_shape():
     assert reported["/questions/0/options/0"] == "must be a mapping, found str"
     assert reported["/questions/0/answer_type"].startswith("must be one of any, float")
     assert reported["/questions/0/correct"] == "unknown key: correct"
+
+
+def test_a_cohort_archive_is_a_mapping_carrying_a_notice_path():
+    """Decision D38: `archive` names which file the notice is."""
+
+    from community_base.content_sync.kinds import get_kind
+
+    spec = get_kind("course").parts["cohort"].keys["archive"]
+
+    assert spec.type == "mapping"
+    assert set(spec.item_keys) == {"notice_path"}
+
+
+def test_a_boolean_cohort_archive_is_refused():
+    from community_base.content_sync.kinds import check_item_keys, get_kind
+
+    part = get_kind("course").parts["cohort"]
+    problems = check_item_keys({"delivery": "live", "archive": True}, part)
+
+    assert [problem.pointer for problem in problems if problem.pointer == "/archive"] == [
+        "/archive"
+    ]
