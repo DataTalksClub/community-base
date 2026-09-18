@@ -171,3 +171,32 @@ Three habits, each of which removes a whole class of accident:
   else is executing, so a starved run in a clean worktree can still be caused by a contended one.
   Isolation of state is not isolation of measurement.
 
+## Report observations with their shelf life
+
+When several sessions work the same trees at once, the most common wrong statement is not a
+careless one. It is a confident report about a tree that has since moved, made by someone who
+looked.
+
+Four instances on 2026-09-18, none from carelessness: a dependency list measured on a branch eight
+commits behind main and quoted as current; a session concluding a branch had landed because its
+commit message said "Refs #384"; one session reading a link snapshot that another found absent
+minutes later; and the reverse, a directory reported present that was gone by the next reader. Each
+reporter had checked. No amount of individual care removes this, because it is a property of shared
+mutable state rather than of anyone's rigour.
+
+Two habits make these reports survive contact with a moved tree.
+
+Timestamp the observation and name the tree. "As of 08:23, `.tmp/core-link/` exists" and "measured
+on `d71-rebased`, which is 8 commits behind main" are both still true after the fact, and a reader
+can tell whether they still apply. "The snapshot exists" and "the dependency surface is 12 names"
+silently become false.
+
+Separate the inference from the observation, and flag what it rests on. An observation has a short
+shelf life; the conclusion drawn from it usually sounds permanent. "The sanctioned recovery path is
+unavailable" invites action and outlives its evidence. "If the snapshot is genuinely absent, then
+`unlink` will refuse" says the same thing, is cheap for the next person to re-check, and fails
+safely when the premise has expired.
+
+This applies to what you tell a person as much as to what you tell another session. A conclusion
+handed over without its premise is one the reader cannot re-derive when it stops being true.
+
