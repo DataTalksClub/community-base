@@ -285,6 +285,17 @@ and `curriculum.write`):
 | `DELETE /api/v1/courses/<slug>/certificates/<email>` | Not available: revoke in Studio. |
 | `GET/PUT /api/v1/courses/<slug>/instructors` | Read or atomically replace the ordered instructor list (409 for source-managed courses). |
 
+The published member JSON APIs at `/courses/api/courses/` and
+`/courses/api/courses/<slug>/` include an additive `public_url` field. It is the absolute
+canonical course page URL built from `COMMUNITY_BASE["SITE_URL"]` and `Course.get_absolute_url()`;
+draft or hidden courses return `null`. The existing `cover_image_url`, `discussion_url` and
+certificate URLs keep their existing meanings.
+
+These are Django member-page JSON views, not routes in the versioned `/api/v1/` registry, so
+they are intentionally outside `community_base/api/openapi.json`. This section is their
+canonical response contract; the bearer-authenticated staff curriculum routes remain operational
+APIs and do not receive `public_url`.
+
 ## Domain services
 
 `community_base.curriculum.services` provides enrollment (`ensure_enrollment`, `unenroll`,

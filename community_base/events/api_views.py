@@ -1,11 +1,13 @@
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import ProtectedError
 from django.forms.models import model_to_dict
 from django.http import JsonResponse
+from django.urls import NoReverseMatch
 
 from community_base.api import route
 from community_base.api.errors import APIError
+from community_base.api.public_urls import public_url
 from community_base.api.safety import read_json_object
 from community_base.events.feedback import submit_feedback
 from community_base.events.guest_invitations import invite_guest
@@ -17,6 +19,23 @@ from community_base.events.studio_forms import EventForm, EventSeriesForm, HostF
 
 OBJECT = {"type": "object"}
 COLLECTION = {"type": "object", "properties": {"results": {"type": "array"}}}
+EVENT = {
+    "type": "object",
+    "properties": {
+        "url": {"type": ["string", "null"], "description": "Root-relative canonical URL."},
+        "public_url": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "description": "Absolute canonical public URL, when the event is public.",
+        },
+    },
+}
+EVENT_RESPONSE = {"type": "object", "properties": {"event": EVENT}}
+EVENT_COLLECTION = {
+    "type": "object",
+    "properties": {"results": {"type": "array", "items": EVENT}},
+}
+PUBLIC_EVENT_STATUSES = {"upcoming", "completed"}
 
 
 def _staff(request):
@@ -49,7 +68,17 @@ def _iso(value):
     return value.isoformat() if value is not None else None
 
 
+def _event_public_path(item):
+    if item.status not in PUBLIC_EVENT_STATUSES:
+        return None
+    try:
+        return item.get_absolute_url()
+    except (ImproperlyConfigured, NoReverseMatch):
+        return None
+
+
 def serialize_event(item):
+    relative_url = _event_public_path(item)
     return {
         "id": item.pk,
         "public_id": item.public_id,
@@ -69,7 +98,8 @@ def serialize_event(item):
         "host_ids": list(item.hosts.values_list("pk", flat=True)),
         "recording_url": item.recording_url,
         "materials": item.materials,
-        "url": item.get_absolute_url() if item.status in {"upcoming", "completed"} else None,
+        "url": relative_url,
+        "public_url": public_url(item, is_public=relative_url is not None),
     }
 
 
@@ -156,13 +186,13 @@ def _model_form(request, form_class, *, instance=None):
     return item
 
 
-@route("GET", "events", None, "List events for staff", COLLECTION, authentication="session")
+@route("GET", "events", None, "List events for staff", EVENT_COLLECTION, authentication="session")
 def events_get(request):
     _staff(request)
     return JsonResponse({"results": [serialize_event(item) for item in Event.objects.all()]})
 
 
-@route("POST", "events", None, "Create an event", OBJECT, OBJECT, authentication="session")
+@route("POST", "events", None, "Create an event", EVENT_RESPONSE, OBJECT, authentication="session")
 def events_post(request):
     _staff(request)
     return JsonResponse({"event": serialize_event(_model_form(request, EventForm))}, status=201)
@@ -173,7 +203,7 @@ def events_post(request):
     "events/<int:event_id>",
     None,
     "Read an event for staff",
-    OBJECT,
+    EVENT_RESPONSE,
     authentication="session",
 )
 def event_get(request, event_id):
@@ -186,7 +216,7 @@ def event_get(request, event_id):
     "events/<int:event_id>",
     None,
     "Update an event",
-    OBJECT,
+    EVENT_RESPONSE,
     OBJECT,
     authentication="session",
 )
