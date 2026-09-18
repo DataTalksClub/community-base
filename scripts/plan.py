@@ -165,6 +165,26 @@ def dependency_cycles(issues: list[dict]) -> list[list[str]]:
     return [list(cycle) for cycle in sorted(cycles)]
 
 
+def done_with_unfinished_dependencies(issues: list[dict], status: dict[str, dict]) -> list[str]:
+    """Return one entry per (done issue, unfinished dependency) pair, every one of them.
+
+    `plan.py check` otherwise only verifies that dependency ids resolve and that the
+    graph has no cycles; it never compares statuses across an edge, so a `done` issue
+    can sit on top of a dependency that is still `in-progress`.
+    """
+
+    finished = {"done", "skipped"}
+    violations = []
+    for issue in issues:
+        if status.get(issue["id"], {"status": "todo"})["status"] != "done":
+            continue
+        for dependency in issue["depends"]:
+            dependency_status = status.get(dependency, {"status": "todo"})["status"]
+            if dependency_status not in finished:
+                violations.append(f"{issue['id']} depends on {dependency} ({dependency_status})")
+    return sorted(violations)
+
+
 def cmd_check() -> int:
     issues = load_issues()
     status = load_status()
@@ -177,6 +197,7 @@ def cmd_check() -> int:
         issue_id for issue_id, count in Counter(i["id"] for i in issues).items() if count > 1
     )
     cycles = dependency_cycles(issues)
+    unfinished_dependencies = done_with_unfinished_dependencies(issues, status)
     expected_status = render(issues, status) + "\n"
     generated_drift = STATUS.read_text() != expected_status if STATUS.exists() else True
     problems = 0
@@ -186,6 +207,7 @@ def cmd_check() -> int:
         ("STATUS rows without an issue", extra),
         ("rows with an unknown status", bad),
         ("dependencies that do not exist", dangling),
+        ("done issues with a dependency that is not done or skipped", unfinished_dependencies),
     ):
         if items:
             problems += 1

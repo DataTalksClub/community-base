@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `scripts/plan.py check`: a `done` issue whose dependency is not itself `done` or `skipped` is
+  now reported, every occurrence rather than the first. Previously `check` only verified that
+  dependency ids resolve and that the graph has no cycles, and never compared statuses across an
+  edge, so `D2.2b` could read `done` while its dependency `D2.2a` read `in-progress` and `check`
+  called the graph clean. The repository has exactly this violation today; it is reported by
+  `check` rather than silently fixed by this change.
+
 - C7.18: the kind registry and the reference resolver now implement what decisions D38 and D39
   ruled and `FORMAT.md` already stated. A cohort's `archive` is a mapping with one optional
   `notice_path` defaulting to `README.md`, not a boolean: seventeen real archived cohorts carry the

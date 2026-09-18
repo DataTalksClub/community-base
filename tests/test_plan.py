@@ -121,6 +121,98 @@ Repository: community-base. Depends on: nothing.
     assert "STATUS generated columns drift" in capsys.readouterr().out
 
 
+def test_check_rejects_done_issue_with_unfinished_dependency(monkeypatch, tmp_path, capsys):
+    phase_text = """# Phase 0
+
+## C0.1a First
+
+Repository: community-base. Depends on: nothing.
+
+## C0.1b Second
+
+Repository: community-base. Depends on: C0.1a.
+"""
+    configure_plan(
+        monkeypatch,
+        tmp_path,
+        phase_text,
+        status={
+            "C0.1a": {"status": "in-progress", "link": ""},
+            "C0.1b": {"status": "done", "link": ""},
+        },
+    )
+
+    assert plan.cmd_check() == 1
+    assert (
+        "done issues with a dependency that is not done or skipped: "
+        "C0.1b depends on C0.1a (in-progress)" in capsys.readouterr().out
+    )
+
+
+def test_check_reports_every_done_issue_with_an_unfinished_dependency(
+    monkeypatch, tmp_path, capsys
+):
+    phase_text = """# Phase 0
+
+## C0.1a First
+
+Repository: community-base. Depends on: nothing.
+
+## C0.1b Second
+
+Repository: community-base. Depends on: C0.1a.
+
+## C0.2a Third
+
+Repository: community-base. Depends on: nothing.
+
+## C0.2b Fourth
+
+Repository: community-base. Depends on: C0.2a.
+"""
+    configure_plan(
+        monkeypatch,
+        tmp_path,
+        phase_text,
+        status={
+            "C0.1a": {"status": "in-progress", "link": ""},
+            "C0.1b": {"status": "done", "link": ""},
+            "C0.2a": {"status": "blocked", "link": ""},
+            "C0.2b": {"status": "done", "link": ""},
+        },
+    )
+
+    assert plan.cmd_check() == 1
+    output = capsys.readouterr().out
+    assert "C0.1b depends on C0.1a (in-progress)" in output
+    assert "C0.2b depends on C0.2a (blocked)" in output
+
+
+def test_check_accepts_done_issue_once_its_dependency_is_done(monkeypatch, tmp_path, capsys):
+    phase_text = """# Phase 0
+
+## C0.1a First
+
+Repository: community-base. Depends on: nothing.
+
+## C0.1b Second
+
+Repository: community-base. Depends on: C0.1a.
+"""
+    configure_plan(
+        monkeypatch,
+        tmp_path,
+        phase_text,
+        status={
+            "C0.1a": {"status": "done", "link": ""},
+            "C0.1b": {"status": "done", "link": ""},
+        },
+    )
+
+    assert plan.cmd_check() == 0
+    assert "OK: 2 issues, STATUS.md consistent" in capsys.readouterr().out
+
+
 def test_next_can_select_package_repository(monkeypatch, tmp_path, capsys):
     configure_plan(
         monkeypatch,
