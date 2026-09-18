@@ -179,8 +179,9 @@ A site whose Studio URL module declares `app_name` mounts its routes under a nam
 reverse and resolve as `studio:settings`. Register such a destination with the namespaced
 `url_name`, the spelling `reverse()` takes; a bare `url_name` does not mount and the destination is
 dropped. `route_names` may be written either way: a bare entry is read in the namespace the
-destination's own `url_name` names. A site that mounts Studio without a namespace writes bare names
-throughout and is unaffected.
+destination's own `url_name` names. `section_only_routes` and `routes_without_home` have no
+destination to read a namespace from, so they name a namespaced route in full. A site that mounts
+Studio without a namespace writes bare names throughout and is unaffected.
 
 Run the route partition check after mounting Studio URLs:
 

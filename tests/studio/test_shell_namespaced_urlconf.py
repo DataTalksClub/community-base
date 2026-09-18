@@ -21,6 +21,7 @@ from community_base.studio.registry import (
     mounted_sections,
     register,
     route_name_for,
+    section_only_routes,
 )
 from community_base.studio.route_checks import route_claims
 from community_base.studio.route_names import urlconf_route_names
@@ -181,6 +182,18 @@ def test_a_bare_url_name_is_not_live_on_a_namespaced_mount(namespaced_site):
     register_site_section(url_name="settings", route_names=("settings",))
 
     assert [item.key for item in site_section().destinations] == ["api_docs"]
+
+
+def test_a_section_only_route_names_its_namespace_in_full(namespaced_site):
+    """`section_only_routes` has no destination to read a namespace from."""
+
+    register_site_section(url_name="studio:settings", route_names=("studio:settings",))
+    section_only_routes["studio:audit-list"] = "site719"
+
+    state = active_state(shell_request("/studio/audit/"))
+
+    assert state["active_section"] == "site719"
+    assert state["active_destination"] == ""
 
 
 @pytest.mark.parametrize(
