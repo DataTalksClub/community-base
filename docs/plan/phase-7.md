@@ -1741,8 +1741,14 @@ Steps
    {% block extra_scripts %}{% block extra_js %}{% endblock %}{% endblock %}
    ```
 
-2. Bump the `community-base` pin to the release carrying C7.25 in the same pull request.
-3. Consider retiring the three forked knowledge-base templates in `templates/knowledge_base/`,
+2. Register `templates/community_base/public/base.html` in `FRAME_DELEGATED_TO_INCLUDE` in
+   `content/tests/test_container_widths.py`. That test scans the site's own `templates/` tree and
+   requires an `mx-auto max-w-*` page container; the seam is a three-line block map with no markup
+   at all, so it fails the contract as an unregistered page. This was measured, not predicted: with
+   the seam added and the package linked, it is the only failure in a 17134-test run that the
+   site's pinned baseline does not have.
+3. Bump the `community-base` pin to the release carrying C7.25 in the same pull request.
+4. Consider retiring the three forked knowledge-base templates in `templates/knowledge_base/`,
    which exist only to rename `content` to `body`. Keep any that carry real site content.
 
 Verification
