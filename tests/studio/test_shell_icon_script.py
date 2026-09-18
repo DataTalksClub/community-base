@@ -2,6 +2,7 @@
 
 import hashlib
 import re
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -67,22 +68,40 @@ def test_the_vendored_file_records_where_it_came_from():
     assert (VENDOR_DIR / "lucide-LICENSE.txt").exists()
 
 
+def tracked_package_files():
+    """Every file git tracks under `community_base/`, so local build output is out of scope."""
+    listing = subprocess.run(
+        ["git", "ls-files", "-z", "--", "community_base"],
+        cwd=PACKAGE_ROOT.parent,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [PACKAGE_ROOT.parent / name for name in listing.stdout.split("\0") if name]
+
+
 def test_no_third_party_script_host_is_left_anywhere_in_the_package():
-    # `unpkg.com/lucide@latest` executed whatever unpkg served that day on a staff surface, and
-    # a `script-src 'self'` site blocked it outright. Neither may come back by copy-paste.
+    # `unpkg.com/lucide@latest` executed whatever unpkg served that day on a staff surface, and a
+    # `script-src 'self'` site blocked it outright. Neither may come back by copy-paste.
     offenders = []
-    for path in PACKAGE_ROOT.rglob("*"):
-        if not path.is_file():
-            continue
+    for path in tracked_package_files():
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
         for number, line in enumerate(text.splitlines(), start=1):
             if "unpkg" in line or re.search(r"@latest\b", line):
-                offenders.append(f"{path.relative_to(PACKAGE_ROOT)}:{number}: {line.strip()}")
+                where = path.relative_to(PACKAGE_ROOT.parent)
+                offenders.append(f"{where}:{number}: {line.strip()}")
 
     assert offenders == []
+
+
+def test_the_vendored_bundle_is_tracked_so_it_ships_in_the_wheel():
+    tracked = {path.name for path in tracked_package_files()}
+
+    assert "lucide.min.js" in tracked
+    assert "lucide-LICENSE.txt" in tracked
 
 
 def test_the_shell_serves_no_cross_origin_script_or_stylesheet():
