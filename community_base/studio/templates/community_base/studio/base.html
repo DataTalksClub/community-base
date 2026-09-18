@@ -18,7 +18,7 @@
   {% for stylesheet in studio_extra_stylesheets %}
   <link rel="stylesheet" href="{% static stylesheet %}">
   {% endfor %}
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  {% block studio_icon_script %}<script src="{% static 'community_base/vendor/lucide.min.js' %}"></script>{% endblock %}
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-background text-foreground">
