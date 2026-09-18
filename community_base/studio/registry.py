@@ -2,10 +2,16 @@
 
 from dataclasses import dataclass, field
 
-from django.urls import NoReverseMatch, Resolver404, resolve, reverse
+from django.urls import NoReverseMatch, Resolver404, resolve
 
 from community_base.kernel import conf
-from community_base.studio.route_names import urlconf_route_names
+from community_base.studio.route_names import (
+    qualify,
+    studio_namespace,
+    studio_reverse,
+    unqualify,
+    urlconf_route_names,
+)
 
 
 @dataclass(frozen=True)
@@ -68,24 +74,40 @@ def _iter_destinations(section: Section):
         yield from group.destinations
 
 
-def destination_route_names(destination: Destination) -> tuple[str, ...]:
+def destination_namespace(destination: Destination, studio_ns: str | None = None) -> str:
+    """The namespace a destination's bare route names are read in.
+
+    A destination that points at a namespaced route says which namespace in its
+    own ``url_name``: DataTalks.Club registers ``studio:settings``, so its bare
+    ``settings`` means ``studio:settings`` and never a same-named route
+    elsewhere. A package destination writes its names bare, so it is read in the
+    namespace the site mounted the package's Studio URLs under, which is empty
+    on a site that mounts them without one.
+    """
+
+    own = destination.url_name.rpartition(":")[0]
+    if own:
+        return own
+    return studio_namespace() if studio_ns is None else studio_ns
+
+
+def destination_route_names(
+    destination: Destination, *, studio_ns: str | None = None
+) -> tuple[str, ...]:
     """Return a destination's route names in the spelling routes resolve under.
 
     A Studio URLconf that declares ``app_name`` is mounted under a namespace, so
-    its routes reverse and resolve as ``studio:audit-detail``. ``url_name`` must
-    carry that namespace, since ``reverse()`` needs it. ``route_names`` may be
-    written either way: an entry that already names a namespace is left alone, a
-    bare entry is read in the namespace the destination's own ``url_name`` names.
-    A registration written before its mount gained a namespace therefore keeps
-    highlighting the right link, and a bare entry can never match a same-named
-    route in some other namespace. Without a namespace this returns the tuple
-    unchanged.
+    its routes reverse and resolve as ``studio:audit-detail``. ``route_names``
+    may be written either way: an entry that already names a namespace is left
+    alone, a bare entry is read in the destination's namespace. A registration
+    written before its mount gained a namespace therefore keeps highlighting the
+    right link. Without a namespace this returns the tuple unchanged.
     """
 
-    namespace = destination.url_name.rpartition(":")[0]
+    namespace = destination_namespace(destination, studio_ns)
     if not namespace:
         return destination.route_names
-    return tuple(name if ":" in name else f"{namespace}:{name}" for name in destination.route_names)
+    return tuple(qualify(name, namespace) for name in destination.route_names)
 
 
 def register(section: Section) -> Section:
@@ -177,26 +199,34 @@ def sections() -> tuple[Section, ...]:
     return tuple(ordered)
 
 
-def _is_live(destination, mounted: set[str]) -> bool:
+def _is_live(destination, mounted: set[str], studio_ns: str | None = None) -> bool:
     """Whether a destination is reachable on this site.
 
     A destination whose link is an ``external_url`` has no route to mount, so it
     is always live: it points off the URLconf by design (C7.14) and claims no
-    route name. Every other destination is live when its home route is mounted.
+    route name. Every other destination is live when its home route is mounted,
+    under the name it was registered with or under the namespace the site
+    mounted the package's Studio URLs in.
     """
 
     if getattr(destination, "external_url", ""):
         return True
-    return destination.url_name in mounted
+    if destination.url_name in mounted:
+        return True
+    return qualify(destination.url_name, destination_namespace(destination, studio_ns)) in mounted
 
 
-def _mounted_section(section: Section, mounted: set[str]) -> Section:
+def _mounted_section(section: Section, mounted: set[str], studio_ns: str = "") -> Section:
     """Rebuild one section from the destinations whose home route is mounted."""
 
-    destinations = tuple(item for item in section.destinations if _is_live(item, mounted))
+    destinations = tuple(
+        item for item in section.destinations if _is_live(item, mounted, studio_ns)
+    )
     groups = []
     for group in section.groups:
-        group_destinations = tuple(item for item in group.destinations if _is_live(item, mounted))
+        group_destinations = tuple(
+            item for item in group.destinations if _is_live(item, mounted, studio_ns)
+        )
         if group_destinations:
             groups.append(
                 DestinationGroup(
@@ -227,9 +257,10 @@ def mounted_sections(*, resolver=None) -> tuple[Section, ...]:
     """
 
     mounted = urlconf_route_names(resolver=resolver)
+    studio_ns = studio_namespace(resolver=resolver)
     live = []
     for section in sections():
-        restricted = _mounted_section(section, mounted)
+        restricted = _mounted_section(section, mounted, studio_ns)
         registered_anything = bool(section.destinations or section.groups)
         kept_anything = bool(restricted.destinations or restricted.groups)
         if kept_anything or not registered_anything:
@@ -327,7 +358,7 @@ def _destination_url(destination: Destination) -> str:
     if not destination.url_name:
         return ""
     try:
-        return reverse(destination.url_name)
+        return studio_reverse(destination.url_name)
     except NoReverseMatch:
         return ""
 
@@ -342,11 +373,25 @@ def _visible(destination: Destination, is_superuser: bool) -> bool:
     return True
 
 
+def _section_only_owner(route_name: str, studio_ns: str) -> str:
+    """The section a route owns without claiming a destination, either spelling.
+
+    ``section_only_routes`` is written by the app that registers the section, so
+    a package entry is bare while the route resolves namespaced on a site that
+    mounts the package's Studio URLs under a namespace.
+    """
+
+    if route_name in section_only_routes:
+        return section_only_routes[route_name]
+    return section_only_routes.get(unqualify(route_name, studio_ns), "")
+
+
 def active_state(request) -> dict:
     """Build render-ready sections and active state from the resolved route."""
 
     route_name = route_name_for(request)
-    active_section = section_only_routes.get(route_name, "")
+    studio_ns = studio_namespace()
+    active_section = _section_only_owner(route_name, studio_ns)
     active_destination = ""
     rendered_sections = []
     is_superuser = bool(getattr(getattr(request, "user", None), "is_superuser", False))
@@ -356,7 +401,7 @@ def active_state(request) -> dict:
         for destination in section.destinations:
             if not _visible(destination, is_superuser):
                 continue
-            is_active = route_name in destination_route_names(destination)
+            is_active = route_name in destination_route_names(destination, studio_ns=studio_ns)
             if is_active:
                 active_section = section.slug
                 active_destination = destination.key
@@ -371,7 +416,7 @@ def active_state(request) -> dict:
             for destination in group.destinations:
                 if not _visible(destination, is_superuser):
                     continue
-                is_active = route_name in destination_route_names(destination)
+                is_active = route_name in destination_route_names(destination, studio_ns=studio_ns)
                 if is_active:
                     active_section = section.slug
                     active_destination = destination.key
