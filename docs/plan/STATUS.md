@@ -163,7 +163,7 @@ issues that can start now.
 
 | Issue | Repository | Title | Depends on | Freeze | Status | Link |
 |---|---|---|---|---|---|---|
-| `C7.1` | community-base | Site convergence umbrella |  | no | todo | https://github.com/DataTalksClub/community-base/issues/258 |
+| `C7.1` | community-base | Site convergence umbrella |  | no | done | https://github.com/DataTalksClub/community-base/issues/258 — both conditions met. No row is undecided: the last four were settled by D19 to D22 and D29, with deferred recorded as a decided state. Every accepted row names a done issue. Rows that remain open work, C7.12 for the conversion and D7.1 for the DTC adoption, do not hold the umbrella: it owns the table, not the code |
 | `C7.2` | community-base | Shared knowledge base app: wiki and docs | C2.4 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.4.1 |
 | `D7.1` | DataTalksClub/website | DTC wiki and docs onto the shared app | C7.2, C7.4 | no | in-progress | https://github.com/DataTalksClub/website/issues/406 — rebased and repinned to v0.5.0 as `d7.1-rebased` (63b8abfd), suite absolutely green at 4385 tests OK. Route and sitemap contracts pass unchanged with the pinned inventories byte-identical. v0.5.0 broke two things it had to fix: C7.9c's source_content_id change made every docs and wiki read return zero rows, and C7.8's Unit.body_html_source was new mapping drift |
 | `A7.1` | AI-Shipping-Labs/website | AISL gains wiki and docs | C7.2 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1685#issuecomment-5704258072 (merged as website ac9a7ea3; Deploy Dev 35144001433 green; wiki and nested docs pages 200 on dev, pages in the sitemap) |
