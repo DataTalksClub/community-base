@@ -329,6 +329,28 @@ Repository: community-base. Depends on: nothing.
     assert "OK: 1 issues, STATUS.md consistent" in capsys.readouterr().out
 
 
+def test_check_accepts_a_decision_that_lands_in_a_site_tracker(monkeypatch, tmp_path, capsys):
+    # A decision can land somewhere this plan does not track: D35 governs credentials in a site's
+    # own production database. Writing `none` for one of those would say it lands nothing, which
+    # is false, so `site-owned` is a third value and the site's issue is named for a reader.
+    phase_text = """# Phase 0
+
+## C0.1 First
+
+Repository: community-base. Depends on: nothing.
+"""
+    decisions_text = (
+        "# Decisions\n\n"
+        "| # | Decision | Consequence for the plan |\n"
+        "|---|---|---|\n"
+        "| D1 | A rule the site owns. | Lands in: site-owned, AI-Shipping-Labs/website#1656. |\n"
+    )
+    configure_plan(monkeypatch, tmp_path, phase_text, decisions_text=decisions_text)
+
+    assert plan.cmd_check() == 0
+    assert "OK: 1 issues, STATUS.md consistent" in capsys.readouterr().out
+
+
 def test_check_ignores_a_decision_with_no_lands_in_field(monkeypatch, tmp_path, capsys):
     phase_text = """# Phase 0
 

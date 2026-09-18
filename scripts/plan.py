@@ -239,7 +239,11 @@ def decisions_landing_on_unknown_issues(decisions: list[dict], issue_ids: set[st
     """Return one entry per decision whose `Lands in:` field names an issue that does not exist.
 
     Not every decision implies an issue (D21 rules that article storage stays site-owned and
-    lands nothing), so a blunt "every decision must name an issue" rule would be noise. This only
+    lands nothing), so a blunt "every decision must name an issue" rule would be noise. A decision
+    can also land somewhere this plan does not track: D35 governs credentials in a site's own
+    production database and belongs to that site's tracker. Writing `Lands in: none.` for one of
+    those would say it lands nothing, which is false, so `site-owned` is a third value and the
+    site's own issue is named after it for a reader rather than for the checker. This only
     checks decisions that opt into the `Lands in:` convention documented in
     `docs/01-decisions.md`; a decision with no such field is left alone. D34, D38 and D39 were
     written into that file and carried nowhere else, so `FORMAT.md` still contradicted them the
@@ -253,7 +257,7 @@ def decisions_landing_on_unknown_issues(decisions: list[dict], issue_ids: set[st
         if not m:
             continue
         value = m.group(1).strip()
-        if value.lower() == "none":
+        if value.lower() == "none" or value.lower().startswith("site-owned"):
             continue
         for issue_id in ID_RE.findall(value):
             if issue_id not in issue_ids:

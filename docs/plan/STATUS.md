@@ -197,3 +197,5 @@ issues that can start now.
 | `C7.19` | community-base | Studio registration works on a namespaced URLconf | C7.13 | no | in-progress | branch `c7.19-studio-namespaced-urlconf`. A v0.5.0 regression from C7.13: none of DTC's 26 namespaced Studio routes is found in the mounted set, so every registered destination is dropped |
 | `C7.20` | community-base | Studio shell: extension points instead of a fork | C7.15 | no | in-progress | branch `c7.20-studio-shell-extension-points` |
 | `C7.21` | community-base | Release 0.5.1 | C7.19, C7.20 | no | todo | blocks D2.1a. Carries the #279 content-block fix and its E001 check, C7.17's headerless-landing fallthrough, C7.19 and C7.20, all of which are stranded on package main because both sites accept only a `vX.Y.Z` tag |
+| `C7.22` | community-base | Audit the package for assumptions only AI-Shipping-Labs satisfies | C7.19 | no | in-progress | branch `c7.22-adoption-assumption-audit` |
+| `C7.23` | community-base | D37: the null media backend returns a site-absolute URL |  | no | done | landed on main as f5c35af. Filed after the fact so D37 has a landing issue to name |

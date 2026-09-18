@@ -1576,3 +1576,57 @@ Steps
 
 Done when
 - [ ] the tag exists, the cross-repository check is green against it, and D2.1a can pin it
+
+## C7.22 Audit the package for assumptions only AI-Shipping-Labs satisfies
+
+Repository: community-base. Depends on: C7.19. Freeze required: no.
+
+Goal: find the rest of the class of defect C7.19 belongs to, before a second site pays for each one
+separately.
+
+The package has had exactly one adopting site, so every behaviour that happens to match how
+AI-Shipping-Labs is configured is untested against any other shape, and the package's own suite
+cannot see the gap because its test settings were written alongside that site. C7.19 is the
+archetype: DataTalksClub declares `app_name` on its Studio URLconf, AI-Shipping-Labs does not, and
+the two halves of the package disagreed with each other for every namespaced route without raising
+anything. C7.20 is two more of the same shape.
+
+Steps
+1. Enumerate from the package: every place it reads something about the site and would behave
+   differently, or silently do nothing, depending on the answer. URL and route-name handling,
+   template block and override contracts, static asset assumptions, settings read through
+   `conf` and what a missing or differently-shaped value does, the access policy and authorizer
+   hooks, app-label and table assumptions, anything enumerating `_meta.get_fields()`,
+   `INSTALLED_APPS` or the URLconf, anything comparing a name or key by string equality.
+2. Enumerate from the other site: where DataTalksClub's real configuration differs in a way the
+   package touches.
+3. Classify every candidate by evidence. Reproduced, or clearly dependent but not reproduced, or
+   checked and fine. The cleared list is what makes the audit worth trusting.
+
+This issue fixes nothing except by adding tests. Each finding that needs a fix gets its own issue;
+a branch that fixes everything at once is unreviewable.
+
+Done when
+- [ ] the audit is in `docs/plan/evidence/`, ranked with silent wrong behaviour above loud errors
+- [ ] every shape confirmed handled is pinned by a test that would fail if it regressed
+- [ ] the audit says where it stopped
+
+## C7.23 D37: the null media backend returns a site-absolute URL
+
+Repository: community-base. Depends on: nothing. Freeze required: no. Decision D37.
+
+Goal: the default media backend produces a URL the renderer keeps.
+
+`NullMediaStore` returned the repository path as the URL, while the sanitiser admits an `img src`
+only when it is site-absolute or an absolute `http(s)` URL. Every site on the default backend
+therefore stored synced images with a source the renderer then dropped, and nothing said so until
+someone looked at a page. Filed after the fact so the decision has a landing issue: D37 was ruled
+and implemented in the same session, which is the opposite failure from D34, D38 and D39, and it
+left the decision with nowhere to point.
+
+Steps
+1. Return the repository path under `CONTENT_SYNC_NULL_MEDIA_URL_PREFIX`, percent-quoted.
+2. Refuse a path that escapes the checkout rather than producing a URL for it.
+
+Done when
+- [ ] a behaviour change to a default ships with its own test and a CHANGELOG line
