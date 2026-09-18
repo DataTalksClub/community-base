@@ -438,6 +438,18 @@ branch, not just this package's own tests (AGENTS.md, "After changing this packa
 diff of site files, and a package-only change leaves the site checkout undiffed. Run each site's
 full suite.
 
+Run it in a disposable checkout, never in the real one. Clone or `git worktree add` a throwaway
+copy of the site, link there, run, and discard it. Linking the real checkout repoints that site's
+dependency from its pinned tag to a local editable install, and every local run in it from then on
+measures unreleased package code rather than what the site ships -- silently, and for everyone else
+using that checkout. It is also one `git add -A` from being committed, and the path source does not
+exist on a build machine.
+
+This is worth stating explicitly rather than leaving implied, because it has already happened here.
+The instruction that caused it was "run the AI-Shipping-Labs suite per playbook P16", which reads
+as complete and is not: it says what to run and omits where. An agent that goes off-script is
+visible; one that follows an underspecified brief is not, so the brief is where the fix belongs.
+
 Three failures are artefacts of this procedure rather than findings, and every run will meet them.
 Classify them before reporting anything, or a clean package change reads as a regression.
 

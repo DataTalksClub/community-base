@@ -1,6 +1,6 @@
 from community_base.events.models import EventRegistration
 from community_base.events.tokens import generate_registration_token
-from community_base.kernel.conf import get
+from community_base.kernel.conf import require
 
 
 def resolve_delivery_context(*, delivery, context):
@@ -12,8 +12,8 @@ def resolve_delivery_context(*, delivery, context):
     registration = EventRegistration.objects.filter(pk=registration_id).first()
     if registration is None or registration.version != registration_version:
         raise ValueError("Event registration mail context is stale.")
-    site_url = get("SITE_URL").rstrip("/")
     if delivery.purpose == "events.verify_registration":
+        site_url = require("SITE_URL").rstrip("/")
         token = generate_registration_token(
             registration,
             action="verify",
@@ -22,6 +22,7 @@ def resolve_delivery_context(*, delivery, context):
         )
         resolved["verify_url"] = f"{site_url}/events/registration/verify/?token={token}"
     elif delivery.purpose in {"events.registration_confirmed", "events.guest_invitation"}:
+        site_url = require("SITE_URL").rstrip("/")
         token = generate_registration_token(
             registration,
             action="manage",

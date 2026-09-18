@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.5.3
+
+- C7.29: ship the upstream source map referenced by the pinned Lucide Studio bundle so consumer
+  deployments can run WhiteNoise `collectstatic` successfully.
+
+## 0.5.2
+
+- C7.28: add the additive absolute `public_url` field to shared event and published curriculum
+  course API representations, sourced from the configured canonical site origin.
+
 ## 0.5.1
 
 Cut so the two sites can consume fixes that were stranded on `main`. Both sites' source check

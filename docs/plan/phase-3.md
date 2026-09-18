@@ -328,6 +328,25 @@ Verification
 
 Repository: AI-Shipping-Labs/website. Depends on: C5.3, C3.7, A3.2. Freeze required: yes. Playbook P4 for each app, P13.
 
+Prerequisite found on 2026-09-18, before it could be discovered at delivery time: this site sets no
+`SITE_URL` in its `COMMUNITY_BASE` dict, and C7.27 makes the package raise `ImproperlyConfigured`
+rather than silently build a relative link when a mail purpose needs one. That raise is unreachable
+today only because this site installs none of `community_base.accounts`, `.events` or `.curriculum`,
+and routes mail through its own `MAIL_CONTEXT_RESOLVER` that builds URLs from
+`integrations.config.site_base_url`. The moment the package apps are installed and the package
+resolver builds those links, the six package purposes need a real `SITE_URL` or their deliveries
+raise. That is the fix working as designed, not a regression.
+
+Where the setting stands, stated with its shelf life because it is uncommitted. As of 2026-09-18
+06:40Z, `SITE_URL` is absent at that site's `HEAD` and present in its working tree, added as part of
+the in-flight C7.28 work and aligned with the site's own `SITE_BASE_URL` rather than derived from
+the request host -- which is the right choice, since a request host can be spoofed and these URLs go
+into mail. So this prerequisite is likely to be satisfied before either issue starts, but it now
+rides on C7.28 surviving review rather than on someone remembering it at freeze weekend. Verify
+`SITE_URL` is present at `HEAD` when the issue starts rather than assuming it; an uncommitted line
+can change shape or disappear. If it is there, this prerequisite is met and needs no separate
+change. Tracked on AI-Shipping-Labs/website#1693 and #1695.
+
 Steps
 1. Delete local `accounts` (keep `accounts_ext` if created), `questionnaires`, `community`,
    `notifications`, `comments`, `voting`; install the package apps; pin `v0.6.0`.

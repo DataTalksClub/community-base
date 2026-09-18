@@ -59,6 +59,13 @@ def test_the_vendored_build_exposes_the_api_the_shell_calls():
     assert "global.lucide" in source or "a.lucide" in source or ".lucide={}" in source
 
 
+def test_the_vendored_bundle_source_map_is_shipped():
+    source = LUCIDE.read_text(encoding="utf-8")
+
+    assert "sourceMappingURL=lucide.min.js.map" in source
+    assert (VENDOR_DIR / "lucide.min.js.map").exists()
+
+
 def test_the_vendored_file_records_where_it_came_from():
     note = (VENDOR_DIR / "README.txt").read_text(encoding="utf-8")
 
@@ -66,6 +73,7 @@ def test_the_vendored_file_records_where_it_came_from():
     assert "registry.npmjs.org/lucide" in note
     assert LUCIDE_SHA256 in note
     assert (VENDOR_DIR / "lucide-LICENSE.txt").exists()
+    assert (VENDOR_DIR / "lucide.min.js.map").exists()
 
 
 def tracked_package_files():
@@ -101,6 +109,7 @@ def test_the_vendored_bundle_is_tracked_so_it_ships_in_the_wheel():
     tracked = {path.name for path in tracked_package_files()}
 
     assert "lucide.min.js" in tracked
+    assert "lucide.min.js.map" in tracked
     assert "lucide-LICENSE.txt" in tracked
 
 

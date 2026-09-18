@@ -120,9 +120,10 @@ DTC side, how to keep that allowance if it still needs it.
 | `RELAY_API_KEY` | `str` | `""` |
 | `RELAY_BASE_URL` | `str` | `""` |
 | `RELAY_WEBHOOK_SECRET` | `str` | `""` |
-| `SITE_URL` | absolute URL | `""` |
+| `SITE_URL` | absolute URL, required at first use once a purpose needs it | `""` |
 | `STUDIO_TITLE` | `str` | `"Community Studio"` |
 | `STUDIO_AUDIT_WRITER` | dotted path or callable | `"community_base.studio.audit.discard_audit_event"` |
+| `STUDIO_EXTRA_CSS` | `str`, or a list/tuple of `str` | `()` |
 | `USER_TAGS_ACCESSOR` | dotted path or accessor object | `"community_base.studio.user_tags.AttributeTagsAccessor"` |
 
 Site settings override only the keys they need:
@@ -164,3 +165,66 @@ reports what is missing, because Django drops the content of an undefined block 
 `community_base.kernel.E001` (a missing `content`) is an error; the other four are warnings;
 `community_base.kernel.E002` means the chain could not be read at all. The reasoning is in
 `docs/plan/evidence/c7.25-block-contract-decision-2026-09-18.md`.
+
+## Settings that must not degrade silently
+
+The package has had exactly one adopting site, and a setting shape that only happens to match
+that site's configuration is untested against any other legal shape (issue C7.22). Three
+instances of this reached `main` before being fixed by C7.27: an empty `SITE_URL` silently turned
+outbound mail links relative instead of failing the send; `STUDIO_EXTRA_CSS` set to a single
+string iterated as fifteen characters instead of one stylesheet; and a raw
+`"community_base.events" in INSTALLED_APPS` membership test silently failed to recognise the
+AppConfig-path spelling Django accepts everywhere. All three were true "it works here" bugs: fine
+on AI-Shipping-Labs' actual settings, wrong (silently, in two of the three cases) on any other
+legal Django configuration. The rules below are what the fix settled on, so the next setting a
+module reads leans the same way instead of adding a fourth instance.
+
+An empty or missing value: raise, at first use, not at import or `ready()` time. If a feature
+cannot do its job without a value, calling it with an empty one is a bug in the site's
+configuration, not a degraded mode the package should quietly accept: a relative link in an
+email is not a smaller version of the feature, it is a broken one. Raise where the value is about
+to be used, inside the branch that needs it, not once for the whole enclosing function: a
+resolver, view or job handler that serves several purposes only some of which need the setting
+must not fail the ones that do not. `community_base.kernel.conf.require(name)` is `get(name)`
+plus this check, for exactly that call site.
+
+Raising at first use rather than at startup matters for a site mid-adoption: `python manage.py
+check`, migrations, and every other purpose the package serves keep working without the setting,
+and a site that never triggers the one purpose that needs it (an events subsystem it does not
+use, a password-reset flow replaced by SSO) is never affected by never having configured it. This
+is also why the fix could not be "add a Django system check that requires `SITE_URL`": that would
+force every site to set it, including ones with no present use for it, the opposite of the rule.
+A site that sends the mail purposes needing `SITE_URL` (`accounts.verify_email`,
+`accounts.password_reset`, `accounts.email_change_confirm`, `events.verify_registration`,
+`events.registration_confirmed`, `events.guest_invitation`; also required already, unrelated to
+this issue, by `events/integrations/calendar.py`, `jobs/relay.py`, `jobs/relay_scheduling.py`)
+must configure it or those specific sends fail loudly, logged and retried by the job runner like
+any other handler error, rather than delivering a mail nobody can act on.
+
+A value whose shape can vary: accept the string shape a site would reasonably reach for, do not
+iterate blind. A Python `str` is itself a sequence, so a setting typed as "a list of paths" or "a
+list of channel ids" silently accepts a single string too, walks its characters, and produces a
+result of the right type and the wrong content, no exception anywhere: `STUDIO_EXTRA_CSS =
+"site/studio.css"` iterated into fifteen one-character stylesheet links. Where the natural site
+config for the common one-item case is a bare string, accept it explicitly (wrap it as the single
+item) rather than let it fall into the iteration meant for the multi-item case; refuse (raise)
+any other shape rather than iterate it on faith.
+
+`community_base.community.services._channel_ids` already does this for
+`SLACK_COMMUNITY_CHANNEL_IDS` (splits a string on commas); `studio_filters.studio_extra_css` now
+does it for `STUDIO_EXTRA_CSS` (wraps a string as one item, since one stylesheet path has no
+natural comma-list reading). `CONTENT_SOURCES` was already fine: it requires a `list` outright and
+raises `CommandError` on anything else, so a string was already refused rather than iterated.
+Grep for a bare `for ... in get(...)` or a bare `*get(...)` unpacking before adding a new
+sequence-shaped setting; `content_sync.rendering.markdown_extensions`'s `*configured` spread over
+`MARKDOWN_EXTENSIONS` has the same shape and was not confirmed by the C7.22 audit (`content_sync`
+rendering was out of its scope), so it is not fixed here, only flagged.
+
+A value that names another app: use `django.apps.apps.is_installed(app_name)`, never a
+membership test against `settings.INSTALLED_APPS` strings. Django accepts both the plain module
+path (`"community_base.events"`) and the AppConfig dotted path
+(`"community_base.events.apps.EventsConfig"`) in `INSTALLED_APPS`, resolves both to the same
+`AppConfig.name`, and a site is free to use either everywhere Django itself accepts an app entry.
+`apps.is_installed()` already handles both; a raw `in` test against the configured list only
+recognises the spelling the check happened to be written against. Nine call sites already did
+this correctly before C7.27; `community_base/curriculum/apps.py` was the only one that did not.

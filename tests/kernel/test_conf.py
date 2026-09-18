@@ -4,7 +4,7 @@ import sys
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from community_base.kernel.conf import DEFAULTS, get
+from community_base.kernel.conf import DEFAULTS, get, require
 
 
 def test_settings_override_defaults(settings):
@@ -23,6 +23,26 @@ def test_missing_dictionary_uses_defaults(settings):
     del settings.COMMUNITY_BASE
 
     assert get("SITE_KEY") == DEFAULTS["SITE_KEY"]
+
+
+def test_require_returns_a_configured_value(settings):
+    settings.COMMUNITY_BASE = {"SITE_URL": "https://example.test"}
+
+    assert require("SITE_URL") == "https://example.test"
+
+
+def test_require_raises_on_the_default_empty_value(settings):
+    del settings.COMMUNITY_BASE
+
+    with pytest.raises(ImproperlyConfigured, match="SITE_URL"):
+        require("SITE_URL")
+
+
+def test_require_raises_on_an_explicitly_empty_value(settings):
+    settings.COMMUNITY_BASE = {"SITE_URL": ""}
+
+    with pytest.raises(ImproperlyConfigured, match="SITE_URL"):
+        require("SITE_URL")
 
 
 def test_defaults_work_without_configured_django_settings():

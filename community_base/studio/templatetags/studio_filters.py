@@ -2,6 +2,7 @@
 
 from django import template
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
 from django.template.defaultfilters import date as django_date
 from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
@@ -197,9 +198,23 @@ def studio_title():
 
 @register.simple_tag
 def studio_extra_css():
-    """Return the site extension stylesheets the shell loads after its own."""
+    """Return the site extension stylesheets the shell loads after its own.
 
-    return tuple(get("STUDIO_EXTRA_CSS") or ())
+    A `str` is accepted as one path, not iterated: iterating a string walks its
+    characters instead of raising, which is how a site setting one stylesheet as
+    `"site/studio.css"` silently got 15 one-character `<link>` tags. Anything that is
+    not a `str`, `list` or `tuple` is refused rather than iterated blind, since the
+    consequence of guessing wrong here is a broken Studio shell on every page.
+    """
+
+    value = get("STUDIO_EXTRA_CSS") or ()
+    if isinstance(value, str):
+        return (value,)
+    if isinstance(value, (list, tuple)):
+        return tuple(value)
+    raise ImproperlyConfigured(
+        "COMMUNITY_BASE['STUDIO_EXTRA_CSS'] must be a string or a list/tuple of strings."
+    )
 
 
 @register.inclusion_tag(
