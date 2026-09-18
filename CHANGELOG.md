@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- C7.12: the content format gains the three decisions that were outstanding against it, and the
+  package gains the one-off conversion of the sixteen content repositories. D34 removes the cohort
+  `title` default that section 3.3 made unreachable, so a cohort manifest carries `title` and the
+  conversion writes it. D38 types a cohort's `archive` as a mapping with an optional `notice_path`
+  rather than a boolean: seventeen real archived cohorts carry one and two point at a leaderboard
+  rather than a README, so a boolean discarded which file the notice is. D39 adds the fourth
+  reference destination of section 3.7, a repository file that is not content: a relative
+  destination the checkout holds and no collection claims resolves to the source's hosting URL, is
+  not uploaded and is not recorded as a reference, while a destination the checkout does not hold
+  stays an error; `resolve_repository` takes `hosting_url` and the knowledge-base parser passes the
+  source's GitHub repository at the synced commit. Real lesson bodies link to `code/`, to `.py` and
+  `.ipynb` files and to sibling cohort directories, and every one of them failed before this. A
+  directory whose every file `ignore` hides is now invisible rather than an empty node, which is
+  what section 3.1 already said and what a course repository's archived cohort and tool directories
+  need; a declared collection path stays the exception, so an empty collection is empty rather than
+  missing. `community_base/content_sync/convert/` holds the two conversion scripts, one for course
+  repositories and one for document collections. Both are idempotent, both refuse rather than guess,
+  and both write a per-file inventory taken before and after that refuses to call a run a success
+  while one path is unaccounted for; every key a rewrite stops writing is printed with the value it
+  held, and a key the format cannot express is moved under `extra` rather than dropped. The
+  directory is deleted once the last conversion merges, which is `D7.4` step 9 (refs #253).
 - C7.17: a Studio landing page above `STUDIO_NAV_COLLAPSE_THRESHOLD` no longer opens on a sidebar
   of closed headers. The active section is the headerless built-in `home` section there, which has
   no header of its own to expand server-side, so every titled section rendered collapsed; the

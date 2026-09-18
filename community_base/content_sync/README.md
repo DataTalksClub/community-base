@@ -248,6 +248,40 @@ The module form knows the package kinds only; pass `--kinds <dotted.module>` (re
 a module that registers a site kind. The management command needs no flag, because the site's apps
 have already registered them.
 
+## Converting a repository, once
+
+`community_base/content_sync/convert/` holds the one-off conversion of the sixteen content
+repositories to this format (issue `C7.12`). It is temporary: the package deletes it once the last
+conversion merges, which is `D7.4` step 9. Nothing in the package imports it.
+
+```text
+uv run python -m community_base.content_sync.convert.courses <path> [--dry-run]
+uv run python -m community_base.content_sync.convert.documents <path> --profile <name> [--dry-run]
+```
+
+`courses.py` converts a course repository: `content.yaml` with the `ignore` list that names every
+directory of the repository that is not content, `course.yaml` flattened, a `module.yaml` emptied of
+its `units:` list with each unit's identity and title pushed into the unit file, the cohort `title`
+that decision D34 makes required, and each homework binding made relative to its cohort directory.
+`documents.py` converts a Jekyll-shaped document collection under a per-repository profile: files
+out of the underscore directory, keys renamed, dropped or moved under `extra`, `content_id` minted
+where a file carries none, kramdown and Liquid removed, and `[[wikilinks]]` turned into typed
+references.
+
+Both hold to two rules, and both write the same report.
+
+- They are idempotent. Running one over its own output changes nothing, so a conversion can be
+  re-run after a content pull request lands during the freeze window.
+- They never guess. A construct a script does not understand is refused, named in the report with
+  the rule it failed, and left exactly as it was found. A conversion that silently drops content is
+  worse than one that fails, so the report is a per-file inventory taken before and after, and
+  `ConversionReport.verify` refuses to call a run a success while one path is unaccounted for.
+  Every key a rewrite stops writing is printed with the value it held, and a key the format cannot
+  express is moved under `extra` rather than dropped.
+
+`docs/plan/evidence/conversion-runs-2026-09-18.md` records what every one of the real repositories
+converted to, and what refused.
+
 ## Rendering
 
 `rendering.py` is the one renderer and the one sanitiser for synced content (`FORMAT.md`
