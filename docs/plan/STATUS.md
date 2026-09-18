@@ -204,3 +204,4 @@ issues that can start now.
 | `C7.26` | community-base | Studio impersonation assumes ModelBackend and literal paths | C7.22 | no | todo | DTC's only authentication backend is its own, so package impersonation strands the operator as anonymous |
 | `C7.27` | community-base | Three settings-shape defects the package handles inconsistently | C7.22 | no | todo | three settings-shape defects grouped because the fix is one decision applied three times |
 | `C7.28` | community-base | Canonical public URLs in shared API representations | C7.22 | no | done | https://github.com/DataTalksClub/community-base/pull/281; release: https://github.com/DataTalksClub/community-base/releases/tag/v0.5.2 |
+| `C7.29` | community-base | Ship the source map referenced by the vendored Lucide bundle |  | no | in-progress | https://github.com/DataTalksClub/community-base/issues/282; deployment blocker found while consuming v0.5.2 |
