@@ -1420,3 +1420,54 @@ Done when
 
 Docs
 - `community_base/studio/README.md`, `CHANGELOG.md`.
+
+## C7.18 Make the code match decisions D38 and D39
+
+Repository: community-base. Depends on: C7.9b, C7.10. Freeze required: no.
+
+Goal: the kind registry and the reference resolver implement what D38 and D39 ruled. `FORMAT.md`
+was synced to those decisions on 2026-09-18; the code was not, and a normative document the code
+contradicts is worse than either alone.
+
+How the gap happened, recorded because the process failure is the reusable part: D34, D38 and D39
+were taken as delegated decisions and written into `docs/01-decisions.md`, and nobody carried them
+into `FORMAT.md` or the registry. A decision recorded in one place and implemented in none looks
+settled in review and is not. Deciding and landing should be one unit of work, or the decision
+should say explicitly which issue lands it.
+
+Read first
+- `docs/01-decisions.md`, D38 and D39.
+- `community_base/content_sync/FORMAT.md` section 3.7's destination table and the cohort table in
+  section 3.8, both already stating the ruled behaviour.
+- `community_base/content_sync/kinds/course.py`, the `archive` key.
+- `community_base/content_sync/resolution.py`, which resolves the three destination forms.
+
+Steps
+1. D38: `archive` becomes a mapping with one optional `notice_path`, defaulting to the cohort's
+   `README.md`. Absent means not archived. The parser reads the notice from the declared path.
+   Two of the seventeen real archived cohorts point at `leaderboard.md`, so a boolean silently
+   discards which file the notice is.
+2. D39: add the repository-file destination. A link to a file or directory that exists in the
+   repository but is not content resolves to the repository's hosting URL. It is never uploaded
+   and never validated as content, and it must not be reported as an unresolved reference.
+3. Decide where the hosting URL comes from and say so. A `ContentSource` already knows its
+   repository; prefer that over a new setting.
+4. C7.10 does not call `resolve_repository` for courses precisely because these links fail today.
+   Once this lands, say whether that can be switched on, and if not, why.
+
+Verification
+- A cohort with `archive: {notice_path: cohorts/2025/leaderboard.md}` reads its notice from that
+  file, and one with `archive: {}` reads `README.md`.
+- A lesson body linking to `code/rag_helper.py` and to `../cohorts/2025/` resolves both to hosting
+  URLs and reports no unresolved reference under the default `strict_references`.
+- `check_content` accepts a real course repository's links that fail today.
+- `uv run pytest tests/content_sync tests/curriculum` passes.
+
+Done when
+- [ ] `archive` is a mapping and a non-default notice path is honoured
+- [ ] a repository-file link resolves rather than failing the sync
+- [ ] FORMAT.md, the registry and the resolver agree, verified by a test that reads the format's
+      own fixtures rather than by inspection
+
+Docs
+- `community_base/content_sync/README.md`, `CHANGELOG.md`.
