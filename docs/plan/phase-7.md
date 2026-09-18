@@ -1579,7 +1579,7 @@ Done when
 
 ## C7.22 Audit the package for assumptions only AI-Shipping-Labs satisfies
 
-Repository: community-base. Depends on: C7.19. Freeze required: no.
+Repository: community-base. Depends on: nothing. Freeze required: no.
 
 Goal: find the rest of the class of defect C7.19 belongs to, before a second site pays for each one
 separately.
@@ -1668,3 +1668,102 @@ Verification
 
 Done when
 - [ ] no field in the config schema is written by `declare()` and read by nothing
+
+## C7.25 A site's base template must honour the block contract, and something must check it
+
+Repository: community-base. Depends on: C7.22. Freeze required: no.
+
+Goal: a package page mounted by a site renders its content, or the site is told at check time that
+it will not.
+
+`docs/02-architecture.md` section 5 has named this contract since the architecture was written and
+nothing has ever enforced it. Django drops content for an undefined block silently: no exception,
+no warning, nothing in the logs. So a site whose `base.html` omits a block the package fills serves
+the site chrome with the package's content missing, and the page looks fine.
+
+Both sites are affected today, in opposite directions. AI-Shipping-Labs defines `body` rather than
+`content` and defines no `extra_js`, so the mounted public unsubscribe page returns 200 with 21kB
+of chrome and no form. DataTalksClub defines `content` but neither `meta_description` nor
+`page_head_metadata`, so the `noindex, nofollow` on those pages silently disappears. 41 package
+templates extend `base.html` across five contracted blocks, so this is a class rather than two
+pages.
+
+Severity note for the unsubscribe page specifically: it is public rather than superuser-only, so
+leaving it blank until a fix lands is a weaker option than it would be for a Studio page.
+AI-Shipping-Labs confirmed its outbound mail carries its own unsubscribe route rather than the
+package one, so no member is stuck, but a public route serving an empty body is still a defect.
+
+Steps
+1. Enumerate the blocks the package's templates fill and write the contract down as data rather
+   than prose, so a check can read it.
+2. Add a Django system check that fails when an installed package app's templates fill a block the
+   site's base does not define. Decide whether it is an error or a warning and say why; an error a
+   site cannot start with may be right here, given the failure is otherwise invisible.
+3. Decide whether the package should shrink its block surface instead. Five contracted blocks
+   across 41 templates is a wide contract to impose on an adopting site, and a narrower one may be
+   the better fix than a check that enforces a wide one.
+
+Verification
+- A test site whose base omits `content` fails the check, naming the block and a template.
+- A test site whose base defines every contracted block passes.
+
+Done when
+- [ ] no package template can fill a block a site does not define without something saying so
+
+## C7.26 Studio impersonation assumes ModelBackend and literal paths
+
+Repository: community-base. Depends on: C7.22. Freeze required: no.
+
+Goal: impersonation works on a site with its own authentication backend, and its safety guard
+stops depending on where Studio is mounted.
+
+`community_base/studio/impersonation.py` line 13 hardcodes `AUTH_BACKEND` to
+`django.contrib.auth.backends.ModelBackend`. DataTalksClub's `AUTHENTICATION_BACKENDS` is
+`["accounts.backends.DurableAccountBackend"]` and nothing else. The POST returns 302 and the
+session records the target, and then the next request cannot load the backend, so the operator
+becomes anonymous and is bounced to login, and `stop` cannot restore them.
+
+Lines 14 to 20 hold `SENSITIVE_RETURN_PREFIXES` as literal paths. A site that mounts Studio at
+`manage/` or `backoffice/` gets `/manage/users/` and `/backoffice/users/` past the guard that
+exists to block `/studio/users/`. The guard is doing nothing on such a site while appearing to.
+
+Steps
+1. Resolve the backend from the site's configured `AUTHENTICATION_BACKENDS` rather than naming one.
+2. Derive the sensitive prefixes from the mounted Studio URLconf rather than from literals.
+
+Done when
+- [ ] impersonation works on a site with exactly one non-default authentication backend
+- [ ] the return guard refuses the same pages regardless of where Studio is mounted
+
+## C7.27 Three settings-shape defects the package handles inconsistently
+
+Repository: community-base. Depends on: C7.22. Freeze required: no.
+
+Goal: the package treats a missing or differently-shaped setting the same way everywhere, and
+loudly.
+
+Three instances found by C7.22, grouped because the fix is one decision applied three times.
+
+1. `community_base/accounts/mail_context.py` line 10 and `community_base/events/mail_context.py`
+   line 15 read `SITE_URL`, which defaults to the empty string and which AI-Shipping-Labs never
+   sets. Verify, reset, change and manage links in outbound mail become relative paths and are
+   useless in an email client. `calendar.py` and `jobs/relay.py` raise on the same empty value, so
+   the package already disagrees with itself about whether an empty `SITE_URL` is acceptable.
+2. `community_base/studio/studio_filters.py` line 199 iterates `STUDIO_EXTRA_CSS`. Set to a single
+   path string rather than a list, it iterates as characters and emits 15 stylesheet links. Silent
+   on AI-Shipping-Labs, a `ValueError` under DataTalksClub's manifest storage.
+3. `community_base/curriculum/apps.py` line 16 tests `"community_base.events" in set(INSTALLED_APPS)`.
+   That is False for the AppConfig-path spelling Django accepts everywhere, so the curriculum
+   Studio section and its API views silently never register. Nine sibling gates use
+   `apps.is_installed()` and are correct; this is the one raw membership test.
+
+Steps
+1. Decide the rule: a setting whose absence breaks a feature raises at startup rather than
+   degrading. Apply it to `SITE_URL` and say what a site that legitimately has no site URL does.
+2. Accept a string where a sequence is expected, or refuse it. Do not iterate it.
+3. Replace the raw membership test with `apps.is_installed()`.
+
+Done when
+- [ ] no package module reads a setting whose empty value silently changes behaviour
+- [ ] no package module tests `INSTALLED_APPS` membership by string
+
