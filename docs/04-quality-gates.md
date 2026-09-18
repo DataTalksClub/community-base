@@ -200,3 +200,34 @@ safely when the premise has expired.
 This applies to what you tell a person as much as to what you tell another session. A conclusion
 handed over without its premise is one the reader cannot re-derive when it stops being true.
 
+## Shipping an asset is not shipping what it references
+
+C7.20 vendored a minified JavaScript bundle and shipped it without the source map
+its own trailing `sourceMappingURL` names. Every check passed: the file was in
+the wheel, the icons rendered, the package suite was green, and the consuming
+site's full suite was green twice. It broke on the first `collectstatic` under
+manifest-based static storage, which post-processes JavaScript and hard-fails on
+a reference it cannot resolve. That took a site's deploy down, five releases
+after the file landed.
+
+The verification asked "does the asset ship", and the failing claim was "does
+what the asset points at ship". Those are different questions and only the first
+was put. `tests/test_static_asset_references.py` now asks the second for every
+shipped `.js` and `.css`, and it is pinned by its own emptiness guard, because an
+enumeration that finds nothing passes silently.
+
+Generalising past source maps: a vendored file is a promise about its
+dependencies as well as itself. Fonts referenced from CSS, images from a
+stylesheet, a chunk another chunk imports -- each is a reference a consumer's
+static pipeline will try to resolve, in an environment stricter than the one the
+package tests in. When vendoring anything, enumerate what the file points at and
+ship all of it, or strip the reference.
+
+A note on how this was diagnosed, because the false trail cost more than the
+fix. The first traceback in the failing build was a `no such table` error that a
+handler caught, logged and continued past; it appears twelve times in the green
+build too. Careful reasoning about it was wasted, because it was never
+load-bearing. The first log line that looks like an error is not the same as the
+line that failed the build. Find the step that actually returned non-zero before
+explaining anything.
+
