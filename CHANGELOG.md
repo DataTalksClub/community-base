@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- C7.19: the Studio registry serves a Studio URLconf that declares `app_name` again. Such a module
+  mounts under a namespace, so its routes reverse and resolve as `studio:settings`, and v0.5.0
+  broke the case: `urlconf_route_names` recorded the bare name while `reverse()` and the
+  registration needed the namespaced one, so `mounted_sections()` dropped every destination
+  registered with `url_name="studio:settings"`, and registering the bare name instead rendered an
+  empty href. C7.13 introduced it by adding `mounted_sections()` and the `_is_live` filter over
+  that name set; before it nothing filtered on the set and a namespaced `url_name` worked.
+  `urlconf_route_names` now records the name the way `reverse()` takes it, joining nested
+  namespaces in mount order, and `route_name_for` returns the resolver match's `view_name`, which
+  carries the namespace, instead of its bare `url_name`. A route with no name still has no route
+  name. A site that mounts Studio without a namespace is unaffected: with no namespace to record
+  `view_name` equals `url_name`, and the tests pin the namespace-free case against the same routes.
+  A namespaced site registers `url_name` with the namespace, which is what `reverse()` needs;
+  `route_names` may be written either way, since a bare entry is read in the namespace the
+  destination's own `url_name` names, so no existing registration has to be rewritten.
+
 - Studio shell: the icon library is vendored instead of loaded from `unpkg.com/lucide@latest`.
   The shell now serves `community_base/vendor/lucide.min.js`, the unmodified UMD build of lucide
   1.47.0 taken from the npm tarball, from the site's own static files. The old tag was unpinned,

@@ -175,6 +175,13 @@ A deep route is claimed only through its destination's home route. Mounting an a
 module while the destination's `url_name` is missing leaves that module's routes `mounted but
 unclaimed`, so a wrong `url_name` stays an error instead of disappearing quietly.
 
+A site whose Studio URL module declares `app_name` mounts its routes under a namespace, so they
+reverse and resolve as `studio:settings`. Register such a destination with the namespaced
+`url_name`, the spelling `reverse()` takes; a bare `url_name` does not mount and the destination is
+dropped. `route_names` may be written either way: a bare entry is read in the namespace the
+destination's own `url_name` names. A site that mounts Studio without a namespace writes bare names
+throughout and is unaffected.
+
 Run the route partition check after mounting Studio URLs:
 
 ```console
