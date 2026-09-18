@@ -179,6 +179,30 @@ The general rule this is an instance of: a green run against a baseline answers 
 exists". It never answers "did I leave something unchanged that should have changed". Moving a
 field makes the second question the important one, and no suite asks it unprompted.
 
+The expand step must dual-write, and a one-time copy is not an expand. This is the part that gets
+got wrong before the rollback question is even reached. A data migration that copies one row per
+user at migrate time leaves the new location correct for exactly as long as it takes the next write
+to land in the old one. From the expand deploy until the reader switch deploys, every value written
+to a moved field goes to the old column only, and nothing refreshes the new one: rows created in
+the window have no extension row at all, and rows edited in the window have a stale one. The reader
+switch then makes the stale copy authoritative and the contract step drops the original, so the
+values are not recoverable. Confirmed on DataTalksClub/website's D3.1 stack on 2026-09-18, where
+ten course-platform fields and two identity fields were all exposed this way.
+
+So the expand pull request ships one of three things, and which one is a decision to make
+explicitly rather than discover: a dual-write from the moment the new location exists, a refresh
+migration shipped with the reader switch that copies where the extension row is absent or differs,
+or a single deploy carrying expand and switch together. The third contradicts one-landing-per-part
+and should be chosen deliberately if at all.
+
+A signal-based dual-write has its own trap: a `post_save` receiver does not see `queryset.update()`
+or `bulk_update()`, and those are exactly what an activation or reconciliation path uses. Before
+relying on a receiver, grep for every writer of each moved field and check how it writes, not just
+that it writes. A field whose only dual-write is a receiver, written in production by a queryset
+update, is not dual-written at all. Saying the receiver is "bypassed, unchanged" by such a call is
+the wrong frame: before the move that call wrote the authoritative column, and after it the same
+call writes a column nobody reads. The code shape is unchanged; the behaviour is not.
+
 Rolling back the reader switch is not a code-only revert, and this is the part of expand/contract
 that is usually got wrong. The expand step is safe to leave in place on a rollback: it only adds a
 table and copies rows. The reader switch is not, because switching readers switches writers with
@@ -186,6 +210,12 @@ them. From the moment it deploys, the new location is where new values land, and
 stops being updated. Revert the code alone and the site silently serves the old column's values,
 which are correct for every row nobody touched and stale for every row somebody did. Nothing
 raises, and the damage is proportional to how long the window stayed open.
+
+Keep the back-copy separable from the expand. If one migration both creates the new table and
+copies into it, reversing it runs the back-copy and drops the table in the same irreversible step,
+so there is no state in which the values have been restored and the expand is still in place. P7
+requires the expand to be safe to leave on a rollback; a combined migration makes that impossible.
+Split the create and the copy, or write the back-copy as a standalone script.
 
 So a rollback of the reader switch has three parts, and a deploy plan that lists fewer than three
 is not a rollback plan: revert the code, copy the values written during the window back to the old
