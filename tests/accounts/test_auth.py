@@ -20,6 +20,10 @@ from community_base.accounts.tokens import (
     generate_password_reset_token,
     generate_verification_token,
 )
+from community_base.kernel.template_contract import (
+    CONTRACT_BLOCK_NAMES,
+    PUBLIC_BASE_TEMPLATE,
+)
 from community_base.mail.backends.memory import outbox
 from community_base.mail.models import EmailDelivery
 
@@ -64,20 +68,15 @@ def test_public_pages_render_from_package(client):
 
 
 def test_public_templates_follow_the_shared_contract():
-    allowed_blocks = {
-        "title",
-        "meta_description",
-        "page_head_metadata",
-        "content",
-        "extra_js",
-    }
+    allowed_blocks = set(CONTRACT_BLOCK_NAMES)
     template_dir = files("community_base.accounts").joinpath("templates/accounts")
 
     for template in template_dir.iterdir():
         if template.suffix != ".html":
             continue
         source = template.read_text()
-        assert '{% extends "base.html" %}' in source
+        # The seam, not the site's own base: docs/02-architecture.md section 5.
+        assert f'{{% extends "{PUBLIC_BASE_TEMPLATE}" %}}' in source
         assert set(re.findall(r"{% block ([a-z_]+) %}", source)) <= allowed_blocks
         for class_value in re.findall(r'class="([^"]+)"', source):
             assert all(name.startswith("cb-") for name in class_value.split())

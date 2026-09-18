@@ -259,7 +259,7 @@ COMMUNITY_BASE = {
 Shared public templates (events list and detail, onboarding steps, account pages, notifications
 page, course and unit pages) use:
 
-- `{% extends "base.html" %}`;
+- `{% extends "community_base/public/base.html" %}`, never `base.html` directly;
 - blocks `title`, `meta_description`, `page_head_metadata`, `content`, `extra_js`; nothing else;
 - structural class hooks, one per element role, prefixed `cb-`: `cb-page`, `cb-page-header`,
   `cb-page-title`, `cb-list`, `cb-card`, `cb-card-title`, `cb-card-meta`, `cb-badge`,
@@ -271,6 +271,53 @@ page, course and unit pages) use:
 A site may override any shared template by placing a file at the same path under its own
 `templates/` directory. The package's `tests/test_template_contract.py` asserts that every shared
 public template uses only the blocks and hook classes above.
+
+### The seam: `community_base/public/base.html`
+
+`community_base.kernel` ships that path as a pass-through whose entire body is
+`{% extends "base.html" %}`. A site whose own base defines the five block names above needs to do
+nothing, and the seam changes no byte of any shared public page on such a site.
+
+A site whose base names those slots differently puts its own
+`templates/community_base/public/base.html` in its template directory and maps its names onto the
+contracted ones there, once, for every shared public page. Django resolves blocks by name across
+the whole inheritance chain rather than by lexical nesting, so wrapping a contracted block in a
+site block makes the contracted name reachable from a page template. For a base whose body slot is
+`body` and whose script slot is `extra_scripts`:
+
+```
+{% extends "base.html" %}
+{% block body %}{% block content %}{% endblock %}{% endblock %}
+{% block extra_scripts %}{% block extra_js %}{% endblock %}{% endblock %}
+```
+
+This is the same mechanism the Studio shell uses with `content` wrapping `studio_content`.
+
+### What happens when a block has nowhere to go
+
+Django drops the content of a block that no template in the chain defines. No exception, no
+warning, nothing in the logs: the page returns 200 with the site's chrome and the package's
+content missing, and it looks fine. `community_base.kernel.checks.check_public_base_block_contract`
+reads the chain above the seam at `manage.py check` time and reports every contracted block with
+nowhere to render, naming the block and the package templates that fill it.
+
+| Block | Missing from the chain means | Check id | Severity |
+|---|---|---|---|
+| `content` | the page has chrome and no body | `community_base.kernel.E001` | error |
+| `title` | the page falls back to the site default title | `community_base.kernel.W001` | warning |
+| `meta_description` | the page falls back to the site default description | `community_base.kernel.W002` | warning |
+| `page_head_metadata` | two mail pages lose their `noindex, nofollow` | `community_base.kernel.W003` | warning |
+| `extra_js` | the page renders and its progressive enhancement is dead | `community_base.kernel.W004` | warning |
+
+`community_base.kernel.E002` is raised instead when the chain cannot be read at all, which is a
+louder failure: every shared public page would raise on render.
+
+The check skips a package template the site has shadowed with its own copy at the same name,
+because a site's own template fills the site's own blocks. It cannot know which pages a site
+mounts, so it reports an unreachable block whether or not the page is reachable. A site that has
+answered one of the four warning blocks under a name of its own silences that one id with
+`SILENCED_SYSTEM_CHECKS`. The reasoning, and what was rejected, is in
+`docs/plan/evidence/c7.25-block-contract-decision-2026-09-18.md`.
 
 ## 6. Data flows that cross the package boundary
 

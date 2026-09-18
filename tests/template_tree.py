@@ -8,22 +8,56 @@ defines a different set of block names and whose settings this suite never loads
 import pathlib
 import re
 
-CONTRACT_BLOCK_NAMES = ("title", "meta_description", "page_head_metadata", "content", "extra_js")
+from community_base.kernel.template_contract import (
+    CONTRACT_BLOCK_NAMES,
+    PUBLIC_BASE_TEMPLATE,
+    SITE_BASE_TEMPLATE,
+)
+
+__all__ = [
+    "CONTRACT_BLOCK_NAMES",
+    "PACKAGE_ROOT",
+    "PUBLIC_BASE_SOURCE_PATH",
+    "block_names",
+    "class_names",
+    "extends_target",
+    "public_templates",
+]
 
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent.parent / "community_base"
+
+# The one package template that is allowed to extend the site's own `base.html`: the seam
+# every shared public template goes through instead.
+PUBLIC_BASE_SOURCE_PATH = PACKAGE_ROOT / "kernel" / "templates" / PUBLIC_BASE_TEMPLATE
 
 _TEMPLATE_SYNTAX_RE = re.compile(r"\{%.*?%\}|\{\{.*?\}\}", re.DOTALL)
 _BLOCK_RE = re.compile(r"\{%\s*block\s+([A-Za-z0-9_]+)")
 _CLASS_RE = re.compile(r'class="([^"]*)"')
+_EXTENDS_RE = re.compile(r'\{%\s*extends\s+"([^"]+)"\s*%\}')
+
+
+def extends_target(path: pathlib.Path) -> str | None:
+    """The template this one extends, when it is named by a literal string."""
+
+    match = _EXTENDS_RE.search(path.read_text())
+    return match.group(1) if match else None
 
 
 def public_templates() -> list[pathlib.Path]:
-    """Every package template that extends the consuming site's own base template."""
+    """Every shared public page template: the ones that go through the public base seam."""
 
     return sorted(
         path
         for path in PACKAGE_ROOT.rglob("*.html")
-        if '{% extends "base.html" %}' in path.read_text()
+        if extends_target(path) == PUBLIC_BASE_TEMPLATE
+    )
+
+
+def templates_extending_the_site_base() -> list[pathlib.Path]:
+    """Every package template that reaches for the site's own `base.html` directly."""
+
+    return sorted(
+        path for path in PACKAGE_ROOT.rglob("*.html") if extends_target(path) == SITE_BASE_TEMPLATE
     )
 
 

@@ -145,6 +145,27 @@ COMMUNITY_BASE = {
 Unknown keys requested through `community_base.kernel.conf.get` raise
 `django.core.exceptions.ImproperlyConfigured`.
 
+## The public template seam
+
+`community_base/kernel/templates/community_base/public/base.html` is the one place the package
+touches a consuming site's own chrome. Every shared public page template extends it rather than
+`base.html`, and the shipped copy is a pass-through whose entire body is
+`{% extends "base.html" %}`.
+
+A site whose base defines `title`, `meta_description`, `page_head_metadata`, `content` and
+`extra_js` (`docs/02-architecture.md` section 5) does nothing, and the seam changes no byte of any
+shared public page there. A site whose base names those slots differently overrides that one path
+in its own `templates/` directory and maps its names onto the contracted ones, instead of adding
+package-named blocks to the file every page on the site inherits from.
+
+`community_base/kernel/template_contract.py` is the contract as data: which template fills which
+block, and how badly the page fails when a block has nowhere to render.
+`community_base/kernel/checks.py` reads the chain above the seam at `manage.py check` time and
+reports what is missing, because Django drops the content of an undefined block in silence.
+`community_base.kernel.E001` (a missing `content`) is an error; the other four are warnings;
+`community_base.kernel.E002` means the chain could not be read at all. The reasoning is in
+`docs/plan/evidence/c7.25-block-contract-decision-2026-09-18.md`.
+
 ## Settings that must not degrade silently
 
 The package has had exactly one adopting site, and a setting shape that only happens to match
