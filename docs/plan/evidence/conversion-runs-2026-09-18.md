@@ -8,6 +8,10 @@ The scripts are `community_base/content_sync/convert/courses.py` and
 `community_base/content_sync/convert/documents.py`. Both are deleted after the last conversion
 merges, which is `D7.4` step 9.
 
+The runs below were taken after `C7.18` landed the code for decisions D38 and D39 in the same
+branch. Without it no course repository resolves its references at all, so no course row in the
+first table could have been produced.
+
 ## How to read the table
 
 - Files: the count the inventory took before the conversion.
