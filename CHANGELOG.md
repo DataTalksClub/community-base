@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.5.1
+
+Cut so the two sites can consume fixes that were stranded on `main`. Both sites' source check
+accepts only a `vX.Y.Z` tag (D0.2), so nothing here was reachable by a site before this tag.
+
+Note for anyone reading only this file: v0.5.0 shipped a regression, fixed here. C7.13's
+mounted-route filter could not serve a Studio URLconf that declares `app_name`, so a site with a
+namespaced Studio lost every registered sidebar destination silently. No site had adopted a
+namespaced Studio yet, so nothing broke in production.
+
 - C7.19: the Studio serves a URLconf that declares `app_name`, mounted wherever the site puts it.
   A Studio URL module with `app_name` mounts under a namespace, so its routes reverse and resolve as
   `studio:settings`, and v0.5.0 broke that case: `urlconf_route_names` recorded the bare name while
