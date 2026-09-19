@@ -869,6 +869,84 @@ Done when
 Docs
 - `community_base/content_sync/README.md`, `CHANGELOG.md`, `docs/plan/STATUS.md`.
 
+## C7.12a Finish the package side the AISL adoption needs
+
+Repository: community-base. Depends on: C7.12. Freeze required: no.
+
+Goal: the package carries the profiles, sanitiser allowances and rulings A7.2 cannot supply from a
+site.
+
+Found by measuring the toolkit against AI-Shipping-Labs' five real content sources on 2026-09-19.
+Four items, two of them defects that would ship broken pages.
+
+1. Two conversion profiles do not exist: `aisl-content` (the whole `AI-Shipping-Labs/content`
+   repository) and `aisl-workshops`. C7.12's own evidence assigns these to A7.2, but a conversion
+   profile is package code, so A7.2 cannot write them.
+2. The sanitiser drops two attributes its own extensions emit. `ExternalLinksExtension` sets
+   `target="_blank"` and it is stripped, which is that extension's entire purpose.
+   `EventWidgetExtension` sets `data-event-widget=<slug>` and it is stripped -- that attribute is
+   the JavaScript hydration key, so every event widget in synced markdown renders as a permanent
+   "Loading" state. `MermaidExtension` and `codehilite` pass byte-identical, so the gap is exactly
+   two allowlist entries. FORMAT.md 4.2 already admits `class` and `data-embed-*` on a div and
+   `data-theme-figure` on an img; these two belong beside them.
+3. Rule on `testimonials.company`. Two of four testimonials in the `aihero` course carry a
+   `company` key; FORMAT.md 3.8 fixes the item keys at `quote`, `name`, `role`, `source_url`, and
+   `extra` cannot absorb it because the key sits inside an object list. Either the format gains the
+   key or the content loses it, and a site may not work around it.
+4. Rule on the member wiki's kind, which is an access question rather than a naming one. See A7.2a.
+
+Done when
+- [ ] both profiles exist and convert their repositories
+- [ ] no attribute a shipped extension emits is stripped by the sanitiser that follows it
+
+## A7.2a Register the AISL site kinds and markdown extensions
+
+Repository: AI-Shipping-Labs/website. Depends on: C7.12a.
+
+Split from A7.2 on 2026-09-19 after measurement showed it could not land in one piece. Additive
+only: register the site kinds and the markdown extensions, verifiable with `check_content --kinds`
+over converted scratch copies.
+
+It waits on C7.12a because the kind key sets have to match what the conversion writes, and two of
+the profiles do not exist yet. Doing it in the other order guarantees rework.
+
+The ruling this issue needs first, and it is an access-gating question rather than a naming one.
+C7.12's shipped `aisl-wiki` profile writes `content.yaml` as `kind: wiki, path: wiki`, which is the
+package wiki kind. That site's `member_wiki.py` fills its own site-owned `topics` app, gated at
+Basic and above, while `knowledge_base.py` fills the package knowledge base. Taking the shipped
+profile as written routes 20 member-gated pages into public wiki storage. Decide where member-gated
+wiki content lives before either kind is registered.
+
+Measured front-matter vocabulary, so whoever writes the kinds does not re-derive it: blog carries
+`author`, `cover_image`, `data`, `description`, `event_slug`, `faq`, `page_type`, `youtubeVideo`;
+projects `author`, `cover_image`, `description`, `difficulty`; interview questions `description`,
+`sections`; curated links `category`, `published`, `url`; `workshop.yaml` `code_repo_url`,
+`event_slug`, `instructor_name`, `landing_required_level`, `materials`, `pages_required_level`,
+`recording`.
+
+Done when
+- [ ] the member wiki's storage is ruled on and recorded before any kind is registered
+
+## A7.2b Move the three core parsers onto the toolkit
+
+Repository: AI-Shipping-Labs/website. Depends on: A7.2a.
+
+Delete `classify.py` and `parsing.py`; rewrite `courses.py`, `knowledge_base.py` and `articles.py`
+onto the toolkit; stop running `sanitize_html`, `normalize_inline_bullets` and `linkify_urls` over
+synced content, which the package renderer now owns.
+
+## A7.2c Move the five family parsers onto the toolkit
+
+Repository: AI-Shipping-Labs/website. Depends on: A7.2b.
+
+`workshops.py`, `projects.py`, `curated_links.py`, `interview_questions.py`, `member_wiki.py`.
+
+Also settle the instructors question here rather than leaving it dormant. That site has an
+`InstructorsParser` for `instructors/*.yaml` and no `instructors/` directory exists in any of its
+five content repositories, so instructors are in practice Studio-authored. Adopting the `person`
+kind would mean authoring files from scratch rather than migrating anything. Deleting the dormant
+parser is the likelier answer, but it is that site's PM decision rather than the plan's.
+
 ## A7.2 AISL: adopt the toolkit and the one course parser
 
 Repository: AI-Shipping-Labs/website. Depends on: C7.12. Freeze required: no. Decision D23.
