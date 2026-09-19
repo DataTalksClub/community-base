@@ -1898,3 +1898,39 @@ Verification
 Done when
 - [ ] the source map is present in the package and release
 - [ ] consumer deployment static collection passes
+
+## C7.30 Public templates disagree about who owns the main landmark
+
+Repository: community-base. Depends on: C7.25. Freeze required: no.
+
+Goal: a consuming site can write a correct public seam without choosing between invalid markup and
+no landmark.
+
+Found while adopting the C7.25 seam on AI-Shipping-Labs, filed there as
+DataTalksClub/community-base#284. 34 of the 41 shared public templates open their own
+`main` element inside the `content` block; 7 do not. A site's seam has to wrap `content` in its
+chrome, and it has exactly one decision to make about `main`:
+
+- Open a `main` in the seam, and the 34 templates that bring their own produce a nested `main`,
+  which is invalid HTML and breaks the landmark for assistive technology.
+- Do not open one, and the 7 that bring none render with no `main` landmark at all.
+
+Neither is correct, the site cannot tell which template a given route will use, and every adopting
+site faces the same choice. This is the package handing out an unresolvable decision 41 times.
+
+Steps
+1. Decide which side owns the landmark and make all 41 agree. Owning it in the templates is the
+   smaller change (wrap the 7) and keeps a page able to attach its own attributes; owning it in the
+   seam is tidier for a site but means editing all 34 and removing an extension point.
+2. Whichever way, state it in `docs/02-architecture.md` section 5 alongside the block contract, so
+   the next site does not re-derive it.
+3. Consider whether the block-contract check should assert it, given it is exactly the class of
+   thing that fails silently in a browser rather than loudly in a test.
+
+Verification
+- A site seam that opens no `main` gets exactly one `main` on every shared public page.
+- A rendered page from each of the two former groups is checked, not just one.
+
+Done when
+- [ ] all 41 shared public templates agree about the landmark
+

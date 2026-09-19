@@ -350,3 +350,22 @@ So when a mutation fails, check what failed and where. A mutant stopped by a sys
 gate, a lint or an import error never reached the assertion, and the green-to-red transition you
 observed belongs to the gate that stopped it.
 
+## After acceptance, the branch head is part of what was accepted
+
+A reviewer accepts a specific commit. Changing that commit afterwards -- rebasing, amending, even
+amending only the message -- replaces the thing that was reviewed with something the reviewer has
+not seen, under a label that says they approved it. A merge checks none of this.
+
+On 2026-09-19 an accepted branch was amended twice for cosmetic reasons: once to add a `Closes`
+trailer the reviewer asked for, once to drop a redundant reference line the first amend left behind.
+The content was byte-identical and the reviewer verified that by diffing the trees before merging --
+work they should not have had to do, and which most reviewers would skip.
+
+So: after acceptance, do not rewrite. If something must be added, add a commit rather than amend
+one. If a rewrite is genuinely necessary, say so in the handoff, name the old and new heads, and say
+what changed -- do not leave the reviewer to discover that the head moved.
+
+The general form: a review is evidence about an artefact, not about a branch name. Anything that
+changes which artefact the name points at invalidates the evidence, however harmless the change
+looks to the person making it.
+
