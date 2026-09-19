@@ -259,3 +259,48 @@ without having done work looks identical, in a log, to one that passed having
 done it. When a new gate goes green on the first run, make it fail on purpose
 before believing it.
 
+## Measure the claim in the title
+
+The verification has to measure the claim the change is named for, not something adjacent that
+also moves when the claim is true.
+
+Two instances a day apart, the second written after the first was documented here. C7.20 vendored a
+bundle and proved the file was in the wheel, byte-identical to upstream and pinned by sha256; the
+failing claim was whether what the file points at ships. A7.4 was committed as mapping a site's
+chrome onto a package seam and proved byte size, form count, radio count and check output; not one
+measurement was of chrome, and the page rendered with no header, no footer and no container.
+
+Both verifications were thorough. Both measured things that genuinely move when the claim holds --
+an asset that ships does have those bytes, a page with a working seam does grow and gain a form.
+That is what makes this hard to catch by reading: the evidence is real and it is about the wrong
+subject. So take the sentence the change is named for, and ask what a direct measurement of that
+sentence would look like. If no measurement in the report is of it, the claim is untested however
+long the report is.
+
+Where an agent produced the work, the fault is usually in the brief rather than the agent. Both of
+the above did exactly what they were asked, faithfully. An instruction that says "prove the page
+renders a form" gets a form proved. Only the person writing the brief can see that the change was
+named for something else.
+
+## A contract enforced on one side only
+
+A seam between two repositories needs its check on both sides, or a rename on the unchecked side
+breaks the checked side silently.
+
+The package checks that a site's base defines the blocks its templates fill
+(`community_base.kernel.E001`). The site checked nothing in return. So renaming `body` in the
+site's own base would have re-broken every package public page at the next pin bump, with no
+failure anywhere until someone looked at a page -- the exact invisible failure E001 exists to
+prevent, running in only one direction. A short test on the site side, asserting the block names
+its override depends on, makes the seam symmetric and survivable across pin bumps neither side is
+watching.
+
+## An exemption is earned by a shape, and has to be re-earned when the shape changes
+
+A narrow exemption granted because a file had no markup stops being correct the moment the file
+gains markup. Carrying it forward on the grounds that it was exempt before is how a narrow
+exemption quietly becomes a blanket one.
+
+When a change alters the shape a file had when its exemption was granted, re-derive whether the
+exemption still applies rather than keeping it by default, and say which you concluded.
+
