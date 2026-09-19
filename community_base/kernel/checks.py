@@ -26,6 +26,16 @@ template tags and context processors, and rendering it with an empty context at
 ``manage.py check`` time is neither safe nor meaningful. Compiling is still an observation
 of the real loader, so a site's override of the seam is seen exactly as Django sees it.
 
+One part of the contract is not a block name. The shared public pages own the `main`
+landmark: each opens exactly one `<main class="cb-page">` as the outermost element of its
+`content` block, so a site that does nothing gets a correct landmark on every page and a
+site's chrome must not open one of its own around `content`. A chain that does nests one
+`main` inside another, which is invalid HTML, serves at HTTP 200 and looks right in a
+browser -- the same silence the block contract had. That is reported as
+`community_base.kernel.W005`, read out of the same chain, as a warning rather than an
+error because the page still serves its body and the reading is textual
+(community-base C7.30, DataTalksClub/community-base#284).
+
 The two checks sit beside each other and neither subsumes the other. They ask about
 different templates on behalf of different page sets: ``community_base.studio.E001`` is
 about ``community_base/studio/base.html`` and the Studio shell, this one is about
@@ -47,6 +57,7 @@ than it is:
 """
 
 import os
+import re
 
 from django.apps import apps as django_apps
 from django.core.checks import CheckMessage, Error, Tags, Warning, register
@@ -57,6 +68,7 @@ from django.template.loader_tags import BlockNode, ExtendsNode
 from community_base.kernel.template_contract import (
     BLOCK_CHECK_ID,
     BLOCK_SEVERITY,
+    LANDMARK_CHECK_ID,
     PUBLIC_BASE_TEMPLATE,
     SITE_BASE_TEMPLATE,
     UNREADABLE_CHAIN_CHECK_ID,
@@ -64,6 +76,15 @@ from community_base.kernel.template_contract import (
 )
 
 _MAX_CHAIN_DEPTH = 20
+
+_MAIN_RE = re.compile(r"<main\b", re.IGNORECASE)
+
+# Comments are removed before looking for a `main`, so a site that left one commented out in its
+# chrome is not accused of opening it.
+_COMMENT_RE = re.compile(
+    r"<!--.*?-->|\{#.*?#\}|\{%\s*comment\s*.*?%\}.*?\{%\s*endcomment\s*%\}",
+    re.DOTALL,
+)
 
 
 def _django_engines() -> list:
@@ -100,15 +121,20 @@ def _origin_path(engine, template_name: str) -> str | None:
     return None
 
 
-def _chain_block_names(engine, template_name: str) -> tuple[set[str], list[str]]:
-    """Block names defined anywhere in the chain above `template_name`, and what broke.
+def _read_chain(engine, template_name: str) -> tuple[set[str], dict[str, str], list[str]]:
+    """Read the chain above `template_name`: its block names, its sources, and what broke.
 
-    Returns the set of reachable block names and a list of human-readable problems. A
-    problem is a template in the chain that does not exist, does not compile, or extends a
-    parent named by a variable rather than a literal, none of which this check can see past.
+    Returns the set of reachable block names, the source text of every template in the
+    chain keyed by name, and a list of human-readable problems. A problem is a template in
+    the chain that does not exist, does not compile, or extends a parent named by a
+    variable rather than a literal, none of which this check can see past.
+
+    The sources are returned because one part of the contract is not a block name at all:
+    the shared public pages bring their own `main`, so a `main` in the chain would nest.
     """
 
     names: set[str] = set()
+    sources: dict[str, str] = {}
     problems: list[str] = []
     seen: set[str] = set()
     pending: list[str] = [template_name]
@@ -132,6 +158,9 @@ def _chain_block_names(engine, template_name: str) -> tuple[set[str], list[str]]
         if nodelist is None:
             problems.append(f"{name!r} has no readable node list")
             continue
+        source = getattr(template, "source", None)
+        if isinstance(source, str):
+            sources[name] = source
         names.update(node.name for node in nodelist.get_nodes_by_type(BlockNode))
         for extends_node in nodelist.get_nodes_by_type(ExtendsNode):
             parent = getattr(extends_node.parent_name, "var", None)
@@ -141,7 +170,7 @@ def _chain_block_names(engine, template_name: str) -> tuple[set[str], list[str]]
                 problems.append(
                     f"{name!r} extends a parent named by a variable, which cannot be followed"
                 )
-    return names, problems
+    return names, sources, problems
 
 
 def _package_rows(app_configs) -> list[tuple[str, str, tuple[str, ...]]]:
@@ -178,7 +207,7 @@ def check_public_base_block_contract(app_configs, **kwargs) -> list[CheckMessage
     if engine is None:
         engine = engines[0].engine
 
-    reachable, problems = _chain_block_names(engine, PUBLIC_BASE_TEMPLATE)
+    reachable, sources, problems = _read_chain(engine, PUBLIC_BASE_TEMPLATE)
     if problems:
         return [
             Error(
@@ -231,4 +260,43 @@ def check_public_base_block_contract(app_configs, **kwargs) -> list[CheckMessage
         )
         message_class = Error if BLOCK_SEVERITY[block] == "error" else Warning
         messages.append(message_class(body, hint=hint, id=BLOCK_CHECK_ID[block]))
+
+    if fillers:
+        messages.extend(_landmark_messages(sources))
     return messages
+
+
+def _landmark_messages(sources: dict[str, str]) -> list[CheckMessage]:
+    """Warn when the site's chrome opens a `main` the shared public pages already opened.
+
+    The landmark is owned by the page, not the chrome: all 41 shared public templates open
+    exactly one `<main class="cb-page">` as the outermost element of their `content` block.
+    A chain that opens its own `main` around `content` nests one inside the other. That is
+    invalid HTML and gives assistive technology two competing landmarks, and like a dropped
+    block it is invisible from the outside: the page is HTTP 200 and looks right.
+    """
+
+    offenders = sorted(
+        name for name, source in sources.items() if _MAIN_RE.search(_COMMENT_RE.sub("", source))
+    )
+    if not offenders:
+        return []
+    named = ", ".join(repr(name) for name in offenders)
+    return [
+        Warning(
+            "Every shared public page template opens its own "
+            f'<main class="cb-page">, but the template chain above '
+            f"{PUBLIC_BASE_TEMPLATE!r} opens a <main> too: {named}. "
+            "Those pages render one main inside another, which is invalid HTML and leaves "
+            "assistive technology with two competing landmarks. The page still returns 200 and "
+            "looks correct in a browser, so nothing else reports it.",
+            hint=(
+                "Let the page own the landmark: put the site's chrome around "
+                f"{{% block content %}} without opening a <main>, and style the "
+                "'cb-page' hook instead. A site whose <main> is only on pages these "
+                f"templates never reach silences {LANDMARK_CHECK_ID} with "
+                "SILENCED_SYSTEM_CHECKS. See docs/02-architecture.md section 5."
+            ),
+            id=LANDMARK_CHECK_ID,
+        )
+    ]
