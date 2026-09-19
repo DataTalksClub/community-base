@@ -454,6 +454,20 @@ tracker issue (DataTalksClub/website#394) is normative.
 deployable unit with the `AUTH_USER_MODEL` setting change; every remaining
 `from accounts.models import CustomUser` import moves to `get_user_model()`.
 
+Technique note, recorded 2026-09-19 because it deviates from this issue's own wording and from P7
+step 2, and the reasoning previously lived only in a migration docstring. The landed change does
+not use `RenameModel`. It applies `AlterModelTable` alone and rewrites six already-applied
+migration files so the model is named `User` from `0001`, with `db_table` pinned there until the
+rename migration moves it. The reason is sound: `swappable_dependency(AUTH_USER_MODEL)` resolves
+against historical state, so a late `RenameModel` leaves `accounts.0001`, `django.contrib.admin`
+and allauth unrenderable on a fresh database. Rewriting applied migrations is normally forbidden,
+so this is an exception that needs to be visible here rather than discovered in a file.
+
+Its reverse is deliberately partial: unapplying renames the tables back but leaves the through
+column and the content type as they were. That state is self-consistent with the rewritten
+migration history and is not consistent with pre-stack code, so a physical rollback here is a
+database restore, not a migration reverse. That belongs in the deploy runbook.
+
 Verification
 - `uv run pytest -q` -> pass; development login works after deploy; counts equal (P14).
 
@@ -465,6 +479,50 @@ Repository: DataTalksClub/website. Depends on: D3.1d. The groomed tracker issue
 Dropped from the umbrella by owner decision (2026-09-15, on #395): the 22 fields are
 schema-only prep with zero readers and are not required for the rename; D3.2 owns them when
 it is scoped, together with the behavior that uses them.
+
+## D3.4 The reviewed merge apply lost its compare-and-swap
+
+Repository: DataTalksClub/website. Depends on: D3.1e.
+
+Goal: the reviewed account merge cannot report success while writing nothing.
+
+Found by the D3.1 stack review on 2026-09-18, classified plausible rather than confirmed: the code
+path is unambiguous but the failure needs two concurrent transactions against a real backend with a
+production-shaped mapping, which the reviewer could not construct read-only.
+
+Before D3.1c, `scripts/prod/account_reconciliation/__init__.py` claimed the source row with a
+guarded write whose result it checked:
+
+    source_claimed = CustomUser.objects.filter(pk=source.pk, **source_snapshot).update(...)
+    if source_claimed != 1:
+        raise IntegrityError("source identity changed during apply")
+
+After, the guard and the write are separate statements and no return value is checked: an
+`exists()` test, then unchecked `update()` calls against `IdentityState`, `CustomUser` and
+`LearnerProfile`. A commit landing between the check and the write -- the survivor changing their
+email in account settings mid-apply, on READ COMMITTED -- makes the update match zero rows, and the
+merge reports success with the survivor's decided fields unchanged. The old code raised. The
+`AccountReconciliationRun` unique constraint guards two simultaneous applies of the same mapping,
+not an ordinary concurrent user write.
+
+Also worth checking while there: `_profile_changes` calls `ensure_learner_profile(survivor)`, a
+`get_or_create` write, before any guard runs.
+
+Steps
+1. Restore a compare-and-swap: make each write guarded by the snapshot it was planned against, and
+   check the affected row count.
+2. Decide what happens when a guarded write matches zero rows. Raising is what the old code did and
+   is the safe default, but the apply now writes several tables, so say what the partial state is
+   and whether the operation is transactional across them.
+3. Reproduce the race in a test before fixing it, or record why it cannot be reproduced and what
+   the fix rests on instead.
+
+Verification
+- A test in which a concurrent write lands between plan and apply fails the merge rather than
+  reporting success.
+
+Done when
+- [ ] no write in the apply path is unchecked
 
 ## D3.3 The account relation guard walks one way
 
