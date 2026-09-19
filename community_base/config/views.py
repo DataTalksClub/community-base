@@ -11,7 +11,7 @@ from django.views.decorators.cache import never_cache
 
 from community_base.config import service
 from community_base.config.forms import SettingsGroupForm, SettingsImportForm
-from community_base.config.registry import groups
+from community_base.config.registry import definition, groups
 from community_base.kernel.decorators import staff_required
 
 
@@ -52,21 +52,44 @@ def settings_save_group(request, group):
         messages.error(request, "Unknown settings group.")
         return redirect("community_base_settings")
     initial = {item.key: service.get(item.key) for item in group_definitions}
+    clearable_keys = frozenset(
+        item.key for item in group_definitions if service.resolved_source(item.key) == "db"
+    )
     form = SettingsGroupForm(
         request.POST,
         definitions=group_definitions,
         initial_values=initial,
+        clearable_keys=clearable_keys,
     )
     if form.is_valid():
+        actor_ref = f"user:{request.user.pk}"
+        restart_keys = []
+        cleared = 0
         with transaction.atomic():
+            for key in form.cleaned_clears():
+                if service.unset(key, actor_ref, reason=f"Cleared Studio group {group}"):
+                    cleared += 1
+                    if definition(key).requires_restart:
+                        restart_keys.append(key)
             for key, value in form.cleaned_updates().items():
+                if definition(key).requires_restart and service.get(key) != value:
+                    restart_keys.append(key)
                 service.set(
                     key,
                     value,
-                    actor_ref=f"user:{request.user.pk}",
+                    actor_ref=actor_ref,
                     reason=f"Updated Studio group {group}",
                 )
-        messages.success(request, f"Saved {group} settings.")
+        feedback = f"Saved {group} settings."
+        if cleared:
+            feedback += f" Cleared {cleared} override(s); fallback values now apply."
+        messages.success(request, feedback)
+        if restart_keys:
+            messages.warning(
+                request,
+                "Restart the application for these settings to take effect: "
+                + ", ".join(sorted(set(restart_keys))),
+            )
     else:
         messages.error(request, f"Could not save {group} settings: {form.errors.as_text()}")
     return redirect("community_base_settings")

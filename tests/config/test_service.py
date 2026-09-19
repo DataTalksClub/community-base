@@ -118,6 +118,46 @@ def test_worker_reads_database_without_local_cache(monkeypatch):
 
 
 @pytest.mark.django_db
+def test_unset_restores_fallback_and_is_audited(monkeypatch):
+    monkeypatch.setenv("TEST_CONFIG_STRING_ENV", "environment-fallback")
+    service.set(STRING_KEY, "overridden", "test:actor", "Set an override")
+    assert service.get(STRING_KEY) == "overridden"
+
+    removed = service.unset(STRING_KEY, "test:actor", "Clear the override")
+
+    assert removed is True
+    assert not Setting.objects.filter(key=STRING_KEY).exists()
+    assert service.get(STRING_KEY) == "environment-fallback"
+    change = SettingChange.objects.filter(setting_key=STRING_KEY).latest("created_at")
+    assert change.actor_ref == "test:actor"
+    assert change.reason == "Clear the override"
+    assert change.old_value == "overridden"
+    assert change.old_value_redacted is False
+    assert change.new_value is None
+
+
+@pytest.mark.django_db
+def test_unset_without_an_existing_override_is_a_no_op_and_not_audited():
+    removed = service.unset(STRING_KEY, "test:actor", "Nothing to clear")
+
+    assert removed is False
+    assert not SettingChange.objects.filter(setting_key=STRING_KEY).exists()
+
+
+@pytest.mark.django_db
+def test_unset_redacts_secret_values_in_its_audit_entry():
+    service.set(SECRET_KEY, "top-secret-value", "test:actor")
+
+    service.unset(SECRET_KEY, "test:actor", "Clear top-secret-value")
+
+    change = SettingChange.objects.filter(setting_key=SECRET_KEY).latest("created_at")
+    assert change.old_value_redacted
+    assert change.old_value == REDACTED
+    assert "top-secret-value" not in change.reason
+    assert service.get(SECRET_KEY) == ""
+
+
+@pytest.mark.django_db
 def test_import_is_atomic_when_a_key_is_unknown():
     with pytest.raises(ImproperlyConfigured, match="Unknown configuration key"):
         service.import_(
