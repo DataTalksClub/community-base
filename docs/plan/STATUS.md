@@ -214,3 +214,6 @@ issues that can start now.
 | `C7.28` | community-base | Canonical public URLs in shared API representations | C7.22 | no | done | https://github.com/DataTalksClub/community-base/pull/281; release: https://github.com/DataTalksClub/community-base/releases/tag/v0.5.2 |
 | `C7.29` | community-base | Ship the source map referenced by the vendored Lucide bundle | C7.20 | no | in-progress | https://github.com/DataTalksClub/community-base/issues/282; deployment blocker found while consuming v0.5.2 |
 | `C7.30` | community-base | Public templates disagree about who owns the main landmark | C7.25 | no | todo | https://github.com/DataTalksClub/community-base/issues/284, found while adopting the seam on AI-Shipping-Labs. 34 of 41 public templates bring their own `main`, 7 do not, so a site's seam must choose between a nested landmark and none |
+| `C7.31` | community-base | A shared public page must be usable before a site styles it | C7.25 | no | todo |  |
+| `A7.5` | AI-Shipping-Labs/website | AISL: write the cb- rules for shared public pages | A7.4 | no | todo |  |
+| `D7.6` | DataTalksClub/website | DTC: write the cb- rules for shared public pages | D7.5 | no | todo |  |

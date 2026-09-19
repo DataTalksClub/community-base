@@ -2012,3 +2012,53 @@ Verification
 Done when
 - [ ] all 41 shared public templates agree about the landmark
 
+## C7.31 A shared public page must be usable before a site styles it
+
+Repository: community-base. Depends on: C7.25. Freeze required: no.
+
+Goal: decide, and write down, what a shared public page guarantees when the adopting site has not
+yet written its `cb-` rules.
+
+`docs/02-architecture.md` section 5 says shared templates carry structural hooks only and no
+colour, spacing or typography, and that a site styles the hooks in its own stylesheet. That is the
+right split. What it does not say is what the page is before the site does that, and the answer
+turned out to matter: on the first site to mount one, the unsubscribe page's submit button renders
+as inline text flush against the last radio label, so the page's only action is not discoverable.
+A member could reach that page from an email and not find the control.
+
+That is a different thing from looking plain. An unstyled page that is merely ugly is an acceptable
+intermediate state; an unstyled page whose primary action cannot be found is not, because the page
+still gets served while the site catches up.
+
+Steps
+1. Decide which of three this is. Either the package ships a minimal structural stylesheet that a
+   site's rules override, giving a usability floor without imposing a design; or the architecture
+   states plainly that a site must ship its `cb-` rules before mounting any shared public route,
+   and something checks it; or the hooks are reordered so the default browser rendering is usable,
+   which is the smallest change if it works.
+2. Whichever way, say it in `docs/02-architecture.md` section 5 next to the hook list, because that
+   section currently reads as though the unstyled state is fine.
+
+Done when
+- [ ] the unstyled state of a shared public page is specified rather than incidental
+
+## A7.5 AISL: write the cb- rules for shared public pages
+
+Repository: AI-Shipping-Labs/website. Depends on: A7.4.
+
+That site now mounts the shared public seam, so package pages render inside its chrome with
+structural hooks and no styling. `docs/02-architecture.md` section 5 expects `@apply` rules in
+`assets/css/tailwind.css` for the fifteen `cb-` hooks.
+
+Write `.cb-button-primary` and `.cb-field` first, not last. The unsubscribe page's submit button
+currently renders as inline text against the last radio label, so that page's only action is not
+discoverable, and it is reachable from email today.
+
+## D7.6 DTC: write the cb- rules for shared public pages
+
+Repository: DataTalksClub/website. Depends on: D7.5.
+
+The same gap on the other site, which adds its rules to `templates/core/_design_system.html`
+rather than a Tailwind entrypoint. Same fifteen hooks, same ordering argument: whichever hook
+carries a page's primary action comes first.
+
