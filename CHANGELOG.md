@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- C7.30: every shared public template owns the `main` landmark. Seven pages that
+  previously left it to the site's chrome now wrap themselves in
+  `<main class="cb-page">`, matching the other 34, so a site seam that opens no
+  `main` gets exactly one on every package public page and a seam that opens one
+  is warned (`community_base.kernel.W005`) rather than producing a nested
+  landmark on some routes and none on others.
+
 ## 0.5.4
 
 - C7.25: shared public templates extend a package-owned seam,
