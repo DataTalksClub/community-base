@@ -304,3 +304,28 @@ exemption quietly becomes a blanket one.
 When a change alters the shape a file had when its exemption was granted, re-derive whether the
 exemption still applies rather than keeping it by default, and say which you concluded.
 
+## A document is not a measurement
+
+When a document and a measurement disagree about the system, the measurement wins and the document
+is the thing to fix. A document records what someone believed when they wrote it; a run records
+what the system does now.
+
+On 2026-09-19 a reported figure of 17137 tests was withdrawn because a site's `AGENTS.md` said the
+suite was about 14,800. The figure was right and reproducible; the document was stale. It had been
+quoted at agents repeatedly as a reason not to run the suite, which is how a stale number does
+damage well beyond the one decision it is cited in.
+
+The failure is easy to commit in good faith because a document looks like a source of truth and
+costs nothing to consult, while re-running is expensive. Two habits:
+
+When a measurement contradicts a document, say so in the direction of fixing the document. The
+reflex to distrust the run is the wrong way round, and a stale document that nobody contradicts
+gets quoted for years.
+
+When you cannot afford to re-run, corroborate cheaply rather than defer to prose. A recent CI run's
+shard totals will settle an order of magnitude in seconds. That is still a measurement.
+
+This applies to the plan's own documents. `docs/` here describes a system that four repositories
+keep changing; any figure, file path or behaviour it states is a claim with a date on it, not a
+fact, and an agent that finds one wrong should correct it rather than work around it.
+
