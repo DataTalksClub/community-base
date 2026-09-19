@@ -329,3 +329,24 @@ This applies to the plan's own documents. `docs/` here describes a system that f
 keep changing; any figure, file path or behaviour it states is a claim with a date on it, not a
 fact, and an agent that finds one wrong should correct it rather than work around it.
 
+## A mutation that cannot reach the test proves nothing about the test
+
+Mutation testing is only evidence where the mutant actually reaches the assertion. A mutation
+caught by an earlier gate proves that earlier gate works, and says nothing about the test you were
+trying to justify.
+
+Found by a reviewer on 2026-09-19. A new contract test was defended with three mutations, one of
+which renamed a block in a site's base template and observed four failures. Those failures were
+real, but that direction never reaches the test: `manage.py check` aborts first on the package's
+own `community_base.studio.E001`. So the mutation demonstrated that the package's check works --
+which was already true and already covered -- while the direction the new test actually exists to
+cover went undemonstrated.
+
+The test still earned its place, for the opposite reason to the one given: it covers the direction
+that is not already fail-closed. That is a better argument than the one it shipped with, and it was
+only visible to someone who traced what the mutant hit first.
+
+So when a mutation fails, check what failed and where. A mutant stopped by a system check, a type
+gate, a lint or an import error never reached the assertion, and the green-to-red transition you
+observed belongs to the gate that stopped it.
+
