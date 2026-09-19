@@ -466,6 +466,44 @@ Dropped from the umbrella by owner decision (2026-09-15, on #395): the 22 fields
 schema-only prep with zero readers and are not required for the rename; D3.2 owns them when
 it is scoped, together with the behavior that uses them.
 
+## D3.3 The account relation guard walks one way
+
+Repository: DataTalksClub/website. Depends on: D3.1e.
+
+Goal: the guard that proves the reviewed merge loses no rows can see the tables the merge now
+writes.
+
+Found by the D3.1 stack review on 2026-09-18 and deliberately left out of that stack, because it is
+a design change rather than a fix and bundling it would have made five branches unreviewable.
+
+`accounts/identity_inventory.ACCOUNT_RELATIONS` is a hand-written tuple, and the only ratchet over
+it asserts a count against that same list. So it enumerates what the code already knows about and
+can never notice a relation nobody added. D3.1 put two new relations on the user model,
+`accounts_ext.IdentityState.user` and `courses.LearnerProfile.user`, without touching either. The
+practical effect: `relationship_evidence()`, whose counts and checksums are what prove the reviewed
+merge lost no rows, does not count or checksum `accounts_ext_identitystate` or
+`courses_learnerprofile` -- the two tables the merge now writes.
+
+This is playbook P7's own failure shape one level up, at the level of the check rather than the
+service, and P7 says so: a guard that walks one way is half a guard.
+
+Steps
+1. Walk from `User._meta.related_objects` and require every relation to be either named in
+   `ACCOUNT_RELATIONS` or covered by `ACCOUNT_EXTENSION_MODELS`, so a new relation fails the guard
+   until somebody classifies it.
+2. Expect the first run to name more than the two this issue is about. The review measured a long
+   tail of pre-existing drift across `cb_api`, `cb_coursework`, `cb_curriculum`, `cb_mail`,
+   `courses`, `event_registrants`, `events` and `historical_registrations`. Classify them rather
+   than exempting them wholesale, and say which genuinely need no handling.
+3. Extend `relationship_evidence()` to cover the extension tables.
+
+Verification
+- Adding a relation to the user model without classifying it fails the guard.
+- The reviewed merge's evidence includes counts for both extension tables.
+
+Done when
+- [ ] the guard is derived from the model graph rather than from a hand-written list
+
 ## D3.2 Freeze weekend: adopt shared accounts and onboarding
 
 Repository: DataTalksClub/website. Depends on: C5.3, C3.7, D3.1e. Freeze required: yes. Playbook P7 step 4, P13.
