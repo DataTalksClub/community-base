@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- C7.24: wire up two config capabilities that existed in the code and reached no operator.
+  `service.unset(key, actor_ref, reason)` had no caller and no test; the Studio settings page now
+  has a "clear override" control per database-backed field, which calls it and records the same
+  `SettingChange` audit trail a `set` gets. `registry.declare()`'s `requires_restart` flag was
+  written and never read; a field declared with it now carries a "Requires restart" badge in
+  Studio at the moment the operator edits it, and saving a group that actually changes or clears
+  such a field adds a warning message naming the keys that need a restart.
+
 ## 0.5.4
 
 - C7.25: shared public templates extend a package-owned seam,

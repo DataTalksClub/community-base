@@ -8,13 +8,36 @@ from community_base.config.registry import Definition
 
 
 class SettingsGroupForm(forms.Form):
-    def __init__(self, *args, definitions: tuple[Definition, ...], initial_values: dict, **kwargs):
+    def __init__(
+        self,
+        *args,
+        definitions: tuple[Definition, ...],
+        initial_values: dict,
+        clearable_keys: frozenset[str] = frozenset(),
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.config_definitions = definitions
+        self.clearable_keys = frozenset(clearable_keys) & {item.key for item in definitions}
         for item in definitions:
             self.fields[item.key] = self._field(item)
             if not item.secret:
                 self.initial[item.key] = self._display_value(item, initial_values[item.key])
+            if item.key in self.clearable_keys:
+                clear_name = self.clear_field_name(item.key)
+                self.fields[clear_name] = forms.BooleanField(
+                    required=False,
+                    label="Clear override, revert to fallback",
+                )
+                if self.is_bound and self.data.get(clear_name):
+                    # The operator wants the override gone regardless of what the
+                    # value field still holds, so its own validity cannot block the
+                    # clear.
+                    self.fields[item.key].required = False
+
+    @staticmethod
+    def clear_field_name(key: str) -> str:
+        return f"{key}__clear"
 
     @staticmethod
     def _field(item: Definition) -> forms.Field:
@@ -45,13 +68,30 @@ class SettingsGroupForm(forms.Form):
         return value
 
     def cleaned_updates(self) -> dict:
+        cleared = self.cleaned_clears()
         updates = {}
         for item in self.config_definitions:
+            if item.key in cleared:
+                continue
             value = self.cleaned_data[item.key]
             if item.secret and not value:
                 continue
             updates[item.key] = item.coerce(value)
         return updates
+
+    def cleaned_clears(self) -> tuple[str, ...]:
+        """Keys whose "clear override" control was checked.
+
+        These are removed from the database entirely, through
+        `community_base.config.service.unset`, instead of being written with
+        whatever the value field still holds.
+        """
+        return tuple(
+            item.key
+            for item in self.config_definitions
+            if item.key in self.clearable_keys
+            and self.cleaned_data.get(self.clear_field_name(item.key))
+        )
 
 
 class SettingsImportForm(forms.Form):

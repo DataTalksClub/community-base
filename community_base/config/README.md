@@ -26,9 +26,11 @@ ZOOM_CLIENT_ID = declare(
 ```
 
 Supported `value_type` values are `str`, `int`, `bool`, `json`, and `list`. Metadata flags are
-`secret`, `multiline`, `optional`, `is_email`, `django_settings_fallback`, and `docs_url`.
-`django_settings_fallback=True` reads the key's own Django setting name; a string names a different
-explicit attribute. Conflicting declarations fail during startup.
+`secret`, `multiline`, `optional`, `is_email`, `django_settings_fallback`, `docs_url`, and
+`requires_restart` (default `False`). Restart metadata is advisory: it does not restart processes
+or change runtime resolution, it only tells the operator editing that key in Studio that the
+change needs one. `django_settings_fallback=True` reads the key's own Django setting name; a
+string names a different explicit attribute. Conflicting declarations fail during startup.
 
 Read values with:
 
@@ -69,6 +71,17 @@ destroying existing credentials.
 
 Staff users edit groups at `/studio/settings/`, see a source badge for every value, and can import
 or export JSON. Secret fields render empty and preserve the stored value when left blank.
+
+A field with a database override (source `db`) carries its own "clear override" checkbox. Checking
+it removes the override through `service.unset(key, actor_ref, reason)` regardless of whatever the
+value field still holds, restoring the declared environment, Django setting or default fallback,
+and records a `SettingChange` with the same actor, reason and redaction rules a `set` gets.
+Clearing an override that no longer exists (raced by another request) is a no-op, not an error.
+
+A field declared `requires_restart=True` always carries a "Requires restart" badge, so the operator
+sees it before making the change rather than on a page they may not read. Saving a group that
+actually changes or clears such a key also adds a Django warning message naming the keys that need
+a restart, so the operator sees it again at the moment the change takes effect.
 
 API routes are registered under `/api/v1/settings`:
 
