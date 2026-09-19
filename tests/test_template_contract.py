@@ -18,6 +18,7 @@ against two synthetic bases shaped like the two real ones.
 import re
 
 from community_base.kernel.template_contract import (
+    PAGE_LANDMARK_CLASS,
     PUBLIC_BASE_TEMPLATE,
     PUBLIC_TEMPLATES,
     SITE_BASE_TEMPLATE,
@@ -32,6 +33,9 @@ from tests.template_tree import (
     public_templates,
     templates_extending_the_site_base,
 )
+
+_MAIN_OPEN_RE = re.compile(r"<main\b([^>]*)>")
+_TEMPLATE_TAG_RE = re.compile(r"\{%.*?%\}|\{\{.*?\}\}", re.DOTALL)
 
 
 def test_public_templates_exist():
@@ -56,6 +60,55 @@ def test_public_templates_fill_the_content_block():
 
     missing = [path.as_posix() for path in public_templates() if "content" not in block_names(path)]
     assert missing == []
+
+
+def test_every_public_template_opens_exactly_one_main():
+    """The page owns the `main` landmark, so a site's chrome must not open one (C7.30).
+
+    Before C7.30, 34 of the 41 brought their own `main` and 7 brought none, which left a
+    consuming site's seam choosing between a nested `main` on 34 pages and no landmark at
+    all on 7. This is the rule that made the choice answerable, asserted over the whole
+    tree so a public template added on the wrong side fails here rather than in a browser.
+    """
+
+    offenders = {}
+    for path in public_templates():
+        source = path.read_text()
+        opens = len(_MAIN_OPEN_RE.findall(source))
+        closes = source.count("</main>")
+        if opens != 1 or closes != 1:
+            offenders[path.as_posix()] = f"{opens} <main>, {closes} </main>"
+    assert offenders == {}
+
+
+def test_every_public_main_carries_the_page_hook():
+    """One selector reaches the page landmark on both sites."""
+
+    offenders = {}
+    for path in public_templates():
+        match = _MAIN_OPEN_RE.search(path.read_text())
+        attributes = match.group(1) if match else ""
+        classes = re.search(r'class="([^"]*)"', attributes)
+        if not classes or PAGE_LANDMARK_CLASS not in classes.group(1).split():
+            offenders[path.as_posix()] = attributes.strip()
+    assert offenders == {}
+
+
+def test_the_main_is_the_outermost_element_of_the_content_block():
+    """A landmark nested inside a page wrapper is not the page landmark.
+
+    A site styling `cb-page` and a seam wrapping `content` both assume the `main` is the
+    first thing the block emits.
+    """
+
+    offenders = {}
+    for path in public_templates():
+        source = path.read_text()
+        body = source.split("{% block content %}", 1)[1]
+        before = _TEMPLATE_TAG_RE.sub("", body.split("<main", 1)[0])
+        if "<" in before:
+            offenders[path.as_posix()] = before.strip()[:60]
+    assert offenders == {}
 
 
 def test_public_templates_use_only_cb_class_hooks():

@@ -1,3 +1,7 @@
 {% extends "community_base/public/base.html" %}
 {% block title %}Onboarding complete{% endblock %}
-{% block content %}<h1>Onboarding complete</h1><p>You have completed {{ progress.flow.title }}.</p>{% endblock %}
+{% block content %}
+<main class="cb-page">
+<h1>Onboarding complete</h1><p>You have completed {{ progress.flow.title }}.</p>
+</main>
+{% endblock %}

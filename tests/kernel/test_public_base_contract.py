@@ -34,6 +34,7 @@ from django.test import override_settings
 from community_base.kernel.checks import check_public_base_block_contract
 from community_base.kernel.template_contract import (
     BLOCK_CHECK_ID,
+    LANDMARK_CHECK_ID,
     PUBLIC_BASE_TEMPLATE,
     PUBLIC_TEMPLATES,
 )
@@ -385,6 +386,106 @@ def test_a_base_that_does_not_compile_is_reported(tmp_path, settings):
     assert len(messages) == 1
     assert messages[0].id == "community_base.kernel.E002"
     assert "does not compile" in messages[0].msg
+
+
+# ---------------------------------------------------------------------------
+# The page owns the `main` landmark, and a site's chrome is told when it does not (C7.30).
+# ---------------------------------------------------------------------------
+
+# A base shaped like a site that wraps `content` in its own landmark. That is the seam a
+# site would write if it believed the chrome owned the landmark, and before C7.30 it was a
+# defensible belief for 7 of the 41 pages.
+MAIN_OWNING_BASE = CONFORMING_BASE.replace(
+    "{% block content %}{% endblock %}",
+    '<main id="site-main">{% block content %}{% endblock %}</main>',
+)
+
+# One template from each of the two groups C7.30 found. A single sample cannot tell the
+# two cases apart: before the fix, `events/event_list.html` brought its own `main` and
+# `notifications/notification_list.html` brought none, so a seam that opened one produced
+# a nested landmark on the first and a seam that did not produced none on the second.
+BROUGHT_ITS_OWN_MAIN = "events/event_list.html"
+BROUGHT_NO_MAIN = "notifications/notification_list.html"
+
+
+@pytest.mark.parametrize("template_name", [BROUGHT_ITS_OWN_MAIN, BROUGHT_NO_MAIN])
+def test_a_seam_that_opens_no_main_gets_exactly_one(template_name, tmp_path, settings):
+    """The verification C7.30 asks for, on one page from each former group."""
+
+    site_dir = _site_dir(tmp_path, CONFORMING_BASE)
+    with override_settings(TEMPLATES=_templates_with(settings, site_dir)):
+        html = render_to_string(template_name, {})
+
+    assert html.count("<main") == 1
+    assert html.count("</main>") == 1
+    assert "<nav>chrome</nav>" in html
+    assert 'class="cb-page' in html
+
+
+@pytest.mark.parametrize("template_name", [BROUGHT_ITS_OWN_MAIN, BROUGHT_NO_MAIN])
+def test_a_chrome_owning_main_nests_on_both_groups(template_name, tmp_path, settings):
+    """The defect is symmetric once the templates agree, which is why the rule is stateable.
+
+    Before C7.30 this base produced a nested `main` on one group and a single correct one
+    on the other, so no rule could be given to a site. Now it nests on both, and one
+    warning names the one thing the site has to change.
+    """
+
+    site_dir = _site_dir(tmp_path, MAIN_OWNING_BASE)
+    with override_settings(TEMPLATES=_templates_with(settings, site_dir)):
+        html = render_to_string(template_name, {})
+
+    assert html.count("<main") == 2
+
+
+def test_a_chrome_that_opens_a_main_is_warned_about_by_id(tmp_path, settings):
+    messages = _messages(settings, _site_dir(tmp_path, MAIN_OWNING_BASE))
+
+    landmark = [message for message in messages if message.id == LANDMARK_CHECK_ID]
+    assert len(landmark) == 1
+    assert isinstance(landmark[0], Warning)
+    assert LANDMARK_CHECK_ID == "community_base.kernel.W005"
+    assert "'base.html'" in landmark[0].msg
+    assert "cb-page" in landmark[0].hint
+
+
+def test_a_conforming_chrome_is_not_warned_about_the_landmark(tmp_path, settings):
+    """The shipped seam opens no `main`, so a site that leaves it alone hears nothing."""
+
+    assert _messages(settings, _site_dir(tmp_path, CONFORMING_BASE)) == []
+
+
+def test_a_main_the_site_commented_out_is_not_an_offence(tmp_path, settings):
+    """The reading is textual, so it removes comments before believing what it sees."""
+
+    commented = CONFORMING_BASE.replace(
+        "{% block content %}{% endblock %}",
+        "<!-- <main> was here --> {# and here: <main> #} {% block content %}{% endblock %}",
+    )
+    assert _messages(settings, _site_dir(tmp_path, commented)) == []
+
+
+def test_a_main_in_the_sites_own_seam_override_is_reported_too(tmp_path, settings):
+    """The seam is the file a site writes, so it is the file most likely to open one."""
+
+    seam = AISL_SEAM_OVERRIDE.replace(
+        "{% block body %}{% block content %}{% endblock %}{% endblock %}",
+        "{% block body %}<main>{% block content %}{% endblock %}</main>{% endblock %}",
+    )
+    messages = _messages(settings, _site_dir(tmp_path, AISL_SHAPED_BASE, seam_source=seam))
+
+    landmark = [message for message in messages if message.id == LANDMARK_CHECK_ID]
+    assert len(landmark) == 1
+    assert PUBLIC_BASE_TEMPLATE in landmark[0].msg
+
+
+def test_the_landmark_warning_is_silent_when_every_page_is_shadowed(tmp_path, settings):
+    """A site filling its own blocks in its own templates owns its own landmarks."""
+
+    shadowed = [template_name for _, template_name, _ in PUBLIC_TEMPLATES]
+    messages = _messages(settings, _site_dir(tmp_path, MAIN_OWNING_BASE, shadowed=shadowed))
+
+    assert [message for message in messages if message.id == LANDMARK_CHECK_ID] == []
 
 
 # ---------------------------------------------------------------------------
