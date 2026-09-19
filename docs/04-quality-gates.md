@@ -111,6 +111,31 @@ Stop, do not work around, and report to the owner when:
 - `docs/plan/README.md` status table is updated in the same pull request that closes the last
   issue.
 
+## The dominant failure of this programme: a check that measures nothing
+
+Six instances in two days, in six unrelated mechanisms. Each ran, reported success, and examined
+nothing it was believed to examine:
+
+- A Playwright suite in reused mode that executed no tests and recorded green, for months.
+- A cached template loader that rendered four distinct mutations identically, so a mutation table
+  compared four copies of the same output.
+- A missing CSS build artefact that left a hidden element clickable, so a click assertion passed for
+  the wrong reason.
+- A count assertion that held against elements with `display: none`.
+- A `collectstatic` run with the manifest backend disabled, which cannot exercise the failure it
+  exists to catch.
+- A mutation stopped by an earlier system check, which never reached the test it was offered as
+  evidence for.
+
+They share a shape, not a mechanism, which is why fixing each one individually never prevented the
+next. The shape is: the thing under test was absent, replaced, or unreachable at the moment of
+measurement, and nothing in the result says so. A green result carries no information about how much
+was examined.
+
+The sections below are the specific forms. The general defence is one habit: make every new check
+fail on purpose before believing it, and when a check passes unexpectedly early, cheaply, or first
+time, treat that as a reason to look rather than a result.
+
 ## A gate that measures the wrong thing
 
 A failing gate is a signal. A gate that passes while measuring something other than what it claims
@@ -368,4 +393,10 @@ what changed -- do not leave the reviewer to discover that the head moved.
 The general form: a review is evidence about an artefact, not about a branch name. Anything that
 changes which artefact the name points at invalidates the evidence, however harmless the change
 looks to the person making it.
+
+The announcement is doing the real work here, not the reviewer's diligence. In the case above the
+reviewer only checked because the subject line had changed, which is a weak signal: a message-only
+amend that kept the same subject would have looked identical, and they would have merged on the
+strength of a SHA they never compared. So a rewrite the author does not announce is one a
+conscientious reviewer will usually miss.
 
