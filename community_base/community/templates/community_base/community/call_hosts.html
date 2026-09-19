@@ -1,8 +1,10 @@
 {% extends "community_base/public/base.html" %}
 {% block title %}Request a community call{% endblock %}
 {% block content %}
+<main class="cb-page">
 <h1>Request a community call</h1>
 {% if booked_calls %}<h2>Your booked calls</h2><ul>{% for call in booked_calls %}<li>{{ call.host.name }} — {{ call.scheduled_at|default:"Time pending" }}</li>{% endfor %}</ul>{% endif %}
 <h2>Available hosts</h2>
 <ul>{% for host in hosts %}{% if host.is_available %}<li><h3>{{ host.name }}</h3>{% if host.role_label %}<p>{{ host.role_label }}</p>{% endif %}<a href="{{ host.usable_booking_url }}" rel="noreferrer">Book a call</a></li>{% endif %}{% empty %}<li>No hosts are available.</li>{% endfor %}</ul>
+</main>
 {% endblock %}

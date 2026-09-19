@@ -268,6 +268,64 @@ page, course and unit pages) use:
   stylesheet (AISL adds `@apply` rules in `assets/css/tailwind.css`; DTC adds rules to
   `templates/core/_design_system.html`).
 
+### Who owns the `main` landmark
+
+The page owns it. Every shared public template opens exactly one `<main class="cb-page">` as the
+outermost element of its `content` block, and a consuming site's chrome must not open a `main`
+around `content`.
+
+A site therefore does nothing to get a correct landmark on every shared public page, and a site
+that wraps `content` in its own `main` renders one landmark inside another: invalid HTML, two
+competing landmarks for assistive technology, HTTP 200, and no sign of it in a browser.
+
+This was not always true. C7.30 found 34 of the 41 templates bringing their own `main` and 7
+bringing none, so a site writing a seam had to choose between a nested landmark on 34 pages and no
+landmark on 7, with no way to tell which template a route would use. The 7 were wrapped rather than
+the 34 unwrapped, for four reasons, in order of weight:
+
+- the shipped default has to be correct with no site action. With the page owning the landmark, a
+  site that installs the package and writes nothing gets one. With the seam owning it, correctness
+  would depend on the site's own `base.html`, which the package neither ships nor can require;
+- the seam stays a pass-through. It defines no blocks and emits nothing, which is what lets a site
+  adopt it without changing a byte of any page, and what a site's own override replaces safely. A
+  seam that emitted markup would break both;
+- the landmark is a per-page extension point. Sixteen of the templates carry a page-specific hook
+  on it (`cb-page cb-events-list`) and one carries data attributes. Moving the element into the
+  seam would need a sixth contracted block to put them back, widening the contract for every site;
+- the 7 had no `cb-page` hook at all, so they were also the 7 pages a site could not style.
+
+`community_base.kernel.checks.check_public_base_block_contract` reads the chain above the seam for
+a `main` and reports `community_base.kernel.W005` when it finds one, naming the template. It is a
+warning, not an error: the page still serves its body, and the reading is textual, so a site whose
+`main` sits on pages these templates never reach silences that one id. `tests/test_template_contract.py`
+asserts the rule over the whole template tree, so a public template added on the wrong side fails
+there rather than in a browser.
+
+The two adopting sites sit on opposite sides of this, which is what made the defect visible:
+
+| Site | Chrome | Before C7.30 | After C7.30 |
+|---|---|---|---|
+| AI-Shipping-Labs/website | `templates/base.html` opens no `main` | 34 pages correct, 7 with no landmark | all 41 correct, no site change |
+| DataTalksClub/website | `course_platform_templates/base.html` opens `<main id="main-content">` | 34 pages nested, 7 correct | all 41 nested until the site acts, and W005 says so |
+
+A site in the second position does not delete that `main`, because its own bespoke pages need it.
+It puts the element in a block of its own in its base, and empties that block in the seam override
+it already owns, so the shared public pages take their landmark from the page and every other page
+on the site keeps taking it from the chrome:
+
+```
+{# the site's base.html #}
+{% block page_landmark_open %}<main id="main-content" tabindex="-1">{% endblock %}
+{% block content %}{% endblock %}
+{% block page_landmark_close %}</main>{% endblock %}
+
+{# templates/community_base/public/base.html #}
+{% block page_landmark_open %}{% endblock %}
+{% block page_landmark_close %}{% endblock %}
+```
+
+That is a site adoption task, tracked by that site's own process, and W005 is what raises it.
+
 A site may override any shared template by placing a file at the same path under its own
 `templates/` directory. The package's `tests/test_template_contract.py` asserts that every shared
 public template uses only the blocks and hook classes above.
@@ -308,6 +366,13 @@ nowhere to render, naming the block and the package templates that fill it.
 | `meta_description` | the page falls back to the site default description | `community_base.kernel.W002` | warning |
 | `page_head_metadata` | two mail pages lose their `noindex, nofollow` | `community_base.kernel.W003` | warning |
 | `extra_js` | the page renders and its progressive enhancement is dead | `community_base.kernel.W004` | warning |
+
+The same check reports one thing that is not a block: a `main` in the chain, which nests inside the
+one every public page opens.
+
+| Condition | Means | Check id | Severity |
+|---|---|---|---|
+| the chain opens a `main` around `content` | shared public pages render a nested landmark | `community_base.kernel.W005` | warning |
 
 `community_base.kernel.E002` is raised instead when the chain cannot be read at all, which is a
 louder failure: every shared public page would raise on render.

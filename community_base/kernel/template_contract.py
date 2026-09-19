@@ -61,6 +61,23 @@ BLOCK_CHECK_ID: dict[str, str] = {
 # and louder failure than a missing block: every shared public page raises on render.
 UNREADABLE_CHAIN_CHECK_ID = "community_base.kernel.E002"
 
+# Who owns the `main` landmark on a shared public page: the page, not the site's chrome.
+#
+# All 41 public templates open exactly one `<main class="cb-page">` as the outermost element of
+# their `content` block, so a site that does nothing at all still gets one correct landmark per
+# page. A site whose chrome opens its own `main` around `content` therefore nests one inside the
+# other, which is invalid HTML and leaves assistive technology with two competing landmarks. It
+# renders at HTTP 200 and looks right in a browser, which is the class of defect these checks
+# exist for, so the chain above the seam is read for it here.
+#
+# A warning rather than an error, for the same reason the four head blocks are: the page still
+# serves its body, the detection is textual and cannot see that a site's `main` sits in a branch
+# these pages never take, and a site that knows better silences this one id.
+LANDMARK_CHECK_ID = "community_base.kernel.W005"
+
+# The class hook every public `main` carries, so a site has one selector for the page landmark.
+PAGE_LANDMARK_CLASS = "cb-page"
+
 # (app import path, template name as the loader sees it, blocks the template fills).
 # Generated from the template tree; see the module docstring.
 PUBLIC_TEMPLATES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
