@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- P16: the DataTalksClub consumer job no longer treats Gate B `pyproject.toml` /
+  `uv.lock` seal failures as package regressions. The link step rewrites those
+  files on every run; playbook P16 already called that an artefact.
 - C7.12a: the sanitiser keeps `target="_blank"` on links and `data-event-widget`
   on the event-widget placeholder, so those two site extensions no longer render
   a stripped link or a permanent "Loading" state. Course testimonials may carry

@@ -120,7 +120,16 @@ jobs:
       - name: Verdict — the in-progress package adds no new failures
         working-directory: dtc-website
         run: |
-          comm -13 "$GITHUB_WORKSPACE/baseline-failures.txt" "$GITHUB_WORKSPACE/linked-failures.txt" > "$GITHUB_WORKSPACE/new-failures.txt" || true
+          # Playbook P16: the link step rewrites pyproject.toml and uv.lock, so
+          # DataTalksClub Gate B seals fail on every linked run. They are not
+          # evidence about the package.
+          {
+            echo "FAIL: test_pyproject_seal_rejects_synthetic_unreviewed_drift"
+            echo "FAIL: test_gate_b_operator_contract_is_exact_and_workflow_isolated"
+          } | sort -u > "$GITHUB_WORKSPACE/p16-link-artefacts.txt"
+          comm -13 "$GITHUB_WORKSPACE/baseline-failures.txt" "$GITHUB_WORKSPACE/linked-failures.txt" \
+            | grep -vxF -f "$GITHUB_WORKSPACE/p16-link-artefacts.txt" \
+            > "$GITHUB_WORKSPACE/new-failures.txt" || true
           if [ -s "$GITHUB_WORKSPACE/new-failures.txt" ]; then
             echo "The in-progress package introduces failures the site does not have on its own pin:"
             cat "$GITHUB_WORKSPACE/new-failures.txt"

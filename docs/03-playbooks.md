@@ -486,9 +486,11 @@ commit, not a stale snapshot. It can also be run by hand against a non-default r
    (the baseline) and once against the in-progress package.
 4. Verify: both jobs in the run are green. The verdict is the failure-set comparison, not either
    suite alone: a job fails only when the linked run has failures the baseline run does not
-   (`comm -13` of the normalized `FAIL:`/`ERROR:` sets). A site whose default branch is red on
-   its own pin keeps the job green as long as the in-progress package adds nothing new; its
-   pre-existing failures stay visible in the job log and are reported to the site's own process.
+   (`comm -13` of the normalized `FAIL:`/`ERROR:` sets), after subtracting the Gate B seal
+   tests that fail because the link step rewrote `pyproject.toml` and `uv.lock`. A site whose
+   default branch is red on its own pin keeps the job green as long as the in-progress package
+   adds nothing new; its pre-existing failures stay visible in the job log and are reported to
+   the site's own process.
 5. D15 exempts only this package's own CI running against a disposable site checkout it never
    commits or pushes to. D0.2 is unchanged: each site's own CI still fails closed against a
    local/path/branch package source, and a site pull request still never points at this package's
