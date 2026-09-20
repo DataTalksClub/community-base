@@ -511,9 +511,8 @@ def classify(run: Run, required: Sequence[str]) -> Verdict | None:
         if failed_all and skipped_required:
             base.result = FAILED
             base.failing_jobs = [job.name for job in failed_all]
-            base.reason = (
-                "required job skipped behind failed job(s): "
-                + ", ".join(base.failing_jobs)
+            base.reason = "required job skipped behind failed job(s): " + ", ".join(
+                base.failing_jobs
             )
             return base
         base.result = GREEN
@@ -642,13 +641,13 @@ class CIWatcher:
             except GhError:
                 failures += 1
                 if failures > self.gh_retry_budget:
-                    raise ResolutionError("could not resolve a run from --branch (gh failures exceeded budget)")
+                    raise ResolutionError(
+                        "could not resolve a run from --branch (gh failures exceeded budget)"
+                    )
                 self.clock.sleep(self.interval)
                 continue
             if not payload:
-                raise ResolutionError(
-                    f"no {self.workflow!r} run found for branch {self.branch!r}"
-                )
+                raise ResolutionError(f"no {self.workflow!r} run found for branch {self.branch!r}")
             return str(payload[0].get("databaseId") or "")
 
     def _poll_run(self, run_id: str) -> Run:
@@ -822,7 +821,9 @@ class CIWatcher:
     def _hang_verdict(self, run_id: str, run: Run | None, polls: int, start: float) -> Verdict:
         now = self.clock.now()
         if run is not None and now - start >= self.max_wall_clock:
-            reason = f"maximum wall-clock deadline reached after {now - start:.0f}s without a verdict"
+            reason = (
+                f"maximum wall-clock deadline reached after {now - start:.0f}s without a verdict"
+            )
         else:
             reason = f"no job-state progress within {self.no_progress_timeout:.0f}s"
         verdict = Verdict(
@@ -847,9 +848,7 @@ class CIWatcher:
                 verdict.reason = f"run cancelled and superseded by newer run {newer}"
             else:
                 verdict.result = NO_VERDICT
-                verdict.reason = (
-                    "run cancelled with no demonstrably newer matching run; no verdict"
-                )
+                verdict.reason = "run cancelled with no demonstrably newer matching run; no verdict"
         return verdict
 
     def _finalize(self, verdict: Verdict, *, polls: int, start: float) -> Verdict:
@@ -885,7 +884,9 @@ def render_summary(verdict: Verdict, run: Run | None) -> list[str]:
     if verdict.failing_jobs:
         lines.append("Failing jobs: " + ", ".join(verdict.failing_jobs))
     if verdict.signature:
-        lines.append(f"Signature: {verdict.signature} (likely_infra={str(verdict.likely_infra).lower()})")
+        lines.append(
+            f"Signature: {verdict.signature} (likely_infra={str(verdict.likely_infra).lower()})"
+        )
     if verdict.newer_run_id:
         lines.append(f"Newer run: {verdict.newer_run_id}")
     return lines
@@ -901,7 +902,9 @@ def render_json_line(verdict: Verdict) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--pr", dest="pr_number", help="Watch required checks on this pull request")
     target.add_argument("--run-id", help="Watch this GitHub Actions run id")
@@ -932,10 +935,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override required job names (repeatable)",
     )
-    parser.add_argument("--log-file", type=Path, default=None, help="Append heartbeats here, never to stdout")
+    parser.add_argument(
+        "--log-file", type=Path, default=None, help="Append heartbeats here, never to stdout"
+    )
     parser.add_argument("--quiet", action="store_true", help="Emit no per-poll stderr output")
     parser.add_argument("--gh-binary", default="gh", help="gh executable to invoke")
-    parser.add_argument("--gh-retry-budget", type=int, default=5, help="Consecutive gh failures tolerated")
+    parser.add_argument(
+        "--gh-retry-budget", type=int, default=5, help="Consecutive gh failures tolerated"
+    )
     return parser
 
 
