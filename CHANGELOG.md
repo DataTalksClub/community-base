@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- C7.31: a shared public page must stay usable before a site writes its `cb-`
+  rules. Ugly is acceptable; an action that cannot be found is not. Fields and
+  the primary action are blocks under the browser default stylesheet. The
+  unsubscribe submit is no longer an inline sibling of the last radio label.
+  Colour and button chrome stay site-owned (A7.5, D7.6).
 - C7.24: wire up two config capabilities that existed in the code and reached no operator.
   `service.unset(key, actor_ref, reason)` had no caller and no test; the Studio settings page now
   has a "clear override" control per database-backed field, which calls it and records the same
