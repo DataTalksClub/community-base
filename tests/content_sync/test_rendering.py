@@ -293,6 +293,23 @@ def test_the_embed_and_theme_figure_attributes_are_admitted():
     assert 'data-theme-figure="dark"' in html
 
 
+def test_external_link_target_and_event_widget_slug_survive_the_sanitizer():
+    html = sanitize_rendered_html(
+        '<a href="https://example.com" target="_blank" rel="noopener">x</a>'
+        '<div class="event-widget" data-event-widget="v0-claim">'
+        '<span class="event-widget-loading">Loading…</span></div>'
+    )
+
+    assert 'target="_blank"' in html
+    assert 'data-event-widget="v0-claim"' in html
+    stripped = sanitize_rendered_html(
+        '<a href="https://example.com" target="_top">x</a>'
+        '<div data-event-widget="Not A Slug">y</div>'
+    )
+    assert "target=" not in stripped
+    assert "data-event-widget" not in stripped
+
+
 def test_style_event_handlers_and_unknown_data_attributes_are_removed():
     html = sanitize_rendered_html('<p style="color:red" data-x="1" onmouseover="e()">x</p>')
 

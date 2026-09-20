@@ -266,7 +266,9 @@ that decision D34 makes required, and each homework binding made relative to its
 `documents.py` converts a Jekyll-shaped document collection under a per-repository profile: files
 out of the underscore directory, keys renamed, dropped or moved under `extra`, `content_id` minted
 where a file carries none, kramdown and Liquid removed, and `[[wikilinks]]` turned into typed
-references.
+references. `aisl-content` and `aisl-workshops` cover the two AI-Shipping-Labs repositories whose
+kinds only that site registers (`C7.12a`); those profiles convert, and `check_content` on the
+result waits on `A7.2a` registering the kinds.
 
 Both hold to two rules, and both write the same report.
 

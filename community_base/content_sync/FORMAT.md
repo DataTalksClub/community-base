@@ -383,7 +383,7 @@ declares `slug` explicitly.
 | `docs_url` | https URL | no | `""` |
 | `faq_url` | https URL | no | `""` |
 | `hashtag` | `[A-Za-z0-9_]+` without `#` | no | `""` |
-| `testimonials` | list of `{quote, name, role, source_url}` | no | `[]` |
+| `testimonials` | list of `{quote, name, role, company, source_url}` | no | `[]` |
 
 AISL's `access_mode`, `enroll_url`, `program_label` and `maven_course_key` go under `extra` and
 stay AISL-read (decision D29). DTC's `starting_point`, `progression` and `homework_summaries` go
@@ -726,7 +726,9 @@ process exits 1 when any error was reported, and 0 when only warnings were.
   and stores what it was given rather than re-rendering the markdown body.
 - Sanitisation is package-owned and always last, over one nh3 allowlist, plus the attributes the
   shared extensions emit: `class` on `div`, `pre`, `code`, `span` and `img`; `data-embed-type` and
-  `data-embed-id` on `div`; `data-theme-figure` on `img`.
+  `data-embed-id` on `div`; `data-theme-figure` on `img`; `target` on `a` (`_blank` only, which
+  `ExternalLinksExtension` sets); `data-event-widget` on `div` (the slug `EventWidgetExtension`
+  hydrates).
 
   `class` is admitted on every allowed tag through the allowlist's `*` entry, so the per-tag list
   above describes where the shared extensions emit it, not where it is permitted.
