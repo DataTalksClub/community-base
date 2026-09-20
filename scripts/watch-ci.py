@@ -561,8 +561,8 @@ class CIWatcher:
         pr_number: str | None = None,
         repo: str | None = None,
         interval: float = 15.0,
-        no_progress_timeout: float = 900.0,
-        max_wall_clock: float = 5400.0,
+        no_progress_timeout: float = 2700.0,
+        max_wall_clock: float = 7200.0,
         gh_retry_budget: int = 5,
         quiet: bool = False,
         log_file: Path | None = None,
@@ -919,13 +919,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-progress-timeout",
         type=float,
-        default=900.0,
-        help="Hang if no job-state change within this many seconds",
+        default=2700.0,
+        help="Hang if no job-state change within this many seconds "
+        "(Cross-repo AISL is one long job, often ~28 minutes)",
     )
     parser.add_argument(
         "--max-wall-clock",
         type=float,
-        default=5400.0,
+        default=7200.0,
         help="Hang if no verdict within this many seconds total",
     )
     parser.add_argument(
