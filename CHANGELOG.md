@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- On-call: `scripts/watch-ci.py` watches a package pull request until CI,
+  plan-check and both Cross-repo consumer jobs reach a verdict. Dispatch
+  `.claude/agents/oncall-engineer.md` after opening or pushing a PR; the
+  orchestrator does not poll GitHub Actions.
 - C7.24: wire up two config capabilities that existed in the code and reached no operator.
   `service.unset(key, actor_ref, reason)` had no caller and no test; the Studio settings page now
   has a "clear override" control per database-backed field, which calls it and records the same
