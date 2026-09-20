@@ -50,8 +50,8 @@ def make_watcher(runner, **kwargs):
         clock=watch_ci.VirtualClock(),
         pr_number="289",
         interval=15.0,
-        no_progress_timeout=900.0,
-        max_wall_clock=5400.0,
+        no_progress_timeout=2700.0,
+        max_wall_clock=7200.0,
         gh_retry_budget=5,
     )
     defaults.update(kwargs)
