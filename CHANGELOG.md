@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- C7.31: a shared public page must stay usable before a site writes its `cb-`
+  rules. Ugly is acceptable; an action that cannot be found is not. Fields and
+  the primary action are blocks under the browser default stylesheet. The
+  unsubscribe submit is no longer an inline sibling of the last radio label.
+  Colour and button chrome stay site-owned (A7.5, D7.6).
 - P16: the DataTalksClub consumer job no longer treats Gate B `pyproject.toml` /
   `uv.lock` seal failures as package regressions. The link step rewrites those
   files on every run; playbook P16 already called that an artefact.

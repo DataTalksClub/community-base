@@ -268,6 +268,21 @@ page, course and unit pages) use:
   stylesheet (AISL adds `@apply` rules in `assets/css/tailwind.css`; DTC adds rules to
   `templates/core/_design_system.html`).
 
+### The unstyled state
+
+Ugly is acceptable. An action that cannot be found is not.
+
+Until a site writes those `cb-` rules, a shared public page is still served. The package
+therefore guarantees a usable document under the browser default stylesheet: each `.cb-field`
+is a block, and the primary action is a block after the fields, not an inline sibling of the
+last label. Colour, typeface and native-button appearance stay site-owned (A7.5, D7.6). A CSS
+reset that strips button chrome (Tailwind preflight) can still make the control look like
+text; restoring that look is a site rule. The package does not ship a structural stylesheet,
+because that would impose spacing a site then has to undo, and it does not refuse to mount
+until the rules exist, because the unsubscribe page is already reachable from email.
+
+C7.31 is this ruling. The unsubscribe template is the example that made it necessary.
+
 ### Who owns the `main` landmark
 
 The page owns it. Every shared public template opens exactly one `<main class="cb-page">` as the

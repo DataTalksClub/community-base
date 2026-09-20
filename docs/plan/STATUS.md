@@ -214,6 +214,6 @@ issues that can start now.
 | `C7.28` | community-base | Canonical public URLs in shared API representations | C7.22 | no | done | https://github.com/DataTalksClub/community-base/pull/281; release: https://github.com/DataTalksClub/community-base/releases/tag/v0.5.2 |
 | `C7.29` | community-base | Ship the source map referenced by the vendored Lucide bundle | C7.20 | no | done | https://github.com/DataTalksClub/community-base/pull/283; release: https://github.com/DataTalksClub/community-base/releases/tag/v0.5.3 |
 | `C7.30` | community-base | Public templates disagree about who owns the main landmark | C7.25 | no | done | https://github.com/DataTalksClub/community-base/pull/288 |
-| `C7.31` | community-base | A shared public page must be usable before a site styles it | C7.25 | no | todo |  |
+| `C7.31` | community-base | A shared public page must be usable before a site styles it | C7.25 | no | in-progress | https://github.com/DataTalksClub/community-base/pull/290 |
 | `A7.5` | AI-Shipping-Labs/website | AISL: write the cb- rules for shared public pages | A7.4 | no | done | merged to origin/main as 31b431be. Fifteen cb- hooks in assets/css/tailwind.css; primary action and field first |
 | `D7.6` | DataTalksClub/website | DTC: write the cb- rules for shared public pages | D7.5 | no | done | merged to origin/main as 30a69930. Fifteen cb- hooks in templates/core/_design_system.html; primary action and field first |

@@ -13,8 +13,10 @@
     {% if degraded %}<p class="cb-alert">We could not check this link, but you can still submit your choice.</p>{% endif %}
     {% if invalid_scope %}<p class="cb-alert">Choose one option.</p>{% endif %}
     <form class="cb-form" method="post">
-      {% for value, label in scope_choices %}<label class="cb-field"><input type="radio" name="scope" value="{{ value }}"> {{ label }}</label>{% endfor %}
-      <button class="cb-button cb-button-primary" type="submit">Unsubscribe</button>
+      {% for value, label in scope_choices %}
+      <div class="cb-field"><label><input type="radio" name="scope" value="{{ value }}"> {{ label }}</label></div>
+      {% endfor %}
+      <p><button class="cb-button cb-button-primary" type="submit">Unsubscribe</button></p>
     </form>
   {% endif %}
 </main>
