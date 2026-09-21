@@ -896,8 +896,8 @@ Four items, two of them defects that would ship broken pages.
 4. Rule on the member wiki's kind, which is an access question rather than a naming one. See A7.2a.
 
 Done when
-- [ ] both profiles exist and convert their repositories
-- [ ] no attribute a shipped extension emits is stripped by the sanitiser that follows it
+- [x] both profiles exist and convert their repositories
+- [x] no attribute a shipped extension emits is stripped by the sanitiser that follows it
 
 Docs
 - `community_base/content_sync/FORMAT.md`, `community_base/content_sync/README.md`, `CHANGELOG.md`, `docs/01-decisions.md` (D42), `docs/plan/evidence/conversion-runs-2026-09-18.md`.
@@ -2043,7 +2043,7 @@ Steps
    section currently reads as though the unstyled state is fine.
 
 Done when
-- [ ] the unstyled state of a shared public page is specified rather than incidental
+- [x] the unstyled state of a shared public page is specified rather than incidental
 
 Docs
 - `docs/02-architecture.md` section 5, `CHANGELOG.md`.
