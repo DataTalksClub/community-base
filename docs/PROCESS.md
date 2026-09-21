@@ -60,6 +60,24 @@ reason. It is not marked as passed.
 - Link the pull request in `docs/plan/STATUS.md` (pull request in this repository if the issue
   is elsewhere).
 
+## 4a. CI and on-call
+
+On-call is the only role that waits for GitHub Actions after a pull request is opened or
+pushed. The orchestrator dispatches `.claude/agents/oncall-engineer.md` asynchronously and
+continues other work. It does not `sleep`, `gh run watch`, or poll `gh run list` / `gh run view`
+/ `gh pr checks`.
+
+On-call invokes the blocking watcher once per pull request:
+
+```bash
+uv run python scripts/watch-ci.py --pr <N> --repo DataTalksClub/community-base --quiet
+```
+
+Green means `test`, `plan`, and both Cross-repo consumer jobs succeeded. A red pipeline is
+investigated and fixed on the PR branch; it is never dismissed as an acceptable pre-existing
+failure. Gate B seal failures caused by the P16 local-link rewrite are artefacts (see
+playbook P16), not package evidence. Cancellation or a missing verdict is unresolved, not green.
+
 ## 5. Close
 
 | Step | Check |

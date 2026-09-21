@@ -86,6 +86,9 @@ from the phase files by `scripts/plan.py`; only the `Status` and `Link` columns 
   request here that touches only `docs/plan/STATUS.md`. Do it in the same session as the site
   pull request.
 - Run `python scripts/plan.py check` before pushing; CI runs it too.
+- After opening or pushing a package pull request, dispatch the on-call engineer
+  (`.claude/agents/oncall-engineer.md`) asynchronously. On-call is the sole CI observer
+  (`uv run python scripts/watch-ci.py --pr <N>`). The orchestrator does not poll GitHub Actions.
 - Phase status in `docs/plan/README.md` changes when the phase exit criteria are verified.
 
 Optionally mirror an issue as a GitHub issue in its repository (label `community-base`) and put
