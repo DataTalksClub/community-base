@@ -372,8 +372,8 @@ def is_admitted_site_image_src(value: str) -> bool:
 # the heading ids this module injects are dropped before the filter sees them.
 _SANITIZE_ATTRIBUTES = {
     "*": {"class", "id", "lang", "title"},
-    "a": {"href", "rel"},
-    "div": {"data-embed-id", "data-embed-type"},
+    "a": {"href", "rel", "target"},
+    "div": {"data-embed-id", "data-embed-type", "data-event-widget"},
     "img": {"alt", "data-theme-figure", "height", "loading", "src", "width"},
     "td": {"colspan", "rowspan"},
     "th": {"colspan", "rowspan", "scope"},
@@ -381,6 +381,7 @@ _SANITIZE_ATTRIBUTES = {
 }
 
 _EMBED_ATTRIBUTES = frozenset({"data-embed-id", "data-embed-type"})
+_EVENT_WIDGET_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 def _allowed_attribute(tag: str, attribute: str, value: str) -> str | None:
@@ -390,8 +391,12 @@ def _allowed_attribute(tag: str, attribute: str, value: str) -> str | None:
         return value
     if tag == "a" and attribute in {"href", "rel"}:
         return value
+    if tag == "a" and attribute == "target":
+        return value if value == "_blank" else None
     if tag == "div" and attribute in _EMBED_ATTRIBUTES:
         return value
+    if tag == "div" and attribute == "data-event-widget":
+        return value if _EVENT_WIDGET_SLUG.fullmatch(value) else None
     if tag == "img" and attribute == "src":
         return value if is_admitted_site_image_src(value) else None
     if tag == "img" and attribute in {"alt", "data-theme-figure", "height", "loading", "width"}:

@@ -899,6 +899,9 @@ Done when
 - [ ] both profiles exist and convert their repositories
 - [ ] no attribute a shipped extension emits is stripped by the sanitiser that follows it
 
+Docs
+- `community_base/content_sync/FORMAT.md`, `community_base/content_sync/README.md`, `CHANGELOG.md`, `docs/01-decisions.md` (D42), `docs/plan/evidence/conversion-runs-2026-09-18.md`.
+
 ## A7.2a Register the AISL site kinds and markdown extensions
 
 Repository: AI-Shipping-Labs/website. Depends on: C7.12a.

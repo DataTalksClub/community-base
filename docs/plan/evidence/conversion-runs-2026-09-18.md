@@ -107,9 +107,16 @@ The specification's section 5 names three. Here is where each stands.
 | The 25 re-parented documentation pages (D28) | `D7.4` | produced by the conversion; the route and sitemap contracts are the review |
 | The podwiki tokens whose title resolves to nothing | `D7.4` | none left unresolved: a `[[token]]` or a `related:` entry naming no page is a refusal, not a silent drop, and the 16 refusals this repository has are unterminated fences instead |
 
-## Repositories with no profile yet
+## Repositories whose kinds the package does not register
 
-`AI-Shipping-Labs/content` and `AI-Shipping-Labs/workshops-content` hold collections whose kinds
-only that site registers (`workshop`, `project`, `curated_link`, `interview_question`). Their
-profiles are written in `A7.2`, where those kinds are registered, because a profile that names a
-kind no registry has cannot be validated by `check_content` here.
+`aisl-content` and `aisl-workshops` now exist (`C7.12a`). Scratch copies converted on 2026-09-20:
+
+- `aisl-content`: 21 renamed, 7 rewritten, `content.yaml` created, one refusal
+  (`blog/what-is-an-ai-engineer-alexey-grigorev-perspective/...md`, `{% prompt %}` Liquid the
+  conversion does not read). A second run rewrites nothing.
+- `aisl-workshops`: 25 `workshop.yaml` rewritten (`instructor_name` to `byline`), `content.yaml`
+  created, zero refusals. A second run rewrites nothing.
+
+`check_content` on the converted copies still waits on `A7.2a` registering `workshop`, `project`,
+`curated_link` and `interview_question`. The member-wiki storage ruling also stays `A7.2a`:
+`aisl-wiki` still writes the package wiki kind.

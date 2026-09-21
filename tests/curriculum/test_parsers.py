@@ -155,6 +155,7 @@ def test_aisl_course_graph():
     assert course.github_repo_url == "https://github.com/example/ai-hero"
     assert course.tags == ("ai-agents", "crash-course")
     assert course.testimonials[0]["name"] == "Grace Hopper"
+    assert course.testimonials[0]["company"] == "UNIVAC"
     assert [module.slug for module in course.modules] == ["welcome", "retrieval"]
 
     welcome = course.modules[0]

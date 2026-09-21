@@ -39,6 +39,7 @@ COURSE = PartSpec(
                 "quote": KeySpec("string", required=True),
                 "name": KeySpec("string"),
                 "role": KeySpec("string"),
+                "company": KeySpec("string"),
                 "source_url": KeySpec("url"),
             },
         ),

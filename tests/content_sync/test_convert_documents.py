@@ -228,6 +228,8 @@ def test_every_shipped_profile_names_a_registered_or_site_kind():
 
     assert set(PROFILES) == {
         "aisl-wiki",
+        "aisl-content",
+        "aisl-workshops",
         "podwiki",
         "dtc-people",
         "dtc-articles",
@@ -237,4 +239,108 @@ def test_every_shipped_profile_names_a_registered_or_site_kind():
     for profile in PROFILES.values():
         for collection in profile.collections:
             assert collection.kind
-            assert collection.layout in ("flat", "item", "tree", "data", "opaque")
+            assert collection.layout in (
+                "flat",
+                "item",
+                "tree",
+                "data",
+                "opaque",
+                "yaml",
+                "declare",
+            )
+
+
+def test_aisl_content_rewrites_article_and_project_keys(tmp_path: Path):
+    root = write(
+        tmp_path,
+        {
+            "blog/hello/hello.md": (
+                "---\ntitle: Hello\ndescription: A post.\nauthor: Ada\n"
+                "cover_image: images/cover.jpg\ndate: '2026-01-02'\n---\n\nBody.\n"
+            ),
+            "projects/tool/tool.md": (
+                "---\ntitle: Tool\ndescription: A project.\nauthor: Ada\n"
+                "cover_image: images/cover.jpg\n"
+                "date: '2026-01-03'\ndifficulty: hard\n---\n\nBody.\n"
+            ),
+            "curated-links/talk.md": (
+                "---\ntitle: Talk\nurl: https://example.com/talk\ncategory: other\n"
+                "published: true\ndate: '2026-01-04'\n---\n\nNotes.\n"
+            ),
+            "interview-questions/coding.md": (
+                "---\ntitle: Coding\ndescription: Algorithms.\nstatus: coming-soon\n---\n"
+            ),
+            "tiers.yaml": "free: 0\n",
+            "courses/aihero/course.yaml": "title: AI Hero\ndescription: |\n  Build.\n",
+            "events/launch/event.yaml": "title: Launch\n",
+        },
+    )
+
+    report = convert_documents(root, PROFILES["aisl-content"])
+
+    assert report.ok
+    article = front_matter(root, "articles/hello/index.md")
+    assert article["summary"] == "A post."
+    assert article["byline"] == "Ada"
+    assert article["image"] == "images/cover.jpg"
+    assert "description" not in article
+    project = front_matter(root, "projects/tool/index.md")
+    assert project["summary"] == "A project."
+    assert project["difficulty"] == "hard"
+    link = front_matter(root, "curated-links/talk.md")
+    assert link["url"] == "https://example.com/talk"
+    question = front_matter(root, "interview-questions/coding.md")
+    assert question["summary"] == "Algorithms."
+    assert question["status"] == "coming-soon"
+    assert (root / "data/tiers.yaml").read_text() == "free: 0\n"
+    assert not (root / "tiers.yaml").exists()
+    assert (root / "courses/aihero/course.yaml").is_file()
+    assert (root / "events/launch/event.yaml").is_file()
+    manifest = yaml.safe_load((root / "content.yaml").read_text())
+    assert [item["kind"] for item in manifest["collections"]] == [
+        "article",
+        "project",
+        "curated_link",
+        "interview_question",
+        "data",
+        "course",
+    ]
+    again = convert_documents(root, PROFILES["aisl-content"])
+    assert again.ok
+    assert again.converted == 0
+
+
+def test_aisl_workshops_rewrites_manifests_and_leaves_pages(tmp_path: Path):
+    root = write(
+        tmp_path,
+        {
+            "2026/06/2026-06-09-vector-search/workshop.yaml": (
+                "title: Vector Search\n"
+                "slug: vector-search\n"
+                "date: 2026-06-09\n"
+                "instructor_name: Ada Lovelace\n"
+                "cover_image_url: https://example.com/cover.jpg\n"
+                "pages_required_level: 10\n"
+            ),
+            "2026/06/2026-06-09-vector-search/notes.md": "# Notes\n",
+            "scripts/check.py": "print(1)\n",
+        },
+    )
+    notes = (root / "2026/06/2026-06-09-vector-search/notes.md").read_bytes()
+
+    report = convert_documents(root, PROFILES["aisl-workshops"])
+
+    assert report.ok
+    manifest = yaml.safe_load((root / "2026/06/2026-06-09-vector-search/workshop.yaml").read_text())
+    assert manifest["byline"] == "Ada Lovelace"
+    assert manifest["image"] == "https://example.com/cover.jpg"
+    assert "instructor_name" not in manifest
+    assert "cover_image_url" not in manifest
+    assert manifest["pages_required_level"] == 10
+    assert (root / "2026/06/2026-06-09-vector-search/notes.md").read_bytes() == notes
+    assert yaml.safe_load((root / "content.yaml").read_text())["collections"] == [
+        {"kind": "workshop", "path": "."}
+    ]
+    again = convert_documents(root, PROFILES["aisl-workshops"])
+    assert again.ok
+    assert again.converted == 0

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- P16: the DataTalksClub consumer job no longer treats Gate B `pyproject.toml` /
+  `uv.lock` seal failures as package regressions. The link step rewrites those
+  files on every run; playbook P16 already called that an artefact.
+- C7.12a: the sanitiser keeps `target="_blank"` on links and `data-event-widget`
+  on the event-widget placeholder, so those two site extensions no longer render
+  a stripped link or a permanent "Loading" state. Course testimonials may carry
+  `company` (D42). Conversion profiles `aisl-content` and `aisl-workshops` exist
+  for the two AI-Shipping-Labs repositories that C7.12 left unprofiled. Member
+  wiki storage stays an A7.2a ruling: the shipped `aisl-wiki` profile still
+  writes the package wiki kind.
 - C7.24: wire up two config capabilities that existed in the code and reached no operator.
   `service.unset(key, actor_ref, reason)` had no caller and no test; the Studio settings page now
   has a "clear override" control per database-backed field, which calls it and records the same

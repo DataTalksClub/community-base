@@ -52,6 +52,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from community_base.content_sync.convert.report import (
     ConversionReport,
     dump_yaml,
@@ -126,6 +128,8 @@ class Collection:
     slug_references: tuple[str, ...] = ()
     #: `{label: front matter key}` collapsed into the person kind's `links`.
     link_keys: Mapping[str, str] = field(default_factory=dict)
+    #: YAML file name a `yaml` collection rewrites in place (`workshop.yaml`).
+    manifest: str = ""
     #: Take `date` out of a `YY-MM-DD-` or `YYYY-MM-DD-` name prefix.
     date_from_name: bool = False
     #: Directories of assets that move with the collection.
@@ -280,6 +284,90 @@ _register(
     )
 )
 
+_register(
+    Profile(
+        name="aisl-content",
+        collections=(
+            Collection(
+                kind="article",
+                source="blog",
+                target="articles",
+                layout="item",
+                rename={
+                    "description": "summary",
+                    "cover_image": "image",
+                    "author": "byline",
+                },
+                keep=("faq",),
+            ),
+            Collection(
+                kind="project",
+                source="projects",
+                target="projects",
+                layout="item",
+                rename={
+                    "description": "summary",
+                    "cover_image": "image",
+                    "author": "byline",
+                },
+                keep=("difficulty",),
+            ),
+            Collection(
+                kind="curated_link",
+                source="curated-links",
+                target="curated-links",
+                layout="flat",
+                keep=("url", "category", "published"),
+            ),
+            Collection(
+                kind="interview_question",
+                source="interview-questions",
+                target="interview-questions",
+                layout="flat",
+                rename={"description": "summary"},
+                keep=("sections", "status"),
+            ),
+            Collection(kind="data", source="tiers.yaml", target="data", layout="data"),
+            Collection(kind="course", source="courses", target="courses", layout="declare"),
+        ),
+        ignore=("events/**", "scripts/**", "widgets/**", "resources/**"),
+    )
+)
+
+_register(
+    Profile(
+        name="aisl-workshops",
+        collections=(
+            Collection(
+                kind="workshop",
+                source=".",
+                target=".",
+                layout="yaml",
+                manifest="workshop.yaml",
+                rename={
+                    "cover_image_url": "image",
+                    "instructor_name": "byline",
+                },
+                keep=(
+                    "slug",
+                    "event_slug",
+                    "pages_required_level",
+                    "landing_required_level",
+                    "code_repo_url",
+                    "materials",
+                    "recording",
+                    "tags",
+                ),
+            ),
+        ),
+        ignore=(
+            "scripts/**",
+            "_docs/**",
+            ".venv/**",
+        ),
+    )
+)
+
 
 # --- the entry point ----------------------------------------------------------
 
@@ -322,8 +410,33 @@ class _Conversion:
         self._flush()
 
     def _convert_collection(self, collection: Collection) -> None:
-        directory = self.root / collection.source
+        if collection.layout == "declare":
+            return
+        path = self.root / collection.source
+        if collection.layout == "yaml":
+            self._convert_yaml_collection(collection)
+            return
+        if collection.layout in ("data", "opaque"):
+            target = f"{collection.target.rstrip('/')}/{path.name}"
+            if path.is_file():
+                self.copies.append((collection.source, target))
+                self.report.record(
+                    collection.source,
+                    "renamed",
+                    target=target,
+                    details=["carried across unread"],
+                )
+                self.touched.add(collection.source)
+                return
+            if (self.root / target).is_file():
+                # A previous run already moved the file; a second run is a no-op.
+                return
+        directory = path
         if not directory.is_dir():
+            already = self.root / collection.target
+            if already.exists() and collection.source != collection.target:
+                # A previous run moved the collection; a second run is a no-op.
+                return
             self.report.refuse(
                 collection.source, "3.1", "the profile names a directory that is not there"
             )
@@ -743,6 +856,66 @@ class _Conversion:
         return _relative_to(target, str(page["target"]))
 
     # -- data files and assets -----------------------------------------------
+
+    def _convert_yaml_collection(self, collection: Collection) -> None:
+        """Rewrite YAML manifests in place. Pages next to them stay unread."""
+
+        name = collection.manifest
+        if not name:
+            self.report.refuse(
+                collection.source, "3.2", "a yaml collection names the manifest file"
+            )
+            return
+        directory = self.root / collection.source
+        if not directory.is_dir():
+            self.report.refuse(
+                collection.source, "3.1", "the profile names a directory that is not there"
+            )
+            return
+        found = False
+        for path in sorted(directory.glob(f"**/{name}")):
+            if any(part.startswith(".") for part in path.relative_to(directory).parts):
+                continue
+            source = path.relative_to(self.root).as_posix()
+            if self._is_ignored(source):
+                continue
+            found = True
+            loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if not isinstance(loaded, dict):
+                self.report.refuse(source, "3.2", "a manifest is a mapping")
+                self.report.record(source, "refused")
+                self.touched.add(source)
+                continue
+            values, details = self._yaml_values(collection, loaded)
+            self._put(source, source, dump_yaml(values), details)
+        if not found:
+            self.report.refuse(
+                collection.source, "3.1", f"no {name} files under the collection root"
+            )
+
+    def _yaml_values(
+        self, collection: Collection, loaded: Mapping[str, Any]
+    ) -> tuple[dict[str, Any], list[str]]:
+        data = dict(loaded)
+        details: list[str] = []
+        for old, new in collection.rename.items():
+            if old in data:
+                data[new] = data.pop(old)
+                details.append(f"{old} -> {new}")
+        known = {*CORE_ORDER, *collection.keep, *collection.rename.values(), "extra"}
+        extra = dict(data.get("extra") or {})
+        for name in list(data):
+            if name in known:
+                continue
+            if name in collection.drop:
+                details.append(f"dropped {name}: {data[name]!r}")
+                data.pop(name)
+                continue
+            extra[name] = data.pop(name)
+            details.append(f"{name} -> extra")
+        if extra:
+            data["extra"] = extra
+        return ordered(data, (*CORE_ORDER, "extra")), details
 
     def _move_verbatim(self, collection: Collection, directory: Path) -> None:
         """Move a collection whose files the conversion does not read.
