@@ -144,7 +144,7 @@ issues that can start now.
 | `C5.2f` | community-base | Peer review assessment modes: per-submission lifecycle, pooled batch formation and assignment | C5.2e | no | done | https://github.com/DataTalksClub/community-base/pull/257 |
 | `C5.2g` | community-base | Pooled review expiry and coursework email notifications | C5.2f | no | done | https://github.com/DataTalksClub/community-base/pull/262 |
 | `C5.2h` | community-base | Certificate eligibility, learner-requested issuance, and banner-generator artifact seam | C5.2f | no | done | https://github.com/DataTalksClub/community-base/pull/263 |
-| `C5.2i` | community-base | Shared inline homework steps and resumable drafts | C5.1c | no | in-progress | https://github.com/DataTalksClub/community-base/issues/292 |
+| `C5.2i` | community-base | Shared inline homework steps and resumable drafts | C5.1c | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.5.5 |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e, C5.2h | no | todo | https://github.com/DataTalksClub/community-base/issues/273 |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1696 |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1697 |
