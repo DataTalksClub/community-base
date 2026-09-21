@@ -173,6 +173,7 @@ PUBLIC_TEMPLATES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         "events/registration_result.html",
         ("content", "meta_description", "title"),
     ),
+    ("community_base.homework_steps", "homework_steps/page.html", ("content",)),
     ("community_base.knowledge_base", "knowledge_base/docs_home.html", ("content", "title")),
     (
         "community_base.knowledge_base",

@@ -185,3 +185,10 @@ unit's page include it; a unit page's form posts to the homework view, so there 
 POST handler. `submissions.homework_form_context` builds what either page needs. The unit stays a
 page in the reading order and the assignment stays cohort-owned: the unit page shows the cohort's
 homework rather than owning one.
+
+## Inline homework steps
+
+Sites using package-owned `Homework`, `Question` and `Submission` rows may install the optional
+`community_base.homework_steps` app and use `coursework_assignment(homework, user)` with
+`CourseworkAdapter(homework)`. Its final submit calls this app's existing `submit_homework` path,
+so scoring, state checks and hooks stay authoritative. See `community_base/homework_steps/README.md`.
