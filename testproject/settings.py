@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "community_base.voting",
     "community_base.events",
     "community_base.curriculum",
+    "community_base.homework_steps",
     "community_base.coursework",
     "community_base.knowledge_base",
     "community_base.api",

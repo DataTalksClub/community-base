@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.5.5
 
+- C5.2i: add an optional `homework_steps` app with per-question resumable drafts,
+  revision-guarded saves, an accessible inline stepper, and a host-owned final submission
+  adapter. The stock coursework adapter is available when a site uses package coursework rows.
 - On-call: `scripts/watch-ci.py` watches a package pull request until CI,
   plan-check and both Cross-repo consumer jobs reach a verdict. Dispatch
   `.claude/agents/oncall-engineer.md` after opening or pushing a PR; the

@@ -901,6 +901,79 @@ Docs
   and the `COURSEWORK_CERTIFICATE_GENERATOR` seam with a worked example matching
   `events/README.md`'s style.
 
+## C5.2i Shared inline homework steps and resumable drafts
+
+Repository: community-base. Depends on: C5.1c. Freeze required: no. Related: DataTalksClub/community-base#292, AI-Shipping-Labs/website#1778, DataTalksClub/website#432.
+
+Goal: ship an optional `community_base.homework_steps` app that either site can install alongside
+`curriculum` to show Introduction, one question per step, and Review & submit inside a homework
+unit. AISL currently installs `curriculum` but owns its `content.Homework`, `Question`, `Submission`
+and `Answer` rows. DTC currently serves site-owned `courses` homework rows and routes while its
+coursework cutover remains in #415. The stepper must not require `community_base.coursework`.
+
+Read first
+- `docs/01-decisions.md` D2, D8 and D18; `docs/02-architecture.md` app boundaries.
+- `community_base/curriculum/views.py::_bound_homework_context` and its unit template.
+- `community_base/coursework/submissions.py::submit_homework` and `homework_form_context`.
+- `../ai-shipping-labs/content/models/homework.py` and its homework unit POST service.
+- `../dtc-website/_docs/specs/04-courses-and-cohorts.md` assessment ownership.
+
+Steps
+1. Add a standalone optional Django app with a draft row uniquely keyed by authenticated user
+   and an opaque, site-supplied assignment key. Store answers and any host-defined final-form
+   fields by stable key, plus a revision; seed an initial draft from already submitted answers
+   when editing an existing submission, so a final submit supplies the full answer set;
+   do not FK drafts to either site's homework, coursework, cohort or submission model. A draft write
+   updates one answer, validates its question against the server-resolved assignment, and uses a
+   revision precondition so stale tabs cannot overwrite newer answers. Bound answer size and shape.
+2. Define a Python adapter contract: resolve assignment, course context and ordered questions;
+   provide stable assignment/question/option keys, question type and prompt, introduction,
+   instructions, host-defined final-form fields, existing submitted answers, read/write/submit
+   eligibility and reason, and a
+   final-submit callback. Re-check eligibility on every write and final submit. Host code, not a
+   client-supplied assignment key, selects the assignment and authorizes the learner.
+3. Ship an overridable accessible step partial and shared GET/draft-save/final-submit handlers.
+   Plain POST navigation works without JavaScript; progressive autosave may enhance it. Render
+   Introduction, one step for each ordered question, then Review & submit. Questions with stable
+   IDs remain associated with their draft if content is re-imported or the display order changes.
+   Show saved/saving/error status and preserve the typed answer on a failed save.
+4. Keep draft persistence separate from all `Submission`/`Answer` writes, scoring, events and
+   notifications. Final submit atomically reads the latest draft and delegates to the host's
+   existing submission path. Clear the draft only after successful submission; retain it on
+   validation, closure or server failure. The host remains authoritative for deadline, access,
+   scoring, reveal, resubmission, and notifications. Existing submitted answers prefill a new
+   session; the existing non-step form and POST remain functional.
+5. Provide the package-owned coursework adapter over its current `Homework` and
+   `submit_homework` service, enabled only when `community_base.coursework` is installed. AISL
+   implements its own adapter under #1778; DTC uses its site-owned adapter under #432 until #415
+   can adopt the package adapter. Public
+   page styling and route placement remain site-owned under D18.
+
+Verification
+- `uv run pytest tests/homework_steps tests/coursework tests/curriculum` passes with both a
+  curriculum-only synthetic site and a coursework-enabled synthetic site. Check collected counts.
+- A saved answer survives refresh, moving away and back, reordering, and a second browser session;
+  stale revision returns a conflict without changing the saved answer.
+- No draft request creates or changes a submission, score or notification. Final submit calls the
+  adapter once with the latest authorized answers; failed submit keeps the draft.
+- An anonymous or unauthorized request cannot read or mutate another learner's draft; forged
+  question and assignment keys are rejected. Closed homework cannot be submitted through a stale
+  page. Legacy form POST remains accepted.
+- `uv run pytest tests/test_boundaries.py` passes; `uv run python scripts/plan.py check` is OK.
+- Run the package quality gates, then test both consuming sites against the package change and
+  report package, AISL and DTC results separately. If a consumer cannot install it yet, state
+  that explicitly rather than claiming the package run covers it.
+
+Done when
+- [ ] The optional app installs and renders with `curriculum` but without `coursework`.
+- [ ] Each question saves and resumes independently of final submission, with stale-write safety.
+- [ ] Final submission uses the host adapter and preserves existing policy and legacy routes.
+- [ ] The coursework adapter and the standalone adapter contract are documented for both sites.
+- [ ] Package and both consumer gates are reported separately.
+
+Docs
+- `community_base/homework_steps/README.md`, `community_base/coursework/README.md`, `CHANGELOG.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.
