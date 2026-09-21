@@ -2045,6 +2045,9 @@ Steps
 Done when
 - [ ] the unstyled state of a shared public page is specified rather than incidental
 
+Docs
+- `docs/02-architecture.md` section 5, `CHANGELOG.md`.
+
 ## A7.5 AISL: write the cb- rules for shared public pages
 
 Repository: AI-Shipping-Labs/website. Depends on: A7.4.

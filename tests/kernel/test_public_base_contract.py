@@ -208,6 +208,16 @@ def test_a_base_without_content_is_an_error_naming_the_block_and_a_template(tmp_
     assert "{% block content %}" in error.hint
 
 
+def test_architecture_states_the_unstyled_public_page_floor():
+    text = pathlib.Path("docs/02-architecture.md").read_text()
+    section = text.split("## 5. Template contract for shared public pages", 1)[1]
+    section = section.split("## 6.", 1)[0]
+    assert "### The unstyled state" in section
+    assert "Ugly is acceptable" in section
+    assert "inline sibling of the" in section
+    assert "last label" in section
+
+
 def test_the_aisl_unsubscribe_page_is_named_by_the_check(tmp_path, settings):
     """The page this issue was opened about, reproduced as closely as a package test can.
 
