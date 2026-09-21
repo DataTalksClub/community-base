@@ -928,7 +928,7 @@ projects `author`, `cover_image`, `description`, `difficulty`; interview questio
 `recording`.
 
 Done when
-- [ ] the member wiki's storage is ruled on and recorded before any kind is registered
+- [x] the member wiki's storage is ruled on and recorded before any kind is registered
 
 ## A7.2b Move the three core parsers onto the toolkit
 
