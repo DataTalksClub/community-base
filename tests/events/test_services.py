@@ -6,7 +6,15 @@ from django.core.exceptions import ValidationError
 from django.test import override_settings
 from django.utils import timezone
 
-from community_base.events.models import Event, EventPublicIdSequence, EventSeries, Host
+from community_base.events.models import (
+    Event,
+    EventPublicIdSequence,
+    EventReminder,
+    EventSeries,
+    Host,
+)
+from community_base.events.registration import register_for_event
+from community_base.events.reminders import plan_event_reminders
 from community_base.events.services import (
     allocate_public_id,
     can_register_for_event,
@@ -18,6 +26,7 @@ from community_base.events.services import (
     reserve_public_id,
 )
 from community_base.events.signals import event_cancelled, event_published, event_rescheduled
+from community_base.jobs.models import JobIntent
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -134,3 +143,28 @@ def test_lifecycle_services_emit_after_commit(django_capture_on_commit_callbacks
     assert received[2][1]["reason"] == "No host"
     assert item.status == "cancelled"
     assert item.ics_sequence == 2
+
+
+def test_cancel_event_dispatches_notice_and_skips_reminders(
+    django_capture_on_commit_callbacks,
+):
+    item = event(status="upcoming")
+    user = get_user_model().objects.create_user(email="guest@example.com")
+    register_for_event(item, user)
+    plan_event_reminders(item)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        cancelled = cancel_event(item, reason="No host")
+
+    intent = JobIntent.objects.get(handler="events.notify_cancellation")
+    assert intent.payload == {"event_id": cancelled.pk}
+    reminder = EventReminder.objects.get(interval="24h")
+    assert reminder.status == EventReminder.Status.SKIPPED
+    assert reminder.reason == "event_cancelled"
+
+    with django_capture_on_commit_callbacks(execute=True):
+        repeat = cancel_event(cancelled, reason="Repeated")
+
+    assert Event.objects.get(pk=cancelled.pk).ics_sequence == cancelled.ics_sequence
+    assert JobIntent.objects.filter(handler="events.notify_cancellation").count() == 1
+    assert repeat.status == "cancelled"

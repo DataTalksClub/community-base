@@ -196,7 +196,8 @@ is also why the fix could not be "add a Django system check that requires `SITE_
 force every site to set it, including ones with no present use for it, the opposite of the rule.
 A site that sends the mail purposes needing `SITE_URL` (`accounts.verify_email`,
 `accounts.password_reset`, `accounts.email_change_confirm`, `events.verify_registration`,
-`events.registration_confirmed`, `events.guest_invitation`; also required already, unrelated to
+`events.registration_confirmed`, `events.guest_invitation`, `events.event_cancelled`;
+also required already, unrelated to
 this issue, by `events/integrations/calendar.py`, `jobs/relay.py`, `jobs/relay_scheduling.py`)
 must configure it or those specific sends fail loudly, logged and retried by the job runner like
 any other handler error, rather than delivering a mail nobody can act on.

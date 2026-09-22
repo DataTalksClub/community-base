@@ -1,5 +1,7 @@
+import json
+
 from django.contrib import messages
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied, ValidationError
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.cache import patch_vary_headers
@@ -21,6 +23,10 @@ from community_base.events.tokens import RegistrationTokenError
 from community_base.kernel.conf import get
 
 PUBLIC_STATUSES = ("upcoming", "completed")
+# A cancelled event keeps its own detail page so guests with the link see the
+# cancellation instead of a 404; it disappears from listings, which stay on
+# PUBLIC_STATUSES.
+DETAIL_STATUSES = (*PUBLIC_STATUSES, "cancelled")
 
 
 def _private(response):
@@ -32,7 +38,7 @@ def _private(response):
 
 
 def _lookup_event(*, slug, public_id=None):
-    events = Event.objects.filter(status__in=PUBLIC_STATUSES).select_related("event_series")
+    events = Event.objects.filter(status__in=DETAIL_STATUSES).select_related("event_series")
     if public_id is not None:
         return get_object_or_404(events, public_id=public_id)
     event = events.filter(slug=slug).order_by("-start_datetime", "-pk").first()
@@ -59,6 +65,29 @@ def _registration_for_user(event, user):
     if user is None or not getattr(user, "is_authenticated", False):
         return None
     return EventRegistration.objects.filter(event=event, user=user).first()
+
+
+def _event_schema(event):
+    data = {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        "name": event.title,
+        "eventStatus": (
+            "https://schema.org/EventCancelled"
+            if event.status == "cancelled"
+            else "https://schema.org/EventScheduled"
+        ),
+        "startDate": event.start_datetime.isoformat(),
+        "endDate": event.effective_end_datetime.isoformat(),
+    }
+    site_url = get("SITE_URL")
+    if site_url:
+        try:
+            data["url"] = f"{str(site_url).rstrip('/')}{event_url(event)}"
+        except ImproperlyConfigured:
+            pass
+    # Keep the JSON valid while preventing a </script> breakout from user data.
+    return json.dumps(data).replace("</", "<\\/")
 
 
 @require_GET
@@ -96,6 +125,7 @@ def event_detail(request, slug, public_id=None):
             "can_register": can_register_for_event(request.user, event),
             "anonymous_form": AnonymousEventRegistrationForm(),
             "feedback": feedback,
+            "event_schema": _event_schema(event),
             "feedback_form": EventFeedbackForm(
                 initial={
                     "rating": getattr(feedback, "rating", None),
@@ -286,8 +316,9 @@ def event_feedback(request, slug, public_id=None):
 def event_calendar(request, slug, public_id=None):
     event = _lookup_event(slug=slug, public_id=public_id)
     attendee_email = request.user.email if request.user.is_authenticated else None
+    method = "CANCEL" if event.status == "cancelled" else "REQUEST"
     response = HttpResponse(
-        generate_ics(event, audience="attendee", attendee_email=attendee_email),
+        generate_ics(event, method=method, audience="attendee", attendee_email=attendee_email),
         content_type="text/calendar; charset=utf-8",
     )
     response["Content-Disposition"] = f'attachment; filename="{event.slug}.ics"'

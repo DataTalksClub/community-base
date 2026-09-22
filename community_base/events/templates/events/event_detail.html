@@ -3,9 +3,10 @@
 {% block meta_description %}{{ event.description|striptags|truncatewords:30 }}{% endblock %}
 {% block content %}
 <main class="cb-page cb-event-detail">
+  <script type="application/ld+json">{{ event_schema|safe }}</script>
   <p><a href="{% url 'events_list' %}">All events</a></p>
   <header class="cb-page-header">
-    <p>{{ event.get_kind_display }}</p>
+    <p>{{ event.get_kind_display }}{% if event.status == "cancelled" %} · <span class="cb-event-status">Cancelled</span>{% endif %}</p>
     <h1 class="cb-page-title">{{ event.title }}</h1>
     <p>
       <time datetime="{{ event.start_datetime|date:'c' }}">{{ event.start_datetime }}</time>
@@ -23,7 +24,13 @@
 
   <section class="cb-section" id="registration">
     <h2>Registration</h2>
-    {% if registration.is_active %}
+    {% if event.status == "cancelled" %}
+      <p>This event was cancelled.</p>
+      {% if registration.is_active %}
+        <p>You had been registered for this event.</p>
+        <p><a class="cb-button" href="{{ event.get_absolute_url }}calendar.ics">Remove from calendar</a></p>
+      {% endif %}
+    {% elif registration.is_active %}
       <p>You are registered.</p>
       <form method="post" action="{{ event.get_absolute_url }}unregister/">{% csrf_token %}<button class="cb-button" type="submit">Cancel registration</button></form>
       <p><a class="cb-button" href="{{ event.get_absolute_url }}calendar.ics">Add to calendar</a></p>
@@ -46,7 +53,7 @@
     {% endif %}
   </section>
 
-  {% if event.is_past and registration %}
+  {% if event.is_past and event.status != "cancelled" and registration %}
     <section class="cb-section" id="feedback">
       <h2>Feedback</h2>
       <form class="cb-form" method="post" action="{{ event.get_absolute_url }}feedback/">
