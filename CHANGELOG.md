@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.6
+
+- Events: cancelling an event now notifies its guests. `cancel_event` is idempotent,
+  skips the event's pending reminders, and after commit dispatches an
+  `events.notify_cancellation` job that sends one `events.event_cancelled` mail per
+  active registration, deduped by registration and `ics_sequence`; inactive
+  registrations are never mailed. The mail context resolves the absolute event URL and
+  a `calendar_cancel_url`: for a cancelled event `calendar.ics` serves a
+  `METHOD:CANCEL` invite, so a guest who opens the link removes the calendar entry.
+  Cancelled events keep their detail page with a Cancelled badge and
+  `schema.org` `EventCancelled` status instead of returning 404, while staying out of
+  public listings; registration remains closed. The reminder send handler skips
+  reminders whose event is no longer upcoming.
+
 ## 0.5.5
 
 - C5.2i: add an optional `homework_steps` app with per-question resumable drafts,

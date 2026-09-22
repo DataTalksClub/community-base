@@ -1,4 +1,5 @@
 from community_base.events.models import EventRegistration
+from community_base.events.routing import event_url
 from community_base.events.tokens import generate_registration_token
 from community_base.kernel.conf import require
 
@@ -31,4 +32,11 @@ def resolve_delivery_context(*, delivery, context):
             expiry_hours=24 * 365,
         )
         resolved["manage_url"] = f"{site_url}/events/registration/manage/?token={token}"
+    elif delivery.purpose == "events.event_cancelled":
+        site_url = require("SITE_URL").rstrip("/")
+        base_url = f"{site_url}{event_url(registration.event)}"
+        resolved["event_url"] = base_url
+        # For a cancelled event this endpoint serves the METHOD:CANCEL ICS,
+        # so the guest's calendar entry is removed with one click.
+        resolved["calendar_cancel_url"] = f"{base_url}calendar.ics"
     return resolved

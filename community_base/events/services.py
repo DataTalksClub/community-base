@@ -6,9 +6,15 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
-from community_base.events.models import Event, EventPublicIdSequence, EventSeries
+from community_base.events.models import (
+    Event,
+    EventPublicIdSequence,
+    EventReminder,
+    EventSeries,
+)
 from community_base.events.registration import enroll_series_registrants_in_event
 from community_base.events.signals import event_cancelled, event_published, event_rescheduled
+from community_base.jobs.dispatch import dispatch_after_commit
 from community_base.kernel.access import can_access
 from community_base.kernel.conf import get
 from community_base.kernel.hooks import resolve
@@ -89,9 +95,25 @@ def cancel_event(event, *, reason=""):
     event = Event.objects.select_for_update().get(pk=event.pk)
     if event.status in {"completed", "archived"}:
         raise ValidationError("Completed or archived events cannot be cancelled.")
+    if event.status == "cancelled":
+        return event
     event.status = "cancelled"
     event.ics_sequence += 1
     event.save(update_fields=("status", "ics_sequence", "updated_at"))
+    now = timezone.now()
+    EventReminder.objects.filter(
+        registration__event_id=event.pk, status=EventReminder.Status.PENDING
+    ).update(
+        status=EventReminder.Status.SKIPPED,
+        reason="event_cancelled",
+        completed_at=now,
+        updated_at=now,
+    )
+    dispatch_after_commit(
+        "events.notify_cancellation",
+        f"events.cancellation:{event.pk}:{event.ics_sequence}",
+        {"event_id": event.pk},
+    )
     _after_commit(event_cancelled, event, reason=str(reason)[:500])
     return event
 

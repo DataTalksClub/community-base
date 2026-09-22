@@ -2,9 +2,9 @@
 
 Companion to `tests/accounts/test_mail_context.py`: the same rule applied to the
 events half of `mail_context.resolve_delivery_context`. `events.verify_registration`,
-`events.registration_confirmed` and `events.guest_invitation` all compose an absolute
-link and must raise loudly when `SITE_URL` is unset; `events.reminder` does not
-compose a link and must be unaffected.
+`events.registration_confirmed`, `events.guest_invitation` and `events.event_cancelled`
+all compose an absolute link and must raise loudly when `SITE_URL` is unset;
+`events.reminder` does not compose a link and must be unaffected.
 """
 
 from datetime import timedelta
@@ -57,3 +57,35 @@ def test_a_purpose_that_builds_no_link_is_unaffected_by_an_unset_site_url():
         resolved = resolve_delivery_context(delivery=delivery, context=context)
 
     assert resolved == {}
+
+
+def test_event_cancelled_links_compose_absolute_urls():
+    requested = request_anonymous_registration(event(), "person@example.com")
+    registration = requested.registration
+    delivery = SimpleNamespace(purpose="events.event_cancelled")
+    context = {
+        "registration_id": str(registration.pk),
+        "registration_version": registration.version,
+    }
+
+    resolved = resolve_delivery_context(delivery=delivery, context=context)
+
+    assert resolved["event_url"] == "http://testserver/events/open-community-event/"
+    assert (
+        resolved["calendar_cancel_url"]
+        == "http://testserver/events/open-community-event/calendar.ics"
+    )
+
+
+def test_event_cancelled_link_raises_when_site_url_is_unset():
+    requested = request_anonymous_registration(event(), "person@example.com")
+    registration = requested.registration
+    delivery = SimpleNamespace(purpose="events.event_cancelled")
+    context = {
+        "registration_id": str(registration.pk),
+        "registration_version": registration.version,
+    }
+
+    with override_settings(COMMUNITY_BASE={"SITE_URL": ""}):
+        with pytest.raises(ImproperlyConfigured):
+            resolve_delivery_context(delivery=delivery, context=context)

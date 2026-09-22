@@ -130,6 +130,12 @@ def send_reminder_handler(context: JobContext, payload: JobPayload):
             or registration.status != EventRegistration.Status.CONFIRMED
         ):
             raise PermanentJobError("event_reminder_stale")
+        if registration.event.status != "upcoming":
+            reminder.status = EventReminder.Status.SKIPPED
+            reminder.reason = "event_inactive"
+            reminder.completed_at = timezone.now()
+            reminder.save(update_fields=("status", "reason", "completed_at", "updated_at"))
+            return
         delivery = send(
             "events.reminder",
             registration.normalized_email,
@@ -146,6 +152,39 @@ def send_reminder_handler(context: JobContext, payload: JobPayload):
             related=reminder,
         )
         complete_reminder(reminder.pk, delivery)
+
+
+@register_handler("events.notify_cancellation")
+def notify_cancellation_handler(context: JobContext, payload: JobPayload):
+    del context
+    event_id = _positive_id(payload.get("event_id"), "invalid_event_cancellation_payload")
+    with transaction.atomic():
+        event = Event.objects.filter(pk=event_id, status="cancelled").first()
+        if event is None:
+            raise PermanentJobError("event_not_cancelled")
+        registrations = event.registrations.filter(
+            status__in=(
+                EventRegistration.Status.PENDING_VERIFICATION,
+                EventRegistration.Status.CONFIRMED,
+            )
+        ).select_related("user")
+        for registration in registrations:
+            send(
+                "events.event_cancelled",
+                registration.normalized_email,
+                {
+                    "registration_id": str(registration.pk),
+                    "registration_version": registration.version,
+                    "event_id": event.pk,
+                    "event_title": event.title,
+                    "event_start": event.start_datetime.isoformat(),
+                    "event_timezone": event.timezone,
+                },
+                f"events.cancellation:{registration.pk}:{event.ics_sequence}",
+                category="events",
+                user=registration.user,
+                related=registration,
+            )
 
 
 @register_handler("events.expire_registration_verifications")

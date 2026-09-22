@@ -248,3 +248,46 @@ def test_calendar_download_uses_public_route_without_authentication(client):
     assert response.status_code == 200
     assert response["Content-Type"] == "text/calendar; charset=utf-8"
     assert b"BEGIN:VCALENDAR" in response.content
+
+
+def test_cancelled_event_detail_visible_with_schema_and_off_listings(client):
+    item = event(status="cancelled")
+
+    detail = client.get(item.get_absolute_url())
+    listing = client.get("/events/")
+    calendar = client.get(item.get_absolute_url() + "calendar.ics")
+
+    assert detail.status_code == 200
+    content = detail.content.decode()
+    assert '<span class="cb-event-status">Cancelled</span>' in content
+    assert "This event was cancelled." in content
+    assert '"eventStatus": "https://schema.org/EventCancelled"' in content
+    assert list(listing.context["upcoming_events"]) == []
+    assert list(listing.context["past_events"]) == []
+    assert calendar.status_code == 200
+    assert b"METHOD:CANCEL" in calendar.content
+    assert b"STATUS:CANCELLED" in calendar.content
+
+
+def test_cancelled_event_shows_calendar_removal_to_registered_member(client, django_user_model):
+    item = event(status="cancelled")
+    user = django_user_model.objects.create_user(email="member@example.com")
+    registration(item, user)
+    client.force_login(user)
+
+    detail = client.get(item.get_absolute_url())
+
+    content = detail.content.decode()
+    assert "You had been registered for this event." in content
+    assert "Remove from calendar" in content
+
+
+def test_cancelled_event_rejects_registration(client, django_user_model):
+    item = event(status="cancelled")
+    user = django_user_model.objects.create_user(email="member@example.com")
+    client.force_login(user)
+
+    response = client.post(item.get_absolute_url() + "register/")
+
+    assert response.status_code == 302
+    assert not EventRegistration.objects.filter(event=item).exists()

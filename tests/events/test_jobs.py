@@ -13,7 +13,7 @@ from community_base.events.integrations.zoom import (
     ZoomTemporaryError,
 )
 from community_base.events.models import Event, EventIntegrationAttempt, EventReminder
-from community_base.events.registration import register_for_event
+from community_base.events.registration import register_for_event, unregister_from_event
 from community_base.jobs.models import JobIntent
 from community_base.jobs.registry import JobContext, registered_handler_names, registered_schedules
 from community_base.jobs.runner import PermanentJobError, RetryableJobError, run_intent
@@ -63,6 +63,7 @@ def test_event_handlers_and_schedules_are_registered():
     assert {
         "events.plan_reminders",
         "events.send_reminder",
+        "events.notify_cancellation",
         "events.expire_registration_verifications",
         "events.sync_zoom",
         "events.process_recording",
@@ -111,6 +112,53 @@ def test_suppressed_reminder_is_terminal_without_a_delivery_job(settings):
     assert reminder.status == EventReminder.Status.SKIPPED
     assert reminder.reason == "events_suppressed"
     assert reminder.delivery.job is None
+
+
+def test_cancellation_notice_reaches_active_registrations_and_is_idempotent():
+    item = event()
+    active = []
+    for email in ("member@example.com", "second@example.com"):
+        user = get_user_model().objects.create_user(email=email)
+        active.append(register_for_event(item, user)[0])
+    departed = get_user_model().objects.create_user(email="departed@example.com")
+    register_for_event(item, departed)
+    unregister_from_event(item, departed)
+    Event.objects.filter(pk=item.pk).update(status="cancelled")
+
+    jobs.notify_cancellation_handler(None, {"event_id": item.pk})
+    jobs.notify_cancellation_handler(None, {"event_id": item.pk})
+
+    deliveries = EmailDelivery.objects.filter(purpose="events.event_cancelled")
+    assert deliveries.count() == 2
+    assert {delivery.recipient_email for delivery in deliveries} == {
+        "member@example.com",
+        "second@example.com",
+    }
+    assert {delivery.idempotency_key for delivery in deliveries} == {
+        f"events.cancellation:{registration.pk}:{item.ics_sequence}" for registration in active
+    }
+
+
+def test_cancellation_notice_requires_a_cancelled_event():
+    item = event()
+
+    with pytest.raises(PermanentJobError, match="event_not_cancelled"):
+        jobs.notify_cancellation_handler(None, {"event_id": item.pk})
+
+
+def test_reminder_for_cancelled_event_is_skipped_without_a_delivery():
+    registration()
+    jobs.plan_reminders_handler(None, {})
+    reminder = EventReminder.objects.get(interval="24h")
+    assert reminder.status == EventReminder.Status.CLAIMED
+
+    Event.objects.filter(pk=reminder.registration.event_id).update(status="cancelled")
+    jobs.send_reminder_handler(None, {"reminder_id": str(reminder.pk)})
+
+    reminder.refresh_from_db()
+    assert reminder.status == EventReminder.Status.SKIPPED
+    assert reminder.reason == "event_inactive"
+    assert not EmailDelivery.objects.filter(purpose="events.reminder").exists()
 
 
 def test_zoom_create_job_persists_result_once(monkeypatch):
