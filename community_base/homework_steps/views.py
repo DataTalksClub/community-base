@@ -173,7 +173,8 @@ def _render(
                 "can_submit": eligibility.submit,
                 "reason": eligibility.reason,
                 "error": error,
-                "submitted": _valid_receipt(request, assignment),
+                "submitted": _valid_receipt(request, assignment)
+                or bool(context.get("homework_is_submitted")),
                 "notice": request.GET.get("notice") == "changed",
             }
         }
@@ -221,12 +222,17 @@ def handle_stepper(
         user=request.user, assignment_key=assignment.key
     ).exists()
     draft = get_or_seed_draft(request.user, assignment)
-    step = (
-        request.GET.get(step_param)
-        or (_resume_step(assignment, draft) if was_existing else "intro")
-        if request.method == "GET"
-        else request.POST.get(step_param, "intro")
-    )
+    if request.method == "GET":
+        assignment_context = assignment.context if isinstance(assignment.context, dict) else {}
+        step = request.GET.get(step_param) or (
+            "review"
+            if assignment_context.get("homework_is_submitted")
+            else _resume_step(assignment, draft)
+            if was_existing
+            else "intro"
+        )
+    else:
+        step = request.POST.get(step_param, "intro")
     try:
         _step(assignment, step)
     except ValueError:
