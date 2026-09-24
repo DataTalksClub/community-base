@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.7
+
+- Homework steps: a failed autosave no longer silently loses the learner's choice.
+  The stepper intercepts clicks document-wide (links inside `.homework-steps` or a
+  `[data-homework-autosave-nav]` container, including the host reader sidebar and
+  breadcrumbs), flushes dirty and pending saves before navigating, stays on the page
+  when the flush fails, and warns on `beforeunload`. Save-failure wording names the
+  recovery ("retry before leaving this page", "Reload this page to get the latest
+  version") and separates 409 another-tab conflicts from 403 no-longer-accepted saves.
+  A GET without a step param resumes to the review step with the submitted banner when
+  the host assignment context marks the homework submitted.
+  AI-Shipping-Labs/website#1813.
+
 ## 0.5.6
 
 - Events: cancelling an event now notifies its guests. `cancel_event` is idempotent,

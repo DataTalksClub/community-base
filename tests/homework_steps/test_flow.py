@@ -1,3 +1,5 @@
+from html.parser import HTMLParser
+
 import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
@@ -16,6 +18,32 @@ from community_base.homework_steps.types import (
 from community_base.homework_steps.views import handle_stepper
 
 pytestmark = pytest.mark.django_db
+
+
+class StepperStateParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self._capture_status = False
+        self._capture_current_step = False
+        self.status_messages = []
+        self.current_step = ""
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        self._capture_status = tag == "p" and attributes.get("role") == "status"
+        self._capture_current_step = tag == "a" and attributes.get("aria-current") == "step"
+
+    def handle_data(self, data):
+        if self._capture_status:
+            self.status_messages.append(data.strip())
+        if self._capture_current_step:
+            self.current_step += data.strip()
+
+    def handle_endtag(self, tag):
+        if tag == "p":
+            self._capture_status = False
+        if tag == "a":
+            self._capture_current_step = False
 
 
 class Adapter:
@@ -259,6 +287,24 @@ def test_edit_prefill_and_legacy_invalidation(user, assignment):
     )
     clear_draft(user, edited.key)
     assert not HomeworkDraft.objects.filter(user=user, assignment_key=edited.key).exists()
+
+
+def test_persisted_submission_resumes_review_and_shows_submitted_state(user, assignment):
+    submitted_assignment = Assignment(
+        key=assignment.key,
+        title=assignment.title,
+        questions=assignment.questions,
+        final_fields=assignment.final_fields,
+        context={"homework_is_submitted": True},
+    )
+
+    response = flow(user, submitted_assignment, Adapter())
+
+    assert response.status_code == 200
+    parsed = StepperStateParser()
+    parsed.feed(response.content.decode())
+    assert parsed.current_step == "Review & submit"
+    assert "Your homework was submitted." in parsed.status_messages
 
 
 def test_invalid_choice_never_reaches_draft(user, assignment):
