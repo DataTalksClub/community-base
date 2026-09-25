@@ -331,6 +331,49 @@ def test_semantic_step_label_is_used_in_navigation_question_and_review(user, ass
     assert b"Question 1: Share one progress link." not in review_page.content
 
 
+def test_draft_status_help_is_available_on_question_and_review_steps(user, assignment):
+    for query in ("?homework_step=q1", "?homework_step=review"):
+        response = flow(user, assignment, Adapter(), query=query)
+
+        assert response.content.count(b'data-testid="homework-draft-status-help"') == 1
+        assert b'<summary aria-label="About homework drafts">?</summary>' in response.content
+        assert b"submitted only after you choose Submit homework" in response.content
+
+
+def test_review_hides_stale_choice_keys_for_single_and_multiple_choice(user):
+    adapter = Adapter()
+    assignment = Assignment(
+        key="course:cohort-1:stale-choice-homework",
+        title="Homework with changed choices",
+        questions=(
+            Question("single", "Choose one", "choice", (Option("current", "Current option"),)),
+            Question(
+                "multiple",
+                "Choose any",
+                "checkbox",
+                (Option("visible", "Visible option"),),
+            ),
+        ),
+    )
+    flow(user, assignment, adapter)
+    draft = HomeworkDraft.objects.get(user=user, assignment_key=assignment.key)
+    draft.answers = {
+        "single": "option-retired-choice-42",
+        "multiple": ["visible", "option-retired-checkbox-91"],
+    }
+    draft.save(update_fields=["answers"])
+
+    response = flow(user, assignment, adapter, query="?homework_step=review")
+
+    assert b"Previously selected option is no longer available." in response.content
+    assert (
+        b"Visible option, One or more previously selected options are no longer available."
+        in response.content
+    )
+    assert b"option-retired-choice-42" not in response.content
+    assert b"option-retired-checkbox-91" not in response.content
+
+
 def test_accepted_submission_and_pending_draft_are_distinguished(user, assignment):
     submitted = Assignment(
         key=assignment.key,

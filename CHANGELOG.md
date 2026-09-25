@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.10
+
+- Homework review replaces retired choice keys with a clear fallback message, and the stepper
+  explains that saved answers remain drafts until the learner submits them.
+
 ## 0.5.9
 
 - Add semantic labels for shared homework steps, distinguish accepted submissions from saved
