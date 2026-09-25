@@ -298,12 +298,16 @@ def handle_stepper(
     draft = get_or_seed_draft(request.user, assignment)
     if request.method == "GET":
         assignment_context = assignment.context if isinstance(assignment.context, dict) else {}
-        step = route_step or request.GET.get(step_param) or (
-            "review"
-            if _has_submission(assignment, assignment_context)
-            else _resume_step(assignment, draft)
-            if was_existing
-            else "intro"
+        step = (
+            route_step
+            or request.GET.get(step_param)
+            or (
+                "review"
+                if _has_submission(assignment, assignment_context)
+                else _resume_step(assignment, draft)
+                if was_existing
+                else "intro"
+            )
         )
     else:
         step = route_step or request.POST.get(step_param, "intro")
@@ -402,9 +406,7 @@ def handle_stepper(
                 {"user": request.user.pk, "assignment": assignment.key},
                 salt="homework-steps-submitted",
             )
-            review_url = _step_url(
-                action, query_params, step_param, "review", step_url_builder
-            )
+            review_url = _step_url(action, query_params, step_param, "review", step_url_builder)
             return redirect(_append_query(review_url, {"receipt": receipt}))
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"revision": draft.revision, "saved": True})
@@ -412,9 +414,7 @@ def handle_stepper(
         allowed = {step, _step(assignment, step)[0], _step(assignment, step)[2]}
         if destination not in allowed:
             return JsonResponse({"error": "Unknown destination"}, status=400)
-        return redirect(
-            _step_url(action, query_params, step_param, destination, step_url_builder)
-        )
+        return redirect(_step_url(action, query_params, step_param, destination, step_url_builder))
     except DraftConflict:
         draft.refresh_from_db()
         return _render(
