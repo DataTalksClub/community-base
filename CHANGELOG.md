@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.9
+
+- Add semantic labels for shared homework steps, distinguish accepted submissions from saved
+  drafts, and support route-based step URLs while preserving query-string bookmarks.
+
 ## 0.5.8
 
 - #297: add an optional source-authored `syllabus_section` heading to top-level course modules,

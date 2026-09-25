@@ -21,6 +21,7 @@ class Question:
     prompt: str
     type: QuestionType
     options: tuple[Option, ...] = ()
+    step_label: str = ""
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,7 @@ class Assignment:
     existing_answers: dict[str, Answer] = field(default_factory=dict)
     existing_final_fields: dict[str, str] = field(default_factory=dict)
     context: object = None
+    has_submission: bool = False
 
 
 @dataclass(frozen=True)

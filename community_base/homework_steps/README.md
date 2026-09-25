@@ -10,6 +10,14 @@ from `community_base.homework_steps.types` to `handle_stepper(request, assignmen
 Never derive that key from a query string or submitted form field. Question and option keys must
 also be stable across content re-imports and display-order changes.
 
+Set `Question.step_label` for a semantic navigation label such as `Learning in Public`; the default
+remains `Question N`. Set `Assignment.has_submission` and pass the accepted submission's
+`existing_answers` and `existing_final_fields` to let the shared page distinguish that accepted
+version from later saved draft edits. `Assignment.context["homework_is_submitted"]` remains supported
+for existing adapters. `stepper.review_rows` keeps its existing `(prompt, answer, url)` tuples for
+site-owned templates; the shared partial uses `stepper.review_display_rows`, which also carries
+semantic labels and question numbers.
+
 ```python
 return handle_stepper(
     request,
@@ -30,6 +38,12 @@ resolving and authorizing the assignment. Put per-question AJAX URLs in
 `Assignment.context["homework_save_urls"]`; the script expects JSON with `revision` and `saved`.
 On a successful legacy form submission, call `clear_draft(user, assignment.key)` so old step
 answers cannot reappear.
+
+The default `step_param` continues to read and generate query-step URLs for existing bookmarks. A
+host can add canonical route-step URLs by passing the route's step value as `route_step` and a
+`step_url_builder` that maps a step key to a path, for example `/homework/intro`. The handler uses
+that builder for navigation, form actions and redirects, while still accepting old query-step URLs
+when `route_step` is absent. `query_params` are appended to builder paths so cohort context is kept.
 
 `Adapter.eligibility(request, assignment)` returns `Eligibility(read, write, submit, reason)`.
 The handler checks this on every request, including final submission. The adapter's
