@@ -42,6 +42,7 @@ class ImportTests(TestCase):
         assert course.source_content_id is not None
         assert course.status == "published"
         assert course.description_html  # rendered on save
+        assert course.modules.get(slug="welcome").syllabus_section == "Getting started"
         cohort = Cohort.objects.get(course=course, mode="self_paced")
         assert list(cohort.effective_modules()) == list(course.modules.filter(parent__isnull=True))
         assert course.modules.filter(parent__isnull=True).count() == 2

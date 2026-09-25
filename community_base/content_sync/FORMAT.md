@@ -395,8 +395,13 @@ under `extra` and stay DTC-read. `cohorts`, `current_cohort`, `urls`, `schema_ve
 
 | Key | Type | Required | Default |
 |---|---|---|---|
+| `syllabus_section` | string, at most 255 characters | no | `""` |
 | `is_bonus` | boolean | no | `false` |
 | `available_after_days` | integer or null | no | `null` |
+
+`syllabus_section` is an optional heading shown immediately before this module in the course
+syllabus. Set it on the first top-level module in a section. It is a presentation label; it does
+not affect module ordering, access or progress.
 
 No `units` list, no `schema_version`, no `bonus`, no `ignore`. The overview is `README.md`.
 

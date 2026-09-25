@@ -50,6 +50,7 @@ MODULE = PartSpec(
     name="module",
     shape=SHAPE_MANIFEST,
     keys={
+        "syllabus_section": KeySpec("string", max_length=255),
         "is_bonus": KeySpec("boolean", default=False),
         "available_after_days": KeySpec("integer"),
     },

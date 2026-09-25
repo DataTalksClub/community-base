@@ -60,6 +60,7 @@ class ModuleGraph:
     title: str
     source_path: str
     overview: str = ""
+    syllabus_section: str = ""
     sort_order: int = 0
     is_bonus: bool = False
     available_after_days: int | None = None

@@ -252,6 +252,7 @@ def _module_graph(
         title=document.title,
         source_path=document.raw.path,
         overview=_overview(result, document),
+        syllabus_section=values.get("syllabus_section") or "",
         sort_order=document.sort_order,
         is_bonus=bool(values.get("is_bonus")),
         available_after_days=values.get("available_after_days"),

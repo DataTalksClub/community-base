@@ -349,6 +349,13 @@ class Module(SourceProvenanceMixin, models.Model):
     slug = models.SlugField(max_length=300, default="")
     title = models.CharField(max_length=300)
     sort_order = models.IntegerField(default=0)
+    syllabus_section = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        db_default="",
+        help_text="Optional syllabus heading displayed before this top-level module.",
+    )
     overview = models.TextField(blank=True, default="")
     overview_html = models.TextField(blank=True, default="", editable=False)
     is_bonus = models.BooleanField(

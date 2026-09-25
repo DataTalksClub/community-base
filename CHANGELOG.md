@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.8
+
+- #297: add an optional source-authored `syllabus_section` heading to top-level course modules,
+  carry it through parsing and import into the shared curriculum model, and document the course
+  format contract. The heading is presentation metadata and does not affect module ordering,
+  access, or progress.
+
 ## 0.5.7
 
 - Homework steps: a failed autosave no longer silently loses the learner's choice.
