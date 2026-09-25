@@ -166,6 +166,7 @@ def _render(
         )
     )
     review_rows = []
+    review_display_rows = []
     for item in assignment.questions:
         answer_value = draft.answers.get(item.key, "")
         if isinstance(answer_value, list):
@@ -178,14 +179,19 @@ def _render(
             )
         else:
             answer_display = answer_value
-        review_rows.append(
-            (
-                item.step_label,
-                item.prompt,
-                bool(item.step_label),
-                answer_display,
-                _step_url(action, query_params, step_param, item.key, step_url_builder),
-            )
+        review_url = _step_url(action, query_params, step_param, item.key, step_url_builder)
+        # Keep the original tuple contract for site-owned templates. The richer
+        # rows give the shared partial enough data to show semantic labels.
+        review_rows.append((item.prompt, answer_display, review_url))
+        review_display_rows.append(
+            {
+                "step_label": item.step_label,
+                "question_number": len(review_display_rows) + 1,
+                "has_semantic_label": bool(item.step_label),
+                "prompt": item.prompt,
+                "answer": answer_display,
+                "url": review_url,
+            }
         )
     context = dict(assignment.context) if isinstance(assignment.context, dict) else {}
     save_urls = context.get("homework_save_urls", {})
@@ -204,6 +210,7 @@ def _render(
                 "step_param": step_param,
                 "nav_steps": nav_steps,
                 "review_rows": review_rows,
+                "review_display_rows": review_display_rows,
                 "step": step,
                 "step_number": 0
                 if step == "intro"

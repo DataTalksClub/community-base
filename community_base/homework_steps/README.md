@@ -14,7 +14,9 @@ Set `Question.step_label` for a semantic navigation label such as `Learning in P
 remains `Question N`. Set `Assignment.has_submission` and pass the accepted submission's
 `existing_answers` and `existing_final_fields` to let the shared page distinguish that accepted
 version from later saved draft edits. `Assignment.context["homework_is_submitted"]` remains supported
-for existing adapters.
+for existing adapters. `stepper.review_rows` keeps its existing `(prompt, answer, url)` tuples for
+site-owned templates; the shared partial uses `stepper.review_display_rows`, which also carries
+semantic labels and question numbers.
 
 ```python
 return handle_stepper(

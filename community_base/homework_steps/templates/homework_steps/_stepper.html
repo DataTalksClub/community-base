@@ -53,9 +53,9 @@
   {% else %}
     <h2>Review &amp; submit</h2>
     <ol>
-      {% for label, prompt, has_semantic_label, answer, url in stepper.review_rows %}
-        <li><a href="{{ url }}">{% if has_semantic_label %}{{ label }}{% else %}Question {{ forloop.counter }}: {{ prompt }}{% endif %}</a>
-          {% if answer %} — {{ answer }}{% else %} — No answer saved{% endif %}
+      {% for row in stepper.review_display_rows %}
+        <li><a href="{{ row.url }}">{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}</a>
+          {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
         </li>
       {% endfor %}
     </ol>
