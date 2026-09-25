@@ -1,7 +1,11 @@
 <section class="homework-steps" aria-label="{{ stepper.assignment.title }} homework">
   <h1>{{ stepper.assignment.title }}</h1>
   <p aria-live="polite">Step {{ stepper.step_number|add:1 }} of {{ stepper.step_count }}</p>
-  {% if stepper.submitted %}<p role="status">Your homework was submitted.</p>{% endif %}
+  {% if stepper.has_pending_changes %}
+    <p role="status">Your submitted version is still accepted. Saved changes are a draft until you submit them.</p>
+  {% elif stepper.submitted %}
+    <p role="status">Your homework was submitted.</p>
+  {% endif %}
   {% if stepper.notice %}<p role="status">This question changed. Your saved answers are still here.</p>{% endif %}
   {% if stepper.error %}<p role="alert">{{ stepper.error }}</p>{% endif %}
   {% if stepper.reason and not stepper.can_write %}<p role="status">{{ stepper.reason }}</p>{% endif %}
@@ -16,7 +20,7 @@
     <div>{{ stepper.assignment.introduction }}</div>
     <div>{{ stepper.assignment.instructions }}</div>
   {% elif stepper.question %}
-    <h2>Question {{ stepper.step_number }}</h2>
+    <h2>{{ stepper.question_label }}</h2>
     <form method="post" action="{{ stepper.action }}" data-homework-autosave data-save-url="{{ stepper.save_url }}">
       {% csrf_token %}
       <input type="hidden" name="assignment_key" value="{{ stepper.assignment.key }}">
@@ -49,8 +53,8 @@
   {% else %}
     <h2>Review &amp; submit</h2>
     <ol>
-      {% for prompt, answer, url in stepper.review_rows %}
-        <li><a href="{{ url }}">Question {{ forloop.counter }}: {{ prompt }}</a>
+      {% for label, prompt, has_semantic_label, answer, url in stepper.review_rows %}
+        <li><a href="{{ url }}">{% if has_semantic_label %}{{ label }}{% else %}Question {{ forloop.counter }}: {{ prompt }}{% endif %}</a>
           {% if answer %} — {{ answer }}{% else %} — No answer saved{% endif %}
         </li>
       {% endfor %}

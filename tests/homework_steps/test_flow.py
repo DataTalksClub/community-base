@@ -307,6 +307,113 @@ def test_persisted_submission_resumes_review_and_shows_submitted_state(user, ass
     assert "Your homework was submitted." in parsed.status_messages
 
 
+def test_semantic_step_label_is_used_in_navigation_question_and_review(user, assignment):
+    labeled = Assignment(
+        key=assignment.key,
+        title=assignment.title,
+        questions=(
+            Question(
+                "lip",
+                "Share one progress link.",
+                "long_text",
+                step_label="Learning in Public",
+            ),
+        ),
+    )
+
+    question_page = flow(user, labeled, Adapter(), query="?homework_step=lip")
+    assert b"<h2>Learning in Public</h2>" in question_page.content
+    assert b">Learning in Public</a>" in question_page.content
+    assert b">Question 1</a>" not in question_page.content
+
+    review_page = flow(user, labeled, Adapter(), query="?homework_step=review")
+    assert b">Learning in Public</a>" in review_page.content
+    assert b"Question 1: Share one progress link." not in review_page.content
+
+
+def test_accepted_submission_and_pending_draft_are_distinguished(user, assignment):
+    submitted = Assignment(
+        key=assignment.key,
+        title=assignment.title,
+        questions=assignment.questions,
+        final_fields=assignment.final_fields,
+        existing_answers={"q1": "a"},
+        has_submission=True,
+    )
+    adapter = Adapter()
+
+    accepted_page = flow(user, submitted, adapter, query="?homework_step=review")
+    assert b"Your homework was submitted." in accepted_page.content
+    assert b"Saved changes are a draft" not in accepted_page.content
+
+    edited = flow(
+        user,
+        submitted,
+        adapter,
+        method="POST",
+        data={
+            "homework_step": "q1",
+            "revision": "0",
+            "answer": "b",
+            "next_step": "q2",
+        },
+    )
+    assert edited.status_code == 302
+    pending_page = flow(user, submitted, adapter, query="?homework_step=review")
+    assert b"Your submitted version is still accepted." in pending_page.content
+    assert b"Saved changes are a draft until you submit them." in pending_page.content
+
+
+def test_route_step_urls_are_canonical_and_legacy_query_links_still_work(user, assignment):
+    adapter = Adapter()
+    factory = RequestFactory()
+    request = factory.get("/homework/intro")
+    request.user = user
+    response = handle_stepper(
+        request,
+        assignment,
+        adapter,
+        action="/homework/intro",
+        step_param="homework_step",
+        route_step="intro",
+        step_url_builder=lambda step: f"/homework/{step}",
+        query_params={"cohort": "cohort-1"},
+    )
+    assert response.status_code == 200
+    assert b'href="/homework/q1?cohort=cohort-1"' in response.content
+
+    request = factory.post(
+        "/homework/q1",
+        data={
+            "assignment_key": assignment.key,
+            "homework_step": "q1",
+            "revision": "0",
+            "answer": "b",
+            "next_step": "q2",
+            "draft_token": str(
+                HomeworkDraft.objects.get(user=user, assignment_key=assignment.key).token
+            ),
+        },
+    )
+    request.user = user
+    saved = handle_stepper(
+        request,
+        assignment,
+        adapter,
+        action="/homework/q1",
+        step_param="homework_step",
+        route_step="q1",
+        step_url_builder=lambda step: f"/homework/{step}",
+        query_params={"cohort": "cohort-1"},
+    )
+    assert saved.status_code == 302
+    assert saved["Location"] == "/homework/q2?cohort=cohort-1"
+
+    legacy = flow(user, assignment, adapter, query="?homework_step=q1")
+    assert legacy.status_code == 200
+    assert b"Question 1" in legacy.content
+
+
 def test_invalid_choice_never_reaches_draft(user, assignment):
     with pytest.raises(ValidationError):
         save_answer(user, assignment, question_key="q1", answer="forged", revision=0)

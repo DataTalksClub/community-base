@@ -1,6 +1,6 @@
 """Shared GET, save and submit handler embedded by a site-owned route."""
 
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -46,9 +46,45 @@ def _final_fields_from_post(request, assignment):
     }
 
 
-def _step_url(action, query_params, step_param, step):
-    query = urlencode({**query_params, step_param: step})
-    return f"{action}?{query}"
+def _append_query(url, params):
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query.update(params)
+    return urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urlencode(query, doseq=True), parts.fragment)
+    )
+
+
+def _step_url(action, query_params, step_param, step, step_url_builder=None):
+    if step_url_builder is None:
+        url = action
+        params = {**query_params, step_param: step}
+    else:
+        url = step_url_builder(step)
+        params = query_params
+    return _append_query(url, params)
+
+
+def _has_submission(assignment, context):
+    return assignment.has_submission or bool(context.get("homework_is_submitted"))
+
+
+def _has_pending_changes(assignment, draft):
+    question_keys = {question.key for question in assignment.questions}
+    field_keys = {field.key for field in assignment.final_fields}
+
+    def populated(values, allowed):
+        return {
+            key: value
+            for key, value in values.items()
+            if key in allowed and value not in (None, "", [])
+        }
+
+    return populated(draft.answers, question_keys) != populated(
+        assignment.existing_answers, question_keys
+    ) or populated(draft.final_fields, field_keys) != populated(
+        assignment.existing_final_fields, field_keys
+    )
 
 
 def _resume_step(assignment, draft):
@@ -84,6 +120,7 @@ def _render(
     status=200,
     typed_answer=None,
     typed_fields=None,
+    step_url_builder=None,
 ):
     previous, question, next_step = _step(assignment, step)
     answer = (
@@ -105,20 +142,28 @@ def _render(
         if question
         else []
     )
-    action_url = f"{action}?{urlencode(query_params)}" if query_params else action
+    action_url = _step_url(action, query_params, step_param, step, step_url_builder)
     nav_steps = [
-        ("Introduction", _step_url(action, query_params, step_param, "intro"), step == "intro")
+        (
+            "Introduction",
+            _step_url(action, query_params, step_param, "intro", step_url_builder),
+            step == "intro",
+        )
     ]
     nav_steps += [
         (
-            f"Question {index}",
-            _step_url(action, query_params, step_param, item.key),
+            item.step_label or f"Question {index}",
+            _step_url(action, query_params, step_param, item.key, step_url_builder),
             step == item.key,
         )
         for index, item in enumerate(assignment.questions, start=1)
     ]
     nav_steps.append(
-        ("Review & submit", _step_url(action, query_params, step_param, "review"), step == "review")
+        (
+            "Review & submit",
+            _step_url(action, query_params, step_param, "review", step_url_builder),
+            step == "review",
+        )
     )
     review_rows = []
     for item in assignment.questions:
@@ -134,12 +179,22 @@ def _render(
         else:
             answer_display = answer_value
         review_rows.append(
-            (item.prompt, answer_display, _step_url(action, query_params, step_param, item.key))
+            (
+                item.step_label,
+                item.prompt,
+                bool(item.step_label),
+                answer_display,
+                _step_url(action, query_params, step_param, item.key, step_url_builder),
+            )
         )
     context = dict(assignment.context) if isinstance(assignment.context, dict) else {}
     save_urls = context.get("homework_save_urls", {})
     save_url = save_urls.get(question.key) if question and isinstance(save_urls, dict) else None
     save_url = save_url or context.get("homework_save_url") or action_url
+    question_label = ""
+    if question:
+        question_number = [q.key for q in assignment.questions].index(step) + 1
+        question_label = question.step_label or f"Question {question_number}"
     context.update(
         {
             "stepper": {
@@ -157,10 +212,15 @@ def _render(
                 else [q.key for q in assignment.questions].index(step) + 1,
                 "step_count": len(assignment.questions) + 2,
                 "previous": previous,
-                "previous_url": _step_url(action, query_params, step_param, previous),
+                "previous_url": _step_url(
+                    action, query_params, step_param, previous, step_url_builder
+                ),
                 "next": next_step,
-                "next_url": _step_url(action, query_params, step_param, next_step),
+                "next_url": _step_url(
+                    action, query_params, step_param, next_step, step_url_builder
+                ),
                 "question": question,
+                "question_label": question_label,
                 "options": options,
                 "answer": answer,
                 "final_values": field_values,
@@ -174,7 +234,9 @@ def _render(
                 "reason": eligibility.reason,
                 "error": error,
                 "submitted": _valid_receipt(request, assignment)
-                or bool(context.get("homework_is_submitted")),
+                or _has_submission(assignment, context),
+                "has_pending_changes": _has_submission(assignment, context)
+                and _has_pending_changes(assignment, draft),
                 "notice": request.GET.get("notice") == "changed",
             }
         }
@@ -191,6 +253,8 @@ def handle_stepper(
     template_name="homework_steps/page.html",
     step_param="step",
     query_params=None,
+    route_step=None,
+    step_url_builder=None,
 ):
     """Handle one site-resolved homework route; site controls URL and page template.
 
@@ -215,7 +279,10 @@ def handle_stepper(
         return JsonResponse({"error": "Unknown assignment"}, status=400)
     if request.method == "POST":
         try:
-            _step(assignment, request.POST.get(step_param, "intro"))
+            posted_step = request.POST.get(step_param, route_step or "intro")
+            if route_step is not None and posted_step != route_step:
+                return JsonResponse({"error": "Route step does not match the form."}, status=400)
+            _step(assignment, route_step or posted_step)
         except ValueError:
             return JsonResponse({"error": "Unknown step"}, status=400)
     was_existing = HomeworkDraft.objects.filter(
@@ -224,21 +291,23 @@ def handle_stepper(
     draft = get_or_seed_draft(request.user, assignment)
     if request.method == "GET":
         assignment_context = assignment.context if isinstance(assignment.context, dict) else {}
-        step = request.GET.get(step_param) or (
+        step = route_step or request.GET.get(step_param) or (
             "review"
-            if assignment_context.get("homework_is_submitted")
+            if _has_submission(assignment, assignment_context)
             else _resume_step(assignment, draft)
             if was_existing
             else "intro"
         )
     else:
-        step = request.POST.get(step_param, "intro")
+        step = route_step or request.POST.get(step_param, "intro")
     try:
         _step(assignment, step)
     except ValueError:
         if request.method == "GET":
-            valid_url = _step_url(action, query_params, step_param, _resume_step(assignment, draft))
-            return redirect(f"{valid_url}&notice=changed")
+            valid_url = _step_url(
+                action, query_params, step_param, _resume_step(assignment, draft), step_url_builder
+            )
+            return redirect(_append_query(valid_url, {"notice": "changed"}))
         return JsonResponse({"error": "Unknown step"}, status=400)
     if request.method == "GET":
         return _render(
@@ -251,6 +320,7 @@ def handle_stepper(
             step=step,
             draft=draft,
             eligibility=eligibility,
+            step_url_builder=step_url_builder,
         )
     token = request.POST.get("draft_token", "")
     if token != str(draft.token):
@@ -266,6 +336,7 @@ def handle_stepper(
             eligibility=eligibility,
             error="This form is no longer current. Reload before saving again.",
             status=409,
+            step_url_builder=step_url_builder,
         )
     intent = request.POST.get("intent", "save")
     if intent not in ("save", "submit"):
@@ -289,6 +360,7 @@ def handle_stepper(
             eligibility=eligibility,
             error=eligibility.reason or "Homework is closed.",
             status=403,
+            step_url_builder=step_url_builder,
         )
     typed_answer = None
     typed_fields = None
@@ -323,15 +395,19 @@ def handle_stepper(
                 {"user": request.user.pk, "assignment": assignment.key},
                 salt="homework-steps-submitted",
             )
-            review_url = _step_url(action, query_params, step_param, "review")
-            return redirect(f"{review_url}&{urlencode({'receipt': receipt})}")
+            review_url = _step_url(
+                action, query_params, step_param, "review", step_url_builder
+            )
+            return redirect(_append_query(review_url, {"receipt": receipt}))
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"revision": draft.revision, "saved": True})
         destination = request.POST.get("next_step", step)
         allowed = {step, _step(assignment, step)[0], _step(assignment, step)[2]}
         if destination not in allowed:
             return JsonResponse({"error": "Unknown destination"}, status=400)
-        return redirect(_step_url(action, query_params, step_param, destination))
+        return redirect(
+            _step_url(action, query_params, step_param, destination, step_url_builder)
+        )
     except DraftConflict:
         draft.refresh_from_db()
         return _render(
@@ -348,6 +424,7 @@ def handle_stepper(
             status=409,
             typed_answer=typed_answer,
             typed_fields=typed_fields,
+            step_url_builder=step_url_builder,
         )
     except ValidationError as exc:
         draft.refresh_from_db()
@@ -365,4 +442,5 @@ def handle_stepper(
             status=400,
             typed_answer=typed_answer,
             typed_fields=typed_fields,
+            step_url_builder=step_url_builder,
         )
