@@ -46,7 +46,10 @@
           <input id="homework-answer" name="answer" type="text" maxlength="10000" value="{{ stepper.answer }}">
         {% endif %}
       </fieldset>
-      <p data-save-status role="status" aria-live="polite">{{ stepper.draft_status }}</p>
+      <div class="homework-draft-status">
+        <p data-save-status role="status" aria-live="polite">{{ stepper.draft_status }}</p>
+        {% include "homework_steps/_draft_status_help.html" %}
+      </div>
       <button type="submit" name="next_step" value="{{ stepper.previous }}">Save and back</button>
       <button type="submit" name="next_step" value="{{ stepper.next }}">Save and next</button>
     </form>
@@ -73,7 +76,10 @@
           <input id="final-{{ field.key }}" name="final_{{ field.key }}" type="{{ field.type }}" maxlength="10000" value="{{ value }}"{% if field.required %} required{% endif %}>
         {% endif %}
       {% endfor %}
-      <p data-save-status role="status" aria-live="polite">{{ stepper.draft_status }}</p>
+      <div class="homework-draft-status">
+        <p data-save-status role="status" aria-live="polite">{{ stepper.draft_status }}</p>
+        {% include "homework_steps/_draft_status_help.html" %}
+      </div>
       <button type="submit" name="intent" value="save"{% if not stepper.can_write %} disabled{% endif %}>Save draft</button>
       <button type="submit" name="intent" value="submit"{% if not stepper.can_submit %} disabled{% endif %}>Submit homework</button>
     </form>

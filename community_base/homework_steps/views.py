@@ -105,6 +105,21 @@ def _valid_receipt(request, assignment):
     return payload == {"user": request.user.pk, "assignment": assignment.key}
 
 
+def _review_answer(question, answer):
+    labels = {option.key: option.label for option in question.options}
+    if question.type == "choice":
+        if answer in (None, ""):
+            return ""
+        return labels.get(answer, "Previously selected option is no longer available.")
+    if question.type == "checkbox":
+        selected_keys = answer if isinstance(answer, list) else [answer] if answer else []
+        answer_labels = [labels[key] for key in selected_keys if key in labels]
+        if len(answer_labels) < len(selected_keys):
+            answer_labels.append("One or more previously selected options are no longer available.")
+        return ", ".join(answer_labels)
+    return answer
+
+
 def _render(
     request,
     assignment,
@@ -169,16 +184,7 @@ def _render(
     review_display_rows = []
     for item in assignment.questions:
         answer_value = draft.answers.get(item.key, "")
-        if isinstance(answer_value, list):
-            labels = {option.key: option.label for option in item.options}
-            answer_display = ", ".join(labels.get(key, key) for key in answer_value)
-        elif item.type == "choice":
-            answer_display = next(
-                (option.label for option in item.options if option.key == answer_value),
-                answer_value,
-            )
-        else:
-            answer_display = answer_value
+        answer_display = _review_answer(item, answer_value)
         review_url = _step_url(action, query_params, step_param, item.key, step_url_builder)
         # Keep the original tuple contract for site-owned templates. The richer
         # rows give the shared partial enough data to show semantic labels.
