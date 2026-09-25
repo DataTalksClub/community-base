@@ -159,6 +159,7 @@ def test_aisl_course_graph():
     assert [module.slug for module in course.modules] == ["welcome", "retrieval"]
 
     welcome = course.modules[0]
+    assert welcome.syllabus_section == "Getting started"
     assert "# Welcome" in welcome.overview
     assert [unit.slug for unit in welcome.units] == ["setup", "exercise"]
     assert welcome.units[0].required_level == 0

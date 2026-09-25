@@ -354,6 +354,7 @@ def _module_values(graph, position, commit, checkout) -> dict:
     return {
         "title": graph.title,
         "sort_order": sort_order,
+        "syllabus_section": graph.syllabus_section,
         "overview": graph.overview,
         "is_bonus": graph.is_bonus,
         "available_after_days": graph.available_after_days,
