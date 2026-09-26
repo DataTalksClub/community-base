@@ -34,13 +34,23 @@ urlpatterns = [
         name="curriculum_cohort_unenroll",
     ),
     path(
-        "<slug:course_slug>/<slug:cohort_slug>/<slug:module_slug>/",
-        views.module_overview,
-        name="curriculum_module_overview",
+        "<slug:course_slug>/<slug:cohort_slug>/units/<path:module_path>/<slug:unit_slug>/",
+        views.unit_detail,
+        name="curriculum_nested_unit_detail",
     ),
     path(
-        "<slug:course_slug>/<slug:cohort_slug>/<slug:module_slug>/<slug:unit_slug>/",
+        "<slug:course_slug>/<slug:cohort_slug>/modules/<path:module_path>/",
+        views.module_overview,
+        name="curriculum_nested_module_overview",
+    ),
+    path(
+        "<slug:course_slug>/<slug:cohort_slug>/<slug:module_path>/<slug:unit_slug>/",
         views.unit_detail,
         name="curriculum_unit_detail",
+    ),
+    path(
+        "<slug:course_slug>/<slug:cohort_slug>/<slug:module_path>/",
+        views.module_overview,
+        name="curriculum_module_overview",
     ),
 ]

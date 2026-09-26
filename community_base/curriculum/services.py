@@ -1,9 +1,10 @@
 """Domain services for enrollment, progress and cohort drip scheduling."""
 
+from __future__ import annotations
+
 import datetime
 from dataclasses import dataclass
 
-from django.db.models import Prefetch
 from django.utils import timezone
 
 from community_base.curriculum.models import (
@@ -125,6 +126,136 @@ def completed_unit_ids(user, units) -> set[int]:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class UnitProjection:
+    """A persisted unit at its source-derived position in the physical tree."""
+
+    unit: Unit
+    path: str
+    module_path: str
+    depth: int
+    kind: str = "unit"
+
+
+@dataclass(frozen=True, slots=True)
+class ModuleProjection:
+    """A persisted module with mixed, ordered module/unit child projections.
+
+    ``descendant_unit_count`` includes direct units as well as units below child
+    modules. ``descendant_module_count`` counts child modules, not this module.
+    Child module items are recursively projected ModuleProjection objects.
+    """
+
+    module: Module
+    items: tuple[ModuleProjection | UnitProjection, ...]
+    path: str
+    depth: int
+    direct_unit_count: int
+    descendant_unit_count: int
+    descendant_module_count: int
+    kind: str = "module"
+
+    @property
+    def level(self) -> int:
+        """The human-facing level, with top-level modules at level one."""
+
+        return self.depth + 1
+
+    @property
+    def all_units(self) -> tuple[UnitProjection, ...]:
+        """Return every unit below this module in reading order."""
+
+        return tuple(
+            nested
+            for item in self.items
+            for nested in (item.all_units if isinstance(item, ModuleProjection) else (item,))
+        )
+
+
+def get_curriculum_tree(
+    course: Course,
+    modules=None,
+) -> tuple[ModuleProjection, ...]:
+    """Project a course's physical module tree with every mixed level preserved.
+
+    Pass ``modules`` to project a cohort's already ordered top-level selection;
+    child modules and direct units remain in the shared source order. This
+    projection contains learner-facing curriculum fields only and never carries
+    homework scoring metadata.
+    """
+
+    all_modules = list(Module.objects.filter(course=course).order_by("sort_order", "pk"))
+    all_units = list(
+        Unit.objects.filter(module__course=course)
+        .select_related("module")
+        .order_by("sort_order", "pk")
+    )
+    modules_by_parent: dict[int | None, list[Module]] = {}
+    modules_by_id: dict[int, Module] = {}
+    for module in all_modules:
+        modules_by_parent.setdefault(module.parent_id, []).append(module)
+        modules_by_id[module.pk] = module
+    units_by_module: dict[int, list[Unit]] = {}
+    for unit in all_units:
+        units_by_module.setdefault(unit.module_id, []).append(unit)
+
+    def item_key(item):
+        # Unit and Module tables have independent primary-key sequences. The
+        # type tag closes the rare tie while normal source siblings use one
+        # unique sort_order across both types.
+        return (item.sort_order, item.pk, 0 if isinstance(item, Unit) else 1)
+
+    def project(module: Module, parent_path: str, depth: int) -> ModuleProjection:
+        path = f"{parent_path}/{module.slug}" if parent_path else module.slug
+        direct_units = units_by_module.get(module.pk, [])
+        child_modules = modules_by_parent.get(module.pk, [])
+        projected_children = {child.pk: project(child, path, depth + 1) for child in child_modules}
+        physical_items = [*direct_units, *child_modules]
+        physical_items.sort(key=item_key)
+        items: list[ModuleProjection | UnitProjection] = []
+        descendant_unit_count = 0
+        descendant_module_count = len(child_modules)
+        for item in physical_items:
+            if isinstance(item, Unit):
+                items.append(
+                    UnitProjection(
+                        unit=item,
+                        path=f"{path}/{item.slug}",
+                        module_path=path,
+                        depth=depth,
+                    )
+                )
+                descendant_unit_count += 1
+            else:
+                child = projected_children[item.pk]
+                items.append(child)
+                descendant_unit_count += child.descendant_unit_count
+                descendant_module_count += child.descendant_module_count
+        return ModuleProjection(
+            module=module,
+            items=tuple(items),
+            path=path,
+            depth=depth,
+            direct_unit_count=len(direct_units),
+            descendant_unit_count=descendant_unit_count,
+            descendant_module_count=descendant_module_count,
+        )
+
+    selected_modules = list(modules) if modules is not None else modules_by_parent.get(None, [])
+
+    def parent_context(module: Module) -> tuple[str, int]:
+        ancestors = []
+        parent_id = module.parent_id
+        while parent_id is not None:
+            parent = modules_by_id[parent_id]
+            ancestors.append(parent.slug)
+            parent_id = parent.parent_id
+        ancestors.reverse()
+        return "/".join(ancestors), len(ancestors)
+
+    return tuple(project(module, *parent_context(module)) for module in selected_modules)
+
+
 @dataclass(frozen=True)
 class DripDecision:
     """Drip-schedule decision after tier/unit access has been granted."""
@@ -164,39 +295,9 @@ def decide_unit_drip(
 
 
 def get_all_units_ordered(course: Course) -> list[Unit]:
-    """Return every unit of the course in depth-first reading order.
+    """Return every unit in depth-first, mixed sibling source order."""
 
-    For each top-level module, in ``sort_order``: if it has submodules, each submodule's
-    units in order; otherwise the module's own units directly -- a module holds either
-    children or units, never both (community-base#252). ``id`` is an explicit tiebreaker
-    after ``sort_order``, which is not unique.
-    """
-
-    top_modules = list(
-        Module.objects.filter(course=course, parent__isnull=True)
-        .prefetch_related(
-            Prefetch("children", queryset=Module.objects.order_by("sort_order", "pk")),
-            Prefetch("units", queryset=Unit.objects.order_by("sort_order", "pk")),
-        )
-        .order_by("sort_order", "pk")
-    )
-    child_ids = [child.pk for module in top_modules for child in module.children.all()]
-    units_by_module: dict[int, list[Unit]] = {}
-    if child_ids:
-        for unit in Unit.objects.filter(module_id__in=child_ids).order_by(
-            "module_id", "sort_order", "pk"
-        ):
-            units_by_module.setdefault(unit.module_id, []).append(unit)
-
-    ordered: list[Unit] = []
-    for module in top_modules:
-        children = list(module.children.all())
-        if children:
-            for child in children:
-                ordered.extend(units_by_module.get(child.pk, []))
-        else:
-            ordered.extend(module.units.all())
-    return ordered
+    return [item.unit for module in get_curriculum_tree(course) for item in module.all_units]
 
 
 def get_next_unit(course: Course, current_unit: Unit):

@@ -2,7 +2,7 @@
 
 from django.apps import apps
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
 from django.views.decorators.http import require_GET, require_POST
@@ -11,6 +11,7 @@ from community_base.api.public_urls import public_url
 from community_base.curriculum import services
 from community_base.curriculum.access import can_access, gated_reason
 from community_base.curriculum.models import Cohort, Course, Module, Unit
+from community_base.curriculum.services import ModuleProjection, UnitProjection
 from community_base.kernel.access import level_label
 
 SELF_PACED_SLUG = "self-paced"
@@ -26,13 +27,31 @@ def _self_paced_cohort(course: Course) -> Cohort:
     return services.get_or_create_self_paced_cohort(course)
 
 
-def _unit_or_404(course: Course, module_slug: str, unit_slug: str):
-    # Top-level module only: a public deep link into a specific submodule's unit
-    # is a follow-up (community-base#252's public routes are a smaller, separately
-    # scoped change); this preserves exact behavior for every existing,
-    # non-nested course, whose modules are all top-level by construction.
-    module = get_object_or_404(Module, course=course, parent__isnull=True, slug=module_slug)
-    return get_object_or_404(Unit, module=module, slug=unit_slug)
+def _module_or_404(course: Course, module_path: str) -> Module:
+    parts = module_path.split("/")
+    if not parts or any(not part for part in parts):
+        raise Http404("Module was not found")
+    parent = None
+    module = None
+    for slug in parts:
+        module = get_object_or_404(Module, course=course, parent=parent, slug=slug)
+        parent = module
+    return module
+
+
+def _module_path_lookup(course: Course) -> dict[int, str]:
+    modules = {module.pk: module for module in Module.objects.filter(course=course)}
+    paths: dict[int, str] = {}
+
+    def path_for(module: Module) -> str:
+        if module.pk not in paths:
+            parent_path = path_for(modules[module.parent_id]) if module.parent_id else ""
+            paths[module.pk] = f"{parent_path}/{module.slug}" if parent_path else module.slug
+        return paths[module.pk]
+
+    for module in modules.values():
+        path_for(module)
+    return paths
 
 
 def _completed_unit_ids(user, course: Course) -> set:
@@ -83,6 +102,10 @@ def course_detail(request, course_slug: str):
         course.cohorts.filter(mode="self_paced").first()
         or course.cohorts.order_by("start_date", "pk").first()
     )
+    next_unit = services.get_next_unit_for_user(course, user) if user.is_authenticated else None
+    if next_unit is not None:
+        next_unit.module_path = _module_path_lookup(course)[next_unit.module_id]
+        next_unit.module_depth = next_unit.module_path.count("/")
     return render(
         request,
         "curriculum/course_detail.html",
@@ -99,20 +122,19 @@ def course_detail(request, course_slug: str):
             "user_enrolled_cohort_ids": user_enrolled_cohort_ids,
             "user_is_enrolled": bool(user_enrolled_cohort_ids),
             "default_cohort": default_cohort,
-            "next_unit": services.get_next_unit_for_user(course, user)
-            if user.is_authenticated
-            else None,
+            "next_unit": next_unit,
         },
     )
 
 
 @require_GET
-def module_overview(request, course_slug: str, cohort_slug: str, module_slug: str):
+def module_overview(request, course_slug: str, cohort_slug: str, module_path: str):
     course = get_object_or_404(_published_courses(), slug=course_slug)
     cohort = get_object_or_404(Cohort, course=course, slug=cohort_slug, visible=True)
-    module = get_object_or_404(Module, course=course, parent__isnull=True, slug=module_slug)
+    module = _module_or_404(course, module_path)
     user = request.user
     completed_unit_ids = _completed_unit_ids(user, course)
+    (module_projection,) = services.get_curriculum_tree(course, modules=[module])
     return render(
         request,
         "curriculum/module_overview.html",
@@ -120,7 +142,9 @@ def module_overview(request, course_slug: str, cohort_slug: str, module_slug: st
             "course": course,
             "cohort": cohort,
             "module": module,
-            "units": list(module.units.all()),
+            "module_projection": module_projection,
+            "module_path": module_projection.path,
+            "module_depth": module_projection.depth,
             "has_access": can_access(user, course),
             "completed_unit_ids": completed_unit_ids,
             "user_authenticated": user.is_authenticated,
@@ -157,11 +181,12 @@ def _bound_homework_context(unit: Unit, cohort: Cohort, user) -> dict:
 
 
 @require_GET
-def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, unit_slug: str):
+def unit_detail(request, course_slug: str, cohort_slug: str, module_path: str, unit_slug: str):
     course = get_object_or_404(_published_courses(), slug=course_slug)
     cohort = get_object_or_404(Cohort, course=course, slug=cohort_slug, visible=True)
-    module = get_object_or_404(Module, course=course, parent__isnull=True, slug=module_slug)
+    module = _module_or_404(course, module_path)
     unit = get_object_or_404(Unit, module=module, slug=unit_slug)
+    module_path = _module_path_lookup(course)[module.pk]
     user = request.user
 
     if not unit.is_preview and not can_access(user, unit):
@@ -172,6 +197,8 @@ def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, u
                 "course": course,
                 "cohort": cohort,
                 "module": module,
+                "module_path": module_path,
+                "module_depth": module_path.count("/"),
                 "unit": unit,
                 "is_gated": True,
                 "gated_reason": gated_reason(user, unit) or "insufficient_level",
@@ -190,6 +217,8 @@ def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, u
                 "course": course,
                 "cohort": cohort,
                 "module": module,
+                "module_path": module_path,
+                "module_depth": module_path.count("/"),
                 "unit": unit,
                 "is_gated": True,
                 "is_drip_locked": True,
@@ -200,7 +229,19 @@ def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, u
         )
 
     units = services.get_all_units_ordered(course)
+    module_paths = _module_path_lookup(course)
+    for nav_unit in units:
+        nav_unit.module_path = module_paths[nav_unit.module_id]
+        nav_unit.module_depth = nav_unit.module_path.count("/")
     completed_unit_ids = services.completed_unit_ids(user, units)
+    next_unit = services.get_next_unit(course, unit)
+    prev_unit = services.get_prev_unit(course, unit)
+    if next_unit is not None:
+        next_unit.module_path = module_paths[next_unit.module_id]
+        next_unit.module_depth = next_unit.module_path.count("/")
+    if prev_unit is not None:
+        prev_unit.module_path = module_paths[prev_unit.module_id]
+        prev_unit.module_depth = prev_unit.module_path.count("/")
     return render(
         request,
         "curriculum/unit_detail.html",
@@ -209,12 +250,14 @@ def unit_detail(request, course_slug: str, cohort_slug: str, module_slug: str, u
             "cohort": cohort,
             "module": module,
             "unit": unit,
+            "module_path": module_path,
+            "module_depth": module_path.count("/"),
             "is_gated": False,
             "units": units,
             "completed_unit_ids": completed_unit_ids,
             "is_completed": unit.pk in completed_unit_ids,
-            "next_unit": services.get_next_unit(course, unit),
-            "prev_unit": services.get_prev_unit(course, unit),
+            "next_unit": next_unit,
+            "prev_unit": prev_unit,
             "completion_url": f"/courses/{course.slug}/units/{unit.pk}/complete/",
             "user_authenticated": user.is_authenticated,
             **_bound_homework_context(unit, cohort, user),
@@ -299,6 +342,41 @@ def _course_payload(course: Course, user) -> dict:
     }
 
 
+def _curriculum_item_payload(item):
+    if isinstance(item, UnitProjection):
+        unit = item.unit
+        return {
+            "kind": "unit",
+            "id": unit.pk,
+            "slug": unit.slug,
+            "title": unit.title,
+            "sort_order": unit.sort_order,
+            "is_preview": unit.is_preview,
+        }
+    if isinstance(item, ModuleProjection):
+        module = item.module
+        return {
+            "kind": "module",
+            "id": module.pk,
+            "slug": module.slug,
+            "title": module.title,
+            "sort_order": module.sort_order,
+            "level": item.level,
+            "direct_unit_count": item.direct_unit_count,
+            "descendant_unit_count": item.descendant_unit_count,
+            "descendant_module_count": item.descendant_module_count,
+            "items": [_curriculum_item_payload(child) for child in item.items],
+            # Keep the existing direct-units member for API clients while the
+            # ordered `items` union exposes mixed and nested trees.
+            "units": [
+                _curriculum_item_payload(child)
+                for child in item.items
+                if isinstance(child, UnitProjection)
+            ],
+        }
+    raise TypeError(f"Unsupported curriculum projection item: {type(item).__name__}")
+
+
 @require_GET
 def api_courses(request):
     courses = _published_courses()
@@ -323,25 +401,7 @@ def api_course_detail(request, course_slug: str):
         "syllabus": [
             {
                 "cohort": cohort.slug,
-                "modules": [
-                    {
-                        "id": module.pk,
-                        "slug": module.slug,
-                        "title": module.title,
-                        "sort_order": module.sort_order,
-                        "units": [
-                            {
-                                "id": unit.pk,
-                                "slug": unit.slug,
-                                "title": unit.title,
-                                "sort_order": unit.sort_order,
-                                "is_preview": unit.is_preview,
-                            }
-                            for unit in module.units.all()
-                        ],
-                    }
-                    for module in cohort.syllabus_modules
-                ],
+                "modules": [_curriculum_item_payload(module) for module in cohort.syllabus_tree],
             }
             for cohort in course.get_syllabus()
         ],

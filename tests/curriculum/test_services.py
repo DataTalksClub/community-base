@@ -13,6 +13,7 @@ from community_base.curriculum.services import (
     get_all_units_ordered,
     get_checklist_items,
     get_checklist_state,
+    get_curriculum_tree,
     get_next_unit,
     get_next_unit_for_user,
     get_prev_unit,
@@ -236,6 +237,43 @@ class TestReadingOrder:
 
         assert get_all_units_ordered(course) == [u_a1, u_a2, u_b1]
 
+    def test_reading_order_and_projection_preserve_mixed_siblings_at_every_depth(self):
+        course = make_course()
+        week = make_module(course, slug="week", title="Week", sort_order=1)
+        before = make_unit(week, slug="before", title="Before", sort_order=1)
+        topic = make_module(course, slug="topic", title="Topic", parent=week, sort_order=2)
+        topic_unit = make_unit(topic, slug="topic-unit", title="Topic unit", sort_order=1)
+        section = make_module(course, slug="section", title="Section", parent=topic, sort_order=2)
+        nested = make_unit(section, slug="nested", title="Nested", sort_order=1)
+        after = make_unit(week, slug="after", title="After", sort_order=3)
+
+        assert get_all_units_ordered(course) == [before, topic_unit, nested, after]
+
+        (projection,) = get_curriculum_tree(course)
+        assert projection.module == week
+        assert projection.path == "week"
+        assert projection.depth == 0
+        assert projection.level == 1
+        assert projection.direct_unit_count == 2
+        assert projection.descendant_unit_count == 4
+        assert projection.descendant_module_count == 2
+        assert [item.kind for item in projection.items] == ["unit", "module", "unit"]
+        topic_projection = projection.items[1]
+        assert topic_projection.module == topic
+        assert topic_projection.path == "week/topic"
+        assert topic_projection.direct_unit_count == 1
+        assert topic_projection.descendant_unit_count == 2
+        section_projection = topic_projection.items[1]
+        assert section_projection.module == section
+        assert section_projection.depth == 2
+        assert section_projection.level == 3
+        assert [item.unit for item in projection.all_units] == [
+            before,
+            topic_unit,
+            nested,
+            after,
+        ]
+
     def test_next_and_prev_walk_reading_order(self):
         course, (u1, u2, u3) = self.ordered_course()
 
@@ -295,10 +333,14 @@ def test_course_counters_exclude_bonus_but_include_events():
     user_model_unit(module, slug="bonus", title="Bonus", is_bonus=True)
     bonus_module = make_module(course, slug="bonus-module", title="Bonus module", is_bonus=True)
     user_model_unit(bonus_module, slug="in-bonus-module", title="In bonus module")
+    topic = make_module(course, slug="bonus-topic", title="Bonus topic", parent=bonus_module)
+    section = make_module(course, slug="bonus-section", title="Bonus section", parent=topic)
+    deeply_in_bonus = user_model_unit(section, slug="deep-bonus", title="Deep bonus")
 
     # lesson + event count; the direct bonus unit and everything under the bonus
-    # module are excluded from the denominator.
+    # module, including modules nested more than two levels down, are excluded.
     assert course.total_units() == 2
+    assert deeply_in_bonus.effective_is_bonus is True
 
 
 @pytest.mark.django_db
@@ -318,7 +360,7 @@ def test_course_counters_exclude_checklist_items_regardless_of_is_bonus():
     # Only the lesson counts: checklist items never enter the course-progress
     # denominator, whether marked required (is_bonus=False) or optional (is_bonus=True).
     assert course.total_units() == 1
-    assert course._countable_units().count() == 1
+    assert len(course._countable_units()) == 1
 
 
 @pytest.mark.django_db

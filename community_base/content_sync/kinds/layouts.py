@@ -225,7 +225,7 @@ class CourseLayout(Layout):
     named.
     """
 
-    def __init__(self, max_module_levels: int = 2) -> None:
+    def __init__(self, max_module_levels: int | None = None) -> None:
         self.max_module_levels = max_module_levels
 
     def walk(self, root: DirNode) -> Found:
@@ -255,6 +255,23 @@ class CourseLayout(Layout):
                 continue
             if name == CODE_DIR or is_asset_dir(child):
                 continue
+            if child.has(HOMEWORK_MANIFEST) and not child.has(MODULE_MANIFEST):
+                problems.append(
+                    (
+                        child.path,
+                        Problem(
+                            "",
+                            "3.5",
+                            "a homework unit must be inside a module directory",
+                        ),
+                    )
+                )
+                continue
+            if not child.has(MODULE_MANIFEST) and not child.has(HOMEWORK_MANIFEST):
+                # Directories without course manifests are supporting source
+                # material (for example scripts, solutions or assets), not
+                # curriculum nodes. A module is declared by module.yaml.
+                continue
             self._walk_module(child, root.path, course_path, 1, items, problems)
         return items, problems
 
@@ -275,7 +292,7 @@ class CourseLayout(Layout):
                 )
             )
             return
-        if level > self.max_module_levels:
+        if self.max_module_levels is not None and level > self.max_module_levels:
             problems.append(
                 (
                     node.path,
@@ -310,7 +327,9 @@ class CourseLayout(Layout):
         submodules = [
             child
             for child in node.dirs
-            if _base_name(child.path) != CODE_DIR and not is_asset_dir(child)
+            if _base_name(child.path) != CODE_DIR
+            and not is_asset_dir(child)
+            and (child.has(MODULE_MANIFEST) or child.has(HOMEWORK_MANIFEST))
         ]
         for name in units:
             items.append(

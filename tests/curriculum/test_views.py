@@ -135,6 +135,30 @@ def test_module_overview_lists_lessons(client):
     assert "Welcome" in response.content.decode()
 
 
+def test_nested_module_and_unit_routes_render_the_projected_tree(client):
+    course = make_course(slug="deep-routes")
+    cohort = make_cohort(course)
+    week = make_module(course, slug="week", title="Week", sort_order=1)
+    topic = make_module(course, slug="topic", title="Topic", parent=week, sort_order=1)
+    unit = make_unit(topic, slug="lesson", title="Nested Lesson", sort_order=1)
+
+    detail = client.get(
+        f"/courses/{course.slug}/{cohort.slug}/units/{week.slug}/{topic.slug}/{unit.slug}/"
+    )
+    overview = client.get(f"/courses/{course.slug}/{cohort.slug}/modules/{week.slug}/{topic.slug}/")
+    syllabus = client.get(f"/courses/{course.slug}/")
+
+    assert detail.status_code == 200
+    assert "Nested Lesson" in detail.content.decode()
+    assert overview.status_code == 200
+    assert "Nested Lesson" in overview.content.decode()
+    assert syllabus.status_code == 200
+    assert (
+        f'href="/courses/{course.slug}/{cohort.slug}/units/{week.slug}/{topic.slug}/{unit.slug}/"'
+        in syllabus.content.decode()
+    )
+
+
 def test_course_enroll_redirects_and_creates_self_paced_enrollment(client, django_user_model):
     user = django_user_model.objects.create_user(email="enroll@example.com")
     course = make_course()
@@ -251,6 +275,39 @@ def test_api_course_detail_with_progress(client, django_user_model):
     assert data["progress"] == {"completed": 0, "total": 1}
     assert data["syllabus"][0]["modules"][0]["units"][0]["slug"] == unit.slug
     assert data["public_url"] == f"http://testserver/courses/{course.slug}"
+
+
+def test_api_course_detail_projects_every_mixed_and_single_unit_module_level(client):
+    course = make_course(slug="tree-api")
+    make_cohort(course)
+    week = make_module(course, slug="week", title="Week", sort_order=1)
+    make_unit(week, slug="before", title="Before", sort_order=1)
+    topic = make_module(course, slug="topic", title="Topic", parent=week, sort_order=2)
+    make_unit(topic, slug="topic-unit", title="Topic unit", sort_order=1)
+    section = make_module(course, slug="section", title="Section", parent=topic, sort_order=2)
+    make_unit(section, slug="only-lesson", title="Only lesson", sort_order=1)
+    make_unit(week, slug="after", title="After", sort_order=3)
+
+    response = client.get(f"/courses/api/courses/{course.slug}/")
+
+    assert response.status_code == 200
+    projected_week = response.json()["syllabus"][0]["modules"][0]
+    assert projected_week["level"] == 1
+    assert projected_week["direct_unit_count"] == 2
+    assert projected_week["descendant_unit_count"] == 4
+    assert [item["kind"] for item in projected_week["items"]] == [
+        "unit",
+        "module",
+        "unit",
+    ]
+    projected_topic = projected_week["items"][1]
+    assert projected_topic["slug"] == topic.slug
+    assert projected_topic["level"] == 2
+    projected_section = projected_topic["items"][1]
+    assert projected_section["slug"] == section.slug
+    assert projected_section["level"] == 3
+    assert projected_section["items"][0]["slug"] == "only-lesson"
+    assert all("correct" not in item for item in projected_week["items"])
 
 
 def test_unpublished_course_payload_has_no_public_url():

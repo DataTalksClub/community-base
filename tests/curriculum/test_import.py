@@ -2,18 +2,25 @@
 
 import shutil
 import tempfile
+from dataclasses import replace
+from hashlib import md5
 from pathlib import Path
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 
+from community_base.coursework.models import Homework, Submission
 from community_base.curriculum.content_sync_parsers import CourseParser
 from community_base.curriculum.models import (
     Cohort,
     CohortModule,
     Course,
     CurriculumImportRun,
+    Enrollment,
     Module,
     Unit,
+    UnitProgress,
 )
 from community_base.curriculum.parsers import PARSER_VERSION
 from community_base.events.models import Host
@@ -226,6 +233,131 @@ class NestedImportTests(TestCase):
             "week-two",
         ]
 
+    def test_tree_import_reparents_unit_without_replacing_learner_or_homework_state(self):
+        from tests.curriculum.utils import ParserHarness, checkout
+
+        ParserHarness().run_parser(CourseParser(), DTC_NESTED)
+        course = Course.objects.get(slug="nested-course")
+        cohort = Cohort.objects.get(course=course, slug="2026")
+        old_module = course.modules.get(slug="week-two")
+        unit = old_module.units.get(slug="session")
+        original_pk = unit.pk
+
+        user = get_user_model().objects.create_user(email="tree-move@example.com")
+        progress = UnitProgress.objects.create(user=user, unit=unit, completed_at=timezone.now())
+        enrollment = Enrollment.objects.create(user=user, cohort=cohort)
+        homework = Homework.objects.create(
+            cohort=cohort,
+            unit=unit,
+            slug="session-follow-up",
+            title="Session follow-up",
+            due_date=timezone.now(),
+        )
+        submission = Submission.objects.create(
+            homework=homework,
+            student=user,
+            enrollment=enrollment,
+            problems_comments="Keep this submission attached to the moved unit.",
+        )
+
+        with tempfile.TemporaryDirectory(prefix="cb-curriculum-move-") as tmp:
+            edited = Path(tmp) / "repo"
+            shutil.copytree(DTC_NESTED, edited)
+            old_path = edited / "02-week-two" / "01-session.md"
+            new_path = edited / "01-week-one" / "03-session.md"
+            new_path.write_text(old_path.read_text())
+            old_path.unlink()
+
+            from community_base.curriculum.importing import apply_curriculum_tree
+            from community_base.curriculum.parsers import parse_course_tree
+            from community_base.curriculum.source import ModuleGraph, UnitGraph
+
+            def find_unit_body_hash(module):
+                for item in module.items:
+                    if isinstance(item, UnitGraph) and item.content_id == str(
+                        unit.source_content_id
+                    ):
+                        return item.content_hash
+                    if isinstance(item, ModuleGraph):
+                        found = find_unit_body_hash(item)
+                        if found is not None:
+                            return found
+                return None
+
+            def rewrite_unit_body(module):
+                items = []
+                for item in module.items:
+                    if isinstance(item, ModuleGraph):
+                        item = rewrite_unit_body(item)
+                    elif item.content_id == str(unit.source_content_id):
+                        item = replace(item, body="Rewritten source links.")
+                    items.append(item)
+                return replace(module, items=tuple(items))
+
+            with checkout(edited, commit_sha="a" * 40) as active:
+                tree = parse_course_tree(active)
+                original_body_hash = next(
+                    body_hash
+                    for module in tree.modules
+                    if (body_hash := find_unit_body_hash(module)) is not None
+                )
+                tree = replace(
+                    tree,
+                    modules=tuple(rewrite_unit_body(module) for module in tree.modules),
+                )
+                apply_curriculum_tree(
+                    course,
+                    tree,
+                    commit="a" * 40,
+                    checkout=active,
+                )
+
+        unit.refresh_from_db()
+        progress.refresh_from_db()
+        homework.refresh_from_db()
+        submission.refresh_from_db()
+        assert unit.pk == original_pk
+        assert unit.module.slug == "week-one"
+        assert unit.slug == "session"
+        assert unit.body == "Rewritten source links."
+        assert (
+            unit.content_hash == original_body_hash == md5(b"Join the live session.\n").hexdigest()
+        )
+        assert progress.unit_id == original_pk
+        assert homework.unit_id == original_pk
+        assert submission.homework_id == homework.pk
+
+    def test_tree_import_persists_reparent_when_unit_content_is_unchanged(self):
+        from tests.curriculum.utils import ParserHarness, checkout
+
+        ParserHarness().run_parser(CourseParser(), DTC_NESTED)
+        course = Course.objects.get(slug="nested-course")
+        unit = course.modules.get(slug="week-two").units.get(slug="session")
+
+        with tempfile.TemporaryDirectory(prefix="cb-curriculum-move-clean-") as tmp:
+            edited = Path(tmp) / "repo"
+            shutil.copytree(DTC_NESTED, edited)
+            old_path = edited / "02-week-two" / "01-session.md"
+            new_path = edited / "01-week-one" / "03-session.md"
+            new_path.write_text(old_path.read_text())
+            old_path.unlink()
+
+            from community_base.curriculum.importing import apply_curriculum_tree
+            from community_base.curriculum.parsers import parse_course_tree
+
+            with checkout(edited, commit_sha="b" * 40) as active:
+                counts = apply_curriculum_tree(
+                    course,
+                    parse_course_tree(active),
+                    commit="b" * 40,
+                    checkout=active,
+                )
+
+        unit.refresh_from_db()
+        assert unit.module.slug == "week-one"
+        assert unit.source_path == "01-week-one/03-session.md"
+        assert counts["updated"] == 1
+
 
 class DefaultTreeTests(TestCase):
     """A cohort that places nothing shows the course's own tree."""
@@ -243,4 +375,4 @@ class DefaultTreeTests(TestCase):
         )
         for module in course.modules.all():
             assert module.parent_id is None
-        assert course.total_units() == course._countable_units().count()
+        assert course.total_units() == len(course._countable_units())

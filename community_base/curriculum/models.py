@@ -167,24 +167,35 @@ class Course(SourceProvenanceMixin, models.Model):
     def _countable_units(self):
         """Units that count toward the progress denominator.
 
-        Every unit counts, including ``kind=event`` units, except a unit (or its module, or
-        that module's parent module) marked ``is_bonus`` -- tracked and displayed, but
+        Every unit counts, including ``kind=event`` units, except a unit or any
+        ancestor module marked ``is_bonus`` -- tracked and displayed, but
         excluded from the denominator (owner decision, community-base#252). ``kind=checklist_item``
         units are excluded outright: a pre-work checklist is a separate readiness track, not
         lesson/homework/event course progress, regardless of whether an individual item is
         marked required (``is_bonus=False``) or optional (``is_bonus=True``).
         """
 
-        return (
+        module_rows = list(
+            Module.objects.filter(course=self).values_list("pk", "parent_id", "is_bonus")
+        )
+        bonus_module_ids = {pk for pk, _parent_id, is_bonus in module_rows if is_bonus}
+        while True:
+            inherited = {
+                pk for pk, parent_id, _is_bonus in module_rows if parent_id in bonus_module_ids
+            }
+            added = inherited - bonus_module_ids
+            if not added:
+                break
+            bonus_module_ids.update(added)
+        return list(
             Unit.objects.filter(module__course=self)
             .exclude(kind=UNIT_KIND_CHECKLIST_ITEM)
             .exclude(is_bonus=True)
-            .exclude(module__is_bonus=True)
-            .exclude(module__parent__is_bonus=True)
+            .exclude(module_id__in=bonus_module_ids)
         )
 
     def total_units(self):
-        return self._countable_units().count()
+        return len(self._countable_units())
 
     def completed_units(self, user):
         if user is None or not user.is_authenticated:
@@ -200,8 +211,8 @@ class Course(SourceProvenanceMixin, models.Model):
 
         A cohort's effective modules are its :class:`CohortModule` placements when it has
         any, otherwise the course's full top-level module tree (see
-        :meth:`Cohort.effective_modules`) -- computed here in two queries total rather than
-        one query per cohort.
+        :meth:`Cohort.effective_modules`). The shared persisted tree projection is built
+        once and sliced to each cohort's selected top-level modules.
         """
 
         cohorts = list(self.cohorts.order_by("start_date", "pk"))
@@ -221,8 +232,15 @@ class Course(SourceProvenanceMixin, models.Model):
         )
         for placement in placements:
             placements_by_cohort.setdefault(placement.cohort_id, []).append(placement.module)
+        from community_base.curriculum.services import get_curriculum_tree
+
+        full_tree = get_curriculum_tree(self)
+        tree_by_module_id = {node.module.pk: node for node in full_tree}
         for cohort in cohorts:
             cohort.syllabus_modules = placements_by_cohort.get(cohort.pk) or default_modules
+            cohort.syllabus_tree = tuple(
+                tree_by_module_id[module.pk] for module in cohort.syllabus_modules
+            )
         return cohorts
 
     def get_next_unit_for(self, user):
@@ -331,10 +349,8 @@ class Cohort(SourceProvenanceMixin, models.Model):
 class Module(SourceProvenanceMixin, models.Model):
     """An ordered module of a course. A submodule is a module with ``parent`` set.
 
-    A module holds either child modules or direct units, never both (enforced in
-    :meth:`clean`, not a database constraint, because the rule spans two related
-    tables -- ``children`` and ``units`` -- which a ``CheckConstraint`` cannot express).
-    Nesting is capped at two module levels: a submodule cannot itself have children.
+    A module's direct units and child modules share the same physical sibling
+    order, so a node may hold both and modules may nest to any repository depth.
     """
 
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="modules")
@@ -344,7 +360,7 @@ class Module(SourceProvenanceMixin, models.Model):
         blank=True,
         on_delete=models.CASCADE,
         related_name="children",
-        help_text="Set to make this module a submodule of another. Maximum two levels.",
+        help_text="Set to make this module a child of another module.",
     )
     slug = models.SlugField(max_length=300, default="")
     title = models.CharField(max_length=300)
@@ -407,33 +423,29 @@ class Module(SourceProvenanceMixin, models.Model):
             if self.pk is not None and self.parent_id == self.pk:
                 errors["parent"] = "A module cannot be its own parent."
             elif self.parent is not None:
-                if self.parent.parent_id is not None:
-                    errors["parent"] = "A submodule cannot itself have children (max two levels)."
                 if self.course_id and self.parent.course_id != self.course_id:
                     errors["parent"] = "A parent module must belong to the same course."
-                if self.parent.units.exists():
-                    errors["parent"] = (
-                        f"Module {self.parent.title!r} already has direct units; "
-                        "it cannot also have child modules."
-                    )
-        if self.pk is not None:
-            has_children = self.children.exists()
-            has_units = self.units.exists()
-            if has_children and has_units:
-                errors["parent"] = (
-                    f"Module {self.title!r} has both child modules and direct units; "
-                    "it must have only one."
-                )
+                ancestor = self.parent
+                seen_ancestors = set()
+                while ancestor is not None and ancestor.pk not in seen_ancestors:
+                    if self.pk is not None and ancestor.pk == self.pk:
+                        errors["parent"] = "A module cannot be nested beneath itself."
+                        break
+                    seen_ancestors.add(ancestor.pk)
+                    ancestor = ancestor.parent
         if errors:
             raise ValidationError(errors)
 
     @property
     def effective_is_bonus(self) -> bool:
-        """Bonus cascades from an ancestor: a bonus week's submodules are bonus too."""
+        """Bonus cascades from any ancestor, however deep the module is."""
 
-        if self.is_bonus:
-            return True
-        return bool(self.parent_id and self.parent.is_bonus)
+        module = self
+        while module is not None:
+            if module.is_bonus:
+                return True
+            module = module.parent if module.parent_id else None
+        return False
 
 
 class CohortModule(models.Model):
@@ -584,18 +596,6 @@ class Unit(SourceProvenanceMixin, models.Model):
         self.body_html_source = BODY_HTML_SITE
         self.body_html = rendered_html
 
-    def clean(self):
-        super().clean()
-        if self.module_id and self.module.children.exists():
-            raise ValidationError(
-                {
-                    "module": (
-                        f"Module {self.module.title!r} has child modules; "
-                        "it cannot also have direct units."
-                    )
-                }
-            )
-
     @property
     def course(self):
         return self.module.course
@@ -621,15 +621,15 @@ class Unit(SourceProvenanceMixin, models.Model):
 
     @property
     def effective_available_after_days(self):
-        """Resolve the drip offset: unit override, its module's, then its parent module's."""
+        """Resolve the nearest drip offset: unit override then module ancestors."""
 
         if self.available_after_days is not None:
             return self.available_after_days
         module = self.module
-        if module.available_after_days is not None:
-            return module.available_after_days
-        if module.parent_id:
-            return module.parent.available_after_days
+        while module is not None:
+            if module.available_after_days is not None:
+                return module.available_after_days
+            module = module.parent if module.parent_id else None
         return None
 
 

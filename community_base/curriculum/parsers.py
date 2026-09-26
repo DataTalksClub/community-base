@@ -36,6 +36,7 @@ Package rulings, written here because section 3.8 is silent about them.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 from collections.abc import Iterable, Mapping
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -127,6 +128,7 @@ def parse_course_tree(
     source: Any,
     *,
     path: str = ".",
+    ignore: Iterable[str] = (),
     project_specs: Iterable[Mapping[str, Any]] = (),
 ) -> CourseTreeGraph:
     """Parse one physical module/unit tree without taking ownership of its header.
@@ -142,9 +144,13 @@ def parse_course_tree(
     ``project_specs`` lets an adapter pass project fields it owns through the
     generic source-relative module resolver without passing unrelated header
     metadata into the package parser.
+
+    ``ignore`` is an explicit adapter boundary for legacy source headers that
+    owned ignore globs before ``content.yaml``. Patterns are relative to the
+    selected course root and hide files before any module/unit parsing.
     """
 
-    result, collection, course_manifest_path = _read_course_tree(source, path)
+    result, collection, course_manifest_path = _read_course_tree(source, path, ignore)
     by_parent: dict[str | None, list[ParsedDocument]] = {}
     for document in result.documents:
         by_parent.setdefault(document.raw.parent, []).append(document)
@@ -165,7 +171,9 @@ def parse_course_tree(
     )
 
 
-def _read_course_tree(source: Any, path: str) -> tuple[ReadResult, Collection, str]:
+def _read_course_tree(
+    source: Any, path: str, ignore: Iterable[str]
+) -> tuple[ReadResult, Collection, str]:
     """Read the course layout under ``path`` without a repository manifest."""
 
     if isinstance(source, str | Path):
@@ -181,7 +189,11 @@ def _read_course_tree(source: Any, path: str) -> tuple[ReadResult, Collection, s
         raise CurriculumParseError(f"{root}: course tree source is not a directory")
     collection_path = _course_tree_relative_path(source, path)
     content_checkout = checkout if checkout is not None and hasattr(checkout, "read_text") else None
-    repository = _read_repository(root, (), content_checkout)
+    patterns = tuple(
+        f"{collection_path}/{pattern.lstrip('/')}" if collection_path else pattern
+        for pattern in ignore
+    )
+    repository = _read_repository(root, patterns, content_checkout)
     node = _node_at(repository.tree, collection_path)
     if node is None:
         raise CurriculumParseError(
@@ -395,11 +407,21 @@ def _module_graph(
         overview=_overview(result, document),
         syllabus_section=values.get("syllabus_section") or "",
         sort_order=document.sort_order,
-        is_bonus=bool(values.get("is_bonus")),
+        is_bonus=_module_bonus(document),
         available_after_days=values.get("available_after_days"),
         has_order=_has_order(document),
         items=tuple(items),
     )
+
+
+def _module_bonus(document: ParsedDocument) -> bool:
+    """Map the source's ``bonus`` spelling onto the shared ``is_bonus`` flag."""
+
+    if "is_bonus" in document.data and "bonus" in document.data:
+        raise CurriculumParseError(
+            f"{document.raw.path}: declare either is_bonus or bonus, not both"
+        )
+    return bool(document.values.get("is_bonus") or document.values.get("bonus"))
 
 
 def _overview(result: ReadResult, document: ParsedDocument) -> str:
@@ -423,6 +445,7 @@ def _unit_graph(document: ParsedDocument, inherited: int | None) -> UnitGraph:
         title=document.title,
         source_path=document.raw.path,
         body=body,
+        content_hash=_unit_content_hash(body),
         video_url=values.get("video_url") or "",
         timestamps=tuple(values.get("timestamps") or ()),
         required_level=_declared_level(document, inherited),
@@ -473,7 +496,8 @@ def _homework_unit_graph(document: ParsedDocument, inherited: int | None) -> Uni
         slug=document.slug,
         title=document.title,
         source_path=document.raw.path,
-        body=document.body,
+        homework=document.body,
+        content_hash=_unit_content_hash(document.body),
         required_level=_declared_level(document, inherited),
         sort_order=document.sort_order,
         kind="homework",
@@ -483,6 +507,10 @@ def _homework_unit_graph(document: ParsedDocument, inherited: int | None) -> Uni
         has_order=_has_order(document),
         homework_unit=homework,
     )
+
+
+def _unit_content_hash(body: str) -> str:
+    return hashlib.md5(body.encode("utf-8")).hexdigest() if body else ""
 
 
 def _homework_form(values: Mapping[str, Any]) -> HomeworkFormGraph:

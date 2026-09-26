@@ -381,7 +381,7 @@ def test_a_yaml_homework_unit_pairs_structured_fields_with_companion_prose(tmp_p
         ("topic-b", 4),
     ]
     assert homework_graph.kind == "homework"
-    assert homework_graph.body.strip() == "Instructions from Markdown."
+    assert homework_graph.homework.strip() == "Instructions from Markdown."
     assert homework_graph.body_source_path == "01-week-one/03-homework/homework.md"
     assert homework_graph.homework_unit.due_at.isoformat() == "2026-10-05T23:59:59+00:00"
     question = homework_graph.homework_unit.questions[0]
@@ -403,6 +403,10 @@ def test_a_tree_only_parse_ignores_legacy_course_and_cohort_metadata(tmp_path):
         "legacy_access_policy: keep-at-site\ncohorts: [not, a, shared, schema]\n"
     )
     (root / "cohorts" / "2026" / "cohort.yaml").write_text("not: package metadata\n")
+    (root / "scripts").mkdir()
+    (root / "scripts" / "validate.py").write_text("pass\n")
+    (root / "solutions" / "week-1").mkdir(parents=True)
+    (root / "solutions" / "week-1" / "solution.md").write_text("Not a lesson.\n")
 
     tree = parse_course_tree(root)
 
@@ -410,18 +414,40 @@ def test_a_tree_only_parse_ignores_legacy_course_and_cohort_metadata(tmp_path):
     assert tree.modules[0].items[0].slug == "topic-a"
 
 
-def test_three_module_levels_are_rejected(tmp_path):
+def test_tree_only_parse_applies_adapter_ignore_globs_before_parsing(tmp_path):
+    from community_base.curriculum.parsers import parse_course_tree
+
+    root = copy(DTC_NESTED, tmp_path, "legacy-ignore")
+    ignored = root / "01-week-one" / "03-private-draft.md"
+    ignored.write_text("---\nnot: [valid front matter\n---\nDraft.\n")
+
+    with pytest.raises(CurriculumParseError, match="03-private-draft.md"):
+        parse_course_tree(root)
+
+    tree = parse_course_tree(root, ignore=("01-week-one/03-private-draft.md",))
+
+    assert [module.slug for module in tree.modules] == ["week-one", "week-two"]
+    assert len(tree.modules[0].items) == 2
+
+
+def test_module_tree_supports_more_than_two_physical_levels(tmp_path):
     root = copy(DTC_NESTED, tmp_path, "deep")
-    deep = root / "01-week-one" / "01-topic-a" / "01-too-deep"
+    module_manifest = root / "01-week-one" / "module.yaml"
+    module_manifest.write_text(module_manifest.read_text() + "bonus: true\n")
+    deep = root / "01-week-one" / "01-topic-a" / "02-too-deep"
     deep.mkdir()
     (deep / "module.yaml").write_text(
         "content_id: 2b3c4d5e-000c-4000-8000-000000000001\ntitle: Too deep\n"
     )
 
-    with pytest.raises(CurriculumParseError) as error:
-        parse(root)
+    course = parse(root).course
 
-    assert "01-too-deep" in str(error.value)
+    week = course.modules[0]
+    topic = week.items[0]
+    deep_module = topic.items[1]
+    assert week.is_bonus
+    assert deep_module.slug == "too-deep"
+    assert deep_module.source_path.endswith("02-too-deep/module.yaml")
 
 
 def test_a_repository_with_no_course_collection_parses_nothing(tmp_path):

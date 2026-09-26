@@ -67,6 +67,9 @@ MODULE = PartSpec(
     keys={
         "syllabus_section": KeySpec("string", max_length=255),
         "is_bonus": KeySpec("boolean", default=False),
+        # Existing course sources call the same generic module flag `bonus`.
+        # The graph and persistence API use the clearer `is_bonus` name.
+        "bonus": KeySpec("boolean"),
         "available_after_days": KeySpec("integer"),
     },
 )

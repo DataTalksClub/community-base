@@ -51,6 +51,7 @@ class UnitGraph:
     is_bonus: bool = False
     available_after_days: int | None = None
     body_source_path: str | None = None
+    content_hash: str | None = None
     has_order: bool = False
     homework_unit: HomeworkUnitGraph | None = None
 
@@ -222,11 +223,11 @@ class CurriculumParseError(ValueError):
     """A repository layout does not satisfy the curriculum source contract."""
 
 
-def validate_module_tree(modules: tuple[ModuleGraph, ...], *, where: str, depth: int = 1) -> None:
+def validate_module_tree(modules: tuple[ModuleGraph, ...], *, where: str) -> None:
     """Validate a course's module tree once, for the one course parser.
 
     Enforces unique sibling slugs and orders across the mixed module/unit sequence,
-    explicit ordering for every sibling, and the existing two-level module bound.
+    and explicit ordering for every sibling at every physical level.
     """
 
     seen_module_slugs: set[str] = set()
@@ -268,11 +269,7 @@ def validate_module_tree(modules: tuple[ModuleGraph, ...], *, where: str, depth:
                 validate_homework_unit(sibling.homework_unit, where=sibling_where)
         children = module.children
         if children:
-            if depth >= 2:
-                raise CurriculumParseError(
-                    f"{module_where}: exceeds the maximum module depth of two levels"
-                )
-            validate_module_tree(children, where=module_where, depth=depth + 1)
+            validate_module_tree(children, where=module_where)
 
 
 def validate_homework_unit(homework: HomeworkUnitGraph, *, where: str) -> None:
