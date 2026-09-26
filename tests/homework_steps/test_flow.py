@@ -383,6 +383,30 @@ def test_public_link_step_uses_configured_editor_and_saves_links(user):
     assert b"Learning in Public</strong>" in review.content
 
 
+def test_long_review_answer_has_expandable_full_text(user, assignment):
+    adapter = Adapter()
+    long_answer = "A" * 300
+    flow(user, assignment, adapter, query="?homework_step=q2")
+    saved = flow(
+        user,
+        assignment,
+        adapter,
+        method="POST",
+        data={
+            "homework_step": "q2",
+            "revision": "0",
+            "answer": long_answer,
+            "next_step": "review",
+        },
+    )
+    assert saved.status_code == 302
+
+    review = flow(user, assignment, adapter, query="?homework_step=review")
+    assert b"<details>" in review.content
+    assert b"<summary>" in review.content
+    assert review.content.count(long_answer.encode()) == 1
+
+
 def test_draft_status_help_is_available_on_question_and_review_steps(user, assignment):
     for query in ("?homework_step=q1", "?homework_step=review"):
         response = flow(user, assignment, Adapter(), query=query)

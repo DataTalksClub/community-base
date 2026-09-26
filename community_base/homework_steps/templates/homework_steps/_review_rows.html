@@ -3,7 +3,14 @@
     <li class="homework-review-row">
       <div class="homework-review-answer">
         <strong>{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}{% endif %}</strong>
-        <span>{% if row.answer %}{{ row.answer|linebreaksbr }}{% else %}Not answered{% endif %}</span>
+        {% if row.answer|length > 240 %}
+          <details>
+            <summary>{{ row.answer|truncatechars:160 }}</summary>
+            <div>{{ row.answer|linebreaksbr }}</div>
+          </details>
+        {% else %}
+          <span>{% if row.answer %}{{ row.answer|linebreaksbr }}{% else %}Not answered{% endif %}</span>
+        {% endif %}
       </div>
       {% if editable %}<a href="{{ row.url }}">Edit <span class="sr-only">{% if row.has_semantic_label %}{{ row.step_label }}{% else %}question {{ row.question_number }}{% endif %}</span></a>{% endif %}
     </li>
