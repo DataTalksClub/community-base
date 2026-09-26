@@ -1,14 +1,19 @@
 document.querySelectorAll("[data-learning-public-links]").forEach((group) => {
   const maxLinks = Number.parseInt(group.dataset.maxLinks, 10);
   const valueField = group.querySelector("[data-public-links-value]");
+  const fallbackLabel = group.querySelector("[data-public-links-fallback-label]");
   const slots = group.querySelector("[data-public-link-slots]");
   const addButton = group.querySelector("[data-add-public-link]");
   const addLabel = group.querySelector("[data-add-public-link-label]");
   const count = group.querySelector("[data-public-link-count]");
   if (!valueField || !slots || !addButton || !Number.isFinite(maxLinks) || maxLinks < 1) {
-    group.hidden = true;
     return;
   }
+
+  valueField.hidden = true;
+  valueField.style.display = "none";
+  if (fallbackLabel) fallbackLabel.hidden = true;
+  addButton.hidden = false;
 
   const savedLinks = valueField.value.split(/\r?\n/).map((link) => link.trim()).filter(Boolean);
 

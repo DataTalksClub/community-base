@@ -6,7 +6,8 @@
     </div>
     <output data-public-link-count aria-live="polite"></output>
   </div>
-  <textarea name="answer" data-public-links-value hidden>{{ stepper.answer }}</textarea>
+  <label for="homework-public-links-fallback" data-public-links-fallback-label>Public links, one per line</label>
+  <textarea id="homework-public-links-fallback" name="answer" data-public-links-value rows="3">{{ stepper.answer }}</textarea>
   <div data-public-link-slots data-testid="learning-public-link-slots"></div>
-  <button type="button" data-add-public-link><span aria-hidden="true">+</span> <span data-add-public-link-label>Add another link</span></button>
+  <button type="button" data-add-public-link hidden><span aria-hidden="true">+</span> <span data-add-public-link-label>Add another link</span></button>
 </div>

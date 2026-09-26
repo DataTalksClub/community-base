@@ -89,6 +89,15 @@ resolving and authorizing the assignment. Put per-question AJAX URLs in
 On a successful legacy form submission, call `clear_draft(user, assignment.key)` so old step
 answers cannot reappear.
 
+The shared Review list is `homework_steps/_review_rows.html`. It uses semantic step labels when
+available and keeps accepted answers separate from pending drafts. For a question keyed
+`learning-in-public`, set `Assignment.context["learning_in_public_cap"]` to a positive maximum to
+render the shared `homework_steps/_public_links.html` editor. It stores nonempty links as a
+newline-separated text answer, which the host adapter can validate and map to its submission
+model. Sites that override the stepper should include those partials and load
+`community_base/homework_public_links.js` alongside `community_base/homework_steps.js`. The
+package provides structural CSS classes; sites apply their own styles.
+
 The default `step_param` continues to read and generate query-step URLs for existing bookmarks. A
 host can add canonical route-step URLs by passing the route's step value as `route_step` and a
 `step_url_builder` that maps a step key to a path, for example `/homework/intro`. The handler uses
