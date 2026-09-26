@@ -132,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _check_dialect(item: ParsedDocument, headings: list[tuple[int, str, str]], diagnostics) -> None:
     title = item.data.get("title")
+    body_source = item.raw.body_path or item.raw.path
     for number, line in _code_free_lines(item.body):
         located = item.body_line + number
         for pattern, rule, message, severity in _DIALECT_RULES:
@@ -140,7 +141,7 @@ def _check_dialect(item: ParsedDocument, headings: list[tuple[int, str, str]], d
                 continue
             diagnostics.append(
                 Diagnostic(
-                    item.raw.path,
+                    body_source,
                     "/body",
                     rule,
                     f"{message}: {match.group(0).strip()[:60]}",
@@ -154,7 +155,7 @@ def _check_dialect(item: ParsedDocument, headings: list[tuple[int, str, str]], d
         for message in _check_embed(line):
             diagnostics.append(
                 Diagnostic(
-                    item.raw.path,
+                    body_source,
                     "/body",
                     "4.1",
                     message,
@@ -166,7 +167,7 @@ def _check_dialect(item: ParsedDocument, headings: list[tuple[int, str, str]], d
         if level == 1 and text.strip().lower() == title.strip().lower():
             diagnostics.append(
                 Diagnostic(
-                    item.raw.path,
+                    body_source,
                     "/body",
                     "4.1",
                     "the body repeats the title as a leading H1; the renderer strips it",

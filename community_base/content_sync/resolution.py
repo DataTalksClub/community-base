@@ -393,7 +393,7 @@ class _Resolution:
             line = self._line(item, destination)
             if _is_external(destination):
                 for problem in check_asset_reference(destination, "/body", line):
-                    self.diagnostics.append(locate(item.raw.path, problem))
+                    self.diagnostics.append(locate(item.raw.body_path or item.raw.path, problem))
                 return tag
             asset = self._asset(item, destination, "/body", line)
             if asset is None:
@@ -517,7 +517,7 @@ class _Resolution:
         target, _, fragment = destination.partition("#")
         if not target:
             return None
-        resolved = _resolve_relative(item.raw.path, target)
+        resolved = _resolve_relative(item.raw.body_path or item.raw.path, target)
         if resolved is None:
             self._report(
                 item, "/body", "3.6", f"reference leaves the repository: {destination}", line
@@ -596,7 +596,7 @@ class _Resolution:
         target = target.split("?")[0]
         if not target:
             return None
-        resolved = _resolve_relative(item.raw.path, target)
+        resolved = _resolve_relative(item.raw.body_path or item.raw.path, target)
         if not resolved:
             return None
         return resolved if (self.repository.root / resolved).exists() else None
@@ -626,13 +626,15 @@ class _Resolution:
     ) -> ResolvedAsset | None:
         problems = check_asset_reference(reference, pointer, line)
         if problems:
+            source_path = item.raw.body_path if pointer == "/body" else item.raw.path
             for problem in problems:
-                self.diagnostics.append(locate(item.raw.path, problem))
+                self.diagnostics.append(locate(source_path or item.raw.path, problem))
             return None
         if reference.startswith("https://"):
             return None
         target = reference.split("#")[0].split("?")[0]
-        resolved = _resolve_relative(item.raw.path, target)
+        source_path = item.raw.body_path if pointer == "/body" else item.raw.path
+        resolved = _resolve_relative(source_path or item.raw.path, target)
         if resolved is None:
             self._report(item, pointer, "3.6", f"asset leaves the repository: {target}", line)
             return None
@@ -716,7 +718,14 @@ class _Resolution:
         severity: str = SEVERITY_ERROR,
     ) -> None:
         self.diagnostics.append(
-            Diagnostic(item.raw.path, pointer, rule, message, severity=severity, line=line)
+            Diagnostic(
+                item.raw.body_path if pointer == "/body" and item.raw.body_path else item.raw.path,
+                pointer,
+                rule,
+                message,
+                severity=severity,
+                line=line,
+            )
         )
 
     def _line(self, item: ParsedDocument, destination: str) -> int | None:

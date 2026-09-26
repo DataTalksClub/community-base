@@ -259,9 +259,20 @@ class CourseLayout(Layout):
         return items, problems
 
     def _walk_module(self, node, container, parent, level, items, problems) -> None:
+        if node.has(MODULE_MANIFEST) and node.has(HOMEWORK_MANIFEST):
+            problems.append(
+                (
+                    node.path,
+                    Problem("", "3.5", "module.yaml and homework.yaml cannot share a directory"),
+                )
+            )
+            return
         if not node.has(MODULE_MANIFEST):
             problems.append(
-                (node.path, Problem("", "3.5", f"a module directory needs {MODULE_MANIFEST}"))
+                (
+                    node.path,
+                    Problem("", "3.5", f"a curriculum directory needs {MODULE_MANIFEST}"),
+                )
             )
             return
         if level > self.max_module_levels:
@@ -284,23 +295,23 @@ class CourseLayout(Layout):
                 parent=parent,
             )
         )
+        if node.has(HOMEWORK_MANIFEST):
+            problems.append(
+                (
+                    node.joined(HOMEWORK_MANIFEST),
+                    Problem(
+                        "",
+                        "3.5",
+                        "a homework unit is a sibling directory with homework.yaml and homework.md",
+                    ),
+                )
+            )
         units = [name for name in node.files if name.endswith(".md") and name != README]
         submodules = [
             child
             for child in node.dirs
             if _base_name(child.path) != CODE_DIR and not is_asset_dir(child)
         ]
-        if units and submodules:
-            problems.append(
-                (
-                    node.path,
-                    Problem(
-                        "",
-                        "3.5",
-                        "a module directory holds either submodule directories or unit files",
-                    ),
-                )
-            )
         for name in units:
             items.append(
                 RawItem(
@@ -312,7 +323,65 @@ class CourseLayout(Layout):
                 )
             )
         for child in submodules:
+            if child.has(MODULE_MANIFEST) and child.has(HOMEWORK_MANIFEST):
+                problems.append(
+                    (
+                        child.path,
+                        Problem(
+                            "", "3.5", "module.yaml and homework.yaml cannot share a directory"
+                        ),
+                    )
+                )
+                continue
+            if child.has(HOMEWORK_MANIFEST):
+                self._walk_homework_unit(child, node.path, module_path, items, problems)
+                continue
             self._walk_module(child, node.path, module_path, level + 1, items, problems)
+
+    def _walk_homework_unit(self, node, container, parent, items, problems) -> None:
+        """Recognize one YAML-backed homework unit and its prose companion."""
+
+        companion = node.has("homework.md")
+        other_markdown = [
+            name for name in node.files if name.endswith(".md") and name != "homework.md"
+        ]
+        extra_content_dirs = [
+            child
+            for child in node.dirs
+            if _base_name(child.path) != CODE_DIR and not is_asset_dir(child)
+        ]
+        if not companion:
+            problems.append(
+                (
+                    node.path,
+                    Problem("", "3.5", "a homework unit needs exactly one homework.md companion"),
+                )
+            )
+        if other_markdown or extra_content_dirs:
+            offenders = [node.joined(name) for name in other_markdown] + [
+                child.path for child in extra_content_dirs
+            ]
+            problems.append(
+                (
+                    offenders[0],
+                    Problem(
+                        "",
+                        "3.5",
+                        "a homework unit has one homework.md companion and no nested content items",
+                    ),
+                )
+            )
+        if companion and not other_markdown and not extra_content_dirs:
+            items.append(
+                RawItem(
+                    part="homework_unit",
+                    path=node.joined(HOMEWORK_MANIFEST),
+                    container=container,
+                    name=_base_name(node.path),
+                    parent=parent,
+                    body_path=node.joined("homework.md"),
+                )
+            )
 
     def _walk_cohorts(self, node, items, problems) -> None:
         for name in node.files:

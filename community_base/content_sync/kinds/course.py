@@ -33,6 +33,21 @@ COURSE = PartSpec(
         "docs_url": KeySpec("url"),
         "faq_url": KeySpec("url"),
         "hashtag": KeySpec("hashtag"),
+        # Kept source-relative so the curriculum parser can resolve the
+        # authored course hierarchy rather than guessing from a title or
+        # site-owned route.
+        "projects": KeySpec(
+            "object_list",
+            item_keys={
+                "slug": KeySpec("slug", required=True),
+                "title": KeySpec("string", required=True, max_length=200),
+                "module_path": KeySpec("string", required=True),
+                "cohort_key": KeySpec("slug"),
+                "submission_due_at": KeySpec("datetime", required=True),
+                "review_due_at": KeySpec("datetime", required=True),
+                "peer_review_count": KeySpec("integer"),
+            },
+        ),
         "testimonials": KeySpec(
             "object_list",
             item_keys={
@@ -71,11 +86,62 @@ UNIT = PartSpec(
         ),
         "session_position": KeySpec("integer"),
         "is_bonus": KeySpec("boolean", default=False),
+        "available_after_days": KeySpec("integer"),
         "code": KeySpec(
             "object_list",
             item_keys={
                 "label": KeySpec("string"),
                 "path": KeySpec("string", required=True),
+            },
+        ),
+    },
+)
+
+HOMEWORK_UNIT = PartSpec(
+    name="homework_unit",
+    shape=SHAPE_MANIFEST,
+    keys={
+        "due_at": KeySpec("datetime", required=True),
+        "is_bonus": KeySpec("boolean", default=False),
+        "available_after_days": KeySpec("integer"),
+        "form": KeySpec(
+            "mapping",
+            item_keys={
+                **{name: KeySpec("boolean") for name in FORM_FLAGS},
+                "learning_in_public_cap": KeySpec("integer"),
+            },
+        ),
+        "final_fields": KeySpec(
+            "object_list",
+            item_keys={
+                "key": KeySpec("slug", required=True),
+                "label": KeySpec("string", required=True),
+                "type": KeySpec("choice", choices=("text", "url", "textarea")),
+                "required": KeySpec("boolean", default=False),
+            },
+        ),
+        "questions": KeySpec(
+            "object_list",
+            required=True,
+            item_keys={
+                "content_id": KeySpec("uuid", required=True),
+                "id": KeySpec("slug", required=True),
+                "type": KeySpec("choice", choices=QUESTION_TYPES, required=True),
+                "prompt": KeySpec("markdown", required=True),
+                "points": KeySpec("integer", default=1),
+                "step_label": KeySpec("string"),
+                "options": KeySpec(
+                    "object_list",
+                    item_keys={
+                        "id": KeySpec("slug", required=True),
+                        "label": KeySpec("string", required=True),
+                    },
+                ),
+                "answer_type": KeySpec("choice", choices=ANSWER_TYPES),
+                # The source course repository still owns historical scalar
+                # answers. This key exists only for course-tree homework units;
+                # cohort homework manifests continue to require envelopes.
+                "correct": KeySpec("string"),
             },
         ),
     },
@@ -159,6 +225,7 @@ SPEC = KindSpec(
         "course": COURSE,
         "module": MODULE,
         "unit": UNIT,
+        "homework_unit": HOMEWORK_UNIT,
         "cohort": COHORT,
         "homework": HOMEWORK,
     },

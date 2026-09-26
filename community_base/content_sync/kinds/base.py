@@ -97,6 +97,11 @@ class RawItem:
     name: str
     parent: str | None = None
     contributes_slug: bool = True
+    # Composite items may keep their machine-readable fields in one file and
+    # their Markdown prose in a sibling companion. The layout still emits one
+    # item, keyed by ``path``; this path is the body source for rendering and
+    # relative references.
+    body_path: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

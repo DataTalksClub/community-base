@@ -180,6 +180,7 @@ class ParsedDocument:
             "kind": self.kind,
             "part": self.part.name,
             "source_path": self.raw.path,
+            "body_source_path": self.raw.body_path or self.raw.path,
             "parent": self.raw.parent,
             "path": self.path,
             "slug": self.slug,
@@ -531,9 +532,13 @@ def _node_at(tree: DirNode, path: str) -> DirNode | None:
 
 
 def _read_collection(
-    repository: Repository, collection: Collection, diagnostics: list[Diagnostic]
+    repository: Repository,
+    collection: Collection,
+    diagnostics: list[Diagnostic],
+    *,
+    collection_root: DirNode | None = None,
 ) -> list[ParsedDocument]:
-    node = _node_at(repository.tree, collection.path)
+    node = collection_root or _node_at(repository.tree, collection.path)
     if node is None and (repository.root / collection.path).is_dir():
         # A collection root the repository holds but whose every file `ignore`
         # hides, or which is empty, is an empty collection and not a missing
@@ -588,6 +593,12 @@ def _read_item(
         diagnostics.append(locate(raw.path, problem))
     if problems:
         return None
+    if raw.body_path:
+        body, body_line, body_problems = _load_companion_markdown(repository, raw.body_path)
+        for problem in body_problems:
+            diagnostics.append(locate(raw.body_path, problem))
+        if body_problems:
+            return None
     if isinstance(content, Mapping):
         data = dict(content)
         for problem in check_item_keys(content, part):
@@ -616,7 +627,7 @@ def _read_item(
         sort_order=_item_sort_order(raw, data),
         required_level=0,
         path=slug,
-        is_document=_is_document(raw.path),
+        is_document=_is_document(raw.path) or raw.body_path is not None,
     )
 
 
@@ -844,6 +855,18 @@ def _load_document(repository: Repository, rel: str) -> tuple[Any, str, int, lis
         return None, "", 0, [Problem(WHOLE_FILE, "3.2", "front matter must be a mapping")]
     body = "\n".join(lines[closing + 1 :])
     return data, body, closing + 1, []
+
+
+def _load_companion_markdown(repository: Repository, rel: str) -> tuple[str, int, list[Problem]]:
+    """Read prose-only Markdown paired with a structured manifest item."""
+
+    try:
+        text = repository.read_text(rel)
+    except UnicodeDecodeError:
+        return "", 0, [Problem(WHOLE_FILE, "3.2", "must be UTF-8")]
+    if "\r\n" in text:
+        return "", 0, [Problem(WHOLE_FILE, "3.2", "must use LF line endings")]
+    return text, 0, []
 
 
 def one_line(error: Exception) -> str:

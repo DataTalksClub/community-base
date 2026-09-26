@@ -329,7 +329,7 @@ def test_a_published_live_cohort_declares_its_dates(tmp_path):
     assert "start_date" in str(error.value)
 
 
-def test_a_module_holding_both_submodules_and_units_is_rejected(tmp_path):
+def test_a_module_holding_both_submodules_and_units_keeps_one_sibling_order(tmp_path):
     root = copy(DTC_NESTED, tmp_path, "mixed")
     stray = root / "01-week-one" / "99-stray-unit.md"
     stray.write_text(
@@ -337,10 +337,77 @@ def test_a_module_holding_both_submodules_and_units_is_rejected(tmp_path):
         "title: Stray\n---\nShould not be allowed here.\n"
     )
 
-    with pytest.raises(CurriculumParseError) as error:
-        parse(root)
+    week = parse(root).course.modules[0]
 
-    assert "01-week-one" in str(error.value)
+    assert [(item.slug, item.sort_order) for item in week.items] == [
+        ("topic-a", 1),
+        ("topic-b", 2),
+        ("stray-unit", 99),
+    ]
+
+
+def test_a_yaml_homework_unit_pairs_structured_fields_with_companion_prose(tmp_path):
+    root = copy(DTC_NESTED, tmp_path, "homework-tree")
+    week = root / "01-week-one"
+    (week / "02-topic-b").rename(week / "04-topic-b")
+    lesson = week / "02-session.md"
+    lesson.write_text(
+        "---\ncontent_id: 2b3c4d5e-000b-4000-8000-000000000001\n"
+        "title: Session\n---\nSession notes.\n"
+    )
+    homework = week / "03-homework"
+    homework.mkdir()
+    (homework / "homework.yaml").write_text(
+        "content_id: 2b3c4d5e-000c-4000-8000-000000000001\n"
+        "title: Homework\nslug: homework\nsort_order: 3\n"
+        "due_at: '2026-10-05T23:59:59+00:00'\n"
+        "form:\n  homework_url: true\nquestions:\n"
+        "- content_id: 2b3c4d5e-000d-4000-8000-000000000001\n"
+        "  id: q1-sample\n  type: multiple_choice\n  prompt: Choose one.\n"
+        "  points: 2\n  step_label: First step\n  options:\n"
+        "  - id: option-one\n    label: One\n"
+        "  - id: option-two\n    label: Two\n  correct: '2'\n"
+    )
+    (homework / "homework.md").write_text("Instructions from Markdown.\n")
+
+    course = parse(root).course
+    week_graph = course.modules[0]
+    homework_graph = week_graph.items[2]
+
+    assert [(item.slug, item.sort_order) for item in week_graph.items] == [
+        ("topic-a", 1),
+        ("session", 2),
+        ("homework", 3),
+        ("topic-b", 4),
+    ]
+    assert homework_graph.kind == "homework"
+    assert homework_graph.body.strip() == "Instructions from Markdown."
+    assert homework_graph.body_source_path == "01-week-one/03-homework/homework.md"
+    assert homework_graph.homework_unit.due_at.isoformat() == "2026-10-05T23:59:59+00:00"
+    question = homework_graph.homework_unit.questions[0]
+    assert (question.content_id, question.stable_id, question.step_label) == (
+        "2b3c4d5e-000d-4000-8000-000000000001",
+        "q1-sample",
+        "First step",
+    )
+    assert [option.label for option in question.options] == ["One", "Two"]
+    assert question.correct == "2"
+
+
+def test_a_tree_only_parse_ignores_legacy_course_and_cohort_metadata(tmp_path):
+    from community_base.curriculum.parsers import parse_course_tree
+
+    root = copy(DTC_NESTED, tmp_path, "legacy-tree")
+    (root / "content.yaml").unlink()
+    (root / "course.yaml").write_text(
+        "legacy_access_policy: keep-at-site\ncohorts: [not, a, shared, schema]\n"
+    )
+    (root / "cohorts" / "2026" / "cohort.yaml").write_text("not: package metadata\n")
+
+    tree = parse_course_tree(root)
+
+    assert [module.slug for module in tree.modules] == ["week-one", "week-two"]
+    assert tree.modules[0].items[0].slug == "topic-a"
 
 
 def test_three_module_levels_are_rejected(tmp_path):
