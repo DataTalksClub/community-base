@@ -43,6 +43,8 @@
           {% for option, selected in stepper.options %}
             <label><input type="checkbox" name="answer" value="{{ option.key }}"{% if selected %} checked{% endif %}> {{ option.label }}</label>
           {% endfor %}
+        {% elif stepper.step == 'learning-in-public' and stepper.assignment.context.learning_in_public_cap %}
+          {% include "homework_steps/_public_links.html" %}
         {% elif stepper.question.type == 'long_text' %}
           <label for="homework-answer">Your answer</label>
           <textarea id="homework-answer" name="answer" maxlength="10000" rows="8">{{ stepper.answer }}</textarea>
@@ -65,13 +67,7 @@
         <section aria-labelledby="accepted-submission-title">
           <h3 id="accepted-submission-title">Accepted submission</h3>
           {% if stepper.accepted_submitted_at %}<p>Submitted {{ stepper.accepted_submitted_at }}</p>{% endif %}
-          <ol>
-            {% for row in stepper.review_display_rows %}
-              <li><a href="{{ row.url }}">{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}</a>
-                {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
-              </li>
-            {% endfor %}
-          </ol>
+          {% include "homework_steps/_review_rows.html" with rows=stepper.review_display_rows editable=False %}
           {% for field, value in stepper.accepted_field_rows %}
             <p>{{ field.label }} — {{ value|default:"No answer saved" }}</p>
           {% endfor %}
@@ -79,13 +75,7 @@
         {% if stepper.pending_draft_display_rows or stepper.pending_draft_field_rows %}
           <section aria-labelledby="unsent-draft-title">
             <h3 id="unsent-draft-title">Unsubmitted draft</h3>
-            <ol>
-              {% for row in stepper.pending_draft_display_rows %}
-                <li>{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}
-                  {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
-                </li>
-              {% endfor %}
-            </ol>
+            {% include "homework_steps/_review_rows.html" with rows=stepper.pending_draft_display_rows editable=False %}
             {% for field, value in stepper.pending_draft_field_rows %}
               <p>{{ field.label }} — {{ value|default:"No answer saved" }}</p>
             {% endfor %}
@@ -94,13 +84,7 @@
       {% elif stepper.homework_state.has_saved_draft %}
         <section aria-labelledby="saved-draft-title">
           <h3 id="saved-draft-title">Saved draft — not submitted</h3>
-          <ol>
-            {% for row in stepper.unsent_draft_display_rows %}
-              <li>{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}
-                {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
-              </li>
-            {% endfor %}
-          </ol>
+          {% include "homework_steps/_review_rows.html" with rows=stepper.unsent_draft_display_rows editable=False %}
           {% for field, value in stepper.unsent_draft_field_rows %}
             <p>{{ field.label }} — {{ value }}</p>
           {% endfor %}
@@ -109,13 +93,7 @@
         <p>No submission was accepted.</p>
       {% endif %}
     {% else %}
-      <ol>
-        {% for row in stepper.review_display_rows %}
-          <li><a href="{{ row.url }}">{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}</a>
-            {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
-          </li>
-        {% endfor %}
-      </ol>
+      {% include "homework_steps/_review_rows.html" with rows=stepper.review_display_rows editable=True %}
       <form method="post" action="{{ stepper.action }}" data-homework-autosave data-save-url="{{ stepper.save_url }}">
         {% csrf_token %}
         <input type="hidden" name="assignment_key" value="{{ stepper.assignment.key }}">
@@ -143,3 +121,4 @@
 </section>
 {% load static %}
 <script defer src="{% static 'community_base/homework_steps.js' %}"></script>
+<script defer src="{% static 'community_base/homework_public_links.js' %}"></script>
