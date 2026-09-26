@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
-from community_base.coursework.models import Homework, Submission
+from community_base.coursework.models import Answer, Homework, Question, QuestionTypes, Submission
 from community_base.curriculum.content_sync_parsers import CourseParser
 from community_base.curriculum.models import (
     Cohort,
@@ -357,6 +357,159 @@ class NestedImportTests(TestCase):
         assert unit.module.slug == "week-one"
         assert unit.source_path == "01-week-one/03-session.md"
         assert counts["updated"] == 1
+
+    def test_course_tree_homework_import_updates_existing_question_and_preserves_answers(self):
+        from tests.curriculum.utils import ParserHarness, checkout
+
+        with tempfile.TemporaryDirectory(prefix="cb-course-tree-homework-") as tmp:
+            fixture = Path(tmp) / "repo"
+            shutil.copytree(DTC_NESTED, fixture)
+            homework_dir = fixture / "02-week-two" / "03-homework"
+            homework_dir.mkdir()
+            (homework_dir / "homework.yaml").write_text(
+                "content_id: 2b3c4d5e-000c-4000-8000-000000000001\n"
+                "title: Homework\nslug: homework\nsort_order: 3\n"
+                "due_at: '2026-10-05T23:59:59+00:00'\n"
+                "form:\n  homework_url: false\n  learning_in_public_cap: 4\n"
+                "final_fields:\n  - key: reflection\n    label: Reflection\n"
+                "    type: text\n    required: true\n"
+                "questions:\n  - content_id: 2b3c4d5e-000d-4000-8000-000000000001\n"
+                "    id: q1-sample\n    type: multiple_choice\n"
+                "    prompt: Choose the second option.\n    points: 2\n"
+                "    step_label: Check your understanding\n    options:\n"
+                "      - id: option-one\n        label: One\n"
+                "      - id: option-two\n        label: Two\n"
+                "    correct: '2'\n"
+            )
+            (homework_dir / "homework.md").write_text("Instructions from the course tree.\n")
+
+            ParserHarness().run_parser(CourseParser(), fixture)
+            course = Course.objects.get(slug="nested-course")
+            cohort = Cohort.objects.get(course=course, slug="2026")
+            unit = Unit.objects.get(source_content_id="2b3c4d5e-000c-4000-8000-000000000001")
+            homework = Homework.objects.create(
+                cohort=cohort,
+                module=course.modules.get(slug="week-two"),
+                unit=unit,
+                slug="homework-follow-up",
+                title="Cohort assignment title",
+                due_date=timezone.now(),
+            )
+            user = get_user_model().objects.create_user(email="tree-homework@example.com")
+            enrollment = Enrollment.objects.create(user=user, cohort=cohort)
+            submission = Submission.objects.create(
+                homework=homework,
+                student=user,
+                enrollment=enrollment,
+            )
+            question = Question.objects.create(
+                homework=homework,
+                text="Old question wording.",
+                question_type=QuestionTypes.MULTIPLE_CHOICE.value,
+                possible_answers="One\nTwo",
+                correct_answer="1",
+                source_content_id="2b3c4d5e-00ff-4000-8000-000000000001",
+                source_question_id="q1-sample",
+                source_path="old/homework.yaml",
+                source_commit_sha="f" * 40,
+                source_checksum="e" * 64,
+            )
+            old_homework_id, old_question_id = homework.pk, question.pk
+            answer = Answer.objects.create(
+                submission=submission,
+                question=question,
+                answer_text="Two",
+            )
+
+            # Move the homework unit into a child module while keeping its
+            # unit and question identities stable.
+            nested_module_dir = fixture / "02-week-two" / "03-topic"
+            nested_module_dir.mkdir()
+            (nested_module_dir / "module.yaml").write_text(
+                "content_id: 2b3c4d5e-000e-4000-8000-000000000001\n"
+                "title: Topic\n"
+            )
+            moved_homework_dir = nested_module_dir / "01-homework"
+            shutil.move(str(homework_dir), str(moved_homework_dir))
+            homework_yaml = moved_homework_dir / "homework.yaml"
+            homework_yaml.write_text(homework_yaml.read_text().replace("sort_order: 3", "sort_order: 1"))
+
+            from community_base.curriculum.importing import apply_curriculum_tree
+            from community_base.curriculum.parsers import parse_course_tree
+
+            with checkout(fixture, commit_sha="a" * 40) as active:
+                tree = parse_course_tree(active)
+                apply_curriculum_tree(
+                    course,
+                    tree,
+                    commit="a" * 40,
+                    checkout=active,
+                    sync_homework=False,
+                )
+                question.refresh_from_db()
+                assert question.text == "Old question wording."
+                assert question.correct_answer == "1"
+
+                apply_curriculum_tree(
+                    course,
+                    tree,
+                    commit="a" * 40,
+                    checkout=active,
+                )
+
+            # The content-sync entrypoint applies the same distinct tree schema
+            # after cohort manifests without replacing the linked logical rows.
+            ParserHarness().run_parser(CourseParser(), fixture)
+
+            homework.refresh_from_db()
+            question.refresh_from_db()
+            answer.refresh_from_db()
+            submission.refresh_from_db()
+            unit.refresh_from_db()
+            assert homework.pk == old_homework_id
+            assert homework.title == "Cohort assignment title"
+            assert homework.module.slug == "week-two"
+            assert homework.unit_id == unit.pk
+            assert unit.module.slug == "topic"
+            assert unit.source_path == "02-week-two/03-topic/01-homework/homework.yaml"
+            assert homework.due_date.isoformat() == "2026-10-05T23:59:59+00:00"
+            assert homework.homework_url_field is False
+            assert homework.learning_in_public_cap == 4
+            assert homework.final_fields == [
+                {
+                    "key": "reflection",
+                    "label": "Reflection",
+                    "type": "text",
+                    "required": True,
+                }
+            ]
+            assert unit.body == ""
+            assert unit.homework == "Instructions from the course tree.\n"
+            assert question.pk == old_question_id
+            assert str(question.source_content_id) == "2b3c4d5e-000d-4000-8000-000000000001"
+            assert question.source_question_id == "q1-sample"
+            assert question.text == "Choose the second option."
+            assert question.step_label == "Check your understanding"
+            assert question.possible_answers == "One\nTwo"
+            assert question.source_option_ids == ["option-one", "option-two"]
+            assert question.correct_answer == "2"
+            assert question.answer_envelope is None
+            assert question.source_path == "02-week-two/03-topic/01-homework/homework.yaml"
+            assert answer.question_id == old_question_id
+            assert answer.submission_id == submission.pk
+            assert homework.questions.count() == 1
+
+            from community_base.curriculum.services import get_curriculum_tree
+
+            projection = get_curriculum_tree(course)
+            projected_unit = next(
+                item
+                for module in projection
+                for item in module.all_units
+                if item.unit.pk == unit.pk
+            )
+            assert not hasattr(projected_unit, "correct_answer")
+            assert not hasattr(projected_unit.unit, "questions")
 
 
 class DefaultTreeTests(TestCase):

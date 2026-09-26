@@ -66,6 +66,7 @@ class Homework(SourceProvenanceMixin, models.Model):
     due_date = models.DateTimeField()
 
     learning_in_public_cap = models.IntegerField(default=7)
+    final_fields = models.JSONField(default=list, blank=True)
 
     homework_url_field = models.BooleanField(default=True)
     time_spent_lectures_field = models.BooleanField(default=True)
@@ -122,6 +123,7 @@ ANSWER_TYPES = (
 class Question(SourceProvenanceMixin, models.Model):
     homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name="questions")
     text = models.TextField()
+    step_label = models.TextField(blank=True, default="")
     question_type = models.CharField(max_length=2, choices=QUESTION_TYPES)
     answer_type = models.CharField(  # noqa: DJ001 -- null means the answer type is unset.
         max_length=3, choices=ANSWER_TYPES, blank=True, null=True

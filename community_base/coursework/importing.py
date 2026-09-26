@@ -40,6 +40,7 @@ from community_base.curriculum.importing import (
     write_values,
 )
 from community_base.curriculum.models import Cohort, Course, Module, Unit
+from community_base.curriculum.source import ModuleGraph, UnitGraph
 
 QUESTION_TYPES = {
     "multiple_choice": QuestionTypes.MULTIPLE_CHOICE.value,
@@ -90,6 +91,133 @@ def apply_homework_graphs(
             seen,
         )
     return counts
+
+
+def apply_course_tree_homework_units(
+    course: Course, module_graphs: Iterable[ModuleGraph], *, commit: str, checkout
+) -> dict:
+    """Apply structured course-tree homework data to assignments already bound to its units.
+
+    The course tree owns question/form content, while each cohort still owns its
+    assignment row and submissions. This adapter updates only assignments that
+    already point at the persisted homework unit; it never creates an unbound
+    assignment or removes questions (which would cascade-delete learner answers).
+    Cohort manifests continue to use :func:`apply_homework_graphs` and its
+    envelope-only answer contract.
+    """
+
+    counts = {"created": 0, "updated": 0, "unchanged": 0, "deleted": 0}
+    with transaction.atomic():
+        for unit_graph in _homework_units(module_graphs):
+            unit = _persisted_unit(course, unit_graph)
+            if unit is None:
+                continue
+            module = _top_level_module(unit.module)
+            assignments = Homework.objects.filter(cohort__course=course, unit=unit).select_related(
+                "cohort"
+            )
+            for homework in assignments:
+                values = {
+                    "module": module,
+                    "due_date": unit_graph.homework_unit.due_at,
+                    **_course_tree_form_values(unit_graph.homework_unit.form),
+                    "final_fields": [
+                        {
+                            "key": field.key,
+                            "label": field.label,
+                            "type": field.type,
+                            "required": field.required,
+                        }
+                        for field in unit_graph.homework_unit.final_fields
+                    ],
+                    # The cohort manifest, when present, owns the assignment's
+                    # identity/provenance; tree data updates its bound content.
+                    **provenance(
+                        homework.source_path,
+                        homework.source_commit_sha,
+                        homework.source_checksum,
+                    ),
+                }
+                counts[write_values(homework, values)] += 1
+                for question_graph in unit_graph.homework_unit.questions:
+                    question = _course_tree_question(homework, question_graph)
+                    values = _course_tree_question_values(
+                        question_graph, unit_graph, commit, checkout
+                    )
+                    counts[write_values(question, values)] += 1
+    return counts
+
+
+def _homework_units(module_graphs: Iterable[ModuleGraph]):
+    for module_graph in module_graphs:
+        for item in module_graph.items:
+            if isinstance(item, UnitGraph):
+                if item.homework_unit is not None:
+                    yield item
+            elif isinstance(item, ModuleGraph):
+                yield from _homework_units((item,))
+
+
+def _persisted_unit(course: Course, graph: UnitGraph) -> Unit | None:
+    units = Unit.objects.filter(module__course=course)
+    if graph.content_id:
+        unit = units.filter(source_content_id=graph.content_id).first()
+        if unit is not None:
+            return unit
+    return units.filter(source_path=graph.source_path).first()
+
+
+def _top_level_module(module: Module) -> Module:
+    while module.parent_id is not None:
+        module = module.parent
+    return module
+
+
+def _course_tree_form_values(form) -> dict:
+    values = {}
+    for name, field in FORM_FIELDS.items():
+        declared = getattr(form, name)
+        if declared is None:
+            declared = Homework._meta.get_field(field).default
+        values[field] = declared
+    return values
+
+
+def _course_tree_question(homework: Homework, graph) -> Question:
+    # The authored slug is the durable identity across the source migration;
+    # UUIDs are also carried for shared source provenance and new rows.
+    question = Question.objects.filter(
+        homework=homework, source_question_id=graph.stable_id
+    ).first()
+    if question is None:
+        question = Question.objects.filter(
+            homework=homework, source_content_id=graph.content_id
+        ).first()
+    if question is None:
+        question = Question(homework=homework)
+    question.source_content_id = graph.content_id
+    return question
+
+
+def _course_tree_question_values(graph, unit_graph: UnitGraph, commit, checkout) -> dict:
+    return {
+        "source_content_id": graph.content_id,
+        "source_question_id": graph.stable_id,
+        "text": graph.prompt,
+        "step_label": graph.step_label,
+        "question_type": QUESTION_TYPES[graph.type],
+        "answer_type": ANSWER_TYPES[graph.answer_type],
+        "possible_answers": "\n".join(option.label for option in graph.options) or None,
+        "source_option_ids": [option.id for option in graph.options] or None,
+        "correct_answer": graph.correct,
+        "answer_envelope": None,
+        "scores_for_correct_answer": graph.points,
+        **provenance(
+            unit_graph.source_path,
+            commit,
+            file_checksum(checkout, unit_graph.source_path),
+        ),
+    }
 
 
 def _apply(course: Course, graph: HomeworkGraph, commit, checkout, counts: dict) -> Homework:

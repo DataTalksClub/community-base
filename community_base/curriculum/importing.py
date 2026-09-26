@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import re
 
+from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
@@ -129,13 +130,16 @@ def apply_curriculum_tree(
     *,
     commit: str,
     checkout,
+    sync_homework: bool = True,
 ) -> dict:
-    """Upsert only module and unit rows for an already-owned shared course.
+    """Upsert the tree for an already-owned shared course.
 
     This is the adapter seam for a site that still owns its course header,
     cohorts, access and routes. Source unit IDs are looked up across the whole
     course before a row is reparented, so a physical move retains the Unit
-    primary key and every learner/coursework foreign key to it.
+    primary key and every learner/coursework foreign key to it. When the
+    coursework app is installed, structured homework data updates existing
+    assignments bound to those units unless ``sync_homework`` is disabled.
     """
 
     counts = {"created": 0, "updated": 0, "unchanged": 0, "deleted": 0}
@@ -153,6 +157,17 @@ def apply_curriculum_tree(
             seen_units=seen_units,
             top_level_by_ref={},
         )
+        if sync_homework and apps.is_installed("community_base.coursework"):
+            from community_base.coursework.importing import apply_course_tree_homework_units
+
+            homework_counts = apply_course_tree_homework_units(
+                course,
+                tree.modules,
+                commit=commit,
+                checkout=checkout,
+            )
+            for action, count in homework_counts.items():
+                counts[action] += count
         counts["deleted"] += delete_stale(
             Unit.objects.filter(module__course=course).exclude(source_content_id__isnull=True),
             seen_units,

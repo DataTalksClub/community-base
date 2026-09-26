@@ -80,6 +80,8 @@ class CourseParser:
         course, counts = apply_curriculum_graph(parsed, source, self._checkout)
         for action, count in self._apply_homework(item, parsed, course).items():
             counts[action] = counts.get(action, 0) + count
+        for action, count in self._apply_course_tree_homework(parsed, course).items():
+            counts[action] = counts.get(action, 0) + count
         if counts["created"]:
             action = "created"
         elif counts["updated"]:
@@ -166,6 +168,25 @@ class CourseParser:
         return apply_homework_graphs(
             course,
             graphs,
+            commit=graph_commit(parsed),
+            checkout=self._checkout,
+        )
+
+    def _apply_course_tree_homework(self, parsed, course) -> dict:
+        """Update already-bound assignments from structured homework units.
+
+        This is a separate source boundary from cohort homework manifests:
+        course-tree questions may carry the legacy `correct` field, while the
+        cohort manifest importer remains envelope-only.
+        """
+
+        if not apps.is_installed("community_base.coursework"):
+            return {}
+        from community_base.coursework.importing import apply_course_tree_homework_units
+
+        return apply_course_tree_homework_units(
+            course,
+            parsed.course.modules,
             commit=graph_commit(parsed),
             checkout=self._checkout,
         )
