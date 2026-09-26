@@ -358,8 +358,8 @@ def test_public_link_step_uses_configured_editor_and_saves_links(user):
 
     page = flow(user, public_links, adapter, query="?homework_step=learning-in-public")
     assert b'data-learning-public-links data-max-links="3"' in page.content
-    assert b'Optional. Add up to 3 links to posts about your progress.' in page.content
-    assert b'community_base/homework_public_links.js' in page.content
+    assert b"Optional. Add up to 3 links to posts about your progress." in page.content
+    assert b"community_base/homework_public_links.js" in page.content
 
     saved = flow(
         user,
