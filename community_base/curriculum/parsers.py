@@ -36,7 +36,9 @@ Package rulings, written here because section 3.8 is silent about them.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 from collections.abc import Iterable, Mapping
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from community_base.content_sync.documents import (
@@ -44,9 +46,14 @@ from community_base.content_sync.documents import (
     Diagnostic,
     ParsedDocument,
     ReadResult,
+    _check_identity,
+    _node_at,
+    _read_collection,
+    _read_repository,
     read_repository,
 )
-from community_base.content_sync.kinds.base import resolve_level
+from community_base.content_sync.kinds import DirNode, get_kind
+from community_base.content_sync.kinds.base import resolve_level, split_order_prefix
 from community_base.curriculum.code_annotations import (
     CodeAnnotationError,
     validate_annotated_body,
@@ -57,16 +64,23 @@ from community_base.curriculum.source import (
     MODE_SELF_PACED,
     CohortGraph,
     CourseGraph,
+    CourseTreeGraph,
     CurriculumParseError,
+    HomeworkFinalFieldGraph,
+    HomeworkFormGraph,
+    HomeworkOptionGraph,
+    HomeworkQuestionGraph,
+    HomeworkUnitGraph,
     InstructorGraph,
     ModuleGraph,
     ParsedCurriculum,
+    ProjectGraph,
     UnitGraph,
     validate_module_tree,
 )
 
 #: One parser, one version. It names the format, not a site.
-PARSER_VERSION = "course-format-1"
+PARSER_VERSION = "course-format-2"
 
 #: The `content.yaml` version this parser reads (section 3.1).
 SCHEMA_VERSION = 1
@@ -108,6 +122,131 @@ def parse_course_repository(source: Any, *, path: str | None = None) -> ParsedCu
         declared = ", ".join(item.path or "." for item in collections)
         raise CurriculumParseError(f"{result.root}: name one of the course collections: {declared}")
     return parse_course(result, collections[0], commit_sha=getattr(source, "commit_sha", None))
+
+
+def parse_course_tree(
+    source: Any,
+    *,
+    path: str = ".",
+    ignore: Iterable[str] = (),
+    project_specs: Iterable[Mapping[str, Any]] = (),
+) -> CourseTreeGraph:
+    """Parse one physical module/unit tree without taking ownership of its header.
+
+    This is the adapter seam for existing course repositories whose root
+    ``course.yaml`` also contains site-owned policy. The file must exist as the
+    course root marker, but its contents and any ``cohorts/`` directory are
+    deliberately outside this call. All module and unit sources remain under
+    the normal course schemas and validators. ``source`` may be an immutable
+    package checkout, a read-only checkout view exposing ``checkout`` and
+    ``relative``, or a directory; ``path`` is relative to that repository.
+
+    ``project_specs`` lets an adapter pass project fields it owns through the
+    generic source-relative module resolver without passing unrelated header
+    metadata into the package parser.
+
+    ``ignore`` is an explicit adapter boundary for legacy source headers that
+    owned ignore globs before ``content.yaml``. Patterns are relative to the
+    selected course root and hide files before any module/unit parsing.
+    """
+
+    result, collection, course_manifest_path = _read_course_tree(source, path, ignore)
+    by_parent: dict[str | None, list[ParsedDocument]] = {}
+    for document in result.documents:
+        by_parent.setdefault(document.raw.parent, []).append(document)
+    modules = _module_graphs(
+        result,
+        by_parent,
+        parent=course_manifest_path,
+        inherited=None,
+    )
+    validate_module_tree(modules, where=collection.path or ".")
+    projects = _project_graphs(project_specs, modules, course_manifest_path)
+    return CourseTreeGraph(
+        parser_version=PARSER_VERSION,
+        schema_version=SCHEMA_VERSION,
+        source_path=course_manifest_path,
+        modules=modules,
+        projects=projects,
+    )
+
+
+def _read_course_tree(
+    source: Any, path: str, ignore: Iterable[str]
+) -> tuple[ReadResult, Collection, str]:
+    """Read the course layout under ``path`` without a repository manifest."""
+
+    if isinstance(source, str | Path):
+        checkout = None
+        root = Path(source)
+    else:
+        checkout = getattr(source, "checkout", source)
+        root_value = getattr(checkout, "root", None)
+        if root_value is None:
+            raise CurriculumParseError("course tree source must expose a checkout root")
+        root = Path(root_value)
+    if not root.is_dir():
+        raise CurriculumParseError(f"{root}: course tree source is not a directory")
+    collection_path = _course_tree_relative_path(source, path)
+    content_checkout = checkout if checkout is not None and hasattr(checkout, "read_text") else None
+    patterns = tuple(
+        f"{collection_path}/{pattern.lstrip('/')}" if collection_path else pattern
+        for pattern in ignore
+    )
+    repository = _read_repository(root, patterns, content_checkout)
+    node = _node_at(repository.tree, collection_path)
+    if node is None:
+        raise CurriculumParseError(
+            f"{collection_path or '.'}: no course tree directory at that source-relative path"
+        )
+    course_manifest_path = f"{collection_path}/course.yaml" if collection_path else "course.yaml"
+    if "course.yaml" not in node.files:
+        raise CurriculumParseError(f"{collection_path or '.'}: a course tree needs course.yaml")
+
+    # The tree-only seam intentionally excludes cohort-owned metadata and
+    # bindings. It reuses the registered layout and all module/unit parsers.
+    tree_root = DirNode(
+        path=node.path,
+        files=node.files,
+        dirs=tuple(child for child in node.dirs if child.path.rsplit("/", 1)[-1] != "cohorts"),
+    )
+    collection = Collection(kind=get_kind(COURSE_KIND), path=collection_path, index=0)
+    diagnostics: list[Diagnostic] = []
+    documents = _read_collection(
+        repository,
+        collection,
+        diagnostics,
+        collection_root=tree_root,
+    )
+    # `course.yaml` is just the physical root marker at this boundary. Its
+    # fields may be a legacy site's schema, so neither its parse diagnostics
+    # nor its derived record participate in the generic tree graph.
+    documents = [item for item in documents if item.raw.path != course_manifest_path]
+    diagnostics = [item for item in diagnostics if item.path != course_manifest_path]
+    _check_identity(documents, diagnostics)
+    errors = [item for item in diagnostics if item.severity == "error"]
+    if errors:
+        raise CurriculumParseError("\n".join(item.render() for item in errors))
+    result = ReadResult(
+        root=root,
+        documents=tuple(documents),
+        diagnostics=tuple(sorted(diagnostics, key=lambda item: item.sort_key)),
+        repository=repository,
+    )
+    return result, collection, course_manifest_path
+
+
+def _course_tree_relative_path(source: Any, path: str) -> str:
+    """Normalize a checkout-relative path and honor read-only checkout views."""
+
+    if path in ("", "."):
+        return ""
+    if hasattr(source, "relative"):
+        return source.relative(path)
+    candidate = PurePosixPath(str(path).replace("\\", "/"))
+    if candidate.is_absolute() or any(part in {"", ".", ".."} for part in candidate.parts):
+        raise CurriculumParseError(f"invalid course tree path {path!r}")
+    return candidate.as_posix()
 
 
 def parse_course(
@@ -178,6 +317,7 @@ def _course_graph(
     status = values.get("status") or PUBLISHED
     title = document.title
     cohorts = _cohort_graphs(documents, modules, course_title=title)
+    projects = _project_graphs(values.get("projects") or (), modules, document.raw.path)
     return CourseGraph(
         content_id=document.content_id,
         slug=document.slug,
@@ -197,6 +337,7 @@ def _course_graph(
         hashtag=values.get("hashtag") or "",
         visible=status == PUBLISHED,
         instructors=_instructors(result, values.get("instructors") or ()),
+        projects=projects,
         modules=modules,
         cohorts=cohorts,
     )
@@ -244,8 +385,20 @@ def _module_graph(
     level = resolve_level(document.data.get("required_level"))
     if level is None:
         level = inherited
-    units = [item for item in by_parent.get(document.raw.path, ()) if item.part.name == "unit"]
-    units.sort(key=lambda item: item.sort_key)
+    siblings = [
+        item
+        for item in by_parent.get(document.raw.path, ())
+        if item.part.name in {"module", "unit", "homework_unit"}
+    ]
+    siblings.sort(key=lambda item: item.sort_key)
+    items = []
+    for sibling in siblings:
+        if sibling.part.name == "module":
+            items.append(_module_graph(result, by_parent, sibling, level))
+        elif sibling.part.name == "homework_unit":
+            items.append(_homework_unit_graph(sibling, level))
+        else:
+            items.append(_unit_graph(sibling, level))
     return ModuleGraph(
         content_id=document.content_id,
         slug=document.slug,
@@ -254,11 +407,21 @@ def _module_graph(
         overview=_overview(result, document),
         syllabus_section=values.get("syllabus_section") or "",
         sort_order=document.sort_order,
-        is_bonus=bool(values.get("is_bonus")),
+        is_bonus=_module_bonus(document),
         available_after_days=values.get("available_after_days"),
-        units=tuple(_unit_graph(item, level) for item in units),
-        children=_module_graphs(result, by_parent, parent=document.raw.path, inherited=level),
+        has_order=_has_order(document),
+        items=tuple(items),
     )
+
+
+def _module_bonus(document: ParsedDocument) -> bool:
+    """Map the source's ``bonus`` spelling onto the shared ``is_bonus`` flag."""
+
+    if "is_bonus" in document.data and "bonus" in document.data:
+        raise CurriculumParseError(
+            f"{document.raw.path}: declare either is_bonus or bonus, not both"
+        )
+    return bool(document.values.get("is_bonus") or document.values.get("bonus"))
 
 
 def _overview(result: ReadResult, document: ParsedDocument) -> str:
@@ -282,6 +445,7 @@ def _unit_graph(document: ParsedDocument, inherited: int | None) -> UnitGraph:
         title=document.title,
         source_path=document.raw.path,
         body=body,
+        content_hash=_unit_content_hash(body),
         video_url=values.get("video_url") or "",
         timestamps=tuple(values.get("timestamps") or ()),
         required_level=_declared_level(document, inherited),
@@ -289,7 +453,157 @@ def _unit_graph(document: ParsedDocument, inherited: int | None) -> UnitGraph:
         kind=values.get("kind") or "lesson",
         session_position=values.get("session_position"),
         is_bonus=bool(values.get("is_bonus")),
+        available_after_days=values.get("available_after_days"),
+        body_source_path=document.raw.body_path,
+        has_order=_has_order(document),
     )
+
+
+def _homework_unit_graph(document: ParsedDocument, inherited: int | None) -> UnitGraph:
+    values = document.values
+    homework = HomeworkUnitGraph(
+        due_at=_datetime(values.get("due_at"), document.raw.path, "/due_at"),
+        form=_homework_form(values.get("form") or {}),
+        final_fields=tuple(
+            HomeworkFinalFieldGraph(
+                key=entry["key"],
+                label=entry["label"],
+                type=entry.get("type") or "text",
+                required=bool(entry.get("required")),
+            )
+            for entry in values.get("final_fields") or ()
+        ),
+        questions=tuple(
+            HomeworkQuestionGraph(
+                content_id=entry["content_id"],
+                stable_id=entry["id"],
+                type=entry["type"],
+                prompt=entry["prompt"],
+                points=entry.get("points", 1),
+                options=tuple(
+                    HomeworkOptionGraph(id=option["id"], label=option["label"])
+                    for option in entry.get("options") or ()
+                ),
+                answer_type=entry.get("answer_type"),
+                step_label=entry.get("step_label") or "",
+                correct=entry.get("correct"),
+            )
+            for entry in values.get("questions") or ()
+        ),
+    )
+    return UnitGraph(
+        content_id=document.content_id,
+        slug=document.slug,
+        title=document.title,
+        source_path=document.raw.path,
+        homework=document.body,
+        content_hash=_unit_content_hash(document.body),
+        required_level=_declared_level(document, inherited),
+        sort_order=document.sort_order,
+        kind="homework",
+        is_bonus=bool(values.get("is_bonus")),
+        available_after_days=values.get("available_after_days"),
+        body_source_path=document.raw.body_path,
+        has_order=_has_order(document),
+        homework_unit=homework,
+    )
+
+
+def _unit_content_hash(body: str) -> str:
+    return hashlib.md5(body.encode("utf-8")).hexdigest() if body else ""
+
+
+def _homework_form(values: Mapping[str, Any]) -> HomeworkFormGraph:
+    return HomeworkFormGraph(
+        homework_url=values.get("homework_url"),
+        time_spent_lectures=values.get("time_spent_lectures"),
+        time_spent_homework=values.get("time_spent_homework"),
+        faq_contribution=values.get("faq_contribution"),
+        learning_in_public_cap=values.get("learning_in_public_cap"),
+    )
+
+
+def _has_order(document: ParsedDocument) -> bool:
+    declared = document.data.get("sort_order")
+    if isinstance(declared, int) and not isinstance(declared, bool):
+        return True
+    prefix, _ = split_order_prefix(document.raw.name)
+    return prefix is not None
+
+
+def _datetime(value: Any, path: str, pointer: str) -> dt.datetime:
+    if isinstance(value, dt.datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = dt.datetime.fromisoformat(value)
+        except ValueError:
+            raise CurriculumParseError(f"{path}:{pointer}: expected an ISO datetime") from None
+    else:
+        raise CurriculumParseError(f"{path}:{pointer}: expected an ISO datetime")
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise CurriculumParseError(f"{path}:{pointer}: datetime needs a UTC offset")
+    return parsed
+
+
+def _project_graphs(
+    entries: Iterable[Mapping[str, Any]], modules, path: str
+) -> tuple[ProjectGraph, ...]:
+    by_path: dict[str, list[ModuleGraph]] = {}
+
+    def walk(siblings, prefix=()):
+        for module in siblings:
+            module_path = (*prefix, module.slug)
+            by_path.setdefault("/".join(module_path), []).append(module)
+            walk(module.children, module_path)
+
+    walk(modules)
+    found: list[ProjectGraph] = []
+    seen: set[str] = set()
+    for index, entry in enumerate(entries):
+        project_slug = entry["slug"]
+        pointer = f"{path}:/projects/{index}"
+        if project_slug in seen:
+            raise CurriculumParseError(f"{pointer}/slug: duplicate project slug {project_slug!r}")
+        seen.add(project_slug)
+        module_path = entry["module_path"]
+        components = module_path.split("/")
+        if any(not component for component in components):
+            raise CurriculumParseError(
+                f"{pointer}/module_path: invalid module path {module_path!r}"
+            )
+        matches = by_path.get(module_path, [])
+        if not matches:
+            raise CurriculumParseError(
+                f"{pointer}/module_path: no module at source path {module_path!r}"
+            )
+        if len(matches) != 1:
+            raise CurriculumParseError(
+                f"{pointer}/module_path: ambiguous module path {module_path!r}"
+            )
+        submission_due_at = _datetime(
+            entry["submission_due_at"], path, f"/projects/{index}/submission_due_at"
+        )
+        review_due_at = _datetime(entry["review_due_at"], path, f"/projects/{index}/review_due_at")
+        if review_due_at <= submission_due_at:
+            raise CurriculumParseError(f"{pointer}/review_due_at: must follow submission_due_at")
+        peer_review_count = entry.get("peer_review_count")
+        if peer_review_count is not None and not 1 <= peer_review_count <= 10:
+            raise CurriculumParseError(f"{pointer}/peer_review_count: must be between 1 and 10")
+        module = matches[0]
+        found.append(
+            ProjectGraph(
+                slug=project_slug,
+                title=entry["title"],
+                module_path=module_path,
+                module_content_id=module.content_id,
+                submission_due_at=submission_due_at,
+                review_due_at=review_due_at,
+                cohort_key=entry.get("cohort_key"),
+                peer_review_count=peer_review_count,
+            )
+        )
+    return tuple(found)
 
 
 def _declared_level(document: ParsedDocument, inherited: int | None) -> int | None:

@@ -300,14 +300,14 @@ def test_course_layout_finds_every_part():
     assert {item.part for item in items} == {"course", "module", "unit", "cohort", "homework"}
 
 
-def test_course_layout_refuses_three_module_levels():
+def test_course_layout_accepts_mixed_units_and_arbitrarily_deep_modules():
     tree = node(
         "",
         ["course.yaml"],
         [
             node(
                 "01-one",
-                ["module.yaml"],
+                ["module.yaml", "01-direct.md"],
                 [
                     node(
                         "01-one/02-two",
@@ -319,17 +319,29 @@ def test_course_layout_refuses_three_module_levels():
         ],
     )
 
-    _, problems = CourseLayout().walk(tree)
+    items, problems = CourseLayout().walk(tree)
 
-    assert [(path, problem.rule) for path, problem in problems] == [
-        ("01-one/02-two/03-three", "3.5")
-    ]
+    assert problems == []
+    assert {(item.part, item.path) for item in items} == {
+        ("course", "course.yaml"),
+        ("module", "01-one/module.yaml"),
+        ("unit", "01-one/01-direct.md"),
+        ("module", "01-one/02-two/module.yaml"),
+        ("module", "01-one/02-two/03-three/module.yaml"),
+    }
 
 
 def test_a_part_of_a_composite_kind_is_named():
     course = get_kind("course")
 
-    assert sorted(course.item_parts) == ["cohort", "course", "homework", "module", "unit"]
+    assert sorted(course.item_parts) == [
+        "cohort",
+        "course",
+        "homework",
+        "homework_unit",
+        "module",
+        "unit",
+    ]
     with pytest.raises(LookupError, match="no part sprint"):
         course.part("sprint")
 

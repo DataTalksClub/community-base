@@ -6,6 +6,12 @@
   accepted/draft snapshots. Add a configurable Learning in Public link editor that preserves
   autosave, supports an optional blank state, and falls back to a plain textarea without JavaScript.
 
+## 0.5.13
+
+- #306: derive recursive mixed course hierarchy from repository directories and import structured
+  YAML homework units with Markdown prose companions. Reparenting keeps Unit, Homework, Question,
+  Answer and Submission identities; course-tree scoring answers stay out of learner projections.
+
 ## 0.5.11
 
 - #301: add a six-state learner homework descriptor and a read-only helper for rendering the same

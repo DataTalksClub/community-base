@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 MODE_COHORT = "cohort"
@@ -49,11 +49,60 @@ class UnitGraph:
     kind: str = "lesson"
     session_position: int | None = None
     is_bonus: bool = False
+    available_after_days: int | None = None
+    body_source_path: str | None = None
+    content_hash: str | None = None
+    has_order: bool = False
+    homework_unit: HomeworkUnitGraph | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class HomeworkOptionGraph:
+    id: str
+    label: str
+
+
+@dataclass(frozen=True, slots=True)
+class HomeworkQuestionGraph:
+    content_id: str
+    stable_id: str
+    type: str
+    prompt: str
+    points: int
+    options: tuple[HomeworkOptionGraph, ...] = field(default=())
+    answer_type: str | None = None
+    step_label: str = ""
+    correct: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class HomeworkFormGraph:
+    homework_url: bool | None = None
+    time_spent_lectures: bool | None = None
+    time_spent_homework: bool | None = None
+    faq_contribution: bool | None = None
+    learning_in_public_cap: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class HomeworkFinalFieldGraph:
+    key: str
+    label: str
+    type: str = "text"
+    required: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class HomeworkUnitGraph:
+    due_at: datetime
+    form: HomeworkFormGraph = field(default_factory=HomeworkFormGraph)
+    questions: tuple[HomeworkQuestionGraph, ...] = field(default=())
+    final_fields: tuple[HomeworkFinalFieldGraph, ...] = field(default=())
 
 
 @dataclass(frozen=True, slots=True)
 class ModuleGraph:
-    """One module, course-owned. Either ``children`` or ``units`` is non-empty, never both."""
+    """One physical module and its ordered, mixed child sequence."""
 
     content_id: str | None
     slug: str
@@ -64,8 +113,48 @@ class ModuleGraph:
     sort_order: int = 0
     is_bonus: bool = False
     available_after_days: int | None = None
-    units: tuple[UnitGraph, ...] = field(default=())
-    children: tuple[ModuleGraph, ...] = field(default=())
+    has_order: bool = False
+    items: tuple[ModuleGraph | UnitGraph, ...] = field(default=())
+
+    @property
+    def units(self) -> tuple[UnitGraph, ...]:
+        """Direct units in sibling order, retained for older read-only consumers."""
+
+        return tuple(item for item in self.items if isinstance(item, UnitGraph))
+
+    @property
+    def children(self) -> tuple[ModuleGraph, ...]:
+        """Child modules in sibling order, retained for older read-only consumers."""
+
+        return tuple(item for item in self.items if isinstance(item, ModuleGraph))
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectGraph:
+    slug: str
+    title: str
+    module_path: str
+    module_content_id: str | None
+    submission_due_at: datetime
+    review_due_at: datetime
+    cohort_key: str | None = None
+    peer_review_count: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CourseTreeGraph:
+    """Physical course content without course-, cohort- or site-owned metadata.
+
+    Site adapters for legacy course repositories use this graph to parse the
+    checked-in module/unit tree while retaining ownership of their existing
+    course headers and cohort policy.
+    """
+
+    parser_version: str
+    schema_version: int
+    source_path: str
+    modules: tuple[ModuleGraph, ...] = field(default=())
+    projects: tuple[ProjectGraph, ...] = field(default=())
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,9 +204,9 @@ class CourseGraph:
     hashtag: str = ""
     visible: bool = True
     instructors: tuple[InstructorGraph, ...] = field(default=())
-    # The one module tree, owned by the course. Top-level modules in display
-    # order; each may carry ``children`` (submodules, max depth two) or
-    # ``units`` directly, never both.
+    projects: tuple[ProjectGraph, ...] = field(default=())
+    # The one module tree, owned by the course. Top-level modules and every
+    # module's `items` preserve the physical mixed sibling order.
     modules: tuple[ModuleGraph, ...] = field(default=())
     cohorts: tuple[CohortGraph, ...] = field(default=())
 
@@ -134,34 +223,100 @@ class CurriculumParseError(ValueError):
     """A repository layout does not satisfy the curriculum source contract."""
 
 
-def validate_module_tree(modules: tuple[ModuleGraph, ...], *, where: str, depth: int = 1) -> None:
+def validate_module_tree(modules: tuple[ModuleGraph, ...], *, where: str) -> None:
     """Validate a course's module tree once, for the one course parser.
 
-    Enforces: a module has either ``children`` or ``units``, never both, naming the
-    offending directory (``where``); nesting does not exceed two module levels; sibling
-    module slugs (and sibling unit slugs) are unique within their own parent, not globally
-    -- so two submodules under different parents may each contain a unit slugged the same.
+    Enforces unique sibling slugs and orders across the mixed module/unit sequence,
+    and explicit ordering for every sibling at every physical level.
     """
 
     seen_module_slugs: set[str] = set()
+    seen_module_orders: set[int] = set()
     for module in modules:
         if module.slug in seen_module_slugs:
             raise CurriculumParseError(f"{where}: duplicate module slug {module.slug!r}")
         seen_module_slugs.add(module.slug)
         module_where = f"{module.source_path or where}"
-        if module.children and module.units:
+        if not module.has_order:
             raise CurriculumParseError(
-                f"{module_where}: has both child modules and direct units; "
-                "a module must have only one"
+                f"{module_where}: missing sibling order; declare sort_order or use an NN- prefix"
             )
-        if module.children:
-            if depth >= 2:
+        if module.sort_order in seen_module_orders:
+            raise CurriculumParseError(
+                f"{module_where}: duplicate sibling order {module.sort_order}"
+            )
+        seen_module_orders.add(module.sort_order)
+        seen_sibling_slugs: set[str] = set()
+        seen_orders: set[int] = set()
+        for sibling in module.items:
+            sibling_where = sibling.source_path or module_where
+            if sibling.slug in seen_sibling_slugs:
                 raise CurriculumParseError(
-                    f"{module_where}: exceeds the maximum module depth of two levels"
+                    f"{sibling_where}: duplicate sibling slug {sibling.slug!r}"
                 )
-            validate_module_tree(module.children, where=module_where, depth=depth + 1)
-        seen_unit_slugs: set[str] = set()
-        for unit in module.units:
-            if unit.slug in seen_unit_slugs:
-                raise CurriculumParseError(f"{module_where}: duplicate unit slug {unit.slug!r}")
-            seen_unit_slugs.add(unit.slug)
+            seen_sibling_slugs.add(sibling.slug)
+            if not sibling.has_order:
+                raise CurriculumParseError(
+                    f"{sibling_where}: missing sibling order; declare sort_order or use an "
+                    "NN- prefix"
+                )
+            if sibling.sort_order in seen_orders:
+                raise CurriculumParseError(
+                    f"{sibling_where}: duplicate sibling order {sibling.sort_order}"
+                )
+            seen_orders.add(sibling.sort_order)
+            if isinstance(sibling, UnitGraph) and sibling.homework_unit:
+                validate_homework_unit(sibling.homework_unit, where=sibling_where)
+        children = module.children
+        if children:
+            validate_module_tree(children, where=module_where)
+
+
+def validate_homework_unit(homework: HomeworkUnitGraph, *, where: str) -> None:
+    """Validate question identities, choice shapes and legacy scoring values."""
+
+    seen_question_ids: set[str] = set()
+    seen_content_ids: set[str] = set()
+    for index, question in enumerate(homework.questions):
+        pointer = f"{where}:/questions/{index}"
+        if question.stable_id in seen_question_ids:
+            raise CurriculumParseError(
+                f"{pointer}/id: duplicate question id {question.stable_id!r}"
+            )
+        if question.content_id in seen_content_ids:
+            raise CurriculumParseError(
+                f"{pointer}/content_id: duplicate question content_id {question.content_id!r}"
+            )
+        seen_question_ids.add(question.stable_id)
+        seen_content_ids.add(question.content_id)
+        option_ids = [option.id for option in question.options]
+        if len(option_ids) != len(set(option_ids)):
+            raise CurriculumParseError(f"{pointer}/options: duplicate option id")
+        choice = question.type in {"multiple_choice", "checkboxes"}
+        if choice and not question.options:
+            raise CurriculumParseError(f"{pointer}/options: choice questions need ordered options")
+        if not choice and question.options:
+            raise CurriculumParseError(
+                f"{pointer}/options: free-form questions do not take options"
+            )
+        if question.correct is not None and choice:
+            try:
+                indexes = [int(item.strip()) for item in question.correct.split(",")]
+            except (TypeError, ValueError):
+                raise CurriculumParseError(
+                    f"{pointer}/correct: choice answers use 1-based option indexes"
+                ) from None
+            if (
+                not indexes
+                or any(
+                    index_value < 1 or index_value > len(question.options)
+                    for index_value in indexes
+                )
+                or len(set(indexes)) != len(indexes)
+                or (question.type == "multiple_choice" and len(indexes) != 1)
+            ):
+                raise CurriculumParseError(
+                    f"{pointer}/correct: answer index must identify an authored option"
+                )
+        if question.points < 0:
+            raise CurriculumParseError(f"{pointer}/points: must be zero or a positive integer")

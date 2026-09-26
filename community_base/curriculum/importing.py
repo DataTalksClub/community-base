@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import re
 
+from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
@@ -27,7 +28,14 @@ from community_base.curriculum.models import (
     Module,
     Unit,
 )
-from community_base.curriculum.source import CurriculumParseError, InstructorGraph, ParsedCurriculum
+from community_base.curriculum.source import (
+    CourseTreeGraph,
+    CurriculumParseError,
+    InstructorGraph,
+    ModuleGraph,
+    ParsedCurriculum,
+    UnitGraph,
+)
 
 ACTION_CREATED = "created"
 ACTION_UPDATED = "updated"
@@ -116,6 +124,61 @@ def apply_curriculum_graph(parsed: ParsedCurriculum, source, checkout) -> tuple[
         return course, counts
 
 
+def apply_curriculum_tree(
+    course: Course,
+    tree: CourseTreeGraph,
+    *,
+    commit: str,
+    checkout,
+    sync_homework: bool = True,
+) -> dict:
+    """Upsert the tree for an already-owned shared course.
+
+    This is the adapter seam for a site that still owns its course header,
+    cohorts, access and routes. Source unit IDs are looked up across the whole
+    course before a row is reparented, so a physical move retains the Unit
+    primary key and every learner/coursework foreign key to it. When the
+    coursework app is installed, structured homework data updates existing
+    assignments bound to those units unless ``sync_homework`` is disabled.
+    """
+
+    counts = {"created": 0, "updated": 0, "unchanged": 0, "deleted": 0}
+    seen_modules: set[str] = set()
+    seen_units: set[str] = set()
+    with transaction.atomic():
+        _apply_module_tree(
+            course,
+            tree.modules,
+            parent=None,
+            commit=commit,
+            checkout=checkout,
+            counts=counts,
+            seen=seen_modules,
+            seen_units=seen_units,
+            top_level_by_ref={},
+        )
+        if sync_homework and apps.is_installed("community_base.coursework"):
+            from community_base.coursework.importing import apply_course_tree_homework_units
+
+            homework_counts = apply_course_tree_homework_units(
+                course,
+                tree.modules,
+                commit=commit,
+                checkout=checkout,
+            )
+            for action, count in homework_counts.items():
+                counts[action] += count
+        counts["deleted"] += delete_stale(
+            Unit.objects.filter(module__course=course).exclude(source_content_id__isnull=True),
+            seen_units,
+        )
+        counts["deleted"] += delete_stale(
+            Module.objects.filter(course=course).exclude(source_content_id__isnull=True),
+            seen_modules,
+        )
+    return counts
+
+
 def _manifest_checksum(parsed) -> str:
     canonical = repr(sorted(_canonical(_graph_summary(parsed.course)).items()))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -161,6 +224,7 @@ def _apply(parsed, source, checkout, commit) -> tuple[Course, dict]:
     # resolve their placements by the same identifier the source graph uses
     # (content_id, or slug when the source has none).
     seen_module_ids: set[str] = set()
+    seen_unit_ids: set[str] = set()
     top_level_by_ref: dict[str, Module] = {}
     _apply_module_tree(
         course,
@@ -170,7 +234,12 @@ def _apply(parsed, source, checkout, commit) -> tuple[Course, dict]:
         checkout=checkout,
         counts=counts,
         seen=seen_module_ids,
+        seen_units=seen_unit_ids,
         top_level_by_ref=top_level_by_ref,
+    )
+    counts["deleted"] += delete_stale(
+        Unit.objects.filter(module__course=course).exclude(source_content_id__isnull=True),
+        seen_unit_ids,
     )
     counts["deleted"] += delete_stale(
         Module.objects.filter(course=course).exclude(source_content_id__isnull=True),
@@ -199,38 +268,36 @@ def _apply_module_tree(
     checkout,
     counts: dict,
     seen: set,
+    seen_units: set,
     top_level_by_ref: dict,
     depth: int = 0,
 ) -> None:
-    for position, module_graph in enumerate(module_graphs):
+    for module_graph in module_graphs:
         module = _module(course, parent, module_graph)
         seen.add(module_graph.content_id)
-        values = _module_values(module_graph, position, commit, checkout)
+        values = _module_values(module_graph, parent, commit, checkout)
         counts[write_values(module, values)] += 1
         if depth == 0:
             top_level_by_ref[module_graph.content_id or module_graph.slug] = module
 
-        seen_unit_ids: set = set()
-        for unit_graph in module_graph.units:
-            unit = _unit(module, unit_graph)
-            seen_unit_ids.add(unit_graph.content_id)
-            counts[write_values(unit, _unit_values(unit_graph, commit, checkout))] += 1
-        counts["deleted"] += delete_stale(
-            Unit.objects.filter(module=module).exclude(source_content_id__isnull=True),
-            seen_unit_ids,
-        )
-
-        _apply_module_tree(
-            course,
-            module_graph.children,
-            parent=module,
-            commit=commit,
-            checkout=checkout,
-            counts=counts,
-            seen=seen,
-            top_level_by_ref=top_level_by_ref,
-            depth=depth + 1,
-        )
+        for item in module_graph.items:
+            if isinstance(item, UnitGraph):
+                unit = _unit(course, module, item)
+                seen_units.add(item.content_id)
+                counts[write_values(unit, _unit_values(item, module, commit, checkout))] += 1
+            elif isinstance(item, ModuleGraph):
+                _apply_module_tree(
+                    course,
+                    (item,),
+                    parent=module,
+                    commit=commit,
+                    checkout=checkout,
+                    counts=counts,
+                    seen=seen,
+                    seen_units=seen_units,
+                    top_level_by_ref=top_level_by_ref,
+                    depth=depth + 1,
+                )
 
 
 def _apply_placements(cohort: Cohort, cohort_graph, top_level_by_ref: dict) -> int:
@@ -298,21 +365,23 @@ def _module(course: Course, parent: Module | None, graph) -> Module:
     if module is None:
         module = Module.objects.filter(course=course, parent=parent, slug=graph.slug).first()
     if module is None:
-        module = Module(course=course, slug=graph.slug)
-    module.parent = parent
-    module.source_content_id = graph.content_id
+        module = Module(course=course)
     return module
 
 
-def _unit(module: Module, graph) -> Unit:
+def _unit(course: Course, module: Module, graph: UnitGraph) -> Unit:
     unit = None
     if graph.content_id:
-        unit = Unit.objects.filter(module=module, source_content_id=graph.content_id).first()
+        # Content IDs belong to the course tree, not to a module. Look up across
+        # the whole course so moving a physical source file reuses its row and
+        # preserves learner progress and coursework foreign keys.
+        unit = Unit.objects.filter(
+            module__course=course, source_content_id=graph.content_id
+        ).first()
     if unit is None:
         unit = Unit.objects.filter(module=module, slug=graph.slug).first()
     if unit is None:
-        unit = Unit(module=module, slug=graph.slug)
-    unit.source_content_id = graph.content_id
+        unit = Unit()
     return unit
 
 
@@ -349,11 +418,13 @@ def _cohort_values(graph, commit, checkout) -> dict:
     }
 
 
-def _module_values(graph, position, commit, checkout) -> dict:
-    sort_order = graph.sort_order or position
+def _module_values(graph, parent, commit, checkout) -> dict:
     return {
+        "parent": parent,
+        "slug": graph.slug,
+        "source_content_id": graph.content_id,
         "title": graph.title,
-        "sort_order": sort_order,
+        "sort_order": graph.sort_order,
         "syllabus_section": graph.syllabus_section,
         "overview": graph.overview,
         "is_bonus": graph.is_bonus,
@@ -362,8 +433,11 @@ def _module_values(graph, position, commit, checkout) -> dict:
     }
 
 
-def _unit_values(graph, commit, checkout) -> dict:
+def _unit_values(graph, module, commit, checkout) -> dict:
     return {
+        "module": module,
+        "slug": graph.slug,
+        "source_content_id": graph.content_id,
         "title": graph.title,
         "sort_order": graph.sort_order,
         "kind": graph.kind,
@@ -375,7 +449,9 @@ def _unit_values(graph, commit, checkout) -> dict:
         "timestamps": list(graph.timestamps),
         "is_preview": graph.is_preview,
         "required_level": graph.required_level,
-        "content_hash": _body_hash(graph),
+        "content_hash": (
+            graph.content_hash if graph.content_hash is not None else _body_hash(graph)
+        ),
         **provenance(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
     }
 
@@ -403,13 +479,13 @@ def write_values(instance, values) -> str:
     was_new = instance.pk is None
     content_keys = [key for key in values if key not in _PROVENANCE_KEYS]
     if not was_new:
-        changed = any(
-            _canonical(getattr(instance, key)) != _canonical(values[key]) for key in content_keys
-        )
+        changed = any(not _same_field_value(instance, key, values[key]) for key in content_keys)
         if not changed:
+            for key, value in values.items():
+                setattr(instance, key, value)
             for key in _PROVENANCE_KEYS:
                 setattr(instance, key, values[key])
-            fields = [*_PROVENANCE_KEYS, "source_content_id"]
+            fields = list(dict.fromkeys([*values, *_PROVENANCE_KEYS]))
             instance.save(update_fields=fields)
             return ACTION_UNCHANGED
     for key, value in values.items():
@@ -419,6 +495,17 @@ def write_values(instance, values) -> str:
 
 
 _PROVENANCE_KEYS = ("source_path", "source_commit_sha", "source_checksum")
+
+
+def _same_field_value(instance, key, value) -> bool:
+    if key == "source_content_id":
+        old = getattr(instance, key)
+        return (str(old) if old is not None else None) == (
+            str(value) if value is not None else None
+        )
+    if key in {"module", "parent"}:
+        return getattr(instance, f"{key}_id") == getattr(value, "pk", None)
+    return _canonical(getattr(instance, key)) == _canonical(value)
 
 
 def delete_stale(queryset, seen_ids: set) -> int:

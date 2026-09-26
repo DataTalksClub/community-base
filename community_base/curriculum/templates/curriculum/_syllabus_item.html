@@ -1,0 +1,32 @@
+<li>
+  {% if item.kind == "module" %}
+    <h3>
+      {% if item.depth %}
+        <a href="{% url 'curriculum_nested_module_overview' course.slug cohort.slug item.path %}">{{ item.module.title }}</a>
+      {% else %}
+        <a href="{% url 'curriculum_module_overview' course.slug cohort.slug item.module.slug %}">{{ item.module.title }}</a>
+      {% endif %}
+    </h3>
+    {% if item.items %}
+      <ol>
+        {% for child in item.items %}
+          {% include "curriculum/_syllabus_item.html" with item=child course=course cohort=cohort has_access=has_access completed_unit_ids=completed_unit_ids %}
+        {% endfor %}
+      </ol>
+    {% endif %}
+  {% else %}
+    {% with unit=item.unit %}
+      {% if has_access or unit.is_preview %}
+        {% if item.depth %}
+          <a href="{% url 'curriculum_nested_unit_detail' course.slug cohort.slug item.module_path unit.slug %}">{{ unit.title }}</a>
+        {% else %}
+          <a href="{% url 'curriculum_unit_detail' course.slug cohort.slug item.module_path unit.slug %}">{{ unit.title }}</a>
+        {% endif %}
+      {% else %}
+        {{ unit.title }}
+      {% endif %}
+      {% if unit.is_preview %}<span class="cb-badge">Preview</span>{% endif %}
+      {% if unit.pk in completed_unit_ids %}<span class="cb-badge">Completed</span>{% endif %}
+    {% endwith %}
+  {% endif %}
+</li>

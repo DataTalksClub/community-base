@@ -249,14 +249,16 @@ def test_module_parent_makes_a_submodule():
     assert list(parent.children.all()) == [child]
 
 
-def test_module_rejects_three_levels_deep():
+def test_module_allows_more_than_two_levels_deep():
     course = make_course()
     parent = make_module(course, slug="week-1", title="Week 1")
     child = make_module(course, slug="topic-a", title="Topic A", parent=parent)
-    grandchild = Module(course=course, slug="too-deep", title="Too deep", parent=child)
+    grandchild = make_module(course, slug="section-a", title="Section A", parent=child)
+    great_grandchild = Module(
+        course=course, slug="lesson-group", title="Lesson Group", parent=grandchild
+    )
 
-    with pytest.raises(ValidationError):
-        grandchild.full_clean()
+    great_grandchild.full_clean()
 
 
 def test_module_rejects_self_parent():
@@ -278,37 +280,32 @@ def test_module_rejects_parent_from_another_course():
         child.full_clean()
 
 
-def test_module_with_children_cannot_also_have_direct_units():
+def test_module_with_children_may_also_have_direct_units():
     course = make_course()
     parent = make_module(course, slug="week-1", title="Week 1")
     make_module(course, slug="topic-a", title="Topic A", parent=parent)
-    # Bypass Unit.clean()'s own guard to construct the invalid state directly,
-    # so Module.clean()'s defensive check (both children and units present) is
-    # what is actually under test here.
-    Unit.objects.create(module=parent, slug="stray", title="Stray")
+    direct_unit = make_unit(parent, slug="overview", title="Overview")
 
-    with pytest.raises(ValidationError):
-        parent.full_clean()
+    parent.full_clean()
+    direct_unit.full_clean()
 
 
-def test_parent_with_units_cannot_also_have_children():
+def test_parent_with_units_may_also_have_children():
     course = make_course()
     parent = make_module(course, slug="week-1", title="Week 1")
     make_unit(parent)
 
     child = Module(course=course, slug="topic-a", title="Topic A", parent=parent)
-    with pytest.raises(ValidationError):
-        child.full_clean()
+    child.full_clean()
 
 
-def test_unit_cannot_be_added_to_a_module_with_children():
+def test_unit_can_be_added_to_a_module_with_children():
     course = make_course()
     parent = make_module(course, slug="week-1", title="Week 1")
     make_module(course, slug="topic-a", title="Topic A", parent=parent)
 
     unit = Unit(module=parent, slug="stray", title="Stray")
-    with pytest.raises(ValidationError):
-        unit.full_clean()
+    unit.full_clean()
 
 
 def test_two_submodules_may_each_contain_a_unit_slugged_the_same():

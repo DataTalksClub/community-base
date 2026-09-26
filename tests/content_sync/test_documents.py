@@ -13,7 +13,13 @@ from community_base.content_sync.kinds.course import UNIT
 from community_base.content_sync.resolution import resolve_repository
 
 FIXTURES = Path(__file__).parent / "fixtures"
-VALID = ("valid_course", "valid_multi", "valid_docs", "lenient_references")
+VALID = (
+    "valid_course",
+    "valid_mixed_course",
+    "valid_multi",
+    "valid_docs",
+    "lenient_references",
+)
 
 WIKI_MANIFEST = "schema_version: 1\ncollections:\n  - kind: wiki\n    path: wiki\n"
 PAGE = (
@@ -384,7 +390,7 @@ PARITY = (
     ("invalid/bad_schema_version", "reject", "reject", ""),
     ("invalid/bad_slug_name", "reject", "reject", ""),
     ("invalid/bad_uuid", "reject", "reject", ""),
-    ("invalid/course_mixed_module", "reject", "reject", ""),
+    ("valid_mixed_course", "accept", "accept", ""),
     ("invalid/date_prefix", "reject", "reject", ""),
     ("invalid/docs_missing_index", "reject", "reject", ""),
     ("invalid/docs_too_deep", "reject", "reject", ""),
