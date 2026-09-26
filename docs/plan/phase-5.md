@@ -974,6 +974,60 @@ Done when
 Docs
 - `community_base/homework_steps/README.md`, `community_base/coursework/README.md`, `CHANGELOG.md`.
 
+## C5.2j Shared learner homework state and accepted-submission snapshot
+
+Repository: community-base. Depends on: C5.2i. Freeze required: no. Related:
+DataTalksClub/community-base#301, AI-Shipping-Labs/website#1778,
+DataTalksClub/website#432.
+
+Goal: give either host a model-independent learner state and accepted-submission snapshot for
+homework navigation and review. A saved draft is not an accepted submission, and an identical
+draft seeded from an accepted submission is not pending work.
+
+Read first
+- `community_base/homework_steps/types.py`, `views.py`, `coursework.py`, and `services.py`.
+- `community_base/homework_steps/README.md` and `docs/02-architecture.md`.
+
+Steps
+1. Extend the generic assignment descriptor with normalized availability and an optional accepted
+   snapshot containing answers, final fields, and the accepted time. Keep existing descriptor
+   fields working for v0.5.10 adapters.
+2. Provide a pure six-state mapping and a read-only per-learner helper suitable for both a host
+   navigation row and the shared homework page. It must never create a draft; compare the complete
+   normalized draft and accepted snapshots rather than inferring edits from draft existence or
+   revision.
+3. Reuse one state fragment in package templates. On closed/scored assignments, show accepted
+   answers and time as the primary review; label any saved unsent draft separately and omit submit
+   controls. Do not render cohort counts or another learner's data.
+4. Map package coursework availability and `Submission.submitted_at` into the descriptor without
+   importing coursework from the optional app path. Preserve draft-help and retired-choice fallback
+   behavior.
+5. Document the generic host contract and the coursework adapter contract.
+
+Verification
+- `uv run pytest tests/homework_steps tests/coursework tests/curriculum` passes with the optional
+  app both installed and absent; report collected counts against the same-checkout baseline.
+- Synthetic tests cover all six labels, an identical seeded draft, a first saved answer without a
+  submission, and closed/scored homework without an accepted submission.
+- Closed/scored review tests prove that accepted values and time stay primary, a differing saved
+  draft is visibly separate, and there is no submit control.
+- The nav helper is read-only and returns the same value and accessible label as the page fragment.
+- `uv run pytest tests/test_boundaries.py`, package quality gates, and
+  `uv run python scripts/plan.py check` pass.
+- Test both consuming sites against the change and report package, AISL, and DTC results
+  separately. Do not claim consumer coverage from the package suite.
+
+Done when
+- [ ] Both hosts can render one package-owned learner-state fragment in navigation and beside
+  their due line using the same per-learner value.
+- [ ] Accepted answers and time remain the primary review after closure or scoring; unsent drafts
+  remain clearly separate.
+- [ ] Existing v0.5.10 adapter behavior, draft help, and stale-choice fallback remain compatible.
+- [ ] Package and consumer gates are reported separately before release or adoption.
+
+Docs
+- `community_base/homework_steps/README.md`, `community_base/coursework/README.md`, `CHANGELOG.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.

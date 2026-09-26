@@ -22,6 +22,8 @@ class DraftConflict(Exception):
 def validate_assignment(assignment):
     if not assignment.key or len(assignment.key) > 255:
         raise ValueError("A stable assignment key of at most 255 characters is required")
+    if assignment.availability not in ("open", "closed", "scored"):
+        raise ValueError("Homework availability must be open, closed, or scored")
     questions = assignment.questions
     if not questions or len(questions) > 100:
         raise ValueError("An assignment needs between 1 and 100 questions")
@@ -94,14 +96,24 @@ def get_or_seed_draft(user, assignment):
     """Prefill edits once; subsequent reads never overwrite an in-progress answer."""
 
     validate_assignment(assignment)
+    accepted_answers = (
+        assignment.accepted_submission.answers
+        if assignment.accepted_submission is not None
+        else assignment.existing_answers
+    )
+    accepted_fields = (
+        assignment.accepted_submission.final_fields
+        if assignment.accepted_submission is not None
+        else assignment.existing_final_fields
+    )
     answers = {
         key: value
-        for key, value in assignment.existing_answers.items()
+        for key, value in accepted_answers.items()
         if key in {q.key for q in assignment.questions}
     }
     fields = {
         key: value
-        for key, value in assignment.existing_final_fields.items()
+        for key, value in accepted_fields.items()
         if key in {f.key for f in assignment.final_fields}
     }
     _bounded({"answers": answers, "final_fields": fields})
@@ -165,7 +177,7 @@ def submit_draft(request, assignment, adapter, *, revision, token):
         if draft.revision != revision or str(draft.token) != str(token):
             raise DraftConflict
         eligibility = adapter.eligibility(request, assignment)
-        if not eligibility.read or not eligibility.submit:
+        if not eligibility.read or not eligibility.submit or assignment.availability != "open":
             raise ValidationError(eligibility.reason or "Homework is closed.")
         questions = {question.key: question for question in assignment.questions}
         if set(draft.answers) - questions.keys():

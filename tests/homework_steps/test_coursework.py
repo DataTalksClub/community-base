@@ -61,6 +61,9 @@ def test_coursework_adapter_maps_stable_choices_and_calls_existing_submission_pa
     assert not HomeworkDraft.objects.filter(user=user, assignment_key=assignment.key).exists()
     edited = coursework_assignment(homework, user)
     assert edited.existing_answers == {"which": "beta"}
+    assert edited.has_submission is True
+    assert edited.availability == "open"
+    assert edited.accepted_submission.submitted_at == result.submitted_at
 
 
 def test_coursework_closure_retains_draft_and_does_not_submit():
@@ -76,10 +79,16 @@ def test_coursework_closure_retains_draft_and_does_not_submit():
     homework.state = "CL"
     homework.save(update_fields=["state"])
 
-    assert adapter.eligibility(_request(user), assignment).submit is False
+    closed_assignment = coursework_assignment(homework, user)
+    assert closed_assignment.availability == "closed"
+    assert adapter.eligibility(_request(user), closed_assignment).submit is False
     with pytest.raises(ValidationError, match="closed"):
         submit_draft(
-            _request(user), assignment, adapter, revision=draft.revision, token=draft.token
+            _request(user),
+            closed_assignment,
+            adapter,
+            revision=draft.revision,
+            token=draft.token,
         )
     assert HomeworkDraft.objects.filter(user=user, assignment_key=assignment.key).exists()
     assert Submission.objects.count() == 0

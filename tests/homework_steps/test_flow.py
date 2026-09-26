@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from html.parser import HTMLParser
 
 import pytest
@@ -7,8 +8,10 @@ from django.test import RequestFactory
 
 from community_base.accounts.models import User
 from community_base.homework_steps.models import HomeworkDraft
-from community_base.homework_steps.services import clear_draft, save_answer
+from community_base.homework_steps.services import clear_draft, save_answer, save_final_fields
+from community_base.homework_steps.state import homework_state_for
 from community_base.homework_steps.types import (
+    AcceptedSubmission,
     Assignment,
     Eligibility,
     FinalField,
@@ -27,9 +30,15 @@ class StepperStateParser(HTMLParser):
         self._capture_current_step = False
         self.status_messages = []
         self.current_step = ""
+        self.homework_state = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
+        if "data-homework-state" in attributes:
+            self.homework_state = (
+                attributes["data-homework-state"],
+                attributes["aria-label"],
+            )
         self._capture_status = tag == "p" and attributes.get("role") == "status"
         self._capture_current_step = tag == "a" and attributes.get("aria-current") == "step"
 
@@ -405,6 +414,127 @@ def test_accepted_submission_and_pending_draft_are_distinguished(user, assignmen
     pending_page = flow(user, submitted, adapter, query="?homework_step=review")
     assert b"Your submitted version is still accepted." in pending_page.content
     assert b"Saved changes are a draft until you submit them." in pending_page.content
+
+
+def test_navigation_and_page_share_state_and_lookup_does_not_create_draft(user, assignment):
+    initial = homework_state_for(user, assignment)
+    assert initial.value == "not_submitted"
+    assert HomeworkDraft.objects.count() == 0
+
+    save_answer(user, assignment, question_key="q1", answer="b", revision=0)
+    expected = homework_state_for(user, assignment)
+    response = flow(user, assignment, Adapter(), query="?homework_step=q1")
+    parsed = StepperStateParser()
+    parsed.feed(response.content.decode())
+
+    assert expected.value == "draft"
+    assert parsed.homework_state == (expected.value, expected.aria_label)
+
+
+def test_closed_review_keeps_accepted_snapshot_primary_and_hides_submit(user, assignment):
+    accepted_time = datetime(2026, 9, 26, 10, 30, tzinfo=UTC)
+    submitted = Assignment(
+        key=assignment.key,
+        title=assignment.title,
+        questions=assignment.questions,
+        final_fields=assignment.final_fields,
+        availability="closed",
+        accepted_submission=AcceptedSubmission(
+            answers={"q1": "a", "q2": "accepted explanation"},
+            final_fields={"link": "https://accepted.example"},
+            submitted_at=accepted_time,
+        ),
+    )
+    flow(user, submitted, Adapter())
+    draft = save_answer(user, submitted, question_key="q1", answer="b", revision=0)
+    save_final_fields(
+        user,
+        submitted,
+        values={"link": "https://draft.example"},
+        revision=draft.revision,
+    )
+
+    response = flow(user, submitted, Adapter(), query="?homework_step=review")
+    content = response.content
+    parsed = StepperStateParser()
+    parsed.feed(content.decode())
+    accepted_section = content.index(b'<h3 id="accepted-submission-title">Accepted submission')
+    draft_section = content.index(b"Unsubmitted draft")
+
+    assert parsed.homework_state == ("submitted", "Homework status: Submitted")
+    assert b"2026" in content[accepted_section:draft_section]
+    assert b"Alpha" in content[accepted_section:draft_section]
+    assert b"https://accepted.example" in content[accepted_section:draft_section]
+    assert b"Beta" not in content[accepted_section:draft_section]
+    assert b"Beta" in content[draft_section:]
+    assert b"https://draft.example" in content[draft_section:]
+    assert b"Submit homework" not in content
+    assert b'name="intent"' not in content
+
+
+def test_scored_without_submission_shows_closed_status_and_no_submit_control(user, assignment):
+    scored = Assignment(
+        key=assignment.key,
+        title=assignment.title,
+        questions=assignment.questions,
+        final_fields=assignment.final_fields,
+        availability="scored",
+    )
+    response = flow(user, scored, Adapter(), query="?homework_step=review")
+
+    assert b'data-homework-state="closed_not_submitted"' in response.content
+    assert b"Closed \xe2\x80\x94 not submitted" in response.content
+    assert b"Scored" not in response.content
+    assert b"Submit homework" not in response.content
+
+
+def test_closed_saved_draft_without_submission_is_not_shown_as_accepted(user, assignment):
+    closed = Assignment(
+        key=assignment.key,
+        title=assignment.title,
+        questions=assignment.questions,
+        final_fields=assignment.final_fields,
+        availability="closed",
+    )
+    flow(user, closed, Adapter())
+    save_answer(user, closed, question_key="q2", answer="Saved but not submitted", revision=0)
+
+    response = flow(user, closed, Adapter(), query="?homework_step=review")
+
+    assert b'data-homework-state="closed_not_submitted"' in response.content
+    assert b"Saved draft \xe2\x80\x94 not submitted" in response.content
+    assert b"Saved but not submitted" in response.content
+    assert b"Accepted submission" not in response.content
+    assert b"Submit homework" not in response.content
+
+
+def test_closed_availability_rejects_submit_even_when_adapter_allows_it(user, assignment):
+    closed = Assignment(
+        key=assignment.key,
+        title=assignment.title,
+        questions=assignment.questions,
+        final_fields=assignment.final_fields,
+        availability="closed",
+    )
+    adapter = Adapter()
+    flow(user, closed, adapter)
+
+    response = flow(
+        user,
+        closed,
+        adapter,
+        method="POST",
+        data={
+            "homework_step": "review",
+            "revision": "0",
+            "intent": "submit",
+            "final_link": "",
+        },
+    )
+
+    assert response.status_code == 403
+    assert adapter.submissions == []
+    assert HomeworkDraft.objects.filter(user=user, assignment_key=closed.key).exists()
 
 
 def test_route_step_urls_are_canonical_and_legacy_query_links_still_work(user, assignment):

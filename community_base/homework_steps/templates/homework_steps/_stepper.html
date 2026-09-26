@@ -1,8 +1,13 @@
 <section class="homework-steps" aria-label="{{ stepper.assignment.title }} homework">
   <h1>{{ stepper.assignment.title }}</h1>
+  {% include "homework_steps/_state_label.html" with homework_state=stepper.homework_state %}
   <p aria-live="polite">Step {{ stepper.step_number|add:1 }} of {{ stepper.step_count }}</p>
   {% if stepper.has_pending_changes %}
-    <p role="status">Your submitted version is still accepted. Saved changes are a draft until you submit them.</p>
+    {% if stepper.show_review_form %}
+      <p role="status">Your submitted version is still accepted. Saved changes are a draft until you submit them.</p>
+    {% else %}
+      <p role="status">Your accepted submission is shown below. These saved changes were not submitted.</p>
+    {% endif %}
   {% elif stepper.submitted %}
     <p role="status">Your homework was submitted.</p>
   {% endif %}
@@ -50,39 +55,89 @@
         <p data-save-status role="status" aria-live="polite">{{ stepper.draft_status }}</p>
         {% include "homework_steps/_draft_status_help.html" %}
       </div>
-      <button type="submit" name="next_step" value="{{ stepper.previous }}">Save and back</button>
-      <button type="submit" name="next_step" value="{{ stepper.next }}">Save and next</button>
+      <button type="submit" name="next_step" value="{{ stepper.previous }}"{% if not stepper.can_write %} disabled{% endif %}>Save and back</button>
+      <button type="submit" name="next_step" value="{{ stepper.next }}"{% if not stepper.can_write %} disabled{% endif %}>Save and next</button>
     </form>
   {% else %}
     <h2>Review &amp; submit</h2>
-    <ol>
-      {% for row in stepper.review_display_rows %}
-        <li><a href="{{ row.url }}">{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}</a>
-          {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
-        </li>
-      {% endfor %}
-    </ol>
-    <form method="post" action="{{ stepper.action }}" data-homework-autosave data-save-url="{{ stepper.save_url }}">
-      {% csrf_token %}
-      <input type="hidden" name="assignment_key" value="{{ stepper.assignment.key }}">
-      <input type="hidden" name="{{ stepper.step_param }}" value="review">
-      <input type="hidden" name="revision" value="{{ stepper.revision }}">
-      <input type="hidden" name="draft_token" value="{{ stepper.draft_token }}">
-      {% for field, value in stepper.final_field_rows %}
-        <label for="final-{{ field.key }}">{{ field.label }}</label>
-        {% if field.type == 'textarea' %}
-          <textarea id="final-{{ field.key }}" name="final_{{ field.key }}" maxlength="10000"{% if field.required %} required{% endif %}>{{ value }}</textarea>
-        {% else %}
-          <input id="final-{{ field.key }}" name="final_{{ field.key }}" type="{{ field.type }}" maxlength="10000" value="{{ value }}"{% if field.required %} required{% endif %}>
+    {% if stepper.closed_review %}
+      {% if stepper.accepted_snapshot_primary %}
+        <section aria-labelledby="accepted-submission-title">
+          <h3 id="accepted-submission-title">Accepted submission</h3>
+          {% if stepper.accepted_submitted_at %}<p>Submitted {{ stepper.accepted_submitted_at }}</p>{% endif %}
+          <ol>
+            {% for row in stepper.review_display_rows %}
+              <li><a href="{{ row.url }}">{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}</a>
+                {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+          {% for field, value in stepper.accepted_field_rows %}
+            <p>{{ field.label }} — {{ value|default:"No answer saved" }}</p>
+          {% endfor %}
+        </section>
+        {% if stepper.pending_draft_display_rows or stepper.pending_draft_field_rows %}
+          <section aria-labelledby="unsent-draft-title">
+            <h3 id="unsent-draft-title">Unsubmitted draft</h3>
+            <ol>
+              {% for row in stepper.pending_draft_display_rows %}
+                <li>{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}
+                  {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
+                </li>
+              {% endfor %}
+            </ol>
+            {% for field, value in stepper.pending_draft_field_rows %}
+              <p>{{ field.label }} — {{ value|default:"No answer saved" }}</p>
+            {% endfor %}
+          </section>
         {% endif %}
-      {% endfor %}
-      <div class="homework-draft-status">
-        <p data-save-status role="status" aria-live="polite">{{ stepper.draft_status }}</p>
-        {% include "homework_steps/_draft_status_help.html" %}
-      </div>
-      <button type="submit" name="intent" value="save"{% if not stepper.can_write %} disabled{% endif %}>Save draft</button>
-      <button type="submit" name="intent" value="submit"{% if not stepper.can_submit %} disabled{% endif %}>Submit homework</button>
-    </form>
+      {% elif stepper.homework_state.has_saved_draft %}
+        <section aria-labelledby="saved-draft-title">
+          <h3 id="saved-draft-title">Saved draft — not submitted</h3>
+          <ol>
+            {% for row in stepper.unsent_draft_display_rows %}
+              <li>{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}
+                {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+          {% for field, value in stepper.unsent_draft_field_rows %}
+            <p>{{ field.label }} — {{ value }}</p>
+          {% endfor %}
+        </section>
+      {% else %}
+        <p>No submission was accepted.</p>
+      {% endif %}
+    {% else %}
+      <ol>
+        {% for row in stepper.review_display_rows %}
+          <li><a href="{{ row.url }}">{% if row.has_semantic_label %}{{ row.step_label }}{% else %}Question {{ row.question_number }}: {{ row.prompt }}{% endif %}</a>
+            {% if row.answer %} — {{ row.answer }}{% else %} — No answer saved{% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+      <form method="post" action="{{ stepper.action }}" data-homework-autosave data-save-url="{{ stepper.save_url }}">
+        {% csrf_token %}
+        <input type="hidden" name="assignment_key" value="{{ stepper.assignment.key }}">
+        <input type="hidden" name="{{ stepper.step_param }}" value="review">
+        <input type="hidden" name="revision" value="{{ stepper.revision }}">
+        <input type="hidden" name="draft_token" value="{{ stepper.draft_token }}">
+        {% for field, value in stepper.final_field_rows %}
+          <label for="final-{{ field.key }}">{{ field.label }}</label>
+          {% if field.type == 'textarea' %}
+            <textarea id="final-{{ field.key }}" name="final_{{ field.key }}" maxlength="10000" rows="8"{% if field.required %} required{% endif %}>{{ value }}</textarea>
+          {% else %}
+            <input id="final-{{ field.key }}" name="final_{{ field.key }}" type="{{ field.type }}" maxlength="10000" value="{{ value }}"{% if field.required %} required{% endif %}>
+          {% endif %}
+        {% endfor %}
+        <div class="homework-draft-status">
+          <p data-save-status role="status" aria-live="polite">{{ stepper.draft_status }}</p>
+          {% include "homework_steps/_draft_status_help.html" %}
+        </div>
+        <button type="submit" name="intent" value="save"{% if not stepper.can_write %} disabled{% endif %}>Save draft</button>
+        <button type="submit" name="intent" value="submit"{% if not stepper.can_submit %} disabled{% endif %}>Submit homework</button>
+      </form>
+    {% endif %}
   {% endif %}
   {% if stepper.step == 'intro' %}<a href="{{ stepper.next_url }}">Start questions</a>{% endif %}
 </section>

@@ -11,12 +11,62 @@ Never derive that key from a query string or submitted form field. Question and 
 also be stable across content re-imports and display-order changes.
 
 Set `Question.step_label` for a semantic navigation label such as `Learning in Public`; the default
-remains `Question N`. Set `Assignment.has_submission` and pass the accepted submission's
-`existing_answers` and `existing_final_fields` to let the shared page distinguish that accepted
-version from later saved draft edits. `Assignment.context["homework_is_submitted"]` remains supported
-for existing adapters. `stepper.review_rows` keeps its existing `(prompt, answer, url)` tuples for
-site-owned templates; the shared partial uses `stepper.review_display_rows`, which also carries
-semantic labels and question numbers.
+remains `Question N`. Set `Assignment.availability` to `open`, `closed` or `scored`; it defaults to
+`open` for existing adapters. Pass an `AcceptedSubmission` with the accepted answers, final fields
+and `submitted_at` when one exists:
+
+```python
+from community_base.homework_steps.types import AcceptedSubmission
+
+assignment = Assignment(
+    key=assignment_key,
+    title=homework.title,
+    questions=questions,
+    availability="closed",
+    accepted_submission=AcceptedSubmission(
+        answers=accepted_answers,
+        final_fields=accepted_fields,
+        submitted_at=submission.submitted_at,
+    ),
+)
+```
+
+`has_submission`, `existing_answers`, `existing_final_fields`, and
+`Assignment.context["homework_is_submitted"]` remain supported for v0.5.10 adapters. The explicit
+snapshot takes precedence when provided. Accepted snapshots and `HomeworkDraft` rows remain
+separate: draft existence or revision alone never means that there are unsent changes. The package
+normalizes every declared question and final field, including blanks, before comparing snapshots;
+checkbox answer ordering does not affect the comparison.
+
+`homework_state_for(user, assignment)` reads only that learner's existing draft. It is suitable for
+a host-owned navigation row; it never creates a draft. For a signed-in request, the host can pass
+the result through to the same package fragment used by the shared page:
+
+```python
+from community_base.homework_steps.state import homework_state_for
+
+homework_state = homework_state_for(request.user, assignment)
+```
+
+The returned `LearnerHomeworkState` exposes `value`, `label`, `aria_label`, `availability`,
+`has_submission`, `has_saved_draft`, `has_pending_changes` and `submitted_at`.
+
+```django
+{% include "homework_steps/_state_label.html" with homework_state=homework_state %}
+```
+
+The fragment exposes a stable `data-homework-state` value and an accessible label. The shared
+stepper uses the same fragment and state object. Hosts place it next to the homework title in
+navigation and near the due line on the homework page. The labels are `Not submitted`, `Draft`,
+`Submitted`, `Unsubmitted changes`, `Closed — not submitted`, and `Scored`. Scored status requires
+an accepted learner submission; a scored assignment without one stays `Closed — not submitted`.
+For a closed or scored assignment, Review shows the accepted snapshot and its time first. A saved
+draft that differs from it appears separately as `Unsubmitted draft`; the review does not expose a
+submit control. An open accepted submission with changed answers is `Unsubmitted changes`.
+
+`stepper.review_rows` keeps its existing `(prompt, answer, url)` tuples for site-owned templates;
+the shared partial uses `stepper.review_display_rows`, which also carries semantic labels and
+question numbers.
 
 ```python
 return handle_stepper(

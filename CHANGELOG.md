@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.11
+
+- #301: add a six-state learner homework descriptor and a read-only helper for rendering the same
+  state in navigation and homework pages. Closed/scored review keeps the accepted snapshot and
+  submission time primary, shows changed drafts separately, and omits submit controls.
+
 ## 0.5.10
 
 - Homework review replaces retired choice keys with a clear fallback message, and the stepper
