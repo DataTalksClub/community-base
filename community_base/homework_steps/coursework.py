@@ -2,7 +2,13 @@
 
 from django.apps import apps
 
-from community_base.homework_steps.types import Assignment, Eligibility, Option, Question
+from community_base.homework_steps.types import (
+    AcceptedSubmission,
+    Assignment,
+    Eligibility,
+    Option,
+    Question,
+)
 
 
 def _require_coursework():
@@ -24,7 +30,7 @@ def coursework_assignment(homework, user, *, context=None):
     """Build descriptors from a package Homework; identity includes its cohort."""
 
     _require_coursework()
-    from community_base.coursework.models import QuestionTypes, Submission
+    from community_base.coursework.models import HomeworkState, QuestionTypes, Submission
 
     questions = list(homework.questions.order_by("id"))
     types = {
@@ -73,6 +79,20 @@ def coursework_assignment(homework, user, *, context=None):
         introduction=homework.description,
         instructions=homework.instructions_markdown,
         existing_answers=existing_answers,
+        has_submission=submission is not None,
+        availability={
+            HomeworkState.OPEN.value: "open",
+            HomeworkState.CLOSED.value: "closed",
+            HomeworkState.SCORED.value: "scored",
+        }[homework.state],
+        accepted_submission=(
+            AcceptedSubmission(
+                answers=existing_answers,
+                submitted_at=submission.submitted_at,
+            )
+            if submission
+            else None
+        ),
         context=context,
     )
 

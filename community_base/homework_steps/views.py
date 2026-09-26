@@ -16,6 +16,11 @@ from community_base.homework_steps.services import (
     submit_draft,
     validate_assignment,
 )
+from community_base.homework_steps.state import (
+    accepted_submission_for,
+    calculate_homework_state,
+    changed_snapshot_keys,
+)
 
 
 def _step(assignment, key):
@@ -66,24 +71,10 @@ def _step_url(action, query_params, step_param, step, step_url_builder=None):
 
 
 def _has_submission(assignment, context):
-    return assignment.has_submission or bool(context.get("homework_is_submitted"))
-
-
-def _has_pending_changes(assignment, draft):
-    question_keys = {question.key for question in assignment.questions}
-    field_keys = {field.key for field in assignment.final_fields}
-
-    def populated(values, allowed):
-        return {
-            key: value
-            for key, value in values.items()
-            if key in allowed and value not in (None, "", [])
-        }
-
-    return populated(draft.answers, question_keys) != populated(
-        assignment.existing_answers, question_keys
-    ) or populated(draft.final_fields, field_keys) != populated(
-        assignment.existing_final_fields, field_keys
+    return (
+        assignment.has_submission
+        or bool(context.get("homework_is_submitted"))
+        or (assignment.accepted_submission is not None)
     )
 
 
@@ -137,6 +128,19 @@ def _render(
     typed_fields=None,
     step_url_builder=None,
 ):
+    receipt_valid = _valid_receipt(request, assignment)
+    accepted = accepted_submission_for(assignment, submitted=receipt_valid)
+    homework_state = calculate_homework_state(
+        assignment,
+        draft_answers=draft.answers,
+        draft_final_fields=draft.final_fields,
+        draft_exists=True,
+        accepted_submission=accepted,
+    )
+    closed_review = assignment.availability != "open"
+    accepted_snapshot_primary = closed_review and accepted is not None
+    primary_answers = accepted.answers if accepted_snapshot_primary else draft.answers
+    primary_fields = accepted.final_fields if accepted_snapshot_primary else draft.final_fields
     previous, question, next_step = _step(assignment, step)
     answer = (
         typed_answer
@@ -148,7 +152,6 @@ def _render(
         )
     )
     field_values = typed_fields if typed_fields is not None else draft.final_fields
-    field_rows = [(field, field_values.get(field.key, "")) for field in assignment.final_fields]
     options = (
         [
             (option, option.key in answer if isinstance(answer, list) else option.key == answer)
@@ -180,25 +183,61 @@ def _render(
             step == "review",
         )
     )
-    review_rows = []
-    review_display_rows = []
-    for item in assignment.questions:
-        answer_value = draft.answers.get(item.key, "")
-        answer_display = _review_answer(item, answer_value)
-        review_url = _step_url(action, query_params, step_param, item.key, step_url_builder)
-        # Keep the original tuple contract for site-owned templates. The richer
-        # rows give the shared partial enough data to show semantic labels.
-        review_rows.append((item.prompt, answer_display, review_url))
-        review_display_rows.append(
-            {
-                "step_label": item.step_label,
-                "question_number": len(review_display_rows) + 1,
-                "has_semantic_label": bool(item.step_label),
-                "prompt": item.prompt,
-                "answer": answer_display,
-                "url": review_url,
-            }
+
+    def display_rows(answer_values, *, keys=None):
+        rows = []
+        for item in assignment.questions:
+            if keys is not None and item.key not in keys:
+                continue
+            answer_display = _review_answer(item, answer_values.get(item.key, ""))
+            review_url = _step_url(action, query_params, step_param, item.key, step_url_builder)
+            rows.append(
+                {
+                    "step_label": item.step_label,
+                    "question_number": len(rows) + 1,
+                    "has_semantic_label": bool(item.step_label),
+                    "prompt": item.prompt,
+                    "answer": answer_display,
+                    "url": review_url,
+                }
+            )
+        return rows
+
+    review_display_rows = display_rows(primary_answers)
+    review_rows = [(row["prompt"], row["answer"], row["url"]) for row in review_display_rows]
+    pending_draft_display_rows = []
+    pending_draft_field_rows = []
+    accepted_field_rows = []
+    if accepted is not None:
+        changed_questions, changed_fields = changed_snapshot_keys(
+            assignment, draft.answers, draft.final_fields, accepted
         )
+        if closed_review:
+            pending_draft_display_rows = display_rows(draft.answers, keys=changed_questions)
+            pending_draft_field_rows = [
+                (field, draft.final_fields.get(field.key, ""))
+                for field in assignment.final_fields
+                if field.key in changed_fields
+            ]
+            accepted_field_rows = [
+                (field, accepted.final_fields.get(field.key, ""))
+                for field in assignment.final_fields
+            ]
+    field_rows = [(field, primary_fields.get(field.key, "")) for field in assignment.final_fields]
+    unsent_draft_display_rows = (
+        display_rows(draft.answers)
+        if closed_review and accepted is None and homework_state.has_saved_draft
+        else []
+    )
+    unsent_draft_field_rows = (
+        [
+            (field, draft.final_fields.get(field.key, ""))
+            for field in assignment.final_fields
+            if draft.final_fields.get(field.key)
+        ]
+        if closed_review and accepted is None and homework_state.has_saved_draft
+        else []
+    )
     context = dict(assignment.context) if isinstance(assignment.context, dict) else {}
     save_urls = context.get("homework_save_urls", {})
     save_url = save_urls.get(question.key) if question and isinstance(save_urls, dict) else None
@@ -217,6 +256,11 @@ def _render(
                 "nav_steps": nav_steps,
                 "review_rows": review_rows,
                 "review_display_rows": review_display_rows,
+                "pending_draft_display_rows": pending_draft_display_rows,
+                "pending_draft_field_rows": pending_draft_field_rows,
+                "accepted_field_rows": accepted_field_rows,
+                "unsent_draft_display_rows": unsent_draft_display_rows,
+                "unsent_draft_field_rows": unsent_draft_field_rows,
                 "step": step,
                 "step_number": 0
                 if step == "intro"
@@ -242,14 +286,17 @@ def _render(
                 "draft_token": str(draft.token),
                 "saved_at": draft.saved_at,
                 "draft_status": "Saved" if draft.revision else "Draft ready",
+                "homework_state": homework_state,
                 "can_write": eligibility.write,
                 "can_submit": eligibility.submit,
+                "show_review_form": not closed_review,
+                "closed_review": closed_review,
+                "accepted_snapshot_primary": accepted_snapshot_primary,
                 "reason": eligibility.reason,
                 "error": error,
-                "submitted": _valid_receipt(request, assignment)
-                or _has_submission(assignment, context),
-                "has_pending_changes": _has_submission(assignment, context)
-                and _has_pending_changes(assignment, draft),
+                "submitted": accepted is not None or _has_submission(assignment, context),
+                "has_pending_changes": homework_state.has_pending_changes,
+                "accepted_submitted_at": accepted.submitted_at if accepted else None,
                 "notice": request.GET.get("notice") == "changed",
             }
         }
@@ -364,7 +411,9 @@ def handle_stepper(
             raise ValueError
     except ValueError:
         return JsonResponse({"error": "Invalid revision"}, status=400)
-    if not eligibility.write or (intent == "submit" and not eligibility.submit):
+    if not eligibility.write or (
+        intent == "submit" and (not eligibility.submit or assignment.availability != "open")
+    ):
         return _render(
             request,
             assignment,

@@ -192,3 +192,11 @@ Sites using package-owned `Homework`, `Question` and `Submission` rows may insta
 `community_base.homework_steps` app and use `coursework_assignment(homework, user)` with
 `CourseworkAdapter(homework)`. Its final submit calls this app's existing `submit_homework` path,
 so scoring, state checks and hooks stay authoritative. See `community_base/homework_steps/README.md`.
+The adapter maps `HomeworkState.OPEN`, `CLOSED` and `SCORED` into the generic assignment
+availability and places the learner's `Submission.submitted_at` and answers in an
+`AcceptedSubmission` snapshot. The generic descriptor also carries accepted host-defined final
+fields. A scored homework with no submission by this learner is presented as
+`Closed — not submitted`; scoring the assignment does not imply that every learner submitted or
+received a score. On a closed/scored review, the accepted snapshot remains primary and a different
+saved `HomeworkDraft` is shown separately as an unsubmitted draft. The generic state and shared
+fragment are documented in `community_base/homework_steps/README.md`.
