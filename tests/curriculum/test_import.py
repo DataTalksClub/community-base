@@ -426,13 +426,14 @@ class NestedImportTests(TestCase):
             nested_module_dir = fixture / "02-week-two" / "03-topic"
             nested_module_dir.mkdir()
             (nested_module_dir / "module.yaml").write_text(
-                "content_id: 2b3c4d5e-000e-4000-8000-000000000001\n"
-                "title: Topic\n"
+                "content_id: 2b3c4d5e-000e-4000-8000-000000000001\ntitle: Topic\n"
             )
             moved_homework_dir = nested_module_dir / "01-homework"
             shutil.move(str(homework_dir), str(moved_homework_dir))
             homework_yaml = moved_homework_dir / "homework.yaml"
-            homework_yaml.write_text(homework_yaml.read_text().replace("sort_order: 3", "sort_order: 1"))
+            homework_yaml.write_text(
+                homework_yaml.read_text().replace("sort_order: 3", "sort_order: 1")
+            )
 
             from community_base.curriculum.importing import apply_curriculum_tree
             from community_base.curriculum.parsers import parse_course_tree
