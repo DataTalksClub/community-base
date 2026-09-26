@@ -346,6 +346,19 @@ def test_a_module_holding_both_submodules_and_units_keeps_one_sibling_order(tmp_
     ]
 
 
+def test_a_direct_unit_and_child_module_cannot_repeat_a_sibling_order(tmp_path):
+    root = copy(DTC_NESTED, tmp_path, "duplicate-mixed-order")
+    (root / "01-week-one" / "01-session.md").write_text(
+        "---\ncontent_id: 2b3c4d5e-000e-4000-8000-000000000001\n"
+        "title: Session\n---\nSession notes.\n"
+    )
+
+    with pytest.raises(CurriculumParseError) as error:
+        parse(root)
+
+    assert "duplicate sibling order 1" in str(error.value)
+
+
 def test_a_yaml_homework_unit_pairs_structured_fields_with_companion_prose(tmp_path):
     root = copy(DTC_NESTED, tmp_path, "homework-tree")
     week = root / "01-week-one"

@@ -28,7 +28,7 @@ uv run python manage.py migrate
 |---|---|
 | `Course` | Reusable course; tags, testimonials, links, access levels, provenance. |
 | `Cohort` | One delivery of a course: `mode="cohort"` (dated) or `mode="self_paced"` (one per course). |
-| `Module` | Ordered module, owned by the course (shared across every cohort). `parent` makes it a submodule of another module -- maximum two module levels. A module holds either child modules or direct units, never both. `is_bonus` and `available_after_days` (a drip offset for a top-level module, cascading to its units unless they override it) round it out. |
+| `Module` | Ordered module, owned by the course (shared across every cohort). `parent` makes it a submodule; physical directories define an arbitrarily deep tree. Direct units and child modules may be mixed and share one unique sibling order. `is_bonus` and `available_after_days` (a drip offset cascading through descendants unless overridden) round it out. |
 | `Unit` | Lesson, owned by its module. `kind` is `lesson` (default), `homework`, `event` or `checklist_item`; `event` units carry `session_position` (1-indexed, not a foreign key -- the site resolves the real event per viewer, against the viewer's own cohort, at render time) instead of embedding cohort-specific data in shared curriculum. `is_bonus` excludes a unit from the progress denominator while it is still tracked and displayed. |
 | `CohortModule` | Optional per-cohort placement of a top-level module: `cohort`, `module`, `sort_order`. A cohort with no placements shows the course's full module tree in module order -- the common case, requiring zero extra rows. A cohort with placements shows exactly that curated subset and order instead, for courses whose cohorts genuinely differ (two cohorts of the same course each placing a different module that represents an alternative treatment of one topic, for example). |
 | `Enrollment` | User-cohort enrollment with soft-delete history. |
@@ -40,13 +40,10 @@ uv run python manage.py migrate
 `.syllabus_modules` (placements, or the course's default tree); `Cohort.effective_modules()`
 computes the same thing for one cohort. Progress (`Course.total_units()`,
 `Course.completed_units()`) and the depth-first reading order
-(`services.get_all_units_ordered()`, reused by `get_next_unit`/`get_prev_unit`) walk this same
-shape: for each top-level module, in `sort_order`, either its own units (a module with no
-children) or each child module's units in order (a module with children) -- never both, since a
-module never mixes children and direct units. `is_bonus` (on the unit, its module, or that
-module's parent module) excludes a unit from the progress denominator; `kind="event"` units
-still count; `kind="checklist_item"` units never count, whether or not they are marked
-`is_bonus`.
+(`services.get_all_units_ordered()`, reused by `get_next_unit`/`get_prev_unit`) walk the recursive
+module tree and each module's mixed sibling sequence. `is_bonus` (on the unit or any ancestor
+module) excludes a unit from the progress denominator; `kind="event"` units still count;
+`kind="checklist_item"` units never count, whether or not they are marked `is_bonus`.
 
 ## Pre-work checklists
 
@@ -101,7 +98,9 @@ between them (issue C7.10 names both files).
 <course>/NN-<module>/module.yaml
 <course>/NN-<module>/README.md                    module overview, optional
 <course>/NN-<module>/NN-<unit>.md
-<course>/NN-<module>/NN-<submodule>/module.yaml   optional second module level
+<course>/NN-<module>/NN-child-module/module.yaml  recursive module directory
+<course>/NN-<module>/NN-homework/homework.yaml    structured homework unit
+<course>/NN-<module>/NN-homework/homework.md      required unit prose companion
 <course>/cohorts/<identifier>/cohort.yaml
 <course>/cohorts/<identifier>/README.md           cohort notice, optional
 <course>/cohorts/<identifier>/homework/<module-slug>/homework.yaml
@@ -124,8 +123,8 @@ diagnostic, not by a second rule written in the parser.
 | Graph | From |
 |---|---|
 | `CourseGraph` | `course.yaml` plus the core keys; `image` becomes `cover_image_url`, `repository_url` becomes `github_repo_url`, `status` drives `visible`. |
-| `ModuleGraph` | one `module.yaml` per module directory, its `README.md` as `overview`, `sort_order` from the `NN-` prefix, recursive through `children` to at most two module levels. |
-| `UnitGraph` | one `NN-<unit>.md` per unit: `kind`, `video_url`, `timestamps`, `session_position`, `is_bonus`, `code`, with the markdown body unrendered. |
+| `ModuleGraph` | one `module.yaml` per module directory, its `README.md` as `overview`, with mixed `items` containing direct units and child modules in source order at any depth. |
+| `UnitGraph` | one `NN-<unit>.md` or `NN-<unit>/homework.yaml` plus `homework.md`; the prose remains unrendered and is stored on the matching Unit field. YAML homework carries due date, form/final fields and ordered questions. |
 | `CohortGraph` | one `cohorts/<identifier>/cohort.yaml` per cohort; `delivery` becomes `mode`, `modules` becomes `module_refs`, `homework` becomes `homework_bindings`. |
 
 Cohort placement follows the contract `CohortModule` already has: `module_refs is None` means
@@ -151,9 +150,33 @@ Three parser rulings, where section 3.8 is silent:
 
 One importer applies the graph: source-managed rows are created, updated or removed to match the
 repository, a course that vanishes is soft-deleted to `draft`, and every import records a
-`CurriculumImportRun`. Re-importing unchanged content is a no-op. `source.validate_module_tree`
-rejects a mixed module (children and direct units) or a tree deeper than two module levels,
-naming the offending directory.
+`CurriculumImportRun`. Re-importing unchanged content is a no-op. Each module's direct units and
+child modules use one order sequence; missing or repeated sibling orders fail before import.
+Moving a source unit between modules matches it course-wide by `content_id` and reparents its
+existing row, preserving progress and coursework foreign keys.
+
+### Tree parser and projection API
+
+`parse_course_tree(source, path=".", ignore=())` parses only a course's physical module/unit tree.
+It can read a legacy repository root marked by `course.yaml`; site adapters may use `ignore` for
+their existing repository-owned exclusions. The returned `CourseTreeGraph.modules` contains
+recursive `ModuleGraph.items` tuples, each an ordered union of `ModuleGraph` and `UnitGraph`.
+Project references resolve their source-relative `module_path` to a stable module content ID.
+
+For an existing shared `Course`, `apply_curriculum_tree(course, tree, *, commit, checkout)` upserts
+only module and unit rows. It also updates package Coursework assignments already linked to a YAML
+homework Unit by default; `sync_homework=False` leaves coursework to the host adapter. This does
+not create cohort assignments. It maps the YAML question's stable `id` before its content UUID so
+an identity migration updates a `Question` in place and preserves `Answer` and `Submission`
+references. Course-tree `correct` values go to `Question.correct_answer`; cohort homework manifests
+remain envelope-only. Correct answers are not part of learner curriculum projections.
+
+`services.get_curriculum_tree(course, modules=None)` returns an ordered tuple of frozen
+`ModuleProjection` and `UnitProjection` values. A module projection exposes its ORM row, recursive
+mixed-order `items`, source `path`, `depth`/`level`, direct and descendant unit counts, and
+descendant module count. `.all_units` returns descendant units in reading order. A unit projection
+exposes the ORM unit, full path, module path and depth. Neither projection includes coursework
+questions or scoring answers.
 
 Run imports with the content sync command:
 

@@ -158,10 +158,11 @@ provenance set on those two models.
 - A tree is expressed by directories and by nothing else. `parent:` keys do not exist.
 - In a docs collection: a directory is a node and must contain `index.md`; leaves are `NN-slug.md`
   files; maximum depth four below the collection root.
-- In a course: a module is a directory holding `module.yaml`; a submodule is a directory holding
-  `module.yaml` inside a module directory; maximum two module levels
-  (`curriculum.source.validate_module_tree`); a module directory holds either submodule directories
-  or unit files, never both, apart from `README.md` and asset directories.
+- In a course: a module is a directory holding `module.yaml`. Module directories may nest to any
+  depth and may contain direct units beside child module directories. Direct units and child
+  modules share one sibling order; every sibling must have a unique order, from its numeric name
+  prefix or an explicit `sort_order`. Missing or duplicate sibling orders are errors. `README.md`,
+  `homework.md` companions and asset directories are supporting files, not siblings.
 - A wiki collection is flat: one directory of `slug.md` files; subdirectories are an error, apart
   from asset directories.
 - Cohorts are not part of the tree; they are placements (section 3.8, course).
@@ -352,8 +353,9 @@ Layout, with `<course>` the collection path (`.` for a single-course repository,
 <course>/NN-<module>/NN-<unit>.md
 <course>/NN-<module>/images/...                   assets
 <course>/NN-<module>/code/...                     never synced, referenced by unit `code`
-<course>/NN-<module>/NN-<submodule>/module.yaml   optional second level
-<course>/NN-<module>/NN-<submodule>/NN-<unit>.md
+<course>/NN-<module>/NN-<child-module>/module.yaml recursive module directory
+<course>/NN-<module>/NN-homework/homework.yaml    structured homework unit
+<course>/NN-<module>/NN-homework/homework.md      homework page prose, required
 <course>/cohorts/<identifier>/cohort.yaml
 <course>/cohorts/<identifier>/README.md           cohort notes or archive notice, optional
 <course>/cohorts/<identifier>/homework/<module-slug>/homework.yaml
@@ -403,6 +405,12 @@ under `extra` and stay DTC-read. `cohorts`, `current_cohort`, `urls`, `schema_ve
 syllabus. Set it on the first top-level module in a section. It is a presentation label; it does
 not affect module ordering, access or progress.
 
+The directory tree is the module hierarchy at every depth. A module may mix child module
+directories, ordinary Markdown units and structured homework unit directories. Those direct units
+and child modules occupy one ordered sibling sequence. Their numeric directory/file prefixes are
+orders unless `sort_order` is written explicitly; each parent's sibling orders must be present and
+unique.
+
 No `units` list, no `schema_version`, no `bonus`, no `ignore`. The overview is `README.md`.
 
 Unit document `NN-<unit>.md`
@@ -419,6 +427,33 @@ Unit document `NN-<unit>.md`
 The body is the lesson. A `kind: homework` unit body is the instructions page; the gradable
 assignment is the cohort's `homework.yaml`. `is_homework`, `is_preview`, `access`, `prev_url` and
 `next_url` do not exist.
+
+Structured course-tree homework unit directory `NN-<slug>/homework.yaml` and `homework.md`
+
+The directory is one unit in its parent module's sibling order. `homework.yaml` uses the normal
+unit core keys (`content_id`, `title`, and `slug`; order comes from the numeric directory prefix or
+an explicit `sort_order`) plus these fields:
+
+| Key | Type | Required | Default |
+|---|---|---|---|
+| `due_at` | ISO datetime with offset | yes | none |
+| `form` | mapping of form flags and `learning_in_public_cap` | no | field defaults |
+| `final_fields` | list of `{key, label, type, required}` | no | `[]` |
+| `questions` | ordered question list | yes | none |
+
+Question `type` is `multiple_choice`, `checkboxes`, `free_form` or `free_form_long`. Every
+question has a UUID `content_id`, stable authored `id` slug, `prompt`, and optional `points`
+(default `1`) and `step_label`. Choice questions carry ordered `{id, label}` `options`; free-form
+questions carry an `answer_type` (`any`, `float`, `integer`, `exact_string` or `contains_string`).
+Course-tree homework alone accepts `correct` in the existing scoring format (one-based option
+indices for choice questions). The importer carries it into the existing scoring field and
+learner-facing curriculum projections do not include it. Answer sealing follows when the shared
+keyring is provisioned.
+
+The required `homework.md` companion is the unit's prose body and is stored as the unit's homework
+content; it is not a cohort assignment instruction document. This convention does not change
+cohort manifests below: their answers remain encrypted envelopes and plaintext `correct` remains
+invalid there.
 
 `cohorts/<identifier>/cohort.yaml`. The identifier is the directory name and is not repeated inside
 the file. It follows the slug pattern (`2026`, `self-paced`, `4`).
