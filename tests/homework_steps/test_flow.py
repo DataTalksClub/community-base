@@ -340,6 +340,73 @@ def test_semantic_step_label_is_used_in_navigation_question_and_review(user, ass
     assert b"Question 1: Share one progress link." not in review_page.content
 
 
+def test_public_link_step_uses_configured_editor_and_saves_links(user):
+    public_links = Assignment(
+        key="course:cohort-1:public-links",
+        title="Homework with public posts",
+        questions=(
+            Question(
+                "learning-in-public",
+                "Share your progress.",
+                "long_text",
+                step_label="Learning in Public",
+            ),
+        ),
+        context={"learning_in_public_cap": 3},
+    )
+    adapter = Adapter()
+
+    page = flow(user, public_links, adapter, query="?homework_step=learning-in-public")
+    assert b'data-learning-public-links data-max-links="3"' in page.content
+    assert b"Optional. Add up to 3 links to posts about your progress." in page.content
+    assert b"community_base/homework_public_links.js" in page.content
+
+    saved = flow(
+        user,
+        public_links,
+        adapter,
+        method="POST",
+        data={
+            "homework_step": "learning-in-public",
+            "revision": "0",
+            "answer": "https://example.com/one\nhttps://example.com/two",
+            "next_step": "review",
+        },
+    )
+    assert saved.status_code == 302
+    draft = HomeworkDraft.objects.get(user=user, assignment_key=public_links.key)
+    assert draft.answers["learning-in-public"] == (
+        "https://example.com/one\nhttps://example.com/two"
+    )
+    review = flow(user, public_links, adapter, query="?homework_step=review")
+    assert b"https://example.com/one" in review.content
+    assert b"Learning in Public</strong>" in review.content
+
+
+def test_long_review_answer_has_expandable_full_text(user, assignment):
+    adapter = Adapter()
+    long_answer = "A" * 300
+    flow(user, assignment, adapter, query="?homework_step=q2")
+    saved = flow(
+        user,
+        assignment,
+        adapter,
+        method="POST",
+        data={
+            "homework_step": "q2",
+            "revision": "0",
+            "answer": long_answer,
+            "next_step": "review",
+        },
+    )
+    assert saved.status_code == 302
+
+    review = flow(user, assignment, adapter, query="?homework_step=review")
+    assert b"<details>" in review.content
+    assert b"<summary>" in review.content
+    assert review.content.count(long_answer.encode()) == 1
+
+
 def test_draft_status_help_is_available_on_question_and_review_steps(user, assignment):
     for query in ("?homework_step=q1", "?homework_step=review"):
         response = flow(user, assignment, Adapter(), query=query)

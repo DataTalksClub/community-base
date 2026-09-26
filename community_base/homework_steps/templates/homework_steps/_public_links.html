@@ -1,0 +1,13 @@
+<div class="homework-public-links" data-learning-public-links data-max-links="{{ stepper.assignment.context.learning_in_public_cap }}">
+  <div class="homework-public-links-heading">
+    <div>
+      <p class="homework-public-links-title">Your public posts</p>
+      <p data-testid="learning-public-link-guidance">Optional. Add up to {{ stepper.assignment.context.learning_in_public_cap }} links to posts about your progress.</p>
+    </div>
+    <output data-public-link-count aria-live="polite"></output>
+  </div>
+  <label for="homework-public-links-fallback" data-public-links-fallback-label>Public links, one per line</label>
+  <textarea id="homework-public-links-fallback" name="answer" data-public-links-value rows="3">{{ stepper.answer }}</textarea>
+  <div data-public-link-slots data-testid="learning-public-link-slots"></div>
+  <button type="button" data-add-public-link hidden><span aria-hidden="true">+</span> <span data-add-public-link-label>Add another link</span></button>
+</div>
