@@ -997,9 +997,11 @@ Steps
    `community_base.content_sync` and `community_base.curriculum`; do not add a site-specific
    path/title exception.
 2. Preserve YAML unit identity, ordered question IDs and structured homework fields while the
-   Markdown companion remains prose. Keep cohort-scoped homework bindings separate. Convert
-   authored scoring answers such as `correct: 'N'` losslessly to the approved answer-envelope
-   path; never expose them in learner-facing projections or add a plaintext answer import path.
+   Markdown companion remains prose. Keep cohort-scoped homework bindings separate. Accept
+   existing authored `correct: 'N'` values only in the course-tree homework unit schema, validate
+   and import them losslessly to the existing scoring field, and exclude them from learner-facing
+   projections. The distinct cohort-manifest envelope-only rule stays intact. Source answer
+   sealing follows when a shared AISL keyring is provisioned.
 3. Carry `is_bonus`, authored syllabus-section labels and source-relative project-module
    references through the shared graph and projection. Reject ambiguous IDs/orders and unresolved
    references before import; accept valid mixed unit/module siblings.
@@ -1022,8 +1024,9 @@ parser and projection, retain site-owned policy, and coordinate the 32 first-lev
 placements with #1675. Preserve current first-level canonical URLs where source slugs permit;
 remove obsolete nested-path behavior except the `/c/<uuid>` share link. Moved units retain their
 source IDs and existing homework, submission, draft, scoring and progress records. Migrate
-`correct` answer indices losslessly to the encrypted envelope path; public projections do not expose
-correctness. Remove former nested-path redirects except `/c/<uuid>` share links. Preserve authored
+`correct` answer indices losslessly through the import boundary to the existing scoring field;
+public projections do not expose correctness. Remove former nested-path redirects except
+`/c/<uuid>` share links. Preserve authored
 syllabus-section metadata, `is_bonus`, event identity and generic project-to-module association.
 The detailed migration inventory and acceptance criteria are in #1830.
 
