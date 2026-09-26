@@ -981,9 +981,79 @@ Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playboo
 This is the single adoption-ready domain release. Do not publish provisional `v0.4.0` or
 `v0.5.0` releases containing kept-label migrations.
 
+## C5.4 Repository-derived curriculum hierarchy and YAML-backed homework units
+
+Repository: community-base. Depends on: C5.1e, C5.2i, C7.10, C7.11. Related issue:
+DataTalksClub/community-base#306.
+
+Goal: the physical course repository defines the shared curriculum tree. `module.yaml` folders
+are modules; `homework.yaml` plus `homework.md` folders are structured homework units. A module
+may contain direct units and child module folders together. The graph, importer and projection
+preserve their single shared sibling order. Stable IDs remain source data; no generated projection
+is checked in.
+
+Steps
+1. Implement the generic source convention, schema validation and graph/importer behavior in
+   `community_base.content_sync` and `community_base.curriculum`; do not add a site-specific
+   path/title exception.
+2. Preserve YAML unit identity, ordered question IDs and structured homework fields while the
+   Markdown companion remains prose. Keep cohort-scoped homework bindings separate. Accept
+   existing authored `correct: 'N'` values only in the course-tree homework unit schema, validate
+   and import them losslessly to the existing scoring field, and exclude them from learner-facing
+   projections. The distinct cohort-manifest envelope-only rule stays intact. Source answer
+   sealing follows when a shared AISL keyring is provisioned.
+3. Carry `is_bonus`, authored syllabus-section labels and source-relative project-module
+   references through the shared graph and projection. Reject ambiguous IDs/orders and unresolved
+   references before import; accept valid mixed unit/module siblings.
+4. Update the format and curriculum docs. Release the package change only after package and both
+   consumer test gates are reported separately.
+
+Verification
+- Package curriculum/content-sync tests, quality gates, migration check and boundary tests pass.
+- A fixture with interleaved direct units, homework and child modules renders in the exact source
+  order; moving a YAML homework unit while retaining `content_id` updates the existing identity.
+- AISL and DTC tests against the package revision are run and reported independently.
+
+## A5.3 AISL: render course hierarchy from repository structure
+
+Repository: AI-Shipping-Labs/website. Depends on: C5.4. Related issue:
+AI-Shipping-Labs/website#1830.
+
+Remove the local course-inline flattening and course-specific hierarchy branches. Use the package
+parser and projection, retain site-owned policy, and coordinate the 32 first-level Buildcamp source
+placements with #1675. Preserve current first-level canonical URLs where source slugs permit;
+remove obsolete nested-path behavior except the `/c/<uuid>` share link. Moved units retain their
+source IDs and existing homework, submission, draft, scoring and progress records. Migrate
+`correct` answer indices losslessly through the import boundary to the existing scoring field;
+public projections do not expose correctness. Remove former nested-path redirects except
+`/c/<uuid>` share links. Preserve authored
+syllabus-section metadata, `is_bonus`, event identity and generic project-to-module association.
+The detailed migration inventory and acceptance criteria are in #1830.
+
+Verification
+- Synthetic mixed-tree and moved-unit tests pass; `make test-affected` passes against C5.4.
+- Package, AISL and DTC checks are reported separately.
+
+## D5.3 DTC: adopt repository-derived course hierarchy and homework units
+
+Repository: DataTalksClub/website. Depends on: C5.4. Related issue:
+DataTalksClub/website#436.
+
+Use the package parser and projection for nested directories and structured homework units. Keep
+only DTC-owned cohort placement/binding, access and route adapters; re-scope #398/#399 to avoid a
+second generic parser or projection. Preserve course/cohort homework submissions and IDs, project
+references, and the existing route compatibility contract. The detailed migration and acceptance
+criteria are in #436.
+
+Verification
+- Flat and mixed-tree fixtures import and render with package order; homework bindings and learner
+  records remain attached.
+- The route-contract test and affected DTC tests pass; package, AISL and DTC checks are reported
+  separately.
+
 ## A5.1 Map AISL courses to the shared apps
 
-Repository: AI-Shipping-Labs/website. Depends on: C5.3.
+Repository: AI-Shipping-Labs/website. Depends on: C5.3, A5.3.
 
 Steps
 1. Mapping document in the pull request: every field of `content.Course`, `Module`, `Unit`,
@@ -1008,7 +1078,7 @@ a Free member (paywall), progress toggle persists, purchase flow grants access.
 
 ## D5.1 Map DTC course platform data to the shared apps
 
-Repository: DataTalksClub/website. Depends on: C5.3.
+Repository: DataTalksClub/website. Depends on: C5.3, D5.3.
 
 Steps
 1. Mapping document: `courses.Course`, `Cohort`, `Module`, `Unit`, `Enrollment`, `UnitReadState`
