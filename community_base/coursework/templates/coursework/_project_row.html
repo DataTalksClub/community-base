@@ -1,0 +1,16 @@
+{% comment %}
+One learner's row in a course page Projects table (C5.2k). Include it once per row inside the
+site's own list, for example `<ul class="cb-list">`, with the rows from
+`community_base.coursework.project_rows.project_rows_for_cohort`.
+
+Context: row, a `ProjectRow`. The title links only when the row carries `href`, which the
+builder sets from the site's URL resolver. `data-surface` on the badge is the pill surface
+(`past`, `your_move`, `done`, `result`) for the site to style; the stage and the deadline kind
+are exposed the same way. Override this file at the same path to restyle it; the lifecycle
+rules stay in `project_rows.py`.
+{% endcomment %}
+<li class="cb-card" data-project-stage="{{ row.stage }}">
+  <h3 class="cb-card-title">{% if row.href %}<a href="{{ row.href }}">{{ row.project.title }}</a>{% else %}{{ row.project.title }}{% endif %}</h3>
+  <p class="cb-card-meta" data-deadline-kind="{{ row.deadline_kind }}"><time datetime="{{ row.deadline|date:'c' }}">{{ row.deadline }}</time>{% if row.completed %} · Completed{% endif %}</p>
+  <span class="cb-badge" data-surface="{{ row.surface }}">{{ row.label }}</span>
+</li>

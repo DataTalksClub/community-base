@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- C5.2k (#312): move the course management platform's per-project learner row into
+  `coursework.project_rows` unchanged: stage, badge label, pill surface, link target and
+  deadline for every project state, the review-completed threshold, and pooled projects staged
+  by `review_state`. Adds `project_rows_for_cohort` and the `coursework/_project_row.html` include.
+
 ## 0.5.12
 
 - #308: share compact, accessible homework Review rows with expandable long answers and distinct
