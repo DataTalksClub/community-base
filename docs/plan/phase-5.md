@@ -1239,8 +1239,13 @@ Steps
    original instance's parent until comparison. Preserve stored slugs and global writer semantics.
 4. Upsert every unit before course-wide stale-unit cleanup, then perform existing stale-module
    cleanup. Cover both traversal directions and a source module that disappears entirely.
-5. Reject incoming duplicate IDs and occupied destinations for known-identity moves before the
-   first import-run/domain write. Preserve the existing slug fallback when no identity matches.
+5. Reject incoming duplicate IDs, conflicting final destination claims and retained/unmanaged
+   destination collisions before the first import-run/domain write. Preserve valid same-slug
+   swaps/cycles and replacement of truly stale source-managed occupants. Reserve known identities
+   before fallback so a new unit filling a moved unit's old slot cannot steal the moving row;
+   otherwise preserve the existing slug fallback when no identity matches. Any temporary slug
+   parking stays inside the transaction, emits no intermediate save signals and is fully restored
+   or rolled back.
 6. Extract cohesive importer responsibilities where required by coding standards. Update this
    plan and the curriculum README; keep the remaining C5.4 and donor-adoption work unfinished.
 
@@ -1249,6 +1254,8 @@ Verification
   UnitProgress, Homework.unit, submission and answer identities/values and reimport is idempotent.
 - Invalid/ambiguous inputs leave import-run and domain rows unchanged; independent-course UUID
   reuse, repeated sibling slugs, legacy fallback and true stale deletion remain supported.
+- Same-slug swaps/cycles, replacing stale destination rows and filling a moved unit's old slot
+  preserve the final identities. No temporary parked value survives success or rollback.
 - Curriculum/content-sync tests, full package suite, lint/format, system checks, migration drift,
   fresh migrations, boundary checks and `uv run python scripts/plan.py check` pass.
 - Both consumer gates run and are reported independently with captured source revisions and
