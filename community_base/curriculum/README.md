@@ -155,6 +155,18 @@ repository, a course that vanishes is soft-deleted to `draft`, and every import 
 rejects a mixed module (children and direct units) or a tree deeper than two module levels,
 naming the offending directory.
 
+A module matched by its course-scoped source identity keeps its row and its units when it
+moves between parents or between child and top level within that valid tree. The importer writes
+the new parent before deleting stale modules, so removing the old parent preserves the moved
+module, unit progress and homework links. A parent change counts as updated once; an identical
+reimport is unchanged. Stored slugs and parent-plus-slug fallback retain their existing behavior.
+Cohort placements still target top-level modules and follow their existing synchronization rules.
+
+This is the bounded module preservation guarantee of `C5.4b`. Mixed module/unit siblings, shared
+ordering and YAML-backed homework units remain in `C5.4`; unit movement between module rows is
+covered separately by `C5.4a`. Package fixtures do not establish AISL donor equivalence or replace
+the development-copy rehearsal required during adoption.
+
 Run imports with the content sync command:
 
 ```text
