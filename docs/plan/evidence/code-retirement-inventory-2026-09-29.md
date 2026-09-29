@@ -29,7 +29,7 @@ Subsequent implementation and verification of row 1b are recorded in the
 | 1 | DTC `courses/homework_answer_crypto.py`, 490 lines | Package `coursework.answer_crypto`; direct imports or an explicit re-export of the same classes if the old module path must remain | Strong candidate: roughly 450–480 net lines, depending on the explicit export and test-patch contract. Actual diff must confirm | Pinned release equivalence confirmed; complete caller, exception/type identity and error/crypto checks |
 | 1b | AISL parser predecessor `_dispatch_courses`, `content/sync_parsers/families/courses.py` | Already registered `CoursesParser`; retain the live parser and its behavior | Implemented in issue #1842 worktree: 33 application lines removed, no replacement application code | Caller inventory covered 2,965 Python files; independent QA passed 5,377 Django tests, 993 browser tests, lint and server boot. Local change only; no merge/deploy claim |
 | 2 | DTC project row presentation in `courses/views/course_projects.py`, 144-line file | Pure package `coursework.project_rows.project_row`, released in v0.5.13; retain legacy queries and a small mapping into existing template attributes | Approximately 50–70 lines of repeated state/presentation logic are candidates, not the whole file; net depends on mapping adapter | DTC still pins v0.5.10; a pin update must preserve rendered behavior across intervening homework changes as well as project labels/classes/deadlines |
-| 3 | AISL traversal in `content/services/course_units.py:435`, package traversal in `curriculum/services.py:166`; related helpers in `course_home.py` and `curriculum_compat.py` | Shared traversal with explicit existing ordering semantics; site context/URLs/access remain | About 51 site + 52 package lines are the main overlap; nearby 28- and 30-line helpers may reuse it. Do not claim these spans as net deletions | AISL required-before-bonus ordering differs from package sort order |
+| 3 | AISL traversal in `content/services/course_units.py:435`, package traversal in `curriculum/services.py:166`; related helpers in `course_home.py` and `curriculum_compat.py` | Keep each current traversal and its query loader; defer a shared traversal API | Follow-up found no credible positive net deletion after preserving AISL's sibling ordering and both loaders. A small AISL-only reuse of one traversal may later remove repeated queries | AISL and package sibling order differs; AISL's `get_syllabus()` prefetch and reader/Home callers are reserved. Characterize order, navigation, progress and query count before any change |
 | 4 | Package syllabus/placement/read projections in curriculum models, services, public views and API | Candidate common read helper, only if a larger equivalent responsibility is established | Follow-up at v0.5.14 found only 4–6 common selection lines; extracting that branch would yield zero reduction or growth | Bulk versus single-cohort query behavior and nested/archive projections differ; defer this extraction |
 | 5 | DTC three repository readers, 2,596 lines; importer 1,497; source reader 229; family identity 53 | Package document toolkit, parser/import primitives; retain DTC metadata, cohort binding, transport and route adapters | Large delayed retirement candidate. Gross candidate files total 4,375 lines; full net unknown. The separate 158-line registration module is excluded | Accepted live formats, source identity, conversion sequencing and model adoption |
 | 6 | AISL `content/sync_parsers/families/courses.py`, 2,586 lines; homework parser 346 | Shared parser/import owner with small site field/policy mapping | Large delayed candidate; partial internal consolidation can precede whole-file retirement | All source variants, rename/identity behavior, homework fields and import side effects preserved |
@@ -114,7 +114,7 @@ These findings prevent an apparently simple replacement from silently changing t
 
 | Candidate replacement | Difference | Required treatment |
 |---|---|---|
-| AISL course traversal -> current package traversal | AISL puts required modules/units before bonus items; package uses sort_order/pk | Preserve the current AISL ordering through a small explicit policy; characterize prev/next and position |
+| AISL course traversal -> current package traversal | AISL partitions child modules and units required-before-bonus, but keeps top-level sort order; package uses sort_order/pk throughout | Defer shared extraction: preserve actual order, query loaders and progress policies; no credible positive net deletion is established |
 | AISL homework checks -> current package checks | AISL FLOAT is exact and EXACT_STRING case-sensitive; package allows 0.01 float tolerance and case-insensitive matching | Keep distinct assessment policy or support it explicitly; never change grades to simplify code |
 | DTC homework scoring -> current package scoring | DTC uses legacy rows, emits started/failed/scored observability events and invalidates additional cache keys | Preserve model/data, events and cache behavior before retiring the old orchestration |
 | DTC project scoring -> current package review service | DTC locks the Project row and handles InvalidCriteriaAnswerError; package lacks equivalent handling in the compared path | Prove transaction/concurrency/error parity; a successful happy-path score is insufficient |
@@ -202,9 +202,45 @@ an ordinary list, so the hoist does not move a side-effecting condition.
 
 Existing leaf/README, nested-directory and reparenting tests provide the
 baseline. Engineer verification passed 114 focused tests before/after, 5,377 selected Django
-tests with 10 skips, and 993 browser tests. Independent QA is running; the candidate is
-uncommitted and separate from issue #1842's accepted diff. Larger apparent duplicates in tree scanning differ in case
+tests with 10 skips, and 993 browser tests. Independent QA passed the same test counts plus
+lint and server boot; PM accepted local commit `8dbf63e`. It remains separate from issue #1842's
+accepted diff and is not merged or deployed. Larger apparent duplicates in tree scanning differ in case
 sensitivity, hidden-file handling and error reporting; keep those differences.
+
+## Traversal follow-up: defer shared extraction
+
+Read-only comparison used AISL main `9505beb904fd255607619d073c8ae6b0d3c7be28`
+and package `v0.5.14` at `be31364880466836dc5ed7e9eb38d10f8243944a`.
+AISL `content.services.course_units.get_all_units_ordered` walks its
+`Course.get_syllabus()` prefetch and places required child submodules and units
+before bonus siblings. Its docstring also claims required top-level modules
+precede bonus ones, but the actual `get_syllabus()` orders top-level modules
+only by `(sort_order, id)`. Preserve that observed order. The package
+`curriculum.services.get_all_units_ordered` loads the tree separately and
+keeps `(sort_order, pk)` order at every level. Neither traversal filters
+checklist items or applies a visibility filter. Progress denominators differ:
+AISL's `non_bonus_units` retains required checklist items, while the package
+excludes every checklist item from course progress.
+
+Both expose ordered units to next/previous lookup. AISL also uses its order
+for reader position, next unfinished unit and Course Home orientation links.
+A shared flattening helper would still need both query loaders and AISL's
+required-before-bonus adapter. Replacing the short loops with that helper,
+its calls and policy plumbing offers no credible positive net deletion;
+an optional package policy would expand an already oversized package function
+and bypass AISL's `get_syllabus()` contract. Do not add a dormant API while
+AISL course-unit, Home and navigation ownership is reserved.
+
+After that ownership is released, an AISL-only refactor could calculate the
+ordered list once in `build_course_unit_navigation_context` instead of calling
+next, previous and full-order helpers separately. This may reduce repeated
+queries, but requires characterization before an implementation or net-line
+claim. Existing authorities are AISL `test_curriculum_nesting_1674.py` for
+depth-first, bonus and fixed-query behavior, `test_course_units.py` for
+next/previous boundaries, `test_reader_mobile_progress_517.py` for positions,
+and package `tests/curriculum/test_services.py::TestReadingOrder`. Add cases
+for tied sort keys, bonus top-level modules, empty leaves, checklist items,
+missing current units and unchanged rendered navigation before replacement.
 
 ## Public renderer prerequisite for questionnaire consolidation
 
@@ -224,12 +260,36 @@ established the supported pure API and exact-output tests; the released wheel co
 public renderer. [AISL #1844](https://github.com/AI-Shipping-Labs/website/issues/1844)
 implements direct adoption in its own worktree with an exact tag pin. Byte-exact catalog
 and provider-prompt baselines passed before deletion; 49 focused tests passed afterward.
-Site gates and independent review remain required before acceptance.
+Independent QA also passed 3,171 scoped Django tests (9 skips), 3,904 core Django tests
+(19 skips), 992 browser tests, lint and HTTP 200 boot. PM accepted local commit `ba8f0194`;
+the clean worktree remains unmerged under the AISL integration hold. The package extraction
+adds 17 application lines, so the combined renderer slice removes 70 net application lines,
+excluding tests, docs and dependency/version metadata.
 
 The complete onboarding implementation remains live. Site and package LLM backends,
 exception identities, configuration and notification timing differ, so replacing the
 whole module would change behavior. Preserve those owners while consolidating only the
 identical pure rendering responsibility. No visible UI change belongs in either issue.
+
+## Questionnaire service follow-up: retain the adoption boundary
+
+A read-only comparison of AISL `9505beb904fd255607619d073c8ae6b0d3c7be28`
+with package `v0.5.14` inspected `services_onboarding_ai.py` (888 site lines,
+929 package lines). The largest matching responsibilities admit, fail and apply
+turns, persist answers and finalize questionnaires. They use distinct site and
+package model classes, managers and foreign keys. Replacing their calls before
+model adoption would change which storage implementation owns the operation.
+Site tests also assert the local turn/provider exception identities and patch
+site service globals; matching function bodies alone do not prove equivalence.
+
+The approximately 94-line bounded-call/iteration overlap is not an available
+public replacement: the released package helpers are private and raise package
+timeout exceptions, while site catch paths use site exceptions. Small hashing
+and timing helpers do not establish a substantial separate retirement slice.
+No safe replacement exceeding 100 net lines was identified through the released
+API. Retain the C3.7/C5.3 compatibility and A3.3 adoption prerequisites for the
+larger service move; finish the separately verified renderer slice first.
+This review changed no application code and ran no tests.
 
 ## Definition of a completed simplification slice
 
@@ -242,7 +302,8 @@ identical pure rendering responsibility. No visible UI change belongs in either 
 - Package and consumer verification is reported separately where required.
 
 Prioritize the crypto slice, then the released project-row calculation where its parity is
-confirmed. Proceed to traversal after capturing the ordering difference. Prepare the larger
+confirmed. Defer shared traversal extraction; after ownership release, characterize the smaller
+AISL-only opportunity to reuse one ordered list. Prepare the larger
 parser, monkeypatch and storage retirements through their existing dependencies. Compare DTC's
 course experience with the AISL reference while preserving both sites' visible UI. Share equivalent
 services and document remaining parity gaps; maximizing deletion never authorizes visible changes
@@ -255,3 +316,27 @@ retaining the 78-line score-calculation module and its side effects. Focused bef
 passed 50 tests and 45 subtests, plus five package/site parity tests. It remains uncommitted and
 frozen behind #438's failed development deployment; broad verification, independent review and
 acceptance are still required.
+
+The receiving AISL owner has since shipped #1842, #1843 and #1844 together at `ee28c82ca`
+and reported a successful development deployment with combined regression gates. See the
+unification proposal's completed integration report for the evidence links. The adopted parser
+diff removes 13 application lines after retaining a blank line; the total landed application
+reduction across package/AISL/DTC is 606 lines. DTC's merged portion still awaits development
+recovery. The owner's DTC rebuild permission is documented in the proposal; AISL data remains
+subject to preservation and lossless migration requirements.
+
+
+## Deployment-builder retirement rejected
+
+A bounded follow-up at DTC `19e7393489b7158c30bae39f93915a1219f2c757` checked whether
+`deploy/task_definitions.py` could be removed after it caused confusion during recovery.
+It remains live: the active image updater imports its validation and configuration, while
+`deploy.cli promote` and the manual CI deployment path still call its normalized builder.
+Gateway/recovery code, tests and documented CLI contracts also use it.
+
+The two writers have different responsibilities. The normalized builder requires an exact
+fixed environment; the supported image updater preserves unrelated environment entries and
+sets its owned fields, including the development hostname. Consolidating them without treating
+those differences would change behavior. No deletion is justified by this audit. Removing the
+older manual release contract is functional retirement and remains outside this no-feature-loss
+work. No source changes or tests were run for this read-only finding.
