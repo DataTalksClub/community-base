@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- C5.2l (#323): self-paced coursework follows the owner's spec. A pooled batch of `n + 1` sends
+  exactly one `coursework.pool_ready` email per member, with the review count, the batch due date
+  and a direct link to each assigned review (new `COURSEWORK_REVIEW_URL_BUILDER` hook); pooled
+  batches no longer also send `coursework.review_assigned`. Every batch a backlog allows forms per
+  trigger, and a new `coursework.form_pooled_batches` job (every 15 minutes) forms missed batches.
+  Homework and project due dates are optional for a self-paced cohort (migration
+  `cb_coursework.0004`), a pooled project row shows no deadline before assignment, and self-paced
+  work gets no deadline reminders. A self-paced homework is scored for the learner on submit,
+  counts on the leaderboard at once, reveals correctness and correct answers, and accepts no
+  second submission. `homework_steps` gains the optional `Assignment.question_results`
+  descriptor. Dated cohorts are unchanged.
+
 ## 0.5.16
 
 Adoption-provisional. This release still contains the nine provisional kept-label migrations

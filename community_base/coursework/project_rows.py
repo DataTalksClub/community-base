@@ -102,8 +102,8 @@ class ProjectRow:
     surface: str
     score: int | None
     link_target: str | None
-    deadline: datetime
-    deadline_kind: str
+    deadline: datetime | None
+    deadline_kind: str | None
     completed: bool
     href: str | None = None
 
@@ -153,9 +153,24 @@ def project_badge(project, submission, stage, completed_reviews) -> ProjectBadge
     return _unsubmitted_badge(stage)
 
 
-def _deadline(project, stage, submitted, review_due_at):
-    """CMP's Deadline column: the review due date once reviewing a submission, else submission."""
+def _pooled_deadline(stage, review_due_at):
+    """A self-paced learner has no submission deadline, only their batch's review ``due_at``."""
 
+    if stage == _COMPLETED:
+        return review_due_at, DEADLINE_PEER_REVIEW, True
+    if stage == _REVIEWING and review_due_at is not None:
+        return review_due_at, DEADLINE_PEER_REVIEW, False
+    return None, None, False
+
+
+def _deadline(project, stage, submitted, review_due_at):
+    """CMP's Deadline column: the review due date once reviewing a submission, else submission.
+
+    A pooled (self-paced) project shows no deadline until the learner is in a batch (#323).
+    """
+
+    if getattr(project, "uses_pooled_review", False):
+        return _pooled_deadline(stage, review_due_at)
     review_due = review_due_at or project.peer_review_due_date
     if stage == _REVIEWING and submitted:
         return review_due, DEADLINE_PEER_REVIEW, False
@@ -169,7 +184,8 @@ def project_row(project, submission, *, completed_reviews: int, review_due_at=No
 
     ``submission`` is the learner's own submission or ``None``. ``completed_reviews`` counts the
     learner's non-optional reviews of others in state ``SU``. ``review_due_at`` is a pooled
-    learner's batch deadline; without it the project's ``peer_review_due_date`` is shown.
+    learner's batch deadline; without it a dated project's ``peer_review_due_date`` is shown and
+    a pooled project shows no deadline (``deadline`` and ``deadline_kind`` are ``None``).
     """
 
     stage = project_stage(project, submission)

@@ -4,7 +4,9 @@ Deadline mode assigns and scores a whole project at once, on an operator's actio
 (``review.assign_peer_reviews_for_project`` / ``review.score_project``). A self-paced project has
 no such moment: submissions arrive continuously, so this module assigns and scores one
 ``PeerReviewBatch`` at a time instead, formed as soon as enough submissions are waiting
-(``Project.number_of_peers_to_evaluate + 1``).
+(``Project.number_of_peers_to_evaluate + 1``). Every batch the waiting submissions allow is formed
+per trigger (``form_pooled_batches``), after each submission commits and from a 15-minute sweep
+(``coursework.form_pooled_batches``) that catches any batch the submit-time trigger missed.
 
 See ``models.PeerReviewBatch`` for why the batch, not the individual submission, is the scoring
 unit -- that reasoning is the one thing in this module that must not be "simplified" away.
@@ -91,10 +93,56 @@ def try_form_batch(project) -> PeerReviewBatch | None:
         )
 
     hooks.peer_reviews_assigned(project=project, review_count=len(assignments))
-    notifications.send_review_assigned_notifications(assignments)
+    # One email per batch member: in a pooled batch every member is also a reviewer, so the
+    # batch-ready email carries their review links and replaces the deadline-mode
+    # ``review_assigned`` email rather than doubling it (#323).
     for submission in waiting:
-        notifications.send_pool_ready_notification(batch, submission)
+        notifications.send_pool_ready_notification(batch, submission, assignments)
     return batch
+
+
+def form_pooled_batches(project) -> list[PeerReviewBatch]:
+    """Form every batch the waiting submissions allow, oldest first.
+
+    ``try_form_batch`` forms at most one batch, so a backlog of ``2 * (n + 1)`` or more waiting
+    submissions (an import, a backfill, or a missed ``on_commit`` callback) needs this loop to
+    drain; submissions left over below ``n + 1`` keep waiting for later ones.
+    """
+
+    batches = []
+    while True:
+        batch = try_form_batch(project)
+        if batch is None:
+            return batches
+        batches.append(batch)
+
+
+def _projects_with_waiting_submissions():
+    return (
+        Project.objects.filter(
+            cohort__mode="self_paced",
+            submissions__volunteer_review_only=False,
+            submissions__review_state=SubmissionReviewState.AWAITING_ASSIGNMENT.value,
+        )
+        .exclude(state=ProjectState.CLOSED.value)
+        .select_related("cohort")
+        .distinct()
+    )
+
+
+@register_handler("coursework.form_pooled_batches")
+def form_pooled_batches_job(context: JobContext, payload: JobPayload):
+    """Sweep every open pooled project and form the batches its waiting submissions allow.
+
+    Batch formation normally runs after each submission commits; this sweep is the safety net
+    for batches that callback missed, the same way ``expire_pooled_reviews`` is for expiry.
+    """
+
+    del context, payload
+    formed = 0
+    for project in _projects_with_waiting_submissions():
+        formed += len(form_pooled_batches(project))
+    return {"formed_batches": formed}
 
 
 def _batch_member_ids(batch) -> set[int]:
@@ -194,4 +242,12 @@ schedule(
     "*/15 * * * *",
     {},
     name="coursework.expire_pooled_reviews.every_15_minutes",
+)
+
+
+schedule(
+    "coursework.form_pooled_batches",
+    "*/15 * * * *",
+    {},
+    name="coursework.form_pooled_batches.every_15_minutes",
 )

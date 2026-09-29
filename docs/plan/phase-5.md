@@ -1168,6 +1168,68 @@ Done when
 Docs
 - `community_base/coursework/README.md`, `CHANGELOG.md`.
 
+## C5.2l Self-paced coursework: one review email per batch, batch sweep, optional dates, homework reveal on submit
+
+Repository: community-base. Depends on: C5.2g, C5.2i, C5.2k. Freeze required: no. Related:
+DataTalksClub/community-base#323 (owner-approved), AI-Shipping-Labs/website#1696 (A5.1 adopts it).
+
+Goal: close gaps 2 to 5 of #323 against the owner's self-paced spec: no deadlines, homework
+answers visible right after submit, and project submissions accumulated until n+1 are waiting,
+at which point every batch member gets one email asking them to review n peers. Gap 1 (dotted
+mail template keys on `ses_local`) is C5.2ga, owned separately, and is not part of this issue.
+
+Read first
+- `community_base/coursework/pooling.py`, `notifications.py`, `projects.py`, `project_rows.py`.
+- `community_base/coursework/submissions.py`, `scoring.py`, `review.py`, `reminders.py`.
+- `community_base/homework_steps/types.py`, `coursework.py`, `views.py` and `_stepper.html`.
+- Issue #323 "Gaps" 2 to 5 and its acceptance list.
+
+Steps
+1. Emails: in pooled mode `try_form_batch` sends exactly one `coursework.pool_ready` email per
+   batch member, carrying the review count, the batch due date and one direct link per assigned
+   review. It no longer also sends `coursework.review_assigned`, which stays the deadline-mode
+   email. Review links come from a new `COURSEWORK_REVIEW_URL_BUILDER` hook whose default
+   reverses the package route `coursework_projects_eval_submit` against `SITE_URL`.
+2. Sweep: `form_pooled_batches(project)` forms every batch the waiting submissions allow (loop
+   while at least n+1 wait). `submit_project` calls it after commit, and a durable job
+   `coursework.form_pooled_batches`, scheduled every 15 minutes like
+   `coursework.expire_pooled_reviews`, runs it for every open pooled project.
+3. Dates: `Homework.due_date`, `Project.submission_due_date` and `Project.peer_review_due_date`
+   become nullable. Model validation still requires them for a dated cohort. A pooled learner's
+   project row has no deadline until they are in a batch, then the batch `due_at`. Every reader
+   of these fields tolerates `None`, and deadline-mode behaviour is unchanged.
+4. Homework reveal: `Homework.reveals_on_submit` (`cohort.mode == "self_paced"`). Submitting such
+   a homework scores it for that learner, refreshes the leaderboard, and locks resubmission; the
+   learner sees their homework as scored. `homework_steps` gains an optional host-supplied
+   per-question result descriptor (correctness, correct answer, explanation), rendered on the
+   Review step and on each question step. The coursework adapter supplies it on submit for a
+   self-paced homework and only after scoring for a dated one.
+
+Verification
+- `uv run pytest tests/coursework tests/homework_steps` passes, including: a pooled batch of 4
+  sends exactly 4 emails, each with 3 review links and the batch due date; 3 submissions form no
+  batch, the 4th forms one, the 5th waits; 8 waiting submissions form two batches from one sweep
+  run; a missed batch is formed by the scheduled handler; a self-paced project and homework save
+  without dates while a dated one still requires them; a pooled row shows no deadline before
+  assignment and the batch `due_at` after; a self-paced homework reveals results right after
+  submit and a dated one reveals nothing before scoring.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- `uv run pytest tests/test_boundaries.py`; `uv run python scripts/plan.py check` is OK;
+  package quality gates pass.
+- Test both consuming sites against the change and report package, DTC and AISL results
+  separately.
+
+Done when
+- [ ] A pooled batch of n+1 sends exactly n+1 review-request emails with direct review links.
+- [ ] Every possible batch forms per trigger, and a scheduled sweep forms missed batches.
+- [ ] Self-paced projects and homework need no due dates and show none before assignment.
+- [ ] Self-paced homework is scored and revealed on submit; dated homework reveals only after
+  scoring.
+- [ ] Package, DTC and AISL results are reported separately; a tagged release precedes adoption.
+
+Docs
+- `community_base/coursework/README.md`, `community_base/homework_steps/README.md`, `CHANGELOG.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.

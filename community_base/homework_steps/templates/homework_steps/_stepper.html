@@ -53,6 +53,7 @@
           <input id="homework-answer" name="answer" type="text" maxlength="10000" value="{{ stepper.answer }}">
         {% endif %}
       </fieldset>
+      {% if stepper.question_result %}{% include "homework_steps/_question_result.html" with result=stepper.question_result %}{% endif %}
       <div class="homework-draft-status">
         <p data-save-status role="status" aria-live="polite">{{ stepper.draft_status }}</p>
         {% include "homework_steps/_draft_status_help.html" %}

@@ -7,7 +7,7 @@
   <a href="{% url 'coursework_studio_question_create' homework.pk %}">Add question</a> ·
   <a href="{% url 'coursework_studio_cohort_leaderboard' homework.cohort_id %}">Cohort leaderboard</a>
 </p>
-<p>Due {{ homework.due_date }} · state {{ homework.get_state_display }}</p>
+<p>Due {{ homework.due_date|default:"no due date" }} · state {{ homework.get_state_display }}</p>
 <form method="post" action="{% url 'coursework_studio_homework_rescore' homework.pk %}">{% csrf_token %}
   <label><input type="checkbox" name="force" value="1"> force (already-scored homework)</label>
   <button type="submit">Rescore submissions</button>

@@ -25,6 +25,10 @@ PROJECT_SUBMISSION_DEADLINE_PURPOSE = "coursework.project_submission_deadline"
 PEER_REVIEW_DEADLINE_PURPOSE = "coursework.peer_review_deadline"
 
 DEFAULT_WINDOW_DAYS = 3
+# A self-paced cohort has no deadlines, so its homework and project submissions get no
+# deadline reminders even when a date is stored (#323). Pooled review reminders stay: the batch
+# `due_at` is a real review deadline.
+SELF_PACED = "self_paced"
 
 
 def _window(payload):
@@ -39,16 +43,21 @@ def homeworks_due_between(now, horizon):
     return (
         Homework.objects.filter(state=HomeworkState.OPEN.value, due_date__gt=now)
         .filter(due_date__lte=horizon)
+        .exclude(cohort__mode=SELF_PACED)
         .select_related("cohort__course")
     )
 
 
 def projects_collecting_between(now, horizon):
-    return Project.objects.filter(
-        state=ProjectState.COLLECTING_SUBMISSIONS.value,
-        submission_due_date__gt=now,
-        submission_due_date__lte=horizon,
-    ).select_related("cohort__course")
+    return (
+        Project.objects.filter(
+            state=ProjectState.COLLECTING_SUBMISSIONS.value,
+            submission_due_date__gt=now,
+            submission_due_date__lte=horizon,
+        )
+        .exclude(cohort__mode=SELF_PACED)
+        .select_related("cohort__course")
+    )
 
 
 def projects_peer_reviewing_between(now, horizon):

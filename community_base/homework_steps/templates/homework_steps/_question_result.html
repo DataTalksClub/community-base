@@ -1,0 +1,10 @@
+{% comment %}
+One revealed result for an accepted answer. Rendered only when the host supplied
+`Assignment.question_results` and the accepted submission is the primary review.
+Context: result, a `QuestionResult`.
+{% endcomment %}
+<div class="homework-question-result" data-correct="{{ result.correct|yesno:'true,false' }}">
+  <p>{% if result.correct %}Correct{% else %}Incorrect{% endif %}</p>
+  {% if result.correct_answer %}<p>Correct answer: {{ result.correct_answer }}</p>{% endif %}
+  {% if result.explanation %}<p>{{ result.explanation|linebreaksbr }}</p>{% endif %}
+</div>

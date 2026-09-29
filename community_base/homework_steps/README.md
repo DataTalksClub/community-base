@@ -64,6 +64,13 @@ For a closed or scored assignment, Review shows the accepted snapshot and its ti
 draft that differs from it appears separately as `Unsubmitted draft`; the review does not expose a
 submit control. An open accepted submission with changed answers is `Unsubmitted changes`.
 
+The host may reveal per-question results with `Assignment.question_results`, a mapping from
+question key to `QuestionResult(correct, correct_answer="", explanation="")`. Leave it `None` until
+the host's own policy reveals them. The package never derives results from a draft or an answer
+key, and renders them only beside the accepted snapshot on a closed or scored review: on the
+Review step (`row.result` on each `stepper.review_display_rows` item) and on each question step
+(`stepper.question_result`), through the overridable `homework_steps/_question_result.html`.
+
 `stepper.review_rows` keeps its existing `(prompt, answer, url)` tuples for site-owned templates;
 the shared partial uses `stepper.review_display_rows`, which also carries semantic labels and
 question numbers.
