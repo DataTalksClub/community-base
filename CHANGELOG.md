@@ -1,9 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.5.15
+
+Adoption-provisional. This release still contains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`; `C3.7` and `C4.3` may still
+rewrite them, and donor adoption happens from `C5.3`, not from this tag.
 
 - C5.2ja (#324): retain attempted final-field input on open homework review forms after validation
   errors and stale draft revisions, without saving failed writes or changing closed reviews.
+- C3.2a (#319): record completion of the persona catalog renderer already released in v0.5.14;
+  this PR changed plan status only.
+- Course unification plan (#321): document the AISL, DTC and package simplification sequence and
+  evidence without changing runtime behavior.
+- DTC fresh adoption plan (#322): scope the authorized development data reset and the source,
+  feature and compatibility checks required before a DTC course cutover. AISL data remains protected.
 
 ## 0.5.14
 
