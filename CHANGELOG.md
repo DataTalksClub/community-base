@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- C5.2ga (#329): share the Relay template-key policy with transitional SES file templates so
+  existing dotted coursework purposes render and deliver. Keep purpose names, template content,
+  override loading and delivery behavior unchanged.
 - C5.2l (#323): self-paced coursework follows the owner's spec. A pooled batch of `n + 1` sends
   exactly one `coursework.pool_ready` email per member, with the review count, the batch due date
   and a direct link to each assigned review (new `COURSEWORK_REVIEW_URL_BUILDER` hook); pooled
