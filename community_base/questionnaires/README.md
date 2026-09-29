@@ -4,9 +4,10 @@
 durable AI onboarding conversations. Install the app when a site needs member questionnaires or
 the shared Studio authoring and review pages.
 
-We keep the Django label `questionnaires`, and the initial migration remains provisional. Don't tag
-or release a package containing it until AISL schema preparation and the C3.7 compatibility
-rehearsal are complete.
+We keep the Django label `questionnaires`, and the initial migration remains provisional. Decision
+D33 permits the scoped pre-C5.3 release train to carry provisional migrations while C3.7 retains
+the right to rewrite them. A tagged package is not evidence of AISL donor schema compatibility;
+site adoption still waits for C3.7 and C5.3.
 
 ## Installation
 
@@ -64,6 +65,45 @@ to one questionnaire, review or reopen submitted responses and add response-spec
 Configure `COMMUNITY_BASE["STUDIO_AUDIT_WRITER"]` if a site needs durable review audit records.
 
 ## AI onboarding
+
+### Pure persona catalog renderer
+
+`render_persona_catalog` is the supported pure renderer for the persona context
+appended to the AI onboarding system prompt:
+
+```python
+from community_base.questionnaires.onboarding_ai import (
+    PersonaInfo,
+    PersonaQuestion,
+    render_persona_catalog,
+)
+
+catalog = [
+    PersonaInfo(
+        signal="engineer",
+        archetype="The engineer",
+        questions=[PersonaQuestion(prompt="What will you build?", question_type="long_text")],
+    )
+]
+prompt_suffix = render_persona_catalog(catalog)
+```
+
+Pass an ordered list of values with the `PersonaInfo` shape: a routing `signal`,
+member-safe `archetype` and optional `description`, plus ordered questions with
+`prompt`, `question_type` and optional ordered `options` labels. The package's
+`PersonaInfo` and `PersonaQuestion` classes are convenient constructors; the
+renderer also accepts AISL's own compatible value objects without converting
+their model identity. The function returns a string; an empty list or `None`
+returns `""`.
+It emits shared prompts once in first-seen order, using the first occurrence's
+type and options, then each archetype's questions that are not shared. A
+single persona keeps all its questions in its own delta block. Prompts,
+signals, descriptions and choice labels are copied into the result without
+escaping or validation; package constructors validate only when used;
+callers provide trusted, member-safe content. The renderer has no Django,
+provider, configuration or database access. The old private import
+`_render_persona_catalog` remains an alias for existing callers, but new
+integrations should use the public name.
 
 Install the optional provider dependencies only on sites that enable AI onboarding:
 

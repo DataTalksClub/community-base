@@ -34,6 +34,7 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 from community_base.questionnaires import ai_backend as llm
+from community_base.questionnaires import persona_catalog as catalog_rendering
 from community_base.questionnaires.ai_backend import LLMError
 
 # The system prompt is versioned via this module-level constant so #809
@@ -371,84 +372,10 @@ _INTERNAL_PERSONA_NAMES = ("Alex", "Priya", "Sam", "Taylor")
 _LEADING_ARTICLE_RE = re.compile(r"\ban?\s+your archetype\b", re.IGNORECASE)
 
 
-def _shared_spine_prompts(persona_catalog):
-    """Return the question prompts shared by EVERY persona, in first-seen order.
-
-    A prompt is "shared spine" when it appears in every persona's question
-    spine; everything else is a per-archetype delta. Computed purely from
-    the passed catalog (no DB), so the core stays Django-independent. When
-    there is only one persona, nothing is treated as shared (there is no
-    cross-archetype spine to factor out).
-    """
-    personas = [p for p in persona_catalog if p.questions]
-    if len(personas) < 2:
-        return []
-    prompt_sets = [{q.prompt for q in p.questions} for p in personas]
-    shared = set.intersection(*prompt_sets)
-    ordered = []
-    for question in personas[0].questions:
-        if question.prompt in shared and question.prompt not in ordered:
-            ordered.append(question.prompt)
-    return ordered
-
-
-def _format_question(question):
-    """Render one question line: ``- (type) prompt options: a, b``."""
-    opts = ""
-    if question.options:
-        opts = f" options: {', '.join(question.options)}"
-    return f"  - ({question.question_type}) {question.prompt}{opts}"
-
-
-def _render_persona_catalog(persona_catalog):
-    """Render the archetype + question-spine context for the system prompt.
-
-    The shared spine (prompts common to every persona) is rendered ONCE as
-    a labelled "Shared spine" block, and each archetype lists only its
-    DELTA questions (the ones unique to that archetype). This lets the
-    model branch its follow-ups by the committed archetype's deltas while
-    still asking the shared spine for everyone -- the issue #823 goal.
-
-    The internal persona name is never included -- only the routing
-    ``signal``, the member-safe ``archetype`` / ``description``, and the
-    question prompts/types/options that shape the interview.
-    """
-    if not persona_catalog:
-        return ""
-    shared_prompts = _shared_spine_prompts(persona_catalog)
-    shared_set = set(shared_prompts)
-
-    lines = []
-    if shared_prompts:
-        lines.append("Shared spine -- ask these of EVERY member regardless of archetype:")
-        # Render the shared questions from the first persona that carries
-        # them, preserving their option lists.
-        rendered = set()
-        for persona in persona_catalog:
-            for question in persona.questions:
-                if question.prompt in shared_set and question.prompt not in rendered:
-                    lines.append(_format_question(question))
-                    rendered.add(question.prompt)
-        lines.append("")
-
-    lines.append(
-        "Archetypes to reason about (internal signal in brackets -- never "
-        "say it to the member). Once you commit to one archetype, prioritise "
-        "ITS delta questions below and skip the others':"
-    )
-    for persona in persona_catalog:
-        lines.append("")
-        lines.append(f"- {persona.archetype} [signal: {persona.signal}]")
-        if persona.description:
-            lines.append(f"  {persona.description}")
-        delta_questions = [q for q in persona.questions if q.prompt not in shared_set]
-        if delta_questions:
-            lines.append("  Delta questions (specific to this archetype):")
-            for question in delta_questions:
-                lines.append(_format_question(question))
-        elif shared_prompts:
-            lines.append("  (no archetype-specific delta questions)")
-    return "\n".join(lines)
+_shared_spine_prompts = catalog_rendering.shared_spine_prompts
+_format_question = catalog_rendering.format_question
+render_persona_catalog = catalog_rendering.render_persona_catalog
+_render_persona_catalog = render_persona_catalog
 
 
 def _build_system_prompt(persona_catalog):
@@ -801,6 +728,7 @@ __all__ = [
     "Message",
     "PersonaInfo",
     "PersonaQuestion",
+    "render_persona_catalog",
     "ExtractedAnswer",
     "OnboardingTurnResult",
     "TraceSink",
