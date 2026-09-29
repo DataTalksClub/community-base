@@ -10,6 +10,11 @@ and the datamailer membership sync stay site-side behind the
 ``COURSEWORK_HOMEWORK_SUBMITTED`` hook.
 """
 
+import math
+from decimal import Decimal, InvalidOperation
+
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import transaction
 from django.utils import timezone
 
@@ -21,6 +26,7 @@ from community_base.coursework.homework_reveal import (
 from community_base.coursework.hooks import hooks as coursework_hooks
 from community_base.coursework.leaderboard import ensure_enrollment, update_leaderboard
 from community_base.coursework.models import Answer, HomeworkState, Submission
+from community_base.coursework.question_order import ordered_questions
 from community_base.coursework.scoring import update_score
 
 CLOSED_HOMEWORK_REASON = "closed"
@@ -43,23 +49,97 @@ def _normalized_answers(answers_by_question_id) -> dict[str, str]:
     }
 
 
-def submit_homework(homework, user, *, answers_by_question_id) -> Submission | None:
-    """Create or update the learner's homework submission; ``None`` when rejected.
+def _optional_hours(raw, label):
+    value = str(raw or "").strip()
+    if not value:
+        return None
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation:
+        raise ValidationError(f"{label} must be a non-negative number of hours.") from None
+    if not parsed.is_finite() or parsed < 0:
+        raise ValidationError(f"{label} must be a non-negative number of hours.")
+    result = float(parsed)
+    if not math.isfinite(result):
+        raise ValidationError(f"{label} must be a non-negative number of hours.")
+    return result
 
-    Get-or-creates the cohort enrollment through
-    ``leaderboard.ensure_enrollment``; whether the request is allowed to
-    create one is the view's job (POST-only semantics). When the homework
-    state is not ``OPEN`` the donor records ``homework.submission_rejected``
-    with reason ``"closed"`` and saves nothing further; the package fires
-    ``COURSEWORK_HOMEWORK_SUBMISSION_REJECTED`` and returns ``None``.
-    A self-paced homework (``Homework.reveals_on_submit``) accepts one submission per learner:
-    its answers are revealed on submit, so a second one is rejected with reason
-    ``"already_submitted"``. Otherwise the learner's ``Submission`` is created or refreshed with
-    ``submitted_at``, one ``Answer`` is updated or created per answered
-    question (question ids outside this homework are ignored), the score is
-    recomputed through ``scoring.update_score``, and
-    ``COURSEWORK_HOMEWORK_SUBMITTED`` fires with the submission.
-    """
+
+def _public_links(raw, cap):
+    if not isinstance(raw, str):
+        raise ValidationError("Enter public links one per line.")
+    links = []
+    for line in raw.splitlines():
+        link = line.strip()
+        if link:
+            links.append(link)
+    if len(links) > cap:
+        raise ValidationError(f"Add no more than {cap} public links.")
+    validator = URLValidator(schemes=["http", "https"])
+    for link in links:
+        try:
+            validator(link)
+        except ValidationError:
+            raise ValidationError(
+                "Enter a valid http or https link for each public link."
+            ) from None
+    return links
+
+
+def _stepper_values(homework, final_fields, public_answer):
+    values = {}
+    if homework.homework_url_field:
+        url = final_fields.get("homework_link", "").strip()
+        if not url:
+            raise ValidationError("Homework URL is required.")
+        URLValidator(schemes=["http", "https"])(url)
+        values["homework_link"] = url
+    for flag, key, label in (
+        (homework.time_spent_lectures_field, "time_spent_lectures", "Time spent on lectures"),
+        (homework.time_spent_homework_field, "time_spent_homework", "Time spent on homework"),
+    ):
+        if flag:
+            values[key] = _optional_hours(final_fields.get(key, ""), label)
+    if homework.learning_in_public_cap > 0:
+        values["learning_in_public_links"] = _public_links(
+            public_answer, homework.learning_in_public_cap
+        )
+    return values
+
+
+def _save_answers(homework, submission, answers):
+    for question in ordered_questions(homework):
+        identity = str(question.id)
+        if identity not in answers:
+            continue
+        Answer.objects.update_or_create(
+            submission=submission,
+            question=question,
+            defaults={"answer_text": answers[identity]},
+        )
+
+
+def _persist_submission(homework, user, enrollment, answers, extra_values):
+    with transaction.atomic():
+        submission = Submission.objects.filter(homework=homework, student=user).first()
+        if submission is None:
+            submission = Submission(homework=homework, student=user, enrollment=enrollment)
+        submission.submitted_at = timezone.now()
+        for field, value in extra_values.items():
+            setattr(submission, field, value)
+        submission.full_clean()
+        submission.save()
+        _save_answers(homework, submission, answers)
+        update_score(submission, list(submission.answers.select_related("question")))
+        if homework.reveals_on_submit:
+            update_leaderboard(homework.cohort)
+    return submission
+
+
+def submit_homework(
+    homework, user, *, answers_by_question_id, stepper_fields=None, public_answer=""
+) -> Submission | None:
+    """Submit through the existing scoring and hook path; return None when rejected."""
 
     enrollment, _created = ensure_enrollment(homework.cohort, user)
 
@@ -73,29 +153,10 @@ def submit_homework(homework, user, *, answers_by_question_id) -> Submission | N
         return None
 
     answers = _normalized_answers(answers_by_question_id)
-    with transaction.atomic():
-        submission = Submission.objects.filter(homework=homework, student=user).first()
-        if submission is None:
-            submission = Submission(homework=homework, student=user, enrollment=enrollment)
-        submission.submitted_at = timezone.now()
-        submission.full_clean()
-        submission.save()
-
-        for question in homework.questions.order_by("id"):
-            if str(question.id) not in answers:
-                continue
-            Answer.objects.update_or_create(
-                submission=submission,
-                question=question,
-                defaults={"answer_text": answers[str(question.id)]},
-            )
-
-        update_score(submission, list(submission.answers.select_related("question")))
-        if homework.reveals_on_submit:
-            # Scored for this learner on submit: it counts on the leaderboard at once, with no
-            # operator scoring pass (#323).
-            update_leaderboard(homework.cohort)
-
+    extra_values = {}
+    if homework.stepper_enabled and stepper_fields is not None:
+        extra_values = _stepper_values(homework, stepper_fields, public_answer)
+    submission = _persist_submission(homework, user, enrollment, answers, extra_values)
     coursework_hooks.homework_submitted(submission=submission)
     return submission
 
@@ -109,22 +170,12 @@ def homework_form_context(homework, user, *, action: str = "") -> dict:
     own. `action` is where the form posts; empty means the page it is on.
     """
 
-    questions = list(homework.questions.order_by("id"))
-    submission = None
-    if user.is_authenticated:
-        submission = (
-            Submission.objects.filter(homework=homework, student=user)
-            .select_related("enrollment")
-            .first()
-        )
+    questions = list(ordered_questions(homework))
+    submission = _learner_submission(homework, user)
     accepting = homework.state == HomeworkState.OPEN.value
     if locked_after_submit(homework, submission):
         accepting = False
-    answers = (
-        {answer.question_id: answer for answer in submission.answers.all()}
-        if submission is not None
-        else {}
-    )
+    answers = _submission_answers(submission)
     results = question_results(homework, submission)
     return {
         "homework": homework,
@@ -138,6 +189,22 @@ def homework_form_context(homework, user, *, action: str = "") -> dict:
         "submission": submission,
         "homework_form_action": action,
     }
+
+
+def _learner_submission(homework, user):
+    if not user.is_authenticated:
+        return None
+    return (
+        Submission.objects.filter(homework=homework, student=user)
+        .select_related("enrollment")
+        .first()
+    )
+
+
+def _submission_answers(submission):
+    if submission is None:
+        return {}
+    return {answer.question_id: answer for answer in submission.answers.all()}
 
 
 def _deadline_passed(homework) -> bool:

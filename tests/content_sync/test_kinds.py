@@ -329,7 +329,14 @@ def test_course_layout_refuses_three_module_levels():
 def test_a_part_of_a_composite_kind_is_named():
     course = get_kind("course")
 
-    assert sorted(course.item_parts) == ["cohort", "course", "homework", "module", "unit"]
+    assert sorted(course.item_parts) == [
+        "cohort",
+        "course",
+        "homework",
+        "homework_unit",
+        "module",
+        "unit",
+    ]
     with pytest.raises(LookupError, match="no part sprint"):
         course.part("sprint")
 

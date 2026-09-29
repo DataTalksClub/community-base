@@ -1,4 +1,4 @@
-"""Homework manifests: a cohort's bindings onto the coursework graph.
+"""Homework graphs and shared question validation for the two source forms.
 
 `FORMAT.md` section 3.8 puts the gradable assignment in
 ``cohorts/<identifier>/homework/<module-slug>/homework.yaml`` and binds it from
@@ -33,9 +33,8 @@ reference to the DataTalks.Club shape rather than as a key table.
   ``options``. Each is an error naming the key, because the two shapes answer
   different questions and a manifest carrying both says neither.
 - ``answer_type: any`` accepts anything, so it carries no ``answer``; every
-  other answer type carries one. An answer that is not the envelope -- a
-  plaintext ``correct:`` key is the shape the AI Shipping Labs units use -- is
-  refused by the registry as an unknown key before this module runs.
+  other answer type carries one. A plaintext ``correct:`` key is refused in
+  this cohort manifest schema; the distinct course-tree unit schema accepts it.
 - An absent ``form`` key takes the coursework field default rather than a
   default restated here.
 """
@@ -43,8 +42,7 @@ reference to the DataTalks.Club shape rather than as a key table.
 from __future__ import annotations
 
 import datetime as dt
-import posixpath
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -54,11 +52,8 @@ from community_base.coursework.answer_crypto import (
     validate_source_envelope,
 )
 from community_base.curriculum.source import (
-    CohortGraph,
     CurriculumParseError,
-    ModuleGraph,
     ParsedCurriculum,
-    UnitGraph,
 )
 
 HOMEWORK_PART = "homework"
@@ -87,6 +82,9 @@ class HomeworkQuestionGraph:
     # The sealed envelope, stored as it was authored. The package never holds
     # the plaintext of a source-managed answer outside a scoring request.
     answer: Mapping[str, Any] | None = None
+    correct: str | None = None
+    authored_position: int | None = None
+    step_label: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,10 +109,13 @@ class HomeworkGraph:
     unit_content_id: str | None
     instructions_source_path: str
     instructions_markdown: str
-    due_at: dt.datetime
+    due_at: dt.datetime | None
     initial_state: str
     form: HomeworkFormGraph
     questions: tuple[HomeworkQuestionGraph, ...] = field(default=())
+    course_tree: bool = False
+    due_date_override: bool = False
+    stepper: bool = False
 
 
 class HomeworkManifestError(CurriculumParseError):
@@ -124,149 +125,9 @@ class HomeworkManifestError(CurriculumParseError):
 def read_cohort_homework(
     result: ReadResult, collection: Collection, parsed: ParsedCurriculum
 ) -> tuple[HomeworkGraph, ...]:
-    """Every manifest the course's cohorts bind, in cohort then binding order."""
+    from community_base.coursework.binding_reader import read_cohort_homework as read_bindings
 
-    manifests = {
-        document.raw.path: document
-        for document in result.documents
-        if document.collection.index == collection.index and document.part.name == HOMEWORK_PART
-    }
-    course = parsed.course
-    units = {unit.content_id: unit for unit in _units(course.modules) if unit.content_id}
-    found: list[HomeworkGraph] = []
-    for cohort in course.cohorts:
-        placed = _placed_module_slugs(cohort, course.modules)
-        for index, binding in enumerate(cohort.homework_bindings):
-            found.append(
-                _homework_graph(
-                    result,
-                    cohort,
-                    binding,
-                    index,
-                    manifests=manifests,
-                    placed=placed,
-                    units=units,
-                    course_slug=course.slug,
-                )
-            )
-    return tuple(found)
-
-
-def _units(modules: Iterable[ModuleGraph]) -> Iterable[UnitGraph]:
-    for module in modules:
-        yield from module.units
-        yield from _units(module.children)
-
-
-def _placed_module_slugs(cohort: CohortGraph, modules: tuple[ModuleGraph, ...]) -> set[str]:
-    """The top-level module slugs this cohort places (section 3.8, `modules`)."""
-
-    if cohort.module_refs is None:
-        return {module.slug for module in modules}
-    by_ref = {module.content_id or module.slug: module.slug for module in modules}
-    return {by_ref[ref] for ref in cohort.module_refs if ref in by_ref}
-
-
-def _homework_graph(
-    result: ReadResult,
-    cohort: CohortGraph,
-    binding: Mapping[str, Any],
-    index: int,
-    *,
-    manifests: Mapping[str, ParsedDocument],
-    placed: set[str],
-    units: Mapping[str, UnitGraph],
-    course_slug: str,
-) -> HomeworkGraph:
-    where = cohort.source_path or cohort.slug
-    pointer = f"/homework/{index}"
-    module_slug = binding.get("module")
-    if module_slug not in placed:
-        raise HomeworkManifestError(
-            f"{where}:{pointer}/module: [{RULE}] the cohort does not place the module "
-            f"{module_slug!r}; a binding assigns homework to a module the cohort places"
-        )
-    path = _manifest_path(where, pointer, cohort, binding.get("source"))
-    document = manifests.get(path)
-    if document is None:
-        raise HomeworkManifestError(
-            f"{where}:{pointer}/source: [{RULE}] no homework manifest at {path!r}; "
-            "a binding names homework/<module-slug>/homework.yaml under its cohort"
-        )
-    unit_content_id = _unit_content_id(where, pointer, binding.get("unit"), units)
-    values = document.values
-    instructions_path, instructions = _instructions(result, document)
-    return HomeworkGraph(
-        content_id=document.content_id,
-        slug=document.slug,
-        title=document.title,
-        source_path=document.raw.path,
-        cohort_slug=cohort.slug,
-        module_slug=module_slug,
-        unit_content_id=unit_content_id,
-        instructions_source_path=instructions_path,
-        instructions_markdown=instructions,
-        due_at=_due_at(values.get("due_at")),
-        initial_state=values.get("initial_state") or "closed",
-        form=_form(values.get("form") or {}),
-        questions=_questions(document, course_slug=course_slug),
-    )
-
-
-def _manifest_path(where: str, pointer: str, cohort: CohortGraph, source: Any) -> str:
-    """The binding's `source`, resolved against the cohort directory.
-
-    Section 3.8 makes everything below the cohort directory the cohort's own,
-    so a source that climbs out of it is refused rather than resolved.
-    """
-
-    directory = posixpath.dirname(cohort.source_path or "")
-    candidate = posixpath.normpath(posixpath.join(directory, str(source or "")))
-    if candidate.startswith("..") or not candidate.startswith(f"{directory}/"):
-        raise HomeworkManifestError(
-            f"{where}:{pointer}/source: [{RULE}] {source!r} is outside the cohort directory"
-        )
-    return candidate
-
-
-def _unit_content_id(
-    where: str, pointer: str, value: Any, units: Mapping[str, UnitGraph]
-) -> str | None:
-    """A binding's optional `unit`: the page that shows the submission form."""
-
-    if not value:
-        return None
-    unit = units.get(str(value))
-    if unit is None:
-        raise HomeworkManifestError(
-            f"{where}:{pointer}/unit: [{RULE}] no unit of this course carries the "
-            f"content_id {value!r}"
-        )
-    if unit.kind != HOMEWORK_UNIT_KIND:
-        raise HomeworkManifestError(
-            f"{where}:{pointer}/unit: [{RULE}] {unit.source_path} is a {unit.kind} unit; "
-            "a binding's unit is the kind: homework unit whose page shows the form"
-        )
-    return unit.content_id
-
-
-def _instructions(result: ReadResult, document: ParsedDocument) -> tuple[str, str]:
-    """The manifest's instructions file, beside it in the same directory."""
-
-    name = document.values.get("instructions_path") or DEFAULT_INSTRUCTIONS
-    directory = posixpath.dirname(document.raw.path)
-    path = posixpath.normpath(posixpath.join(directory, name))
-    repository = result.repository
-    if not path.startswith(f"{directory}/"):
-        raise HomeworkManifestError(
-            f"{document.raw.path}:/instructions_path: [{RULE}] {name!r} is outside the "
-            "homework directory"
-        )
-    if repository is None or path not in repository.files:
-        raise HomeworkManifestError(
-            f"{document.raw.path}:/instructions_path: [{RULE}] no file at {path!r}"
-        )
-    return path, repository.read_text(path)
+    return read_bindings(result, collection, parsed)
 
 
 def _due_at(value: Any) -> dt.datetime:
@@ -291,6 +152,7 @@ def _questions(document: ParsedDocument, *, course_slug: str) -> tuple[HomeworkQ
     homework_slug = document.slug
     found: list[HomeworkQuestionGraph] = []
     seen: set[str] = set()
+    seen_content_ids: set[str] = set()
     for index, entry in enumerate(document.values.get("questions") or ()):
         pointer = f"/questions/{index}"
         stable_id = entry["id"]
@@ -299,6 +161,13 @@ def _questions(document: ParsedDocument, *, course_slug: str) -> tuple[HomeworkQ
                 f"{path}:{pointer}/id: [{RULE}] duplicate question id {stable_id!r}"
             )
         seen.add(stable_id)
+        content_id = entry["content_id"]
+        if content_id in seen_content_ids:
+            raise HomeworkManifestError(
+                f"{path}:{pointer}/content_id: [{RULE}] "
+                f"duplicate question content_id {content_id!r}"
+            )
+        seen_content_ids.add(content_id)
         question_type = entry["type"]
         options = _options(path, pointer, entry, question_type)
         answer_type = _answer_type(path, pointer, entry, question_type)

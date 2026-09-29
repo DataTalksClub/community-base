@@ -19,7 +19,6 @@ from community_base.coursework.certificates import certificate_eligibility, issu
 from community_base.coursework.leaderboard import file_leaderboard_complaint
 from community_base.coursework.models import (
     Homework,
-    HomeworkState,
     LeaderboardComplaint,
     PeerReview,
     Project,
@@ -39,6 +38,7 @@ from community_base.coursework.studio_forms import (
     HomeworkForm,
     QuestionForm,
 )
+from community_base.coursework.studio_homework_detail import homework_detail as homework_detail
 from community_base.curriculum.models import Cohort, Enrollment
 from community_base.kernel.decorators import staff_required
 from community_base.studio.audit import hooks as studio_hooks
@@ -94,23 +94,6 @@ def homework_create(request, cohort_id):
             "form": form,
             "kind": "homework",
             "back_url": reverse("coursework_studio_homework_list"),
-        },
-    )
-
-
-@staff_required
-def homework_detail(request, homework_id):
-    homework = get_object_or_404(Homework.objects.select_related("cohort__course"), pk=homework_id)
-    return render(
-        request,
-        "community_base/coursework/studio/homework_detail.html",
-        {
-            "homework": homework,
-            "questions": homework.questions.order_by("id"),
-            "submissions": homework.submissions.select_related("student", "enrollment").order_by(
-                "id"
-            ),
-            "states": list(HomeworkState),
         },
     )
 

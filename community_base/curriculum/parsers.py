@@ -47,10 +47,6 @@ from community_base.content_sync.documents import (
     read_repository,
 )
 from community_base.content_sync.kinds.base import resolve_level
-from community_base.curriculum.code_annotations import (
-    CodeAnnotationError,
-    validate_annotated_body,
-)
 from community_base.curriculum.source import (
     FORMAT_MODULES,
     MODE_COHORT,
@@ -61,9 +57,9 @@ from community_base.curriculum.source import (
     InstructorGraph,
     ModuleGraph,
     ParsedCurriculum,
-    UnitGraph,
     validate_module_tree,
 )
+from community_base.curriculum.source_unit_parser import _source_unit_graph
 
 #: One parser, one version. It names the format, not a site.
 PARSER_VERSION = "course-format-1"
@@ -244,7 +240,11 @@ def _module_graph(
     level = resolve_level(document.data.get("required_level"))
     if level is None:
         level = inherited
-    units = [item for item in by_parent.get(document.raw.path, ()) if item.part.name == "unit"]
+    units = [
+        item
+        for item in by_parent.get(document.raw.path, ())
+        if item.part.name in ("unit", "homework_unit")
+    ]
     units.sort(key=lambda item: item.sort_key)
     return ModuleGraph(
         content_id=document.content_id,
@@ -256,7 +256,7 @@ def _module_graph(
         sort_order=document.sort_order,
         is_bonus=bool(values.get("is_bonus")),
         available_after_days=values.get("available_after_days"),
-        units=tuple(_unit_graph(item, level) for item in units),
+        units=tuple(_source_unit_graph(result, item, level) for item in units),
         children=_module_graphs(result, by_parent, parent=document.raw.path, inherited=level),
     )
 
@@ -270,48 +270,6 @@ def _overview(result: ReadResult, document: ParsedDocument) -> str:
     if repository is None or path not in repository.files:
         return ""
     return repository.read_text(path)
-
-
-def _unit_graph(document: ParsedDocument, inherited: int | None) -> UnitGraph:
-    values = document.values
-    body = document.body
-    _check_annotations(document.raw.path, body)
-    return UnitGraph(
-        content_id=document.content_id,
-        slug=document.slug,
-        title=document.title,
-        source_path=document.raw.path,
-        body=body,
-        video_url=values.get("video_url") or "",
-        timestamps=tuple(values.get("timestamps") or ()),
-        required_level=_declared_level(document, inherited),
-        sort_order=document.sort_order,
-        kind=values.get("kind") or "lesson",
-        session_position=values.get("session_position"),
-        is_bonus=bool(values.get("is_bonus")),
-    )
-
-
-def _declared_level(document: ParsedDocument, inherited: int | None) -> int | None:
-    """The unit's own level, else the one its module ancestors declared.
-
-    Section 3.3 inherits `required_level` from the parent item. The course sits
-    at the top of that chain, and a unit that takes the course's level must
-    stay `None` here so that `Course.default_unit_required_level` still answers
-    for it (`Unit.effective_required_level`).
-    """
-
-    declared = resolve_level(document.data.get("required_level"))
-    return inherited if declared is None else declared
-
-
-def _check_annotations(path: str, body: str) -> None:
-    """Reject a malformed structured code annotation before anything is written."""
-
-    try:
-        validate_annotated_body(body, path)
-    except CodeAnnotationError as error:
-        raise CurriculumParseError(str(error)) from None
 
 
 # --- cohorts and their placements ---------------------------------------------
@@ -415,9 +373,11 @@ def _bindings(
             raise CurriculumParseError(
                 f"{path}:/homework/{index}/module: no top-level module with the slug {slug!r}"
             )
-        found.append(
-            {"module": slug, "source": entry.get("source"), "unit": entry.get("unit") or None}
-        )
+        source = entry.get("source")
+        unit = entry.get("unit")
+        if not source and not unit:
+            raise CurriculumParseError(f"{path}:/homework/{index}: a binding needs source or unit")
+        found.append(dict(entry))
     return tuple(found)
 
 

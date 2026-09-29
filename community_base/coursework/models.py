@@ -87,6 +87,7 @@ class Homework(SourceProvenanceMixin, models.Model):
     due_date = models.DateTimeField(null=True, blank=True)
 
     learning_in_public_cap = models.IntegerField(default=7)
+    stepper_enabled = models.BooleanField(default=False)
 
     homework_url_field = models.BooleanField(default=True)
     time_spent_lectures_field = models.BooleanField(default=True)
@@ -170,6 +171,8 @@ class Question(SourceProvenanceMixin, models.Model):
     )
     source_option_ids = models.JSONField(null=True, blank=True)
     answer_envelope = models.JSONField(null=True, blank=True)
+    authored_position = models.PositiveIntegerField(null=True, blank=True)
+    step_label = models.CharField(max_length=200, blank=True, default="")
     scores_for_correct_answer = models.IntegerField(default=1)
 
     SOURCE_IDENTITY_FIELDS = ("source_content_id", "source_question_id")

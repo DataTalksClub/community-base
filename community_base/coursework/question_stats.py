@@ -30,7 +30,9 @@ class QuestionStat:
 
 
 def homework_question_stats(homework: Homework) -> list[QuestionStat]:
-    questions = list(Question.objects.filter(homework=homework).order_by("id"))
+    from community_base.coursework.question_order import ordered_questions
+
+    questions = list(ordered_questions(homework))
     answers = list(Answer.objects.filter(question__homework=homework).select_related("question"))
     answers_by_question: dict[int, list[Answer]] = {}
     for answer in answers:

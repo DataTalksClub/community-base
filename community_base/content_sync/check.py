@@ -15,8 +15,10 @@ file shapes and checks the manifest, the core and kind keys, naming, slugs,
 nesting and identity; `community_base.content_sync.resolution` resolves the
 assets and the cross-references of sections 3.6 and 3.7 and reports what does
 not resolve. A parser reads the same repository through the same two modules.
-What is left here, and only here, is the markdown dialect of section 4.1: the
-rules that reject a construct rather than resolve one.
+The validator also calls the course parser's source readers for authored YAML
+homework semantics, so its answer and binding errors match the sync path. Its
+own rules are the markdown dialect of section 4.1: the rules that reject a
+construct rather than resolve one.
 
 The validator differs from a sync in the two arguments it does not pass: no
 media store, so nothing is uploaded, and no route resolver, so a reference to a
@@ -88,6 +90,9 @@ def check_repository(path: str | Path, *, kind_modules: Iterable[str] = ()) -> l
 
     result = read_repository(path, kind_modules=kind_modules)
     diagnostics = [*result.diagnostics, *resolve_repository(result).diagnostics]
+    from community_base.curriculum.source_validation import course_source_diagnostics
+
+    diagnostics.extend(course_source_diagnostics(result))
     for item in result.documents:
         if item.is_document:
             _check_dialect(item, heading_ids(item.body), diagnostics)
