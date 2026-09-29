@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.5.17
+
+Adoption-provisional. This release still contains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`; `C3.7` and `C4.3` may still
+rewrite them, and donor adoption happens from `C5.3`, not from this tag. It adds one package-owned
+migration, `cb_coursework.0004_optional_self_paced_due_dates` (nullable due dates), which is not a
+kept-label migration.
+
 - C5.2l (#323): self-paced coursework follows the owner's spec. A pooled batch of `n + 1` sends
   exactly one `coursework.pool_ready` email per member, with the review count, the batch due date
   and a direct link to each assigned review (new `COURSEWORK_REVIEW_URL_BUILDER` hook); pooled
