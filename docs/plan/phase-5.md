@@ -1153,13 +1153,32 @@ DataTalksClub/website#436.
 
 Use the package parser and projection for nested directories and structured homework units. Keep
 only DTC-owned cohort placement/binding, access and route adapters; re-scope #398/#399 to avoid a
-second generic parser or projection. Preserve course/cohort homework submissions and IDs, project
-references, and the existing route compatibility contract. The detailed migration and acceptance
-criteria are in #436.
+second generic parser or projection. Preserve project references, course features, site-owned
+presentation, API shapes and the existing route compatibility contract. The detailed migration
+and acceptance criteria are in #436.
+
+### DTC development data boundary (D5.3, D5.1 and D5.2)
+
+The [owner permits rebuilding DTC data](https://github.com/DataTalksClub/website/issues/438#issuecomment-5890507372)
+while requiring AISL data preservation. Before implementation, name the exact target and choose
+fresh or in-place adoption. The fresh exception here applies only to an explicitly authorized
+disposable DTC development logical database; #440's immediate target is `dtc_website_dev`.
+It does not authorize a production, AISL, Relay or shared RDS reset.
+
+Fresh adoption establishes new rows from stable authored identities. Subsequent syncs and source
+directory moves must preserve those rows and their newly created learner links. Historical
+database IDs and rows from the discarded development schema need not survive. Report their
+preservation checks as `Not applicable: authorized fresh DTC development target`, never as passed.
+In-place adoption retains the original lossless migration and development-copy rehearsal gates.
+Both modes retain every feature, route, API and visible interaction. AISL donor compatibility,
+package release requirements and all issue dependencies remain unchanged.
 
 Verification
 - Flat and mixed-tree fixtures import and render with package order; homework bindings and learner
   records remain attached.
+- Fresh mode: repeated import creates no duplicate source identities; moves with unchanged
+  `content_id` retain rows and synthetic submissions, answers, progress, reviews and certificates
+  created after import. In-place mode: preserve the existing rows and identities through cutover.
 - The route-contract test and affected DTC tests pass; package, AISL and DTC checks are reported
   separately.
 
@@ -1193,25 +1212,63 @@ a Free member (paywall), progress toggle persists, purchase flow grants access.
 Repository: DataTalksClub/website. Depends on: C5.3, D5.3.
 
 Steps
-1. Mapping document: `courses.Course`, `Cohort`, `Module`, `Unit`, `Enrollment`, `UnitReadState`
-   and every coursework model to the shared apps; `LearnerProfile` stays.
-2. Data migration (P6) rehearsed on the development copy; `course_family_catalog.py` mapping
-   applied; certificates preserved with their urls.
-3. Route compatibility: `courses/urls.py` patterns re-pointed at package views; the
-   `_docs/compatibility/course-route-contracts.json` test must still pass; `cadmin` legacy
-   redirects re-pointed.
-4. Delete `courses`, `studio_courses`, `course_management`, `cadmin`, `review_import`,
-   `compatibility` shells where empty.
+1. Map every course, cohort, curriculum, enrollment, progress and coursework field and workflow
+   to the shared apps, a DTC extension or approved source import. Keep `LearnerProfile` and
+   DTC-owned cohort placement, access, registration, routes and presentation.
+2. Fresh mode, within the D5.3 boundary: migrate empty PostgreSQL storage using tagged package
+   releases and import approved public sources from all six DTC course repositories. Cover flat
+   and nested/YAML homework, source/question identities, ordering, cohort dates and project
+   references. Every course has a cohort; a course without a source-defined offering gets one
+   persisted self-paced cohort with null start/end dates. Reimport creates no duplicates.
+   Inventory public content missing from those repositories, including project prerequisites
+   and historical offerings; source sync alone does not reproduce the complete public catalog.
+   Define the intended fresh target's public content inventory and explicit dispositions for
+   old-only content. Required target content and its references need an approved public source
+   and compatible importer before adoption can finish; a missing import path for a supported
+   feature is a blocker. Discarded historical rows need not be recreated merely to match counts.
+3. Prove the target-model contract before using the separately controlled development public
+   bootstrap. Its audited artifact imports public data only and its existing command is not
+   assumed compatible with package storage. Use synthetic records for protected learner flows;
+   do not populate a fresh target from protected CMP or production exports.
+4. In-place mode: retain P6 mapping and P14 development-copy rehearsal, applying
+   `course_family_catalog.py` where needed; preserve learner rows, scheduled cohort dates and
+   certificate URLs, prove reversibility and equal before/after counts.
+5. Re-point internal callers while preserving `_docs/compatibility/course-route-contracts.json`,
+   APIs, permissions, redirects, Studio and visible behavior. Delete `courses`, `studio_courses`,
+   `course_management`, `cadmin`, `review_import` and `compatibility` code only after a complete
+   caller/command/task/route inventory proves each removed part has no live responsibility.
 
 Verification
-- compatibility test passes; `uv run pytest -q` -> pass; counts equal.
+- Fresh mode: migrations and drift checks pass from zero; record safe public source/import
+  counts against the defined target inventory, required public relationships, zero courses
+  without cohorts, repeat-import and stable-identity evidence. Synthetic learner tests cannot
+  substitute for required public source content or its import coverage.
+- In-place mode: historical row, cohort-date and certificate-URL preservation, reversibility
+  and count equality pass on the development copy.
+- Both modes: enrollment, progress, homework save/submit/score/review, projects, peer review,
+  leaderboard, registration, certificates and self-paced access pass with synthetic records.
+  Route/API/Studio and rendered behavior match existing contracts. `uv run pytest -q` and the
+  site's required verification gates pass, followed by a green development deployment.
 
 ## D5.2 Freeze weekend: DTC courses cutover and self-paced mode
 
-Repository: DataTalksClub/website. Depends on: D5.1. Freeze required: yes. Playbook P13 on the development environment. Checks: cohort page, homework submission, leaderboard,
-project peer review, certificate download, one self-paced course created in Studio with a unit
-visible to a registered member.
+Repository: DataTalksClub/website. Depends on: D5.1. Freeze required: yes.
+
+Use P13 and the site deployment process. Record the target/mode, code and package release,
+public import provenance, recovery plan and freeze scope. Fresh development adoption does not
+waive coordinated cutover or protection against concurrent content writes. Record any
+inapplicable P13 step with its concrete reason; D7.4's source-authoring freezes remain separate.
+
+On the deployed development site, verify cohort pages, registration/enrollment and denials,
+homework save/submit/score/review, leaderboard, projects and peer review, certificate download,
+progress and one self-paced Studio course with a persisted unit visible to a registered member.
+Verify source order, repeat sync, routes, APIs, empty/error states and desktop/mobile presentation.
+Use synthetic learner/operator records and verify imported public content separately; a healthy
+empty-schema deployment does not prove course adoption.
 
 Done when
 - [ ] spec 04 updated: the package owns curriculum and coursework; DTC keeps `LearnerProfile`
-  and route compatibility
+  and its site-owned policies, routes and presentation, with all course features preserved.
+- [ ] The selected D5.1 mode's evidence and applicable P13 steps are complete.
+- [ ] Deployed workflow, source-resync and route/API/presentation checks pass at the recorded
+  release and public import identities; no imported course lacks a cohort.
