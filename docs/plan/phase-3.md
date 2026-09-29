@@ -169,6 +169,39 @@ Steps
 Verification
 - squash equivalence per P4 step 7 in AISL.
 
+## C3.2a Expose pure persona catalog rendering API
+
+Repository: community-base. Depends on: C3.2. Freeze required: no.
+
+Goal
+- Publish the existing pure persona catalog renderer so AISL can replace its duplicate
+  without changing prompt text, questionnaire behavior or visible UI.
+
+Read first
+- `community_base/questionnaires/onboarding_ai.py`, `tests/questionnaires/test_ai.py`.
+- AISL `questionnaires/onboarding_ai.py` and archetype prompt tests.
+
+Steps
+1. Capture exact output for empty, singleton and multiple persona catalogs before refactoring.
+2. Expose one supported public renderer, preserving output, input errors and private imports.
+3. Document its input and output contract without moving provider or site behavior.
+4. Run package gates and both consumer checks; report each separately.
+
+Verification
+- Exact-output renderer contract tests pass before and after extraction.
+- `uv sync --all-extras`, package quality gates and `uv run pytest tests/questionnaires tests/test_boundaries.py` pass with collection count.
+- P16 baseline and linked full consumer CI suites pass for AISL and DTC against the candidate.
+- `uv run python scripts/plan.py check` reports consistency.
+
+Done when
+- [ ] One documented public renderer owns the existing behavior with exact-output evidence.
+- [ ] Package and both consumer gates passed and reported separately.
+- [ ] Focused pull request merged and a release containing the API exists before AISL adoption.
+- [ ] No visible UI, prompt behavior, model, migration, provider or notification changes.
+
+Docs
+- `community_base/questionnaires/README.md`, `docs/plan/phase-3.md`, `docs/plan/STATUS.md`.
+
 ## C3.3 Onboarding flows
 
 Repository: community-base. Depends on: C3.1e, C3.2.
