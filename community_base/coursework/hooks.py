@@ -6,6 +6,9 @@ wire their own analytics and leaderboard implementations through
 ``COMMUNITY_BASE``.
 """
 
+from django.urls import NoReverseMatch, reverse
+
+from community_base.kernel.conf import get
 from community_base.kernel.hooks import Hook
 
 
@@ -27,6 +30,29 @@ def default_display_name_generator(enrollment, **kwargs):
     from django.utils.crypto import get_random_string
 
     return f"Learner {get_random_string(8)}"
+
+
+def default_review_url(project, review=None, **kwargs):
+    """Absolute URL of a review (or, without one, the project's review page) on package routes.
+
+    Returns ``None`` when the site does not mount ``community_base.coursework.urls``; such a site
+    sets ``COURSEWORK_REVIEW_URL_BUILDER`` to resolve its own routes.
+    """
+
+    route_kwargs = {
+        "course_slug": project.cohort.course.slug,
+        "cohort_identifier": project.cohort.slug,
+        "project_slug": project.slug,
+    }
+    name = "coursework_projects_eval"
+    if review is not None:
+        name = "coursework_projects_eval_submit"
+        route_kwargs["review_id"] = review.id
+    try:
+        path = reverse(name, kwargs=route_kwargs)
+    except NoReverseMatch:
+        return None
+    return f"{str(get('SITE_URL') or '').rstrip('/')}{path}"
 
 
 class CourseworkHooks:
@@ -53,6 +79,7 @@ class CourseworkHooks:
     registration_submitted = Hook("COURSEWORK_REGISTRATION_SUBMITTED", discard_event)
     registration_campaign_changed = Hook("COURSEWORK_REGISTRATION_CAMPAIGN_CHANGED", discard_event)
     certificate_issued = Hook("COURSEWORK_CERTIFICATE_ISSUED", discard_event)
+    review_url_builder = Hook("COURSEWORK_REVIEW_URL_BUILDER", default_review_url)
     display_name_generator = Hook(
         "COURSEWORK_DISPLAY_NAME_GENERATOR", default_display_name_generator
     )

@@ -10,9 +10,14 @@ from community_base.coursework.models import (
     PeerReviewState,
     ProjectState,
     ProjectStatistics,
+    ProjectSubmission,
     SubmissionReviewState,
 )
-from community_base.coursework.pooling import expire_pooled_reviews, try_score_batch
+from community_base.coursework.pooling import (
+    expire_pooled_reviews,
+    form_pooled_batches_job,
+    try_score_batch,
+)
 from community_base.coursework.projects import submit_project
 from community_base.coursework.review import (
     review_accepts_submission,
@@ -276,26 +281,172 @@ def test_pooled_scored_submissions_appear_in_the_leaderboard_prefetch():
 # --- C5.2g: notifications and expiry -----------------------------------------------------
 
 
-def test_batch_formation_notifies_assignment_and_pool_ready():
+def review_url(project, review=None, **kwargs):
+    if review is None:
+        return f"https://school.example/{project.slug}/reviews/"
+    return f"https://school.example/{project.slug}/reviews/{review.id}/"
+
+
+@pytest.fixture
+def review_urls(settings):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "COURSEWORK_REVIEW_URL_BUILDER": "tests.coursework.test_pooling.review_url",
+    }
+
+
+def batch_emails():
+    return EmailDelivery.objects.filter(
+        purpose__in=["coursework.pool_ready", "coursework.review_assigned"]
+    )
+
+
+def test_a_batch_of_four_sends_exactly_four_review_request_emails(review_urls):
+    """The owner's spec: n=3 reviews, so 4 submissions form a batch and each member gets one
+    email asking them to review 3 peers, with a direct link to each and the batch due date."""
+
+    cohort = pooled_cohort()
+    project = pooled_project(cohort, number_of_peers_to_evaluate=3)
+    submit_batch_of(project, cohort, 3)
+    assert PeerReviewBatch.objects.filter(project=project).count() == 0
+    assert batch_emails().count() == 0
+
+    fourth = submit(project, cohort, "fourth@example.com")
+
+    batch = PeerReviewBatch.objects.get(project=project)
+    assert batch_emails().count() == 4
+    assert EmailDelivery.objects.filter(purpose="coursework.review_assigned").count() == 0
+    members = project.submissions.filter(review_state=SubmissionReviewState.IN_REVIEW.value)
+    member_emails = {submission.student.email for submission in members}
+    assert fourth.student.email in member_emails
+    assert set(batch_emails().values_list("recipient_email", flat=True)) == member_emails
+    for delivery in batch_emails():
+        member = members.get(student__email=delivery.recipient_email)
+        own_review_ids = set(
+            PeerReview.objects.filter(batch=batch, reviewer=member).values_list("id", flat=True)
+        )
+        context = delivery.context_data
+        assert context["review_count"] == 3
+        assert context["due_date"] == batch.due_at.isoformat()
+        assert {link["review_id"] for link in context["reviews"]} == own_review_ids
+        expected_urls = {
+            f"https://school.example/{project.slug}/reviews/{review_id}/"
+            for review_id in own_review_ids
+        }
+        assert {link["url"] for link in context["reviews"]} == expected_urls
+        assert context["review_list_url"] == f"https://school.example/{project.slug}/reviews/"
+
+    fifth = submit(project, cohort, "fifth@example.com")
+
+    fifth.refresh_from_db()
+    assert fifth.review_state == SubmissionReviewState.AWAITING_ASSIGNMENT.value
+    assert PeerReviewBatch.objects.filter(project=project).count() == 1
+    assert batch_emails().count() == 4
+
+    submit_batch_of(project, cohort, 3, prefix="later")
+
+    assert PeerReviewBatch.objects.filter(project=project).count() == 2
+    assert batch_emails().count() == 8
+    assert not project.submissions.filter(
+        review_state=SubmissionReviewState.AWAITING_ASSIGNMENT.value
+    ).exists()
+
+
+def test_default_review_links_use_the_package_routes(settings):
+    settings.ROOT_URLCONF = "tests.coursework.test_views"
+    settings.COMMUNITY_BASE = {**settings.COMMUNITY_BASE, "SITE_URL": "https://school.example"}
     cohort = pooled_cohort()
     project = pooled_project(cohort)
-    submissions = submit_batch_of(project, cohort, 3)
-    batch = PeerReviewBatch.objects.get(project=project)
+    submit_batch_of(project, cohort, 3)
 
-    assigned = EmailDelivery.objects.filter(purpose="coursework.review_assigned")
-    pool_ready = EmailDelivery.objects.filter(purpose="coursework.pool_ready")
-    # One reviewer email per batch member (grouped), not one per PeerReview row (6 rows, 3
-    # members) -- and one pool-ready email per member.
-    assert assigned.count() == 3
-    assert pool_ready.count() == 3
-    member_emails = {submission.student.email for submission in submissions}
-    assert set(assigned.values_list("recipient_email", flat=True)) == member_emails
-    assert set(pool_ready.values_list("recipient_email", flat=True)) == member_emails
-    for delivery in assigned:
-        assert delivery.context_data["review_count"] == 2
-        assert delivery.context_data["due_date"] is not None
-    for delivery in pool_ready:
-        assert delivery.context_data["due_date"] == batch.due_at.isoformat()
+    delivery = EmailDelivery.objects.filter(purpose="coursework.pool_ready").first()
+    [first_link, _second_link] = delivery.context_data["reviews"]
+    base = f"https://school.example/courses/{cohort.course.slug}/{cohort.slug}/project/final/eval/"
+    assert first_link["url"] == f"{base}{first_link['review_id']}/"
+    assert delivery.context_data["review_list_url"] == base
+
+
+def test_deadline_mode_still_sends_review_assigned_not_pool_ready():
+    from community_base.coursework.review import assign_peer_reviews_for_project
+    from tests.coursework.test_projects import make_project as make_dated_project
+
+    dated_cohort = coursework_cohort(slug="dated-mail")
+    project = make_dated_project(
+        dated_cohort,
+        number_of_peers_to_evaluate=2,
+        submission_due_date=timezone.now() - datetime.timedelta(days=1),
+    )
+    submit_batch_of(project, dated_cohort, 3)
+    assign_peer_reviews_for_project(project)
+
+    assert EmailDelivery.objects.filter(purpose="coursework.review_assigned").count() == 3
+    assert EmailDelivery.objects.filter(purpose="coursework.pool_ready").count() == 0
+
+
+def waiting_submissions_without_batching(project, cohort, count, prefix="backlog"):
+    """Rows as an import or a lost on_commit callback leaves them: waiting, never batched."""
+
+    submissions = []
+    for index in range(count):
+        _user, enrollment = enrollment_for(cohort, email=f"{prefix}{index}@example.com")
+        submissions.append(
+            ProjectSubmission.objects.create(
+                project=project,
+                student=enrollment.user,
+                enrollment=enrollment,
+                github_link="https://github.com/example/repo",
+                commit_id="a" * 40,
+            )
+        )
+    return submissions
+
+
+def test_one_sweep_forms_every_batch_the_backlog_allows():
+    cohort = pooled_cohort()
+    project = pooled_project(cohort, number_of_peers_to_evaluate=3)
+    waiting_submissions_without_batching(project, cohort, 9)
+
+    result = form_pooled_batches_job(None, {})
+
+    assert result == {"formed_batches": 2}
+    assert PeerReviewBatch.objects.filter(project=project).count() == 2
+    states = list(project.submissions.values_list("review_state", flat=True))
+    assert states.count(SubmissionReviewState.IN_REVIEW.value) == 8
+    assert states.count(SubmissionReviewState.AWAITING_ASSIGNMENT.value) == 1
+    assert EmailDelivery.objects.filter(purpose="coursework.pool_ready").count() == 8
+
+
+def test_a_submission_forms_every_batch_waiting_not_just_one():
+    cohort = pooled_cohort()
+    project = pooled_project(cohort, number_of_peers_to_evaluate=3)
+    waiting_submissions_without_batching(project, cohort, 7)
+
+    submit(project, cohort, "eighth@example.com")
+
+    assert PeerReviewBatch.objects.filter(project=project).count() == 2
+    assert not project.submissions.filter(
+        review_state=SubmissionReviewState.AWAITING_ASSIGNMENT.value
+    ).exists()
+
+
+def test_sweep_skips_closed_and_dated_projects():
+    cohort = pooled_cohort()
+    closed = pooled_project(cohort, slug="closed", state=ProjectState.CLOSED.value)
+    waiting_submissions_without_batching(closed, cohort, 3)
+    dated_cohort = coursework_cohort(slug="dated-sweep")
+    dated = make_project(dated_cohort, number_of_peers_to_evaluate=2)
+    waiting_submissions_without_batching(dated, dated_cohort, 3, prefix="dated")
+
+    assert form_pooled_batches_job(None, {}) == {"formed_batches": 0}
+    assert PeerReviewBatch.objects.count() == 0
+
+
+def test_form_pooled_batches_handler_and_schedule_are_registered():
+    from community_base.jobs.registry import registered_handler_names, registered_schedules
+
+    schedules = {item.handler: item.cron for item in registered_schedules()}
+    assert "coursework.form_pooled_batches" in registered_handler_names()
+    assert schedules["coursework.form_pooled_batches"] == "*/15 * * * *"
 
 
 def test_review_submission_notifies_the_reviewee():
@@ -404,3 +555,41 @@ def test_expire_pooled_reviews_handler_and_schedule_are_registered():
     schedules = {item.handler: item.cron for item in registered_schedules()}
     assert "coursework.expire_pooled_reviews" in names
     assert schedules["coursework.expire_pooled_reviews"] == "*/15 * * * *"
+
+
+POOL_READY_TEMPLATE = """---
+subject: Your review batch for {{ project_title }} is ready
+---
+Review {{ review_count }} projects by {{ due_date }}:
+{% for review in reviews %}
+- [Review {{ review.number }}]({{ review.url }})
+{% endfor %}
+"""
+
+
+def test_batch_emails_render_and_send_through_ses_local_with_review_links(
+    settings, tmp_path, review_urls, monkeypatch
+):
+    from unittest.mock import patch
+
+    from tests.mail.test_coursework_ses_templates import FakeSES
+
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "MAIL_BACKEND": "ses_local",
+        "MAIL_TEMPLATE_DIR": tmp_path,
+    }
+    monkeypatch.setenv("SES_FROM_EMAIL", "sender@example.test")
+    (tmp_path / "coursework.pool_ready.md").write_text(POOL_READY_TEMPLATE)
+    cohort = pooled_cohort()
+    project = pooled_project(cohort, number_of_peers_to_evaluate=3)
+    ses = FakeSES()
+
+    with patch("community_base.mail.backends.ses_local.configured_client", return_value=ses):
+        submit_batch_of(project, cohort, 4)
+
+    assert len(ses.calls) == 4
+    for call in ses.calls:
+        html = call["Content"]["Simple"]["Body"]["Html"]["Data"]
+        assert html.count(f'href="https://school.example/{project.slug}/reviews/') == 3
+        assert "Review 3 projects by" in html

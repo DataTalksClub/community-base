@@ -8,6 +8,7 @@ from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllo
 from django.shortcuts import redirect, render
 
 from community_base.homework_steps.models import HomeworkDraft
+from community_base.homework_steps.reveal import attach_results, result_for, revealed_results
 from community_base.homework_steps.services import (
     DraftConflict,
     get_or_seed_draft,
@@ -193,6 +194,7 @@ def _render(
             review_url = _step_url(action, query_params, step_param, item.key, step_url_builder)
             rows.append(
                 {
+                    "key": item.key,
                     "step_label": item.step_label,
                     "question_number": len(rows) + 1,
                     "has_semantic_label": bool(item.step_label),
@@ -203,7 +205,8 @@ def _render(
             )
         return rows
 
-    review_display_rows = display_rows(primary_answers)
+    results = revealed_results(assignment, accepted_primary=accepted_snapshot_primary)
+    review_display_rows = attach_results(display_rows(primary_answers), results)
     review_rows = [(row["prompt"], row["answer"], row["url"]) for row in review_display_rows]
     pending_draft_display_rows = []
     pending_draft_field_rows = []
@@ -280,6 +283,7 @@ def _render(
                 ),
                 "question": question,
                 "question_label": question_label,
+                "question_result": result_for(results, question),
                 "options": options,
                 "answer": answer,
                 "final_values": field_values,

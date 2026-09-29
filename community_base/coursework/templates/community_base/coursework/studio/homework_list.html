@@ -21,7 +21,7 @@
     <tr>
       <td><a href="{% url 'coursework_studio_homework_detail' homework.pk %}">{{ homework.title }}</a> <small>{{ homework.slug }}</small></td>
       <td>{{ homework.cohort.course.title }} / {{ homework.cohort.title }}</td>
-      <td>{{ homework.due_date }}</td>
+      <td>{{ homework.due_date|default:"No due date" }}</td>
       <td>{{ homework.get_state_display }}</td>
     </tr>
     {% empty %}

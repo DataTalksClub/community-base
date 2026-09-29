@@ -11,6 +11,7 @@
         {% else %}
           <span>{% if row.answer %}{{ row.answer|linebreaksbr }}{% else %}Not answered{% endif %}</span>
         {% endif %}
+        {% if row.result %}{% include "homework_steps/_question_result.html" with result=row.result %}{% endif %}
       </div>
       {% if editable %}<a href="{{ row.url }}">Edit <span class="sr-only">{% if row.has_semantic_label %}{{ row.step_label }}{% else %}question {{ row.question_number }}{% endif %}</span></a>{% endif %}
     </li>

@@ -35,6 +35,19 @@ class FinalField:
 
 
 @dataclass(frozen=True)
+class QuestionResult:
+    """The host's verdict on one accepted answer, supplied only once the host reveals it.
+
+    ``correct_answer`` and ``explanation`` are display text; empty means the host has none to
+    show. The package never derives any of this from a draft or an answer key.
+    """
+
+    correct: bool
+    correct_answer: str = ""
+    explanation: str = ""
+
+
+@dataclass(frozen=True)
 class AcceptedSubmission:
     """The learner's accepted snapshot, kept separate from an in-progress draft."""
 
@@ -57,6 +70,9 @@ class Assignment:
     has_submission: bool = False
     availability: HomeworkAvailability = "open"
     accepted_submission: AcceptedSubmission | None = None
+    # Per-question results keyed by question key. ``None`` means the host reveals nothing yet:
+    # a dated cohort's homework before scoring. A self-paced host supplies them on submit.
+    question_results: dict[str, QuestionResult] | None = None
 
 
 @dataclass(frozen=True)

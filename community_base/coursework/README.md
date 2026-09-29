@@ -33,7 +33,12 @@ identically across both modes.
 `pooling.try_form_batch(project)` takes the oldest `number_of_peers_to_evaluate + 1` waiting
 submissions once that many have accumulated, and assigns a full round-robin review graph over
 them as one `PeerReviewBatch` (`formed_at`, `due_at = formed_at + Project.pooled_review_window_days`,
-default 7 days, configurable per project). Dispatched after commit from `projects.submit_project`.
+default 7 days, configurable per project). `pooling.form_pooled_batches(project)` repeats it until
+fewer than `n + 1` submissions wait, so one trigger forms every batch a backlog allows: 8 waiting
+submissions with `n = 3` form two batches. It runs after commit from `projects.submit_project`,
+and the `coursework.form_pooled_batches` job (every 15 minutes) runs it for every open pooled
+project, forming any batch the submit-time callback missed (an import, a backfill, a failed
+`on_commit`).
 
 The batch, not the individual submission, is the scoring unit -- see `PeerReviewBatch`'s
 docstring for why scoring a submission the moment its own incoming reviews land is wrong (its
@@ -97,7 +102,9 @@ labels here.
   `completed` set, where CMP shows "Completed"), otherwise the submission due date.
 - Pooled projects: `Project.state` is only `CS` or `CL`, so a submitted learner's stage comes from
   `ProjectSubmission.review_state` (`AW` as `CS`, `IR` as `PR`, `SC` as `CO`) and the review
-  deadline is their batch `due_at`. A closed project reads Closed in both modes.
+  deadline is their batch `due_at`. A self-paced learner has no submission deadline: the row's
+  `deadline` and `deadline_kind` are `None` until they are in a batch, and the include then
+  renders no deadline line. A closed project reads Closed in both modes.
 
 `project_rows_for_cohort(cohort, user, url_for=None)` builds every row of a cohort in two queries.
 `url_for(project, link_target)` is the site's route resolver and sets `row.href`. The overridable
@@ -115,12 +122,22 @@ idempotency key like `reminders.py` already does -- no parallel send mechanism:
 
 | Purpose | Fires when | Recipient |
 |---|---|---|
-| `coursework.review_assigned` | A reviewer is assigned one or more reviews (deadline-mode whole-project assignment or one pooled batch); one email per reviewer per event, not one per review row | Reviewer |
-| `coursework.pool_ready` | A pooled batch forms | Every batch member |
+| `coursework.review_assigned` | A reviewer is assigned one or more reviews by deadline-mode whole-project assignment; one email per reviewer per event, not one per review row | Reviewer |
+| `coursework.pool_ready` | A pooled batch forms; the only email a batch member gets for it | Every batch member |
+
+A pooled batch of `n + 1` sends exactly `n + 1` emails. Every member is also a reviewer, so
+`pool_ready` is the review request: its context carries `review_count`, `due_date` (the batch
+`due_at`), `reviews` (one `{number, review_id, url}` per assigned review) and `review_list_url`.
+Links come from the `COURSEWORK_REVIEW_URL_BUILDER` hook, called as
+`builder(project=..., review=...)` (`review=None` for the project's review page). The default
+reverses the package routes `coursework_projects_eval_submit` and `coursework_projects_eval`
+against `SITE_URL`, and returns `None` on a site that does not mount `coursework.urls`; such a site
+points the hook at its own routes.
 | `coursework.review_received` | A review is submitted (both modes) | Reviewee |
 | `coursework.review_window_expired` | A pooled review's batch expires it | Reviewer |
 
-`reminders.py`'s existing `coursework.peer_review_deadline` scheduled reminder now also scans
+A self-paced cohort has no deadlines, so the homework and project-submission deadline reminders
+skip it even when a date is stored. `reminders.py`'s existing `coursework.peer_review_deadline` scheduled reminder now also scans
 pooled reviews approaching their batch's `due_at` (`pooled_reviews_due_between`), reusing the same
 purpose and idempotency-key shape rather than a parallel "expiry approaching" job.
 
@@ -211,6 +228,22 @@ fields are deliberately not restored:
 - `Homework.module` and `Homework.unit` follow the binding; both are null for a Studio-authored
   homework, which belongs to no module tree.
 
+### Self-paced homework: scored and revealed on submit
+
+`Homework.reveals_on_submit` is true for a self-paced cohort's homework, derived from
+`Cohort.mode` like `Project.uses_pooled_review`. `submit_homework` already scores every submission
+(`scoring.update_score` sets `Answer.is_correct` and the totals); for such a homework it also
+refreshes the cohort leaderboard, so the submission counts at once without an operator scoring
+pass. Because the learner then sees the answers, a second submission is rejected with reason
+`already_submitted`. `homework_reveal` owns the policy: results are revealed to a learner with a
+submission on submit for a self-paced homework, and only once the homework is `SCORED` for a dated
+one. `homework_form_context` exposes `results_revealed` and `revealed_rows`
+(`(question, answer, result)`), and the form shows correctness and the correct answer.
+
+Due dates: `Homework.due_date`, `Project.submission_due_date` and `Project.peer_review_due_date`
+are optional for a self-paced cohort and still required by model validation for a dated one. A
+self-paced homework never reports `deadline_passed`.
+
 ### One form, two pages
 
 `coursework/_homework_form.html` is the submission form, and both the homework page and a bound
@@ -232,4 +265,7 @@ fields. A scored homework with no submission by this learner is presented as
 `Closed — not submitted`; scoring the assignment does not imply that every learner submitted or
 received a score. On a closed/scored review, the accepted snapshot remains primary and a different
 saved `HomeworkDraft` is shown separately as an unsubmitted draft. The generic state and shared
-fragment are documented in `community_base/homework_steps/README.md`.
+fragment are documented in `community_base/homework_steps/README.md`. For a self-paced homework the
+adapter reports a learner who has submitted as `scored`, refuses further writes, and supplies
+`Assignment.question_results` from `homework_reveal`; for a dated homework it supplies them only
+after scoring.
