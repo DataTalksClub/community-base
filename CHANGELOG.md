@@ -2,9 +2,18 @@
 
 ## Unreleased
 
+## 0.5.16
+
+Adoption-provisional. This release still contains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`; `C3.7` and `C4.3` may still
+rewrite them, and donor adoption happens from `C5.3`, not from this tag.
+
 - C5.2ga (#329): share the Relay template-key policy with transitional SES file templates so
   existing dotted coursework purposes render and deliver. Keep purpose names, template content,
   override loading and delivery behavior unchanged.
+- C5.2ja (#327): record the completed v0.5.15 homework form correction in the shared plan status.
+- Course unification (#328): publish the updated simplification plan, retirement inventory and
+  coordination evidence; this documentation does not change runtime behavior.
 
 ## 0.5.15
 
