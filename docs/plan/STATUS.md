@@ -144,6 +144,7 @@ issues that can start now.
 | `C5.2e` | community-base | Coursework Studio and Wrapped | C5.2dc | no | done | https://github.com/DataTalksClub/community-base/pull/159 |
 | `C5.2f` | community-base | Peer review assessment modes: per-submission lifecycle, pooled batch formation and assignment | C5.2e | no | done | https://github.com/DataTalksClub/community-base/pull/257 |
 | `C5.2g` | community-base | Pooled review expiry and coursework email notifications | C5.2f | no | done | https://github.com/DataTalksClub/community-base/pull/262 |
+| `C5.2ga` | community-base | Unify coursework mail template-key validation | C1.3, C5.2g | no | in-progress | https://github.com/DataTalksClub/community-base/issues/329 |
 | `C5.2h` | community-base | Certificate eligibility, learner-requested issuance, and banner-generator artifact seam | C5.2f | no | done | https://github.com/DataTalksClub/community-base/pull/263 |
 | `C5.2i` | community-base | Shared inline homework steps and resumable drafts | C5.1c | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.5.5 |
 | `C5.2j` | community-base | Shared learner homework state and accepted-submission snapshot | C5.2i | no | in-progress | https://github.com/DataTalksClub/community-base/pull/305 |

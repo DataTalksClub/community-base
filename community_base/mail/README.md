@@ -13,6 +13,15 @@ does not mean delivery. Callback transitions are monotonic and callback event ID
 `POST /api/transactional/send`; connection failures retry, an uncertain acknowledgement becomes
 `ambiguous`, and Relay suppression is terminal.
 
+Both backends use the same template key as the mail purpose, without translation. A key is 1 to
+128 ASCII characters: it starts with a letter or digit, then contains only letters, digits,
+periods, underscores or hyphens. This admits existing purposes such as
+`coursework.review_assigned` alongside `password_reset` and `event-registration`. Slashes,
+backslashes, leading dots and longer keys are rejected before a local template file or override
+loader is used, and by Relay catalog methods before their requests. Local SES reports
+`invalid_mail_template_key` as a permanent job error; Relay catalog methods raise `ValueError`
+for an invalid caller key.
+
 `ses_local` is a transitional AISL migration backend. It renders frontmatter markdown from
 `MAIL_TEMPLATE_DIR`, sends through SES v2 with an HTML and a derived plain-text part, and accepts
 `extra={"cc": ..., "bcc": ..., "reply_to": ..., "configuration_set": ...}` on `send()`. A

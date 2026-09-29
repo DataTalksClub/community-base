@@ -21,8 +21,8 @@ from community_base.jobs.runner import PermanentJobError, RetryableJobError
 from community_base.kernel.conf import get
 from community_base.kernel.hooks import resolve
 from community_base.mail.models import EmailDelivery
+from community_base.mail.template_keys import TEMPLATE_KEY_PATTERN as TEMPLATE_KEY_PATTERN
 
-TEMPLATE_KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 INLINE_BULLET_PATTERN = re.compile(r"^(?P<lead>.*?:) - (?P<rest>.+)$")
 
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- C5.2ga (#329): share the Relay template-key policy with transitional SES file templates so
+  existing dotted coursework purposes render and deliver. Keep purpose names, template content,
+  override loading and delivery behavior unchanged.
+
 ## 0.5.15
 
 Adoption-provisional. This release still contains the nine provisional kept-label migrations
