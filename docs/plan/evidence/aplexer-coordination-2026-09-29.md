@@ -351,3 +351,117 @@ message `01a0eb87-0713-78b0-b9d5-e59821d4ab37`, visibly replied
 peer/human probe was used. The owned scratch session was removed afterward. This verifies
 the observed shell-hosted case; terminal paste support still does not establish composer
 readiness, and a successful pane write still requires an acknowledgement for consequential work.
+
+## Installation drift during later coordination
+
+During the #324 package handoff, the installed CLI reported version `0.1.8` and rejected
+`message send --workspace`. Its hash had changed to
+`8aec59c7894e0efe112337769df61bf14685dd21e51079dcfa6623f415ef318a`.
+The preceding installation/probe results remain historical evidence, not a claim that the
+current default binary retains the reviewed transport features.
+
+The existing isolated worktree's `target/debug/aplexer` still advertises native cross-workspace
+send/reply and resolves this session's real identity. Its hash is
+`d648c2fc10ad6aac8f69b41a0df33d7a0f8c2bb4a568c265f7a5648d4900bb3b`.
+Using that explicit path recorded AISL ownership notice `01a0ed97-806f-75d3-bee6-d2869fea1503`
+and integration request `01a0ed97-80e9-7350-8029-f3165447ab8b` to the active aplexer
+`commits` session. Each names the exact binary path needed for cross-workspace replies.
+Neither receipt proves the recipient has processed it. No active composer or shared binary
+was modified. Integrating the focused source commits into the maintained aplexer branch remains
+necessary so a later install preserves the feature.
+
+The former DTC `conding-standard` session also disappeared from session discovery. Its #440
+pre-push notice failed rather than reaching an assumed successor. The resulting SHA and sole
+on-call handoff were recorded in the DTC issue; no peer acknowledgement was invented.
+
+### Maintainer acknowledgement and integration review
+
+The two focused source commits are published in draft
+[PR #23](https://github.com/PocketShell-io/aplexer/pull/23). A single pane wake-up,
+`01a0edab-71bc-7992-b030-06f42d5b3525`, was sent after checking an idle session and empty composer.
+The maintainer replied in durable message `01a0edb0-6e13-7761-8a35-df45af44c3ca`, explicitly
+acknowledging `APLEXER-A2A-PRESERVE-20260929` and reserving the mouse/scroll/README changes.
+Root acknowledged that reply as `01a0edb1-1175-7741-93c1-bc0731c12eae`.
+
+The agreed next step is isolated conflict resolution: preserve main's live session-record
+workspace lookup when moving routing into `message_routing.rs`, then send the updated SHA and
+test evidence to the maintainer for combined-tree review. The shared checkout and installed
+binary remain untouched. This is an agreed handoff, not evidence of completed integration.
+
+The isolated rebase is now published at `d6b279a3f8b613f376798058ca771afd28f3d54c`, on
+main `2254b2ee5e084e361515a4ab1a9a841885223794`. The first focused commit preserves the live
+record lookup and the full inbox/log/show/ack/gc dispatcher; the second preserves shell-hosted
+Codex submission. The tested final tree is `b80dd7de493c87ecee3e10ebf11f14fe30280c2c`.
+Formatting, 195 binary tests, six messaging tests and 27 screen tests passed; one screen test
+was ignored. No shared installation changed.
+
+Hosted CI passed MSRV compile but failed Validate before tests on a `collapsible_if` warning
+in the maintainer's reserved `scroll_input.rs:179`. The
+[CI report](https://github.com/PocketShell-io/aplexer/pull/23#issuecomment-5893105917)
+records that unresolved gate. The new review wake-up `01a0edbc-9a0d-70f0-87b3-315b4842004e`
+automatically entered the peer conversation; a rendered capture showed the maintainer reading
+the two named inbox messages and inspecting the reserved source. No manual Enter was used.
+Combined-tree review, CI correction and maintained installation remain pending.
+
+
+### Worker retirement race discovered by CI
+
+The maintainer released the exact Clippy guard correction. Commit
+`e18fda68fd78bb33ae158b1936b2b67420daf394` contains that focused correction; hosted MSRV
+passed, but Validate then failed the worker self-reap integration test. An isolated reproduction
+showed a history checkpoint recreating deleted session state after an idle-timer reset. Relevant
+worker and persistence source matches the main baseline; this was not reproduced through the
+message/send path. The separate baseline binary was not executed.
+
+[Issue #24](https://github.com/PocketShell-io/aplexer/issues/24) tracks the race. The maintainer
+released the worker/persistence paths for an isolated fix. Local commit
+`10dac68d03770fd6f97d957707573d9c643dcf93` atomically requires an existing record when
+publishing running-worker state and prevents later history writes from recreating a removed
+session directory. Deterministic deletion-during-publication and checkpoint regressions passed,
+as did the focused self-reap, persistence and lifecycle tests. The candidate is not pushed.
+
+The maintainer identified a remaining startup requirement: test the atomic exchange operation
+on the actual session record before launching any workload, so an unsupported filesystem fails
+before a child exists. This follow-up and a deterministic failure-before-spawn regression are
+assigned in the same isolated worktree. Maintainer message
+`01a0eddc-0238-7d32-aad8-ed96f46a6c4e` and root acknowledgement
+`01a0ede1-9276-7ee0-bed9-061832af144f` record the handoff. CI, combined-tree acceptance and
+maintained installation remain open. No timeout weakening or ordinary-rename fallback is allowed.
+
+
+The maintainer accepted the prelaunch check in local commit `145885c2` and requested an explicit
+filesystem diagnostic and README note. Focused follow-up `ca53b4ab762e5d7683ebbbd896cb126fceb4b648`
+adds those; the PR branch was fast-forwarded without changing main or installing a binary.
+Its tree is `c27b4874c4b1507935b9bf2bb57e6c445a201d9f`.
+
+[Hosted CI](https://github.com/PocketShell-io/aplexer/pull/23#issuecomment-5894001380)
+passed exact run `36594661581`: formatting/Clippy, 786 default Rust tests, 19 startup-hook tests,
+36 Python tests and 20 Python CLI tests plus five subtests. The original worker self-reap test
+and unsupported-exchange prelaunch regression passed. Rust 1.85 all-target compilation passed.
+The maintainer received the integration handoff as automatically submitted pane message
+`01a0edec-c251-7670-b818-2f001fbd4fc5`. Combined integration and maintained installation remain
+pending; active workers and the preserved communication binary were not restarted or replaced.
+
+
+The maintainer then supplied clean combined branch `fix/mouse-a2a-integration-20260929` at
+`6a71a69f850a42956ba4bf434b5f7e4599d260e9`, tree
+`46a2c25795ca88fc0c50aa9ad4e926bd70073efa`, directly on top of the green messaging/lifecycle
+candidate. Its six mouse/README paths passed local formatting, Clippy, 197 binary tests,
+six messaging tests and 27 screen tests with one manual case ignored. The maintainer released
+those files for PR integration in message `01a0edf9-5868-7491-9a62-550e4d1dbfc9`.
+
+Root fast-forwarded PR #23 to that exact commit; sole hosted observer reported run `36598114529`
+[green on attempt 1](https://github.com/PocketShell-io/aplexer/pull/23#issuecomment-5894458020):
+788 Rust tests passed with six existing ignored, 19 startup-hook tests, 36 Python client tests,
+and 20 CLI tests plus five subtests. Formatting, Clippy and Rust 1.85 compilation passed.
+No main merge or installation occurred. The maintainer explicitly owns installation because the
+current binary also contains separate uncommitted `src/config/{pathfix.rs,schema.rs}` behavior.
+Installing a build of the PR alone would drop that behavior. Shared main WIP and active workers
+remain untouched. Root acknowledgement and exact push/observer handoff are durable messages
+`01a0ee00-04a9-7260-9d1e-45e68a5fb878` and `01a0ee00-7855-73c0-9260-be792a0bdfc1`.
+
+
+The final main merge preview against freshly fetched `2254b2ee5e084e361515a4ab1a9a841885223794`
+is conflict-free and exactly the tested tree `46a2c25795ca88fc0c50aa9ad4e926bd70073efa`.
+Root sent final source acceptance/integration request `01a0ee07-5865-7b50-b1ba-515e2bbf6bcb`;
+the maintainer's explicit main-merge hold and installation ownership still apply pending its reply.
