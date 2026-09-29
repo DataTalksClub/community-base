@@ -6,9 +6,12 @@ form and one POST handler. `homework_form_action` is empty on the homework
 page itself, where the form posts to the page it is on.
 
 Context: homework, question_answers, is_authenticated, disabled,
-accepting_submissions, deadline_passed, submission, homework_form_action.
+accepting_submissions, deadline_passed, submission, homework_form_action, results_revealed,
+revealed_rows. Results show once `homework_reveal.results_revealed` allows: on submit for a
+self-paced homework, after scoring for a dated one.
 {% endcomment %}
-{% if not accepting_submissions %}<p class="cb-alert">This homework is closed.</p>
+{% if results_revealed and homework.reveals_on_submit %}<p class="cb-alert">You have submitted this homework. Your results are below.</p>
+{% elif not accepting_submissions %}<p class="cb-alert">This homework is closed.</p>
 {% elif deadline_passed %}<p class="cb-alert">The deadline has passed.</p>{% endif %}
 
 {% if not is_authenticated %}
@@ -22,7 +25,14 @@ accepting_submissions, deadline_passed, submission, homework_form_action.
   </ul>
 {% else %}
   {% if submission %}<p class="cb-card-meta">Last submitted {{ submission.submitted_at }} · score {{ submission.total_score }}</p>{% endif %}
-  {% if disabled %}
+  {% if results_revealed %}
+    <ul class="cb-list" data-homework-results>
+      {% for question, answer, result in revealed_rows %}
+        <li data-correct="{{ result.correct|yesno:'true,false' }}">{{ question.text }}{% if answer %} — {{ answer.answer_text }}{% endif %}
+          · {% if result.correct %}Correct{% else %}Incorrect{% endif %}{% if result.correct_answer %} · Correct answer: {{ result.correct_answer }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% elif disabled %}
     <ul class="cb-list">
       {% for question, answer in question_answers %}
         <li>{{ question.text }}{% if answer %} — {{ answer.answer_text }}{% endif %}</li>

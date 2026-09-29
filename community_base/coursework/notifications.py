@@ -1,5 +1,10 @@
 """Event-driven peer-review mail: assignment, pool-ready, review-received, window-expired.
 
+Deadline mode sends ``review_assigned`` to each reviewer. Pooled mode sends only ``pool_ready``,
+once per batch member, because every member of a pooled batch is also a reviewer: that one email
+carries the member's direct review links (``COURSEWORK_REVIEW_URL_BUILDER``) and the batch due
+date.
+
 Distinct from ``reminders.py``, which scans for items approaching a deadline on a schedule.
 These fire once, at the moment of the event, from the code that causes it (assignment,
 submission, expiry) -- reused as plain function calls, not durable job handlers. Each wraps its
@@ -15,6 +20,7 @@ from collections import defaultdict
 
 from django.db import transaction
 
+from community_base.coursework.hooks import hooks
 from community_base.coursework.models import PeerReview, PeerReviewBatch, ProjectSubmission
 from community_base.mail import send
 
@@ -77,14 +83,47 @@ def send_review_assigned_notifications(reviews: list[PeerReview]) -> int:
     return sent
 
 
-def send_pool_ready_notification(batch: PeerReviewBatch, submission: ProjectSubmission) -> None:
+def _review_link(project, review) -> str | None:
+    return hooks.review_url_builder(project=project, review=review)
+
+
+def _batch_review_links(project, member_reviews: list[PeerReview]) -> list[dict]:
+    links = []
+    for number, review in enumerate(sorted(member_reviews, key=_review_sort_key), start=1):
+        links.append(
+            {"number": number, "review_id": review.id, "url": _review_link(project, review)}
+        )
+    return links
+
+
+def _review_sort_key(review: PeerReview) -> int:
+    return review.id
+
+
+def send_pool_ready_notification(
+    batch: PeerReviewBatch, submission: ProjectSubmission, reviews: list[PeerReview]
+) -> None:
+    """The one email a pooled batch member gets: the batch formed, review these peers by then.
+
+    ``reviews`` is every review the batch created; the member's own are the ones where they are
+    the reviewer. The email names how many reviews they owe, links each one directly, links the
+    project's review page, and gives the batch due date.
+    """
+
     project = batch.project
+    member_reviews = []
+    for review in reviews:
+        if review.reviewer_id == submission.id:
+            member_reviews.append(review)
     with transaction.atomic():
         send(
             POOL_READY_PURPOSE,
             submission.student.email,
             {
                 **_project_context(project),
+                "review_count": len(member_reviews),
+                "reviews": _batch_review_links(project, member_reviews),
+                "review_list_url": _review_link(project, None),
                 "due_date": batch.due_at.isoformat(),
             },
             f"{POOL_READY_PURPOSE}:{submission.id}:{batch.id}",

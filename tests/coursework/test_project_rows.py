@@ -214,17 +214,19 @@ def pooled_project(**values):
 
 
 # A pooled project's own state is only CS or CL; the learner's review_state carries the rest.
+# Self-paced has no submission deadline (#323): no deadline kind until the learner is in a batch
+# whose due date is known, and none on a closed project.
 POOLED_CASES = [
-    (CS, None, ("Open", "your_move", "submit", "submission")),
+    (CS, None, ("Open", "your_move", "submit", None)),
     (
         CS,
         SubmissionReviewState.AWAITING_ASSIGNMENT.value,
-        ("Submitted", "done", "submit", "submission"),
+        ("Submitted", "done", "submit", None),
     ),
-    (CS, SubmissionReviewState.IN_REVIEW.value, ("Review", "your_move", "eval", "peer_review")),
+    (CS, SubmissionReviewState.IN_REVIEW.value, ("Review", "your_move", "eval", None)),
     (CS, SubmissionReviewState.SCORED.value, ("Passed (9)", "result", "results", "peer_review")),
-    (CL, None, ("Closed", "past", None, "submission")),
-    (CL, SubmissionReviewState.SCORED.value, ("Closed", "past", None, "submission")),
+    (CL, None, ("Closed", "past", None, None)),
+    (CL, SubmissionReviewState.SCORED.value, ("Closed", "past", None, None)),
 ]
 
 

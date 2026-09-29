@@ -82,7 +82,7 @@ class HomeworkScoringStatus(Enum):
 
 
 def _homework_scoring_error(homework: Homework, homework_id, force: bool) -> str | None:
-    if homework.due_date > timezone.now():
+    if homework.due_date is not None and homework.due_date > timezone.now():
         return (
             f"The due date for homework {homework_id} is in the future. "
             "Update the due date to score."

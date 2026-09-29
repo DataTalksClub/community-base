@@ -128,12 +128,12 @@ def submit_project(
         # (clean_learning_in_public_links, peer_review_lip_score, project_lip_score); importing
         # pooling at module level here would be circular. Dispatched after commit so a batch is
         # never formed from a submission that could still roll back.
-        def _try_form_batch():
-            from community_base.coursework.pooling import try_form_batch
+        def _form_batches():
+            from community_base.coursework.pooling import form_pooled_batches
 
-            try_form_batch(project)
+            form_pooled_batches(project)
 
-        transaction.on_commit(_try_form_batch)
+        transaction.on_commit(_form_batches)
 
     return submission, created
 

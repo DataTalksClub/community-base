@@ -98,7 +98,7 @@ def _assignment_precondition_failure(
     if project.state != ProjectState.COLLECTING_SUBMISSIONS.value:
         return (ProjectActionStatus.FAIL, PROJECT_NOT_COLLECTING_SUBMISSIONS_MESSAGE)
 
-    if project.submission_due_date > timezone.now():
+    if project.submission_due_date is not None and project.submission_due_date > timezone.now():
         return (ProjectActionStatus.FAIL, FUTURE_SUBMISSION_DUE_DATE_MESSAGE)
 
     if submissions_count <= num_evaluations:
@@ -615,7 +615,7 @@ def _validate_project_scoreable(project) -> str | None:
         )
     if project.state != ProjectState.PEER_REVIEWING.value:
         return "Project is not in 'PEER_REVIEWING' state"
-    if project.peer_review_due_date > timezone.now():
+    if project.peer_review_due_date is not None and project.peer_review_due_date > timezone.now():
         return (
             "The peer review due date is in the future. Update the due date to score the project."
         )

@@ -8,6 +8,7 @@ from community_base.homework_steps.types import (
     Eligibility,
     Option,
     Question,
+    QuestionResult,
 )
 
 
@@ -30,7 +31,7 @@ def coursework_assignment(homework, user, *, context=None):
     """Build descriptors from a package Homework; identity includes its cohort."""
 
     _require_coursework()
-    from community_base.coursework.models import HomeworkState, QuestionTypes, Submission
+    from community_base.coursework.models import QuestionTypes, Submission
 
     questions = list(homework.questions.order_by("id"))
     types = {
@@ -80,11 +81,7 @@ def coursework_assignment(homework, user, *, context=None):
         instructions=homework.instructions_markdown,
         existing_answers=existing_answers,
         has_submission=submission is not None,
-        availability={
-            HomeworkState.OPEN.value: "open",
-            HomeworkState.CLOSED.value: "closed",
-            HomeworkState.SCORED.value: "scored",
-        }[homework.state],
+        availability=_availability(homework, submission),
         accepted_submission=(
             AcceptedSubmission(
                 answers=existing_answers,
@@ -93,8 +90,43 @@ def coursework_assignment(homework, user, *, context=None):
             if submission
             else None
         ),
+        question_results=_question_results(homework, submission, questions),
         context=context,
     )
+
+
+def _availability(homework, submission):
+    """The learner's view of the homework; a self-paced one is scored once they submit."""
+
+    from community_base.coursework.homework_reveal import locked_after_submit
+    from community_base.coursework.models import HomeworkState
+
+    if locked_after_submit(homework, submission):
+        return "scored"
+    return {
+        HomeworkState.OPEN.value: "open",
+        HomeworkState.CLOSED.value: "closed",
+        HomeworkState.SCORED.value: "scored",
+    }[homework.state]
+
+
+def _question_results(homework, submission, questions):
+    """Revealed results keyed by question key, or ``None`` while the policy reveals nothing."""
+
+    from community_base.coursework.homework_reveal import question_results, results_revealed
+
+    if not results_revealed(homework, submission):
+        return None
+    by_id = question_results(homework, submission)
+    results = {}
+    for question in questions:
+        result = by_id[question.pk]
+        results[_question_key(question)] = QuestionResult(
+            correct=result.correct,
+            correct_answer=result.correct_answer,
+            explanation=result.explanation,
+        )
+    return results
 
 
 class CourseworkAdapter:
@@ -105,15 +137,23 @@ class CourseworkAdapter:
         self.homework_id = homework.pk
 
     def eligibility(self, request, assignment):
-        from community_base.coursework.models import Homework, HomeworkState
+        from community_base.coursework.homework_reveal import locked_after_submit
+        from community_base.coursework.models import Homework, HomeworkState, Submission
 
         homework = Homework.objects.get(pk=self.homework_id)
         accepting = homework.state == HomeworkState.OPEN.value
+        reason = ""
+        if not accepting:
+            reason = "This homework is closed."
+        submission = Submission.objects.filter(homework=homework, student=request.user).first()
+        if accepting and locked_after_submit(homework, submission):
+            accepting = False
+            reason = "You have submitted this homework. Your results are shown on the review."
         return Eligibility(
             read=request.user.is_authenticated,
             write=accepting,
             submit=accepting,
-            reason="This homework is closed." if not accepting else "",
+            reason=reason,
         )
 
     def submit(self, request, assignment, answers, final_fields):

@@ -30,6 +30,26 @@ URL_SCHEMES_WEB = URLValidator(schemes=["http", "https"])
 URL_SCHEMES_GIT = URLValidator(schemes=["http", "https", "git"])
 
 
+def _is_self_paced(cohort) -> bool:
+    return cohort.mode == "self_paced"
+
+
+def require_dates_unless_self_paced(instance, field_names) -> None:
+    """A dated cohort's homework and projects keep their required due dates (#323).
+
+    A self-paced cohort has no deadlines, so its dates are optional there and only there.
+    """
+
+    if instance.cohort_id is None or _is_self_paced(instance.cohort):
+        return
+    errors = {}
+    for name in field_names:
+        if getattr(instance, name) is None:
+            errors[name] = "A due date is required unless the cohort is self-paced."
+    if errors:
+        raise ValidationError(errors)
+
+
 class HomeworkState(Enum):
     CLOSED = "CL"
     OPEN = "OP"
@@ -63,7 +83,8 @@ class Homework(SourceProvenanceMixin, models.Model):
     instructions_url = models.URLField(  # noqa: DJ001 -- null means the link is unset.
         blank=True, null=True, validators=[URL_SCHEMES_WEB]
     )
-    due_date = models.DateTimeField()
+    # Optional only for a self-paced cohort, which has no deadlines (``clean``).
+    due_date = models.DateTimeField(null=True, blank=True)
 
     learning_in_public_cap = models.IntegerField(default=7)
 
@@ -83,8 +104,21 @@ class Homework(SourceProvenanceMixin, models.Model):
     def __str__(self):
         return f"{self.cohort.title} - {self.title}"
 
+    def clean(self):
+        super().clean()
+        require_dates_unless_self_paced(self, ("due_date",))
+
     def is_scored(self):
         return self.state == HomeworkState.SCORED.value
+
+    @property
+    def reveals_on_submit(self) -> bool:
+        """True for a self-paced cohort's homework: scored and revealed on each submit (#323).
+
+        Derived from ``Cohort.mode`` like ``Project.uses_pooled_review``. A dated cohort's
+        homework keeps the operator-scored rule: nothing is revealed before ``SCORED``.
+        """
+        return _is_self_paced(self.cohort)
 
 
 class QuestionTypes(Enum):
@@ -346,10 +380,12 @@ class Project(models.Model):
         blank=True, null=True, validators=[URL_SCHEMES_WEB]
     )
 
-    submission_due_date = models.DateTimeField()
+    # Both due dates are optional only for a self-paced cohort (``clean``); a pooled learner's
+    # only date is their batch's ``PeerReviewBatch.due_at``.
+    submission_due_date = models.DateTimeField(null=True, blank=True)
 
     learning_in_public_cap_project = models.IntegerField(default=14)
-    peer_review_due_date = models.DateTimeField()
+    peer_review_due_date = models.DateTimeField(null=True, blank=True)
     time_spent_project_field = models.BooleanField(default=True)
 
     problems_comments_field = models.BooleanField(default=True)
@@ -384,6 +420,10 @@ class Project(models.Model):
     def get_state_display(self):
         return PROJECT_STATE_LABELS.get(self.state, self.state)
 
+    def clean(self):
+        super().clean()
+        require_dates_unless_self_paced(self, ("submission_due_date", "peer_review_due_date"))
+
     @property
     def points_to_pass(self):
         return self.cohort.project_passing_score
@@ -397,7 +437,7 @@ class Project(models.Model):
         (not inferred from data shape), and a second field here could disagree with its own
         cohort's mode for no benefit.
         """
-        return self.cohort.mode == "self_paced"
+        return _is_self_paced(self.cohort)
 
     def criteria_for_project(self):
         return criteria_for_project(self)
