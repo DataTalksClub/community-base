@@ -1239,7 +1239,7 @@ This is the single adoption-ready domain release. Do not publish provisional `v0
 
 ## C5.4 Repository-derived curriculum hierarchy and YAML-backed homework units
 
-Repository: community-base. Depends on: C5.1e, C5.2i, C7.10, C7.11, C5.4a, C5.4b. Related issue:
+Repository: community-base. Depends on: C5.1e, C5.2i, C7.10, C7.11, C5.4a, C5.4b, C5.4c. Related issue:
 DataTalksClub/community-base#306.
 
 Goal: the physical course repository defines the shared curriculum tree. `module.yaml` folders
@@ -1378,6 +1378,58 @@ route, template, projection, site pin or release version changes belong here. Re
 preservation remains a later adoption rehearsal.
 
 Docs: `community_base/curriculum/README.md`, `docs/plan/phase-5.md`, `docs/plan/STATUS.md`.
+
+## C5.4c Import course-tree YAML homework through explicit cohort bindings
+
+Repository: community-base. Depends on: C5.4a, C5.4b. Related issue:
+DataTalksClub/community-base#341.
+
+Goal: a course-tree `homework.yaml` and exactly one `homework.md` companion define a stable
+homework unit. Explicit cohort bindings materialize its structured metadata into the existing
+cohort-owned assignments and questions without replacing learner records or changing existing
+visible UI. The separate cohort-manifest schema stays envelope-only.
+
+Read first
+- Issue #341 for the complete source, binding, preservation and verification contract.
+- `content_sync/kinds/course.py`, `kinds/layouts.py` and `content_sync/FORMAT.md`.
+- `curriculum/source.py`, `parsers.py`, `content_sync_parsers.py` and `importing.py`.
+- `coursework/manifests.py`, `importing.py`, `models.py`, `answer_resolution.py`,
+  `submissions.py` and `homework_reveal.py`.
+- `homework_steps/types.py`, `coursework.py` and existing homework rendering tests.
+
+Steps
+1. Define the distinct course-tree source schema and explicit unit-identity cohort binding.
+   Preserve legacy bindings; reject ambiguous source ownership, invalid companions, identities,
+   questions and answers before writes. Do not infer an assignment for an unbound source unit.
+2. Preserve Unit, Homework, Question, Submission, Answer and progress identities on source moves.
+   Keep source metadata separate from cohort-specific policy and operator-managed assignment state.
+   Persist authored question order additively while preserving legacy order for existing rows.
+3. Validate both source forms first, then apply curriculum and coursework inside one transaction.
+   Use one combined retained-assignment set so cleanup cannot delete the other source form's rows.
+4. Import authored `correct: 'N'` losslessly only through the new source schema. Keep source answers
+   out of ordinary learner projections and reuse safe question descriptors. Preserve existing
+   policy-controlled scored-result reveal; removing it would violate the owner's feature constraint.
+5. Reuse domain owners, preserve existing page markup, and update source-format and app docs.
+   Keep mixed hierarchy, combined module/unit order and destinations in C5.4. This split must not
+   enable mixed sources that the current projections cannot present.
+
+Verification
+- Flat Markdown/YAML fixtures, explicit multiple-cohort bindings and unbound-source behavior pass.
+- Source moves and question reordering retain learner records and stable primary keys; repeated
+  imports are idempotent. Invalid source forms leave all curriculum and coursework rows unchanged.
+- Plaintext course-tree and envelope-only cohort scoring both work. Ordinary HTML/API/projections
+  exclude source answers, authorized reveal remains available, and legacy rendered output is stable.
+- Package quality gates, touched apps, all-extras suite, boundaries, plan check and applicable
+  additive-migration checks pass. Both consumer comparisons report captured refs and raw/normalized
+  outcomes independently. Donor rehearsals and site adoption remain separate, unverified milestones.
+
+Done when
+- [ ] The complete scoped contract has behavior evidence and independent review.
+- [ ] Code/docs are merged and package plus both consumer gates pass.
+- [ ] C5.4's remaining mixed-tree/projection requirements and site adoption remain open.
+
+Docs: `content_sync/FORMAT.md`, curriculum/coursework READMEs, `docs/plan/phase-5.md`,
+`docs/plan/STATUS.md`.
 
 ## A5.3 AISL: render course hierarchy from repository structure
 
