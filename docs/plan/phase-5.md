@@ -1028,6 +1028,64 @@ Done when
 Docs
 - `community_base/homework_steps/README.md`, `community_base/coursework/README.md`, `CHANGELOG.md`.
 
+## C5.2k Per-project learner row: CMP's project lifecycle presentation
+
+Repository: community-base. Depends on: C5.2g. Freeze required: no. Related:
+DataTalksClub/community-base#312, AI-Shipping-Labs/website#1696 (A5.1 adopts it),
+DataTalksClub/website (replaces its forked copy).
+
+Goal: move the course management platform's learner-facing per-project presentation, the row of
+the course page Projects table, into `community_base.coursework` unchanged in behaviour, so both
+sites render a project's stage, badge, pill surface, link and deadline from one owner. The owner
+decided on 2026-09-28 to keep CMP's established model and labels: this issue does not redesign
+the lifecycle and does not model it on `homework_steps/state.py`.
+
+Read first
+- `~/git/course-management-platform/courses/views/course_projects.py`
+  (`update_project_with_additional_info`) and `courses/templates/courses/course.html` (Projects
+  table).
+- `~/git/dtc-website/courses/views/course_projects.py`, `courses/coursework_badges.py` and
+  `courses/templates/courses/course.html` (Projects rows).
+- `community_base/coursework/models.py` (`Project`, `ProjectState`, `ProjectSubmission.review_state`,
+  `PeerReview`), `community_base/coursework/README.md` "Assessment modes".
+
+Steps
+1. Add a pure function that takes a `Project`, the learner's `ProjectSubmission` or `None`, and
+   the learner's completed required review count, and returns a frozen row: stage, submitted,
+   badge label, CMP badge class, pill surface (`past`, `your_move`, `done`, `result`), score, link
+   target (`submit`, `eval`, `results` or none) and the deadline to show with its kind. Labels
+   stay exactly as CMP and DTC have them: `CL` Closed; `CS` Open / Submitted; `PR` Not submitted /
+   Review / Review completed once completed non-optional `SU` reviews reach
+   `number_of_peers_to_evaluate`; `CO` Not submitted / Passed ({score}) / Failed ({score}).
+2. Pooled mode, as the models define it: a pooled project's `state` is only `CS` or `CL`, so a
+   submitted learner's stage comes from `ProjectSubmission.review_state` (`AW` as `CS`, `IR` as
+   `PR`, `SC` as `CO`), and the review deadline is the learner's batch `due_at` when known. A
+   closed project reads Closed in both modes.
+3. Add a per-cohort builder that loads the learner's submissions with the completed-review count
+   and pooled batch deadline in a constant number of queries, and accepts a site URL resolver so
+   the site keeps its routes.
+4. Ship an overridable row include for a course page Projects table using only `cb-` hooks.
+5. Document the contract in `community_base/coursework/README.md` and `CHANGELOG.md`.
+
+Verification
+- `uv run pytest tests/coursework` passes; tests cover every state by submitted combination in
+  both modes, the review-completed threshold at, below and above `number_of_peers_to_evaluate`,
+  that optional and unsubmitted reviews do not count, and a constant query count as projects grow.
+- `uv run pytest tests/test_boundaries.py tests/test_template_contract.py` passes;
+  `uv run python scripts/plan.py check` is OK; package quality gates pass.
+- Test both consuming sites against the change and report package, DTC and AISL results
+  separately. A consumer that cannot take the change until a release is said to be so.
+
+Done when
+- [ ] One package function returns the CMP row for every state and submitted combination.
+- [ ] Pooled projects derive their stage from `review_state` without changing deadline mode.
+- [ ] A row include renders the row with `cb-` hooks only.
+- [ ] Package, DTC and AISL results are reported separately; DTC adoption is prepared against a
+  tagged release.
+
+Docs
+- `community_base/coursework/README.md`, `CHANGELOG.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.

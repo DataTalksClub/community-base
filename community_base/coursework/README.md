@@ -74,6 +74,39 @@ the same expression every caller used before this changed (`project.state == PEE
 pooled mode it checks the review's own batch (or, for a volunteer review with no batch, is always
 open).
 
+## Course page project rows
+
+`project_rows.project_row(project, submission, completed_reviews=..., review_due_at=None)` returns
+one learner's row in a course page Projects table: stage, badge label, CMP badge class, pill
+surface, score, link target and the deadline to show. It is the course management platform's
+learner-facing presentation, moved here unchanged (C5.2k, community-base#312); do not redesign the
+labels here.
+
+| State | Not submitted | Submitted | Link |
+|---|---|---|---|
+| `CL` | Closed | Closed | none |
+| `CS` | Open | Submitted | `submit` |
+| `PR` | Not submitted | Review, then Review completed | `eval` |
+| `CO` | Not submitted | Passed ({score}) or Failed ({score}) | `results` |
+
+- Review completed: the learner's non-optional reviews of others in state `SU` reach
+  `Project.number_of_peers_to_evaluate`. Optional, `TR` and `EX` reviews do not count.
+- Pill surfaces: `past` (closed, never submitted, failed), `your_move` (open, reviews owed),
+  `done` (submitted, reviews delivered), `result` (passed). A site maps each to its own style.
+- Deadline: the review due date while reviewing a submitted project and once completed (with
+  `completed` set, where CMP shows "Completed"), otherwise the submission due date.
+- Pooled projects: `Project.state` is only `CS` or `CL`, so a submitted learner's stage comes from
+  `ProjectSubmission.review_state` (`AW` as `CS`, `IR` as `PR`, `SC` as `CO`) and the review
+  deadline is their batch `due_at`. A closed project reads Closed in both modes.
+
+`project_rows_for_cohort(cohort, user, url_for=None)` builds every row of a cohort in two queries.
+`url_for(project, link_target)` is the site's route resolver and sets `row.href`. The overridable
+`coursework/_project_row.html` include renders one row as a `cb-card` list item, exposing the
+surface, stage and deadline kind as data attributes.
+
+`project_row` reads attributes only, so a site still on its own project rows with the same state
+codes can call it before adopting the package models.
+
 ## Notifications
 
 `community_base/coursework/notifications.py` covers the four event-driven purposes, each a plain
