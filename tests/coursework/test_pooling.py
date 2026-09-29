@@ -555,3 +555,41 @@ def test_expire_pooled_reviews_handler_and_schedule_are_registered():
     schedules = {item.handler: item.cron for item in registered_schedules()}
     assert "coursework.expire_pooled_reviews" in names
     assert schedules["coursework.expire_pooled_reviews"] == "*/15 * * * *"
+
+
+POOL_READY_TEMPLATE = """---
+subject: Your review batch for {{ project_title }} is ready
+---
+Review {{ review_count }} projects by {{ due_date }}:
+{% for review in reviews %}
+- [Review {{ review.number }}]({{ review.url }})
+{% endfor %}
+"""
+
+
+def test_batch_emails_render_and_send_through_ses_local_with_review_links(
+    settings, tmp_path, review_urls, monkeypatch
+):
+    from unittest.mock import patch
+
+    from tests.mail.test_coursework_ses_templates import FakeSES
+
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "MAIL_BACKEND": "ses_local",
+        "MAIL_TEMPLATE_DIR": tmp_path,
+    }
+    monkeypatch.setenv("SES_FROM_EMAIL", "sender@example.test")
+    (tmp_path / "coursework.pool_ready.md").write_text(POOL_READY_TEMPLATE)
+    cohort = pooled_cohort()
+    project = pooled_project(cohort, number_of_peers_to_evaluate=3)
+    ses = FakeSES()
+
+    with patch("community_base.mail.backends.ses_local.configured_client", return_value=ses):
+        submit_batch_of(project, cohort, 4)
+
+    assert len(ses.calls) == 4
+    for call in ses.calls:
+        html = call["Content"]["Simple"]["Body"]["Html"]["Data"]
+        assert html.count(f'href="https://school.example/{project.slug}/reviews/') == 3
+        assert "Review 3 projects by" in html
