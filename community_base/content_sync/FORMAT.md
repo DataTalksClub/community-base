@@ -350,6 +350,8 @@ Layout, with `<course>` the collection path (`.` for a single-course repository,
 <course>/NN-<module>/module.yaml
 <course>/NN-<module>/README.md                    overview, optional
 <course>/NN-<module>/NN-<unit>.md
+<course>/NN-<module>/NN-<homework>/homework.yaml
+<course>/NN-<module>/NN-<homework>/homework.md
 <course>/NN-<module>/images/...                   assets
 <course>/NN-<module>/code/...                     never synced, referenced by unit `code`
 <course>/NN-<module>/NN-<submodule>/module.yaml   optional second level
@@ -420,6 +422,34 @@ The body is the lesson. A `kind: homework` unit body is the instructions page; t
 assignment is the cohort's `homework.yaml`. `is_homework`, `is_preview`, `access`, `prev_url` and
 `next_url` do not exist.
 
+A flat module may also contain `NN-<homework>/homework.yaml` with exactly one `homework.md`
+companion. This directory is one `kind: homework` Unit at that position; it has no `module.yaml`.
+The YAML owns the core `content_id`, title, optional slug and order derived from the `NN-` name,
+and all structured metadata. The Markdown file owns only the Unit prose. The two manifests in
+one directory, a missing companion or another Markdown companion are errors. This source shape
+may sit beside direct Markdown units. Mixed direct units and child module directories, shared
+module/unit sibling ordering and their destinations remain in C5.4.
+
+Course-tree `homework.yaml` uses `due_at` (optional ISO datetime with offset), `initial_state`
+(`closed`, `open`, `scored`; default `closed`), `form` (the five keys below), `stepper` (boolean,
+default `false`), and a nonempty ordered
+`questions` list. Each question has stable `content_id` and `id`, `type`, `prompt`, `points`,
+ordered `options` with stable IDs and labels for choice types, and `answer_type` for free-form
+types. An optional `step_label` is the question's stepper navigation label. A scored question has
+`correct` as a quoted string. Choice answers use one-based positions
+in the authored option order (`'2'`; comma-separated unique positions for checkboxes), and are
+validated before import. Numeric free-form answers must parse as finite numbers. The string is
+stored unchanged in the existing scoring field. `answer_type: any` has no `correct`. Question
+identities and option IDs must be unique within the homework source.
+
+`stepper: true` opts the authored assignment into the existing stepper descriptor and submit
+service. Its `form.homework_url`, `form.time_spent_lectures` and `form.time_spent_homework` flags
+select the built-in final fields backed by the existing Submission columns. A positive
+`form.learning_in_public_cap` adds the optional Learning in Public step and scores its validated
+links; set it to `0` to omit that step. The question ID `learning-in-public` is reserved when the
+step is enabled. These settings use the same source and cohort binding override rules as the
+ordinary form fields. No arbitrary final-field keys or additional submission store are defined.
+
 `cohorts/<identifier>/cohort.yaml`. The identifier is the directory name and is not repeated inside
 the file. It follows the slug pattern (`2026`, `self-paced`, `4`).
 
@@ -431,7 +461,7 @@ the file. It follows the slug pattern (`2026`, `self-paced`, `4`).
 | `archive` | mapping | no | absent means not archived. Present means the cohort places no modules and points GitHub readers at its own directory. One optional key, `notice_path`, a repository-relative path to the notice, defaulting to the cohort's `README.md`. Decision D38: it is a mapping rather than a boolean because every real archived cohort carries one, and two of seventeen point at `leaderboard.md` rather than `README.md`, which a boolean cannot express |
 | `registration_url` | https URL | no | `""` |
 | `hashtag` | as course | no | `""` |
-| `homework` | list of `{module, source, unit}` | no | `[]` |
+| `homework` | list of bindings with `module` and either cohort `source` or authored `unit` | no | `[]` |
 
 `homework[].module` is a top-level module slug that the cohort places; `homework[].source` is the
 manifest path relative to the cohort directory (`homework/01-agentic-rag/homework.yaml`);
@@ -442,17 +472,32 @@ because `register_kind` refuses a part that overrides a core key, so a cohort om
 rejected before a parser saw it. The conversion writes the key. `identifier`, `course`,
 `published`, `legacy_slug`, `year`, `format` and `flow` do not exist.
 
+The existing `source` binding may still carry an optional `unit` page link. A binding with `unit`
+and no `source` selects that authored course-tree homework identity; it creates one separate
+cohort-owned assignment per binding and never infers an assignment for an unbound source unit.
+It may set `due_at`, `initial_state` and individual `form` keys as cohort policy. A binding key
+overrides the source key; omitted keys inherit the source value. Explicit `due_at: null` clears a
+source deadline for a self-paced cohort; a live assignment still needs a resulting due date.
+Source and binding due/form changes update imported assignments. `initial_state` applies only on
+creation, so later operator state changes remain intact. A binding with neither source nor unit,
+or duplicate resulting assignment slugs in one cohort, is invalid.
+
 Package ruling, `archive` and `modules` together: a present `archive` mapping, empty or not, is
 what makes a cohort archived, and a cohort that declares both `archive` and `modules` contradicts
 itself. The curriculum parser rejects it rather than choosing one.
 
-`homework/<module-slug>/homework.yaml` keeps the DTC manifest: core keys plus `instructions_path`
+`cohorts/<identifier>/homework/<module-slug>/homework.yaml` keeps the DTC manifest: core keys plus `instructions_path`
 (default `homework.md`), `due_at` (ISO datetime with offset), `initial_state` (`closed`, `open`,
 `scored`), `form` (`homework_url`, `time_spent_lectures`, `time_spent_homework`,
 `faq_contribution`, `learning_in_public_cap`) and `questions` (each with `content_id`, `id`,
 `type`, `prompt`, `points`, `options`, `answer_type`, and the encrypted `answer` envelope of
-`coursework/answer_crypto.py`). Plaintext answers in unit front matter do not exist; answers are
-always the envelope.
+`coursework/answer_crypto.py`). Plaintext answers in unit front matter do not exist; answers in
+this cohort manifest are always the envelope.
+
+This envelope rule applies to the cohort manifest only. The separate course-tree homework YAML
+accepts authored `correct: 'N'` and has no envelope key. Its `homework.md` prose is a separate
+file, not unit front matter. Ordinary learner pages and descriptors omit correctness until the
+existing result-reveal policy permits it.
 
 ### article
 

@@ -18,6 +18,13 @@ HOMEWORK_STATES = ("closed", "open", "scored")
 QUESTION_TYPES = ("multiple_choice", "checkboxes", "free_form", "free_form_long")
 ANSWER_TYPES = ("any", "float", "integer", "exact_string", "contains_string")
 FORM_FLAGS = ("homework_url", "time_spent_lectures", "time_spent_homework", "faq_contribution")
+HOMEWORK_FORM = KeySpec(
+    "mapping",
+    item_keys={
+        **{name: KeySpec("boolean") for name in FORM_FLAGS},
+        "learning_in_public_cap": KeySpec("integer"),
+    },
+)
 
 COURSE = PartSpec(
     name="course",
@@ -101,8 +108,11 @@ COHORT = PartSpec(
             "object_list",
             item_keys={
                 "module": KeySpec("slug", required=True),
-                "source": KeySpec("string", required=True),
+                "source": KeySpec("string"),
                 "unit": KeySpec("uuid"),
+                "due_at": KeySpec("datetime"),
+                "initial_state": KeySpec("choice", choices=HOMEWORK_STATES),
+                "form": HOMEWORK_FORM,
             },
         ),
     },
@@ -118,13 +128,7 @@ HOMEWORK = PartSpec(
         # Every form key is optional; an absent one takes the field default the
         # coursework model carries. `learning_in_public_cap` is the one that is
         # not a flag, so it is typed on its own.
-        "form": KeySpec(
-            "mapping",
-            item_keys={
-                **{name: KeySpec("boolean") for name in FORM_FLAGS},
-                "learning_in_public_cap": KeySpec("integer"),
-            },
-        ),
+        "form": HOMEWORK_FORM,
         "questions": KeySpec(
             "object_list",
             required=True,
@@ -151,6 +155,28 @@ HOMEWORK = PartSpec(
     },
 )
 
+# A course-tree homework unit has its own schema. Cohort manifests retain the
+# envelope-only answer contract and their independent source identities.
+HOMEWORK_UNIT_QUESTION_KEYS = dict(HOMEWORK.keys["questions"].item_keys)
+HOMEWORK_UNIT_QUESTION_KEYS.pop("answer")
+HOMEWORK_UNIT_QUESTION_KEYS["correct"] = KeySpec("string")
+HOMEWORK_UNIT_QUESTION_KEYS["step_label"] = KeySpec("string", max_length=200)
+HOMEWORK_UNIT = PartSpec(
+    name="homework_unit",
+    shape=SHAPE_MANIFEST,
+    keys={
+        "due_at": KeySpec("datetime"),
+        "initial_state": KeySpec("choice", choices=HOMEWORK_STATES, default="closed"),
+        "form": HOMEWORK.keys["form"],
+        "stepper": KeySpec("boolean", default=False),
+        "questions": KeySpec(
+            "object_list",
+            required=True,
+            item_keys=HOMEWORK_UNIT_QUESTION_KEYS,
+        ),
+    },
+)
+
 SPEC = KindSpec(
     name="course",
     shape=SHAPE_TREE,
@@ -161,6 +187,7 @@ SPEC = KindSpec(
         "unit": UNIT,
         "cohort": COHORT,
         "homework": HOMEWORK,
+        "homework_unit": HOMEWORK_UNIT,
     },
     route=lambda path: f"courses/{path}",
 )

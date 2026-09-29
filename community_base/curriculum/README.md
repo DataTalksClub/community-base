@@ -101,6 +101,8 @@ between them (issue C7.10 names both files).
 <course>/NN-<module>/module.yaml
 <course>/NN-<module>/README.md                    module overview, optional
 <course>/NN-<module>/NN-<unit>.md
+<course>/NN-<module>/NN-<homework>/homework.yaml
+<course>/NN-<module>/NN-<homework>/homework.md
 <course>/NN-<module>/NN-<submodule>/module.yaml   optional second module level
 <course>/cohorts/<identifier>/cohort.yaml
 <course>/cohorts/<identifier>/README.md           cohort notice, optional
@@ -125,7 +127,7 @@ diagnostic, not by a second rule written in the parser.
 |---|---|
 | `CourseGraph` | `course.yaml` plus the core keys; `image` becomes `cover_image_url`, `repository_url` becomes `github_repo_url`, `status` drives `visible`. |
 | `ModuleGraph` | one `module.yaml` per module directory, its `README.md` as `overview`, `sort_order` from the `NN-` prefix, recursive through `children` to at most two module levels. |
-| `UnitGraph` | one `NN-<unit>.md` per unit: `kind`, `video_url`, `timestamps`, `session_position`, `is_bonus`, `code`, with the markdown body unrendered. |
+| `UnitGraph` | one `NN-<unit>.md` per Markdown unit, or a flat module's `NN-<homework>/homework.yaml` with its sole `homework.md` prose companion. The YAML form is a homework Unit with stable identity, title, slug and order from the directory. |
 | `CohortGraph` | one `cohorts/<identifier>/cohort.yaml` per cohort; `delivery` becomes `mode`, `modules` becomes `module_refs`, `homework` becomes `homework_bindings`. |
 
 Cohort placement follows the contract `CohortModule` already has: `module_refs is None` means
@@ -134,9 +136,11 @@ modules in that order. An absent `modules` list is `None`; `archive: true` is th
 an archived cohort places nothing and its own `README.md` is the notice for GitHub readers.
 Declaring both is an error naming both keys.
 
-A cohort's `homework` entries become `CohortGraph.homework_bindings`, a tuple of
-`{module, source, unit}`. This parser validates that `module` names a top-level module and
-carries the rest through; the manifests themselves are read by the coursework app (issue C7.11).
+A cohort's `homework` entries become `CohortGraph.homework_bindings`. Existing entries name a
+cohort manifest with `source` and may also name a `unit` page. A `unit` with no `source` selects
+an authored course-tree homework Unit by content ID. The parser validates the top-level module
+and carries the binding to the coursework reader; the reader validates the selected source even
+when coursework models are not installed. An unbound authored Unit remains a prose page.
 
 Three parser rulings, where section 3.8 is silent:
 
@@ -164,9 +168,10 @@ module, unit progress and homework links. A parent change counts as updated once
 reimport is unchanged. Stored slugs and parent-plus-slug fallback retain their existing behavior.
 Cohort placements still target top-level modules and follow their existing synchronization rules.
 
-This is the bounded module preservation guarantee of `C5.4b`. Mixed module/unit siblings, shared
-ordering and YAML-backed homework units remain in `C5.4`; unit movement between module rows is
-covered separately by `C5.4a`. Package fixtures do not establish AISL donor equivalence or replace
+This is the bounded module preservation guarantee of `C5.4b`. Mixed module/unit siblings and
+shared ordering remain in `C5.4`; YAML-backed homework units are covered by `C5.4c`, and unit
+movement between module rows is covered separately by `C5.4a`. Package fixtures do not establish
+AISL donor equivalence or replace
 the development-copy rehearsal required during adoption.
 
 ### Unit identity during module moves
@@ -194,8 +199,15 @@ Moving out of a removed module therefore preserves UnitProgress, Homework.unit a
 homework questions, submissions and answers. Homework.module separately becomes null when its
 module is deleted, under its existing SET_NULL rule. This package behavior does not prove AISL
 UserCourseProgress or donor-data compatibility; those need the later site adoption rehearsal.
-Whole-module reparenting, mixed module/unit trees and YAML homework adoption remain outside this
-unit-only capability (C5.4a).
+Whole-module reparenting and mixed module/unit trees remain outside the unit-only C5.4a
+capability. C5.4c extends the same stable Unit identity to authored YAML homework units within
+flat modules; the complete mixed-tree projection and site adoption remain separate work.
+
+The course parser validates both homework source forms before writing curriculum. Its one outer
+transaction applies curriculum and cohort-owned coursework, then cleans up only assignments not
+retained by either source form. Source path and containing module changes retain Unit identity;
+explicit per-cohort bindings retain separate Homework and Question identities and learner rows.
+An invalid authored question or binding leaves curriculum and coursework unchanged.
 
 Run imports with the content sync command:
 

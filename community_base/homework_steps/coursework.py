@@ -2,14 +2,7 @@
 
 from django.apps import apps
 
-from community_base.homework_steps.types import (
-    AcceptedSubmission,
-    Assignment,
-    Eligibility,
-    Option,
-    Question,
-    QuestionResult,
-)
+from community_base.homework_steps.types import Eligibility, Option
 
 
 def _require_coursework():
@@ -27,106 +20,15 @@ def _options(question):
     return tuple(Option(key=key, label=label) for key, label in zip(keys, labels, strict=True))
 
 
+PUBLIC_LINKS_KEY = "learning-in-public"
+
+
 def coursework_assignment(homework, user, *, context=None):
     """Build descriptors from a package Homework; identity includes its cohort."""
 
-    _require_coursework()
-    from community_base.coursework.models import QuestionTypes, Submission
+    from community_base.homework_steps.coursework_assignment import coursework_assignment as build
 
-    questions = list(homework.questions.order_by("id"))
-    types = {
-        QuestionTypes.MULTIPLE_CHOICE.value: "choice",
-        QuestionTypes.CHECKBOXES.value: "checkbox",
-        QuestionTypes.FREE_FORM.value: "short_text",
-        QuestionTypes.FREE_FORM_LONG.value: "long_text",
-    }
-    normalized = tuple(
-        Question(
-            key=_question_key(question),
-            prompt=question.text,
-            type=types[question.question_type],
-            options=_options(question) if question.has_choice_answers() else (),
-        )
-        for question in questions
-    )
-    existing_answers = {}
-    submission = Submission.objects.filter(homework=homework, student=user).first()
-    if submission:
-        answer_by_question = {
-            answer.question_id: answer.answer_text or "" for answer in submission.answers.all()
-        }
-        for question in questions:
-            if question.pk not in answer_by_question:
-                continue
-            text = answer_by_question[question.pk]
-            key = _question_key(question)
-            if question.has_choice_answers():
-                option_keys = [option.key for option in _options(question)]
-                try:
-                    selected = [option_keys[int(index) - 1] for index in text.split(",") if index]
-                except (IndexError, ValueError):
-                    selected = []
-                existing_answers[key] = (
-                    selected
-                    if question.question_type == "CB"
-                    else (selected[0] if selected else "")
-                )
-            else:
-                existing_answers[key] = text
-    return Assignment(
-        key=f"coursework:{homework.cohort_id}:{homework.pk}",
-        title=homework.title,
-        questions=normalized,
-        introduction=homework.description,
-        instructions=homework.instructions_markdown,
-        existing_answers=existing_answers,
-        has_submission=submission is not None,
-        availability=_availability(homework, submission),
-        accepted_submission=(
-            AcceptedSubmission(
-                answers=existing_answers,
-                submitted_at=submission.submitted_at,
-            )
-            if submission
-            else None
-        ),
-        question_results=_question_results(homework, submission, questions),
-        context=context,
-    )
-
-
-def _availability(homework, submission):
-    """The learner's view of the homework; a self-paced one is scored once they submit."""
-
-    from community_base.coursework.homework_reveal import locked_after_submit
-    from community_base.coursework.models import HomeworkState
-
-    if locked_after_submit(homework, submission):
-        return "scored"
-    return {
-        HomeworkState.OPEN.value: "open",
-        HomeworkState.CLOSED.value: "closed",
-        HomeworkState.SCORED.value: "scored",
-    }[homework.state]
-
-
-def _question_results(homework, submission, questions):
-    """Revealed results keyed by question key, or ``None`` while the policy reveals nothing."""
-
-    from community_base.coursework.homework_reveal import question_results, results_revealed
-
-    if not results_revealed(homework, submission):
-        return None
-    by_id = question_results(homework, submission)
-    results = {}
-    for question in questions:
-        result = by_id[question.pk]
-        results[_question_key(question)] = QuestionResult(
-            correct=result.correct,
-            correct_answer=result.correct_answer,
-            explanation=result.explanation,
-        )
-    return results
+    return build(homework, user, context=context)
 
 
 class CourseworkAdapter:
@@ -161,20 +63,38 @@ class CourseworkAdapter:
         from community_base.coursework.submissions import submit_homework
 
         homework = Homework.objects.get(pk=self.homework_id)
-        by_question_id = {}
-        for question in homework.questions.all():
-            key = _question_key(question)
-            if key not in answers:
-                continue
-            answer = answers[key]
-            if question.has_choice_answers():
-                positions = {
-                    option.key: index for index, option in enumerate(_options(question), start=1)
-                }
-                selected = answer if isinstance(answer, list) else [answer]
-                by_question_id[question.pk] = ",".join(
-                    str(positions[key]) for key in selected if key
-                )
-            else:
-                by_question_id[question.pk] = answer
-        return submit_homework(homework, request.user, answers_by_question_id=by_question_id)
+        return submit_homework(
+            homework,
+            request.user,
+            answers_by_question_id=_converted_answers(homework, answers),
+            stepper_fields=_submitted_fields(homework, final_fields),
+            public_answer=answers.get(PUBLIC_LINKS_KEY, ""),
+        )
+
+
+def _submitted_fields(homework, final_fields):
+    if homework.stepper_enabled:
+        return final_fields
+    return None
+
+
+def _converted_answers(homework, answers):
+    by_question_id = {}
+    for question in homework.questions.all():
+        key = _question_key(question)
+        if key not in answers:
+            continue
+        answer = answers[key]
+        if not question.has_choice_answers():
+            by_question_id[question.pk] = answer
+            continue
+        positions = {option.key: index for index, option in enumerate(_options(question), start=1)}
+        selected = [answer]
+        if isinstance(answer, list):
+            selected = answer
+        indices = []
+        for option_key in selected:
+            if option_key:
+                indices.append(str(positions[option_key]))
+        by_question_id[question.pk] = ",".join(indices)
+    return by_question_id

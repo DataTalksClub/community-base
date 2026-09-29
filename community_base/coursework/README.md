@@ -202,9 +202,47 @@ called. What the reader owns is the binding half that no single file states:
 Each of those is an error naming the file, the YAML pointer and rule `3.8`, the same shape a
 toolkit diagnostic has.
 
-### Answers are always the encrypted envelope
+The other binding form selects a course-tree homework Unit by its `content_id`:
 
-A manifest question carries the envelope of `answer_crypto.py`, never a plaintext answer. The
+```yaml
+homework:
+  - module: core
+    unit: 9a2b3c4d-0003-4000-8000-000000000009
+    due_at: 2026-10-09T23:00:00+00:00
+    form:
+      learning_in_public_cap: 7
+```
+
+Its YAML and sole `homework.md` companion define one curriculum Unit. Every explicit cohort
+binding materializes a separate Homework with its own questions and learner submissions. The
+reader validates all authored YAML questions, including unbound prose Units, before the course
+import writes anything. Cohort manifest and course-tree assignments share one retained set for
+cleanup, so removing one binding does not delete another cohort's assignment or the other source
+form. A changed source path or containing module matches Unit, Homework and Question by stable
+identity before slug fallback and retains their learner records.
+
+The source `due_at` and individual `form` fields are inherited unless a binding explicitly
+overrides them. An omitted binding date keeps the source date; `due_at: null` explicitly clears it
+for a self-paced assignment. Live assignments need a resulting date. Source or binding due/form
+edits update the assignment on re-import. `initial_state` is create-only; an operator's later
+open/scored state is preserved. These rules keep cohort policy separate from source metadata.
+
+Question order follows the authored YAML list through additive `Question.authored_position`.
+Legacy rows with null positions keep their database ID order. In a hybrid assignment, authored
+questions appear first and null-position questions follow by ID on every supported database.
+
+Authored `stepper: true` enables the existing stepper for that source assignment; omitted or
+`false` keeps the legacy descriptor output. Question `step_label` is source-owned navigation
+metadata. The built-in final fields follow `form.homework_url`, `form.time_spent_lectures` and
+`form.time_spent_homework`; they read and write the existing `Submission` columns through
+`submit_homework`. A positive `learning_in_public_cap` adds the optional public-links question,
+validated and scored by the existing submission/scoring path. The accepted snapshot is rebuilt
+from the same columns. The cohort binding may override individual form settings. Arbitrary
+`final_fields` keys are rejected by the source schema.
+
+### Answers in the two source forms
+
+A cohort manifest question carries the envelope of `answer_crypto.py`, never a plaintext answer. The
 importer holds no key: it calls `answer_crypto.validate_source_envelope`, which runs the check
 `decrypt_answer` runs before it touches a key (the envelope's fields, and that its context binds
 this course, this homework and this question), and then stores the envelope verbatim in
@@ -213,6 +251,15 @@ imported row, so a repository-managed answer has one representation and one decr
 `answer_resolution.resolve_correct_answer`. A plaintext `correct:` key in a manifest is rejected by
 the registry as an unknown key, before this app runs.
 
+The distinct course-tree YAML schema accepts a quoted `correct` string. One-based choice indices
+are checked against the ordered options; free-form numeric answers are checked for valid finite
+numbers. The original string is stored losslessly in `Question.correct_answer`, and
+`answer_resolution.resolve_correct_answer` supplies the same scoring service used by envelope
+answers. Ordinary homework pages, curriculum projections and stepper Question/Option descriptors
+exclude correct answers. `homework_reveal` alone controls their display after an authorized
+submission: immediately for self-paced work, or after an operator marks a dated assignment
+scored.
+
 A choice question (`multiple_choice`, `checkboxes`) carries `options` as `{id, label}` pairs and no
 `answer_type`; a free-form question carries an `answer_type` and no options. `answer_type: any` is
 not scored and carries no answer; every other answer type carries one.
@@ -220,13 +267,14 @@ not scored and carries no answer; every other answer type carries one.
 ### What a re-import does and does not touch
 
 Re-import is idempotent: rows are matched on `content_id` first and on their slug or stable id
-second, written only when a value changed, and removed when a manifest stops declaring them. Two
-fields are deliberately not restored:
+second, written only when a value changed, and removed when neither source form retains them.
+One field is deliberately not restored:
 
 - `initial_state` is the state a homework is created in. An operator opens and scores a homework
   after the import, and a second sync must not close it again.
-- `Homework.module` and `Homework.unit` follow the binding; both are null for a Studio-authored
-  homework, which belongs to no module tree.
+
+`Homework.module` and `Homework.unit` follow the binding; both are null for a Studio-authored
+homework, which belongs to no module tree.
 
 ### Self-paced homework: scored and revealed on submit
 

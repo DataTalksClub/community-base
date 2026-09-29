@@ -67,7 +67,9 @@ def question_results(homework, submission) -> dict[int, HomeworkQuestionResult]:
     for answer in submission.answers.all():
         correct_by_question[answer.question_id] = answer.is_correct
     results = {}
-    for question in homework.questions.order_by("id"):
+    from community_base.coursework.question_order import ordered_questions
+
+    for question in ordered_questions(homework):
         results[question.id] = HomeworkQuestionResult(
             correct=correct_by_question.get(question.id, False),
             correct_answer=correct_answer_text(question),
