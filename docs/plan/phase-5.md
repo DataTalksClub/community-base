@@ -1239,7 +1239,7 @@ This is the single adoption-ready domain release. Do not publish provisional `v0
 
 ## C5.4 Repository-derived curriculum hierarchy and YAML-backed homework units
 
-Repository: community-base. Depends on: C5.1e, C5.2i, C7.10, C7.11, C5.4a. Related issue:
+Repository: community-base. Depends on: C5.1e, C5.2i, C7.10, C7.11, C5.4a, C5.4b. Related issue:
 DataTalksClub/community-base#306.
 
 Goal: the physical course repository defines the shared curriculum tree. `module.yaml` folders
@@ -1332,6 +1332,50 @@ still nulls its independent Homework.module reference; unit-bound learner links 
 Whole-module reparenting is separate. FORMAT's changed-ID/new-row description differs from the
 existing same-module slug fallback; this split preserves current behavior and records that
 discrepancy rather than changing it implicitly. No release version or site pin changes here.
+
+Docs: `community_base/curriculum/README.md`, `docs/plan/phase-5.md`, `docs/plan/STATUS.md`.
+
+## C5.4b Preserve module identity during reparenting
+
+Repository: community-base. Depends on: C5.1e, C5.2i, C7.10, C7.11. Related issue:
+DataTalksClub/community-base#338.
+
+Goal: authored module moves persist the new parent without replacing the module or losing its
+units and learner links when the old parent disappears. Preserve visible UI, the existing
+two-level source format, stored slugs, public interfaces and cohort placement policy.
+
+Read first
+- `community_base/curriculum/importing.py`, `models.py` and `README.md`.
+- Existing curriculum import tests and coursework learner-record relationships; read only.
+- Issue #338 and the separate unit-move change in PR #336. Module and unit moves have independent
+  persistence defects; compute their importer composition with P18 and preserve both test suites.
+
+Steps
+1. Reproduce unchanged-content module reparenting and old-parent cascade loss on valid existing
+   graphs, in both traversal directions.
+2. Compare and write the desired `parent_id` through the existing writer before changing the
+   loaded instance's parent. Keep course-scoped source identity and parent-plus-slug fallback.
+3. Preserve valid child/top-level promotion and demotion. Complete module upserts before stale
+   module deletion, without changing unit ownership, cohort placement or exception policy.
+4. Keep the importer and existing oversized functions no larger. Add focused regression evidence
+   and document the bounded guarantee; keep mixed hierarchy/YAML/ordering work in C5.4.
+
+Verification
+- Original-importer regressions fail at the missing parent write or lost persisted rows; the
+  candidate retains module, unit, progress, homework, question, submission and answer identities.
+- Parent changes count as updated once and reimport is unchanged. Ordinary fallback, independent
+  course identities and cohort placements remain supported; constraint failures remain atomic.
+- Curriculum/content-sync and full all-extras package suites, lint/format, checks, migration drift,
+  fresh migrations, boundaries and `uv run python scripts/plan.py check` pass.
+- Both consumer gates are reported with captured revisions and raw/normalized qualifications.
+
+Done when
+- [ ] The bounded module-move contracts have red-before/green-after evidence.
+- [ ] Code/docs are merged and package plus both consumer gates pass.
+
+This is preservation capability, not a net-deletion claim. No model, schema, graph constructor,
+route, template, projection, site pin or release version changes belong here. Real AISL donor
+preservation remains a later adoption rehearsal.
 
 Docs: `community_base/curriculum/README.md`, `docs/plan/phase-5.md`, `docs/plan/STATUS.md`.
 
