@@ -146,7 +146,7 @@ issues that can start now.
 | `C5.2h` | community-base | Certificate eligibility, learner-requested issuance, and banner-generator artifact seam | C5.2f | no | done | https://github.com/DataTalksClub/community-base/pull/263 |
 | `C5.2i` | community-base | Shared inline homework steps and resumable drafts | C5.1c | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.5.5 |
 | `C5.2j` | community-base | Shared learner homework state and accepted-submission snapshot | C5.2i | no | in-progress | https://github.com/DataTalksClub/community-base/pull/305 |
-| `C5.2k` | community-base | Per-project learner row: CMP's project lifecycle presentation | C5.2g | no | in-progress | https://github.com/DataTalksClub/community-base/pull/313 |
+| `C5.2k` | community-base | Per-project learner row: CMP's project lifecycle presentation | C5.2g | no | done | https://github.com/DataTalksClub/community-base/pull/313; release: https://github.com/DataTalksClub/community-base/releases/tag/v0.5.13. `coursework.project_rows` carries CMP's per-project row unchanged; DTC adoption (DataTalksClub/website#437) and AISL A5.1 (AI-Shipping-Labs/website#1696) follow against this tag |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e, C5.2h | no | todo | https://github.com/DataTalksClub/community-base/issues/273 |
 | `C5.4` | community-base | Repository-derived curriculum hierarchy and YAML-backed homework units | C5.1e, C5.2i, C7.10, C7.11 | no | todo | https://github.com/DataTalksClub/community-base/issues/306 |
 | `A5.3` | AI-Shipping-Labs/website | AISL: render course hierarchy from repository structure | C5.4 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1830 |

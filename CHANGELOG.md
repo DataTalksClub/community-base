@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.13
 
 - C5.2k (#312): move the course management platform's per-project learner row into
   `coursework.project_rows` unchanged: stage, badge label, pill surface, link target and
