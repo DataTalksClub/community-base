@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.14
+
+Adoption-provisional. This release still contains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`; `C3.7` and `C4.3` may still
+rewrite them, and donor adoption happens from `C5.3`, not from this tag.
+
+- C3.2a (#316): expose the existing pure persona catalog renderer as a supported package API,
+  preserving exact prompt output and private import aliases so AISL can remove its duplicate
+  in AI-Shipping-Labs/website#1844 without changing visible onboarding behavior.
+
 ## 0.5.13
 
 - C5.2k (#312): move the course management platform's per-project learner row into
