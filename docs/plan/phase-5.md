@@ -1177,7 +1177,7 @@ This is the single adoption-ready domain release. Do not publish provisional `v0
 
 ## C5.4 Repository-derived curriculum hierarchy and YAML-backed homework units
 
-Repository: community-base. Depends on: C5.1e, C5.2i, C7.10, C7.11. Related issue:
+Repository: community-base. Depends on: C5.1e, C5.2i, C7.10, C7.11, C5.4a. Related issue:
 DataTalksClub/community-base#306.
 
 Goal: the physical course repository defines the shared curriculum tree. `module.yaml` folders
@@ -1185,6 +1185,12 @@ are modules; `homework.yaml` plus `homework.md` folders are structured homework 
 may contain direct units and child module folders together. The graph, importer and projection
 preserve their single shared sibling order. Stable IDs remain source data; no generated projection
 is checked in.
+
+Implementation is split: C5.4a first preserves unit identities in the existing importer without
+changing graph interfaces or public presentation. The remaining hierarchy, YAML homework,
+ordering and projection work stays here. Completing C5.4a does not complete C5.4 or site adoption.
+The existing draft PR #311 remains reference material; its route and markup changes do not belong
+to the owner's current no-visible-UI-change simplification work.
 
 Steps
 1. Implement the generic source convention, schema validation and graph/importer behavior in
@@ -1207,6 +1213,58 @@ Verification
 - A fixture with interleaved direct units, homework and child modules renders in the exact source
   order; moving a YAML homework unit while retaining `content_id` updates the existing identity.
 - AISL and DTC tests against the package revision are run and reported independently.
+
+## C5.4a Preserve unit identity across module moves
+
+Repository: community-base. Depends on: C5.1e, C5.2i, C7.10, C7.11. Related issue:
+DataTalksClub/community-base#335.
+
+Goal: moving a unit between modules of the same course retains its database identity and learner
+links through the existing importer. No graph constructor, parser interface, public route,
+template, API, model or migration changes belong to this split.
+
+Read first
+- `community_base/curriculum/importing.py`, `source.py`, `models.py` and `README.md`.
+- `community_base/content_sync/provenance.py`, `FORMAT.md` sections 3.3/3.4 and `documents.py`.
+- `tests/curriculum/test_import.py` and `tests/curriculum/utils.py`.
+- Existing UnitProgress and coursework Homework/Submission/Answer relationships; read only.
+- Issue #335 for the bounded contracts and existing discrepancies; PR #311 as reference only.
+
+Steps
+1. Demonstrate current move-related identity loss with valid leaf-module fixtures. Preserve
+   existing unchanged imports, true deletion, missing-ID and module-plus-slug fallback behavior.
+2. Resolve unit IDs within the current course and reject ambiguous matches there. The documented
+   UUID namespace is repository-wide: independent courses/repositories may reuse a UUID.
+3. Compare and write the destination `module_id` through the existing writer, retaining the
+   original instance's parent until comparison. Preserve stored slugs and global writer semantics.
+4. Upsert every unit before course-wide stale-unit cleanup, then perform existing stale-module
+   cleanup. Cover both traversal directions and a source module that disappears entirely.
+5. Reject incoming duplicate IDs and occupied destinations for known-identity moves before the
+   first import-run/domain write. Preserve the existing slug fallback when no identity matches.
+6. Extract cohesive importer responsibilities where required by coding standards. Update this
+   plan and the curriculum README; keep the remaining C5.4 and donor-adoption work unfinished.
+
+Verification
+- Focused regressions fail on the old importer and pass after the fix; moves retain Unit,
+  UnitProgress, Homework.unit, submission and answer identities/values and reimport is idempotent.
+- Invalid/ambiguous inputs leave import-run and domain rows unchanged; independent-course UUID
+  reuse, repeated sibling slugs, legacy fallback and true stale deletion remain supported.
+- Curriculum/content-sync tests, full package suite, lint/format, system checks, migration drift,
+  fresh migrations, boundary checks and `uv run python scripts/plan.py check` pass.
+- Both consumer gates run and are reported independently with captured source revisions and
+  qualified raw/normalized results. No site adoption or deployed data preservation is claimed.
+
+Done when
+- [ ] The bounded move and compatibility contracts above have authoritative regression evidence.
+- [ ] Code/docs are merged and package plus both consumer gates pass.
+
+Existing limits: package UnitProgress is not AISL UserCourseProgress. Deleting an authored module
+still nulls its independent Homework.module reference; unit-bound learner links must survive.
+Whole-module reparenting is separate. FORMAT's changed-ID/new-row description differs from the
+existing same-module slug fallback; this split preserves current behavior and records that
+discrepancy rather than changing it implicitly. No release version or site pin changes here.
+
+Docs: `community_base/curriculum/README.md`, `docs/plan/phase-5.md`, `docs/plan/STATUS.md`.
 
 ## A5.3 AISL: render course hierarchy from repository structure
 
