@@ -808,6 +808,50 @@ Done when
 Docs
 - `community_base/coursework/README.md` (from C5.2f): notification purposes and the expiry job.
 
+## C5.2ga Unify coursework mail template-key validation
+
+Repository: community-base. Depends on: C1.3, C5.2g. Freeze required: no.
+Related: DataTalksClub/community-base#329; scoped correction for gap 1 of #323.
+
+Goal
+
+Make the existing coursework mail purposes work through both shared mail backends with one template-key contract, preserving current templates, messages, delivery policy and site UI. This addresses gap 1 of #323; it does not implement that issue's new self-paced behavior or change notification counts.
+
+Read first
+
+- `community_base/mail/service.py`, `relay.py`, `backends/ses_local.py` and the mail README.
+- `community_base/coursework/notifications.py` and `reminders.py`.
+- `tests/mail/test_ses_local.py`, `test_relay_catalog.py` and the coursework notification tests.
+- `docs/01-decisions.md`, `docs/02-architecture.md`, and the owner's current `coding-standard.md` in the shared checkout (read-only; this standard is not yet in main).
+
+Steps
+
+1. Reproduce rejection of the existing dotted coursework purposes through the local SES file-template path with a fake SES client, before changing implementation.
+2. Reuse one safe template-key policy for both mail backends. Preserve existing public imports and backend-specific exception contracts. Avoid site-specific key translations, renaming purposes or introducing a second catalog.
+3. Keep existing subject/body rendering, override-loader behavior, delivery idempotency and security boundaries intact. Reject unsafe paths and invalid keys before file access, loader execution or provider calls as appropriate.
+4. Document the shared key contract and focused compatibility correction.
+
+Verification
+
+- `uv run pytest tests/mail tests/coursework`: pass, with all existing coursework purposes sent through local file templates using only fake SES.
+- Demonstrate the new relevant regression fails on the unchanged implementation and passes after the fix.
+- Verify unsafe path separators, traversal/leading-dot forms and overlength keys remain rejected, and existing valid underscore/hyphen keys still work.
+- `uv run pytest tests/test_boundaries.py`: pass; package quality gates and plan check pass.
+- Run and report both site consumer suites separately under P16. No live emails, cloud mutations or site pin changes.
+
+Done when
+
+- [ ] Existing coursework purposes render and deliver through fake SES using file templates.
+- [ ] Both mail backends share one key contract while preserving backend-specific failures.
+- [ ] Existing rendering, idempotency, override and unsafe-key checks remain covered and pass.
+- [ ] Package and both consumer checks are reported separately; adoption needs a later tagged release.
+
+Docs
+
+- `community_base/mail/README.md`, `CHANGELOG.md`, phase-5 issue entry and `docs/plan/STATUS.md`.
+
+No template, route, schema, scoring, date policy, pooled batch behavior, notification count or site UI changes belong to this slice. Other #323 gaps remain open. AISL and DTC are unchanged until separately reviewed adoption.
+
 ## C5.2h Certificate eligibility, learner-requested issuance, and banner-generator artifact seam
 
 Repository: community-base. Depends on: C5.2f.

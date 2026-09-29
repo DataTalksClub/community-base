@@ -11,6 +11,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from community_base.kernel.conf import get
 from community_base.kernel.context import is_safe_external_context_id
+from community_base.mail.template_keys import TEMPLATE_KEY_PATTERN as TEMPLATE_KEY_PATTERN
 
 DEFAULT_TIMEOUT_SECONDS = 15
 RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429})
@@ -78,9 +79,6 @@ class RelayMessage:
     template_version: int
     reason_code: str
     updated_at: str
-
-
-TEMPLATE_KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
 class RelayMailClient:
