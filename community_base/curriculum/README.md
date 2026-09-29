@@ -155,6 +155,34 @@ repository, a course that vanishes is soft-deleted to `draft`, and every import 
 rejects a mixed module (children and direct units) or a tree deeper than two module levels,
 naming the offending directory.
 
+### Unit identity during module moves
+
+Unit identity lookup spans the importing course, so moving an authored unit to another module
+retains its primary key and stored slug. The destination module participates in the normal
+change comparison: an otherwise unchanged move counts as one update, and a repeated import is
+unchanged. Units in other courses are isolated, including independent repositories reusing a UUID.
+
+Before any import-run or domain write, the importer plans final unit destinations. It rejects
+duplicate incoming unit identities, ambiguous identities in the course, duplicate final slots,
+and collisions with retained or unmanaged units. Same-slug swaps and cycles remain valid, as
+does replacing a genuinely stale source-managed destination. Conflicting occupants are parked
+under temporary internal slugs inside the transaction without save hooks; successful upserts
+restore the original slugs, and a failure rolls back the whole import.
+
+Known identities are reserved before slug fallback, so a new unit filling a moved unit's old
+slot cannot take that unit's identity. Where no matching identity exists, the existing
+module-plus-slug fallback still applies, including absent or replaced content IDs. This differs
+from FORMAT section 3.4's general changed-ID/new-record description; this bounded fix preserves
+the curriculum importer's current behavior and does not rename stored slugs.
+
+Stale-unit cleanup runs after every module's unit upserts and before stale-module deletion.
+Moving out of a removed module therefore preserves UnitProgress, Homework.unit and the existing
+homework questions, submissions and answers. Homework.module separately becomes null when its
+module is deleted, under its existing SET_NULL rule. This package behavior does not prove AISL
+UserCourseProgress or donor-data compatibility; those need the later site adoption rehearsal.
+Whole-module reparenting, mixed module/unit trees and YAML homework adoption remain outside this
+unit-only capability (C5.4a).
+
 Run imports with the content sync command:
 
 ```text
