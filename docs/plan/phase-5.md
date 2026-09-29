@@ -1028,6 +1028,44 @@ Done when
 Docs
 - `community_base/homework_steps/README.md`, `community_base/coursework/README.md`, `CHANGELOG.md`.
 
+## C5.2ja Preserve attempted homework final fields on review errors
+
+Repository: community-base. Depends on: C5.2i. Freeze required: no. Related:
+DataTalksClub/community-base#324. This fix needs the `handle_stepper` and review-form contract
+released in C5.2i. The snapshot code that introduced the regression shipped in v0.5.11, while
+C5.2j remains in progress for its other acceptance obligations; this repair does not complete them.
+
+Goal: keep attempted final-field values in the open review form after a validation error or stale
+draft revision, while preserving saved data, closed reviews, routes and markup.
+
+Read first
+- `community_base/homework_steps/views.py`, `services.py`, and `templates/homework_steps/_stepper.html`.
+- `tests/homework_steps/test_flow.py` and `community_base/homework_steps/README.md`.
+
+Steps
+1. Reproduce the lost input on invalid URL and stale revision responses with behavior tests.
+2. Use attempted final fields for open review form rows when supplied by the error handlers.
+3. Preserve accepted-snapshot selection for closed reviews and leave failed writes unapplied.
+4. Document the form-value contract and regression fix.
+
+Verification
+- `uv run pytest tests/homework_steps` passes after both new tests fail against the old view.
+- Invalid URL returns 400 and stale revision returns 409; each form shows its attempted value and
+  the saved draft remains unchanged.
+- Existing submitted, closed, read-only, save and submit tests pass.
+- Package quality gates, boundary test, `uv run python scripts/plan.py check`, and both consumer
+  suites pass with separately reported results.
+
+Done when
+- [ ] Both failures are reproduced against the old view and pass after the fix.
+- [ ] Open error forms retain attempted values without persisting failed writes or changing closed
+  review behavior.
+- [ ] Package and both consumer checks pass.
+- [ ] A tagged fix is available before DTC raises its package pin.
+
+Docs
+- `community_base/homework_steps/README.md`, `CHANGELOG.md`.
+
 ## C5.2k Per-project learner row: CMP's project lifecycle presentation
 
 Repository: community-base. Depends on: C5.2g. Freeze required: no. Related:

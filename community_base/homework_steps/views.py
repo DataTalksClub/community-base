@@ -223,6 +223,8 @@ def _render(
                 (field, accepted.final_fields.get(field.key, ""))
                 for field in assignment.final_fields
             ]
+    if not closed_review:
+        primary_fields = field_values
     field_rows = [(field, primary_fields.get(field.key, "")) for field in assignment.final_fields]
     unsent_draft_display_rows = (
         display_rows(draft.answers)

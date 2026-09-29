@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- C5.2ja (#324): retain attempted final-field input on open homework review forms after validation
+  errors and stale draft revisions, without saving failed writes or changing closed reviews.
+
 ## 0.5.14
 
 Adoption-provisional. This release still contains the nine provisional kept-label migrations

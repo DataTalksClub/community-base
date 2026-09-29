@@ -89,6 +89,11 @@ resolving and authorizing the assignment. Put per-question AJAX URLs in
 On a successful legacy form submission, call `clear_draft(user, assignment.key)` so old step
 answers cannot reappear.
 
+On an open review form, `stepper.final_field_rows` contains the attempted final-field values after
+a 400 validation error or 409 draft-revision conflict. These responses leave the saved draft
+unchanged. Closed reviews continue to show the accepted snapshot as the primary review and any
+unsent draft separately.
+
 The shared Review list is `homework_steps/_review_rows.html`. It uses semantic step labels when
 available and keeps accepted answers separate from pending drafts. For a question keyed
 `learning-in-public`, set `Assignment.context["learning_in_public_cap"]` to a positive maximum to
