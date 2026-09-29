@@ -18,6 +18,7 @@ import re
 from django.db import transaction
 from django.utils import timezone
 
+from community_base.curriculum.importing_units import UnitImport
 from community_base.curriculum.models import (
     Cohort,
     CohortModule,
@@ -25,7 +26,6 @@ from community_base.curriculum.models import (
     CourseInstructor,
     CurriculumImportRun,
     Module,
-    Unit,
 )
 from community_base.curriculum.source import CurriculumParseError, InstructorGraph, ParsedCurriculum
 
@@ -73,34 +73,14 @@ def apply_curriculum_graph(parsed: ParsedCurriculum, source, checkout) -> tuple[
     importer does.
     """
 
-    owner, _, name = source.repo_name.rpartition("/")
     commit = graph_commit(parsed)
     with transaction.atomic():
-        run = CurriculumImportRun.objects.filter(
-            source_uuid=source.pk,
-            commit_sha=commit,
-            parser_version=parsed.parser_version,
-        ).first()
-        if run is None:
-            run = CurriculumImportRun(
-                source_uuid=source.pk,
-                source_stable_id=parsed.course.slug,
-                repository_owner=owner or source.repo_name,
-                repository_name=name or source.repo_name,
-                repository_branch="",
-                commit_sha=commit,
-                schema_version=parsed.schema_version,
-                parser_version=parsed.parser_version,
-            )
-        run.state = CurriculumImportRun.State.APPLYING
-        run.started_at = timezone.now()
-        run.finished_at = None
-        run.counts = {}
-        run.full_clean(exclude=["repository_branch"])
-        run.save()
+        course = _course(parsed.course)
+        units = UnitImport(course, parsed.course.modules)
+        run = _start_run(parsed, source, commit)
 
         try:
-            course, counts = _apply(parsed, source, checkout, commit)
+            course, counts = _apply(parsed, checkout, commit, course, units)
         except Exception:
             run.state = CurriculumImportRun.State.FAILED
             run.finished_at = timezone.now()
@@ -114,6 +94,31 @@ def apply_curriculum_graph(parsed: ParsedCurriculum, source, checkout) -> tuple[
             update_fields=["state", "counts", "manifest_checksum", "finished_at", "updated_at"]
         )
         return course, counts
+
+
+def _start_run(parsed, source, commit):
+    owner, _, name = source.repo_name.rpartition("/")
+    run = CurriculumImportRun.objects.filter(
+        source_uuid=source.pk, commit_sha=commit, parser_version=parsed.parser_version
+    ).first()
+    if run is None:
+        run = CurriculumImportRun(
+            source_uuid=source.pk,
+            source_stable_id=parsed.course.slug,
+            repository_owner=owner or source.repo_name,
+            repository_name=name or source.repo_name,
+            repository_branch="",
+            commit_sha=commit,
+            schema_version=parsed.schema_version,
+            parser_version=parsed.parser_version,
+        )
+    run.state = CurriculumImportRun.State.APPLYING
+    run.started_at = timezone.now()
+    run.finished_at = None
+    run.counts = {}
+    run.full_clean(exclude=["repository_branch"])
+    run.save()
+    return run
 
 
 def _manifest_checksum(parsed) -> str:
@@ -147,24 +152,22 @@ def _canonical(value):
     return value
 
 
-def _apply(parsed, source, checkout, commit) -> tuple[Course, dict]:
+def _apply(parsed, checkout, commit, course, units) -> tuple[Course, dict]:
     counts = {"created": 0, "updated": 0, "unchanged": 0, "deleted": 0}
     graph = parsed.course
 
-    course = _course(graph)
     action = write_values(course, _course_values(graph, commit, checkout))
     counts[action] += 1
     _sync_instructors(course, graph)
+    units.park()
 
-    # The module tree is course-owned: one pass over the whole tree, keyed by
-    # content_id, regardless of depth. ``top_level_by_ref`` lets cohorts below
-    # resolve their placements by the same identifier the source graph uses
-    # (content_id, or slug when the source has none).
+    # Cohorts resolve placements from the completed top-level module tree.
     seen_module_ids: set[str] = set()
     top_level_by_ref: dict[str, Module] = {}
     _apply_module_tree(
         course,
         graph.modules,
+        units,
         parent=None,
         commit=commit,
         checkout=checkout,
@@ -172,6 +175,7 @@ def _apply(parsed, source, checkout, commit) -> tuple[Course, dict]:
         seen=seen_module_ids,
         top_level_by_ref=top_level_by_ref,
     )
+    counts["deleted"] += units.delete_stale()
     counts["deleted"] += delete_stale(
         Module.objects.filter(course=course).exclude(source_content_id__isnull=True),
         seen_module_ids,
@@ -193,6 +197,7 @@ def _apply(parsed, source, checkout, commit) -> tuple[Course, dict]:
 def _apply_module_tree(
     course: Course,
     module_graphs,
+    units,
     *,
     parent: Module | None,
     commit,
@@ -207,22 +212,21 @@ def _apply_module_tree(
         seen.add(module_graph.content_id)
         values = _module_values(module_graph, parent, position, commit, checkout)
         counts[write_values(module, values)] += 1
+        units.visited_modules.add(module.pk)
         if depth == 0:
             top_level_by_ref[module_graph.content_id or module_graph.slug] = module
 
-        seen_unit_ids: set = set()
         for unit_graph in module_graph.units:
-            unit = _unit(module, unit_graph)
-            seen_unit_ids.add(unit_graph.content_id)
-            counts[write_values(unit, _unit_values(unit_graph, commit, checkout))] += 1
-        counts["deleted"] += delete_stale(
-            Unit.objects.filter(module=module).exclude(source_content_id__isnull=True),
-            seen_unit_ids,
-        )
+            unit = units.resolve(unit_graph)
+            values = _unit_values(unit_graph, commit, checkout)
+            values["module_id"] = module.pk
+            counts[write_values(unit, values)] += 1
+            units.seen.add(unit.pk)
 
         _apply_module_tree(
             course,
             module_graph.children,
+            units,
             parent=module,
             commit=commit,
             checkout=checkout,
@@ -301,18 +305,6 @@ def _module(course: Course, parent: Module | None, graph) -> Module:
         module = Module(course=course, slug=graph.slug)
     module.source_content_id = graph.content_id
     return module
-
-
-def _unit(module: Module, graph) -> Unit:
-    unit = None
-    if graph.content_id:
-        unit = Unit.objects.filter(module=module, source_content_id=graph.content_id).first()
-    if unit is None:
-        unit = Unit.objects.filter(module=module, slug=graph.slug).first()
-    if unit is None:
-        unit = Unit(module=module, slug=graph.slug)
-    unit.source_content_id = graph.content_id
-    return unit
 
 
 def _course_values(graph, commit, checkout) -> dict:
