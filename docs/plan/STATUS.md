@@ -153,7 +153,7 @@ issues that can start now.
 | `C5.2l` | community-base | Self-paced coursework: one review email per batch, batch sweep, optional dates, homework reveal on submit | C5.2g, C5.2i, C5.2k | no | done | https://github.com/DataTalksClub/community-base/pull/332; release: https://github.com/DataTalksClub/community-base/releases/tag/v0.5.17. Gap 1 of issue 323 is C5.2ga (v0.5.16); AISL adopts through A5.1 (AI-Shipping-Labs/website#1696) |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e, C5.2h | no | todo | https://github.com/DataTalksClub/community-base/issues/273 |
 | `C5.4` | community-base | Repository-derived curriculum hierarchy and YAML-backed homework units | C5.1e, C5.2i, C7.10, C7.11, C5.4a | no | todo | https://github.com/DataTalksClub/community-base/issues/306 |
-| `C5.4a` | community-base | Preserve unit identity across module moves | C5.1e, C5.2i, C7.10, C7.11 | no | in-progress | https://github.com/DataTalksClub/community-base/pull/336 |
+| `C5.4a` | community-base | Preserve unit identity across module moves | C5.1e, C5.2i, C7.10, C7.11 | no | done | https://github.com/DataTalksClub/community-base/pull/336 |
 | `A5.3` | AI-Shipping-Labs/website | AISL: render course hierarchy from repository structure | C5.4 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1830 |
 | `D5.3` | DataTalksClub/website | DTC: adopt repository-derived course hierarchy and homework units | C5.4 | no | todo | https://github.com/DataTalksClub/website/issues/436 |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3, A5.3 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1696 |
