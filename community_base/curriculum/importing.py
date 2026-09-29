@@ -210,7 +210,7 @@ def _apply_module_tree(
     for position, module_graph in enumerate(module_graphs):
         module = _module(course, parent, module_graph)
         seen.add(module_graph.content_id)
-        values = _module_values(module_graph, position, commit, checkout)
+        values = _module_values(module_graph, parent, position, commit, checkout)
         counts[write_values(module, values)] += 1
         units.visited_modules.add(module.pk)
         if depth == 0:
@@ -303,7 +303,6 @@ def _module(course: Course, parent: Module | None, graph) -> Module:
         module = Module.objects.filter(course=course, parent=parent, slug=graph.slug).first()
     if module is None:
         module = Module(course=course, slug=graph.slug)
-    module.parent = parent
     module.source_content_id = graph.content_id
     return module
 
@@ -341,11 +340,12 @@ def _cohort_values(graph, commit, checkout) -> dict:
     }
 
 
-def _module_values(graph, position, commit, checkout) -> dict:
+def _module_values(graph, parent, position, commit, checkout) -> dict:
     sort_order = graph.sort_order or position
     return {
         "title": graph.title,
         "sort_order": sort_order,
+        "parent_id": getattr(parent, "pk", None),
         "syllabus_section": graph.syllabus_section,
         "overview": graph.overview,
         "is_bonus": graph.is_bonus,
