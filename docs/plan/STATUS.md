@@ -157,11 +157,13 @@ issues that can start now.
 | `C5.4b` | community-base | Preserve module identity during reparenting | C5.1e, C5.2i, C7.10, C7.11 | no | done | https://github.com/DataTalksClub/community-base/pull/339 |
 | `C5.4c` | community-base | Import course-tree YAML homework through explicit cohort bindings | C5.4a, C5.4b | no | done | https://github.com/DataTalksClub/community-base/pull/342 |
 | `A5.3` | AI-Shipping-Labs/website | AISL: render course hierarchy from repository structure | C5.4 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1830 |
-| `D5.3` | DataTalksClub/website | DTC: adopt repository-derived course hierarchy and homework units | C5.4 | no | todo | https://github.com/DataTalksClub/website/issues/436 |
+| `D5.3` | DataTalksClub/website | DTC: adopt repository-derived course hierarchy and homework units | D5.3a, D5.3b, D7.3 | no | todo | https://github.com/DataTalksClub/website/issues/436 |
+| `D5.3a` | DataTalksClub/website | Prove the DTC source and policy contract for shared curriculum | C5.4, C7.12b | no | todo | https://github.com/DataTalksClub/website/issues/446 |
+| `D5.3b` | DataTalksClub/website | Adopt shared curriculum projection behind DTC reader contracts | D5.1, D7.3 | no | todo | https://github.com/DataTalksClub/website/issues/447 |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3, A5.3 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1696 |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1697 |
-| `D5.1` | DataTalksClub/website | Map DTC course platform data to the shared apps | C5.3, D5.3 | no | todo | https://github.com/DataTalksClub/website/issues/414 |
-| `D5.2` | DataTalksClub/website | Freeze weekend: DTC courses cutover and self-paced mode | D5.1 | yes | todo | https://github.com/DataTalksClub/website/issues/415 |
+| `D5.1` | DataTalksClub/website | Map DTC course platform data to the shared apps | C5.3, D5.3a | no | todo | https://github.com/DataTalksClub/website/issues/414 |
+| `D5.2` | DataTalksClub/website | Freeze weekend: DTC courses cutover and self-paced mode | D5.1, D5.3 | yes | todo | https://github.com/DataTalksClub/website/issues/415 |
 
 ## Phase 6
 
@@ -199,14 +201,15 @@ issues that can start now.
 | `C7.11` | community-base | Coursework: homework manifests from cohort bindings | C7.10, C5.2h | no | done | merged. The reader consumes the toolkit's read and C7.10's bindings rather than walking anything twice; key validation went into the registry, which caught C7.10's own fixture using bare strings where options need id and label pairs. The importer never decrypts, holds no key, and clears the plaintext answer column on every imported row |
 | `C7.12` | community-base | Conversion scripts and the unified format release | C7.9c, C7.10, C7.11 | no | done | the scripts merged earlier; the release it owed is v0.5.4, published 2026-09-18 at 444538c, and the cross-repository check is green against it. Both converters are idempotent and prove non-loss by a per-file sha256 inventory whose verify returns every unaccounted file; run read-only against all sixteen real repositories, with six of eight course repositories passing check_content at zero errors and every refusal author content rather than a converter defect |
 | `C7.12a` | community-base | Finish the package side the AISL adoption needs | C7.12 | no | done | https://github.com/DataTalksClub/community-base/pull/289 |
+| `C7.12b` | community-base | Preserve mixed-course semantics during conversion | C7.12, C5.4 | no | todo | https://github.com/DataTalksClub/community-base/issues/347 |
 | `A7.2a` | AI-Shipping-Labs/website | Register the AISL site kinds and markdown extensions | C7.12a | no | done | https://github.com/AI-Shipping-Labs/website/issues/1771 — merged as 9f0fc899; on-call fix 80fb8448 (colon-syntax MARKDOWN_EXTENSIONS). Deploy Dev 35577963604 green. Public wiki/ is the package wiki kind; member-gated _wiki/ is site-owned member_wiki in topics. |
 | `A7.2b` | AI-Shipping-Labs/website | Move the three core parsers onto the toolkit | A7.2a | no | todo |  |
 | `A7.2c` | AI-Shipping-Labs/website | Move the five family parsers onto the toolkit | A7.2b | no | todo |  |
 | `A7.2` | AI-Shipping-Labs/website | AISL: adopt the toolkit and the one course parser | C7.12 | no | skipped | split on 2026-09-19 into A7.2a, A7.2b and A7.2c after measurement against that site's five real content sources showed it could not land in one piece, and that part of it is package work rather than site work (C7.12a). No pin bump is needed: the toolkit landed in v0.5.2 and that site already pins v0.5.3, with an empty diff across `community_base/content_sync` between v0.5.3 and v0.5.4 |
 | `D7.2` | DataTalksClub/website | DTC: editorial, people and data kinds on the toolkit | C7.12, D7.1 | no | todo |  |
-| `D7.3` | DataTalksClub/website | DTC: course repositories on the package course parser | D5.1, C7.12 | no | todo |  |
+| `D7.3` | DataTalksClub/website | DTC: course repositories on the package course parser | D5.1, C7.12, C7.12b | no | todo |  |
 | `A7.3` | AI-Shipping-Labs/website | AISL: convert and cut over the content repositories | A7.2 | yes | todo |  |
-| `D7.4` | DataTalksClub/website | DTC: convert and cut over the content repositories | D7.2, D7.3 | yes | todo |  |
+| `D7.4` | DataTalksClub/website | DTC: convert and cut over the content repositories | D7.2, D7.3, D5.3 | yes | todo |  |
 | `C7.13` | community-base | Studio registration follows the mounted routes | C2.1a | no | done | merged; unblocks the A2.1 shell cutover (AI-Shipping-Labs/website#1615) together with C7.14. The shell and studio_routes --check read mounted route names when they run, never during AppConfig.ready(), so installing an app without mounting its Studio URLs no longer claims routes the site never serves. Applies to all fifteen registration sites at once |
 | `C7.14` | community-base | Studio sidebar collapse and navigation density | C2.1a | no | done | https://github.com/AI-Shipping-Labs/website/issues/1615 (merged. Collapse with per-viewer persistence, active section expanded server-side so a stored collapse cannot hide the current page; below STUDIO_NAV_COLLAPSE_THRESHOLD, default 24, behaviour is unchanged. Destination gains icon, external_url and new_tab; sidebar footer hook added; search results grouped) |
 | `C7.15` | community-base | Studio shell: messages, banner, focus ring and per-destination test hooks | C7.14 | no | done | merged. Closes the last package blocker on the A2.1 shell cutover: studio_messages and studio_banner blocks, a tagged default messages region, the focus-visible ring, and a test id derived from each destination's registry key. Backward compatibility measured at byte level against the old templates. Quick jump answered and scoped as C7.16 |
