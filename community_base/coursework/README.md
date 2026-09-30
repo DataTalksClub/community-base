@@ -114,6 +114,31 @@ surface, stage and deadline kind as data attributes.
 `project_row` reads attributes only, so a site still on its own project rows with the same state
 codes can call it before adopting the package models.
 
+## Project placement and submission fields
+
+`Project.module` optionally places a project in a cohort module (`SET_NULL`, reverse
+`module.projects`), mirroring `Homework.module`, so a site can show a project with its module.
+Deleting the module keeps the project.
+
+`Project.commit_id_field` (default `True`) decides whether a submission needs a commit id. On, the
+package form shows the input and `ProjectSubmission.clean` requires a value, so `submit_project`
+rejects a blank one (CMP and DTC behaviour). Off, the form asks only for the repository link and
+`submit_project` stores an empty commit id, ignoring any value passed in.
+
+## Installing without the package Studio and member API
+
+`CourseworkConfig.ready()` registers two site-facing surfaces unless a site turns them off:
+
+| `COMMUNITY_BASE` key | Default | Off means |
+|---|---|---|
+| `COURSEWORK_STUDIO_ENABLED` | `True` | No coursework Studio section is registered. The Studio views import `community_base.accounts`, so a site that owns its own user app and Studio turns this off. |
+| `COURSEWORK_MEMBER_API_ENABLED` | `True` | `api_views` is not imported, so the leaderboard, certificate-request and enrollment-preference member routes are not registered. |
+
+The job handlers (`pooling`, `reminders`) always register. A site that keeps its own learner
+routes and Studio (AISL) sets both keys to `False` and calls the package services directly. The
+gate does not key on `community_base.accounts` being installed, because DTC does not install it and
+keeps both surfaces. These are startup settings read once in `ready()`, not runtime config keys.
+
 ## Notifications
 
 `community_base/coursework/notifications.py` covers the four event-driven purposes, each a plain

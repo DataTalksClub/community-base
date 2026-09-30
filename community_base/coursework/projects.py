@@ -90,7 +90,7 @@ def submit_project(
     enrollment,
     *,
     github_link: str,
-    commit_id: str,
+    commit_id: str = "",
     learning_in_public_links: list[str] | None = None,
     time_spent: float | None = None,
     problems_comments: str = "",
@@ -107,7 +107,11 @@ def submit_project(
         submission.submitted_at = timezone.now()
 
     submission.github_link = github_link
-    submission.commit_id = commit_id
+    # With the toggle off the form never shows the field, so nothing stale is kept; with it on,
+    # ``ProjectSubmission.clean`` requires a value.
+    submission.commit_id = ""
+    if project.commit_id_field:
+        submission.commit_id = commit_id
 
     if project.learning_in_public_cap_project > 0:
         submission.learning_in_public_links = clean_learning_in_public_links(

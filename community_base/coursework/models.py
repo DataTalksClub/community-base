@@ -375,6 +375,11 @@ PROJECT_STATE_LABELS = {
 
 class Project(models.Model):
     cohort = models.ForeignKey(Cohort, on_delete=models.CASCADE, related_name="projects")
+    # The cohort module the project is delivered in, mirroring ``Homework.module``. Null for a
+    # project that belongs to no module (every CMP/DTC project so far).
+    module = models.ForeignKey(
+        Module, on_delete=models.SET_NULL, null=True, blank=True, related_name="projects"
+    )
     slug = models.SlugField(blank=False)
 
     title = models.CharField(max_length=200)
@@ -390,6 +395,9 @@ class Project(models.Model):
     learning_in_public_cap_project = models.IntegerField(default=14)
     peer_review_due_date = models.DateTimeField(null=True, blank=True)
     time_spent_project_field = models.BooleanField(default=True)
+    # Whether the submission form asks for, and requires, a commit id. Off for a site that
+    # collects only the repository link.
+    commit_id_field = models.BooleanField(default=True)
 
     problems_comments_field = models.BooleanField(default=True)
     faq_contribution_field = models.BooleanField(default=True)
@@ -473,7 +481,8 @@ class ProjectSubmission(models.Model):
     )
 
     github_link = models.URLField(validators=[URLValidator()])
-    commit_id = models.CharField(max_length=40)
+    # Required only when the project's ``commit_id_field`` is on (``clean``).
+    commit_id = models.CharField(max_length=40, blank=True)
 
     learning_in_public_links = models.JSONField(blank=True, null=True)
     faq_contribution = models.TextField(blank=True)
@@ -513,6 +522,12 @@ class ProjectSubmission(models.Model):
 
     def __str__(self):
         return f"project submission for enrollment {self.enrollment_id}"
+
+    def clean(self):
+        super().clean()
+        if self.commit_id or not self.project_id or not self.project.commit_id_field:
+            return
+        raise ValidationError({"commit_id": "This project requires a commit id."})
 
     def get_review_state_display(self):
         return SUBMISSION_REVIEW_STATE_LABELS.get(self.review_state, self.review_state)

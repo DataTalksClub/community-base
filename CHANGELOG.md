@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- C5.2m (#350): coursework adoption gaps for AISL (AI-Shipping-Labs/website#1696). Migration
+  `cb_coursework.0006_project_module_commit_id_field` adds a nullable `Project.module` FK
+  (`SET_NULL`, like `Homework.module`) and `Project.commit_id_field` (default `True`), and makes
+  `ProjectSubmission.commit_id` blank-able; a commit id is still required whenever the project's
+  toggle is on. New `COMMUNITY_BASE` keys `COURSEWORK_STUDIO_ENABLED` and
+  `COURSEWORK_MEMBER_API_ENABLED` (both default `True`) let a site install coursework with no
+  package Studio section and no member API routes. CMP and DTC behaviour is unchanged by default.
+
 ## 0.5.18
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations
