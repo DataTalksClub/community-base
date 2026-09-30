@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.5.21
+
+Adoption-provisional under D33. This release retains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`, unchanged from v0.5.20; `C3.7` and
+`C4.3` may still rewrite them, and donor-schema adoption remains gated on `C5.3` (0.6.0). No
+migrations are added in this release.
+
 - C7.12c (#363): preserve semantic `section` and `aside` include containers through the shared
   sanitizer. Keep existing media hooks, iframe rejection and public rendering APIs unchanged;
   isolate the existing HTML policy from the renderer. AISL article rendering and media hydration
