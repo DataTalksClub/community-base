@@ -24,8 +24,10 @@
         {% csrf_token %}
         <label for="id_github_link">GitHub repository link</label>
         <input id="id_github_link" name="github_link" value="{% if submission %}{{ submission.github_link }}{% endif %}">
-        <label for="id_commit_id">Commit id</label>
-        <input id="id_commit_id" name="commit_id" value="{% if submission %}{{ submission.commit_id }}{% endif %}">
+        {% if project.commit_id_field %}
+          <label for="id_commit_id">Commit id</label>
+          <input id="id_commit_id" name="commit_id" value="{% if submission %}{{ submission.commit_id }}{% endif %}">
+        {% endif %}
         <button class="cb-button cb-button-primary" type="submit">Submit</button>
       </form>
       {% if has_submission %}

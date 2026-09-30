@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- C5.2m (#350): coursework adoption gaps for AISL (AI-Shipping-Labs/website#1696). Migration
+  `cb_coursework.0006_project_module_commit_id_field` adds a nullable `Project.module` FK
+  (`SET_NULL`, like `Homework.module`) and `Project.commit_id_field` (default `True`), and makes
+  `ProjectSubmission.commit_id` blank-able; a commit id is still required whenever the project's
+  toggle is on. New `COMMUNITY_BASE` keys `COURSEWORK_STUDIO_ENABLED` and
+  `COURSEWORK_MEMBER_API_ENABLED` (both default `True`) let a site install coursework with no
+  package Studio section and no member API routes. CMP and DTC behaviour is unchanged by default.
 - Security (#344): require PyJWT 2.14 or newer to prevent a malformed RSA key from aborting
   an entire JWK set. Existing token verification and authentication policies are unchanged.
 

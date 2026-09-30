@@ -1230,6 +1230,53 @@ Done when
 Docs
 - `community_base/coursework/README.md`, `community_base/homework_steps/README.md`, `CHANGELOG.md`.
 
+## C5.2m Coursework adoption gaps: project module, optional commit id, optional Studio and member API
+
+Repository: community-base. Depends on: C5.2l. Freeze required: no. Related:
+DataTalksClub/community-base#350, AI-Shipping-Labs/website#1696 (A5.1 projects slice, phase 2).
+
+Goal: close the package gaps that block AISL from adopting `community_base.coursework` for course
+projects (findings F3, F4 and F5 of the #1696 projects plan). CMP and DTC behaviour is unchanged
+by default.
+
+Read first
+- `community_base/coursework/models.py` (`Project`, `ProjectSubmission`, `Homework.module`).
+- `community_base/coursework/projects.py` (`submit_project`).
+- `community_base/coursework/apps.py` and `community_base/curriculum/apps.py`
+  (`events_dependent_surfaces_active`).
+- `community_base/kernel/conf.py`.
+
+Steps
+1. Add a nullable `Project.module` FK to `cb_curriculum.Module` (`SET_NULL`,
+   `related_name="projects"`), mirroring `Homework.module`.
+2. Add `Project.commit_id_field` (default `True`). `ProjectSubmission.commit_id` becomes
+   `blank=True`, and `ProjectSubmission.clean` requires it only when the toggle is on, so
+   `submit_project` (which calls `full_clean`) enforces it. With the toggle off, `submit_project`
+   stores no commit id and the package project page hides the input.
+3. Gate the Studio section registration and the member `api_views` import in
+   `CourseworkConfig.ready()` on `COMMUNITY_BASE["COURSEWORK_STUDIO_ENABLED"]` and
+   `COMMUNITY_BASE["COURSEWORK_MEMBER_API_ENABLED"]`, both default `True`. The gate cannot key on
+   `community_base.accounts` being installed: DTC does not install it and keeps today's
+   registration.
+4. One migration, `cb_coursework.0006`, after `0005_authored_homework_metadata`.
+
+Verification
+- `uv run pytest tests/coursework` passes, including `tests/coursework/test_adoption_toggles.py`.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- `uv run pytest tests/test_boundaries.py`; `uv run python scripts/plan.py check` is OK.
+- Report package, DTC and AISL consumer results separately.
+
+Done when
+- [ ] A project can belong to a module and survives the module's deletion.
+- [ ] A project with `commit_id_field=False` accepts a link-only submission; the default still
+  requires a commit id.
+- [ ] With both settings `False`, a site without `community_base.accounts` boots with no
+  coursework Studio section and no coursework member API routes.
+- [ ] Released as `v0.5.19`, after `v0.5.18`.
+
+Docs
+- `community_base/coursework/README.md`, `CHANGELOG.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.
