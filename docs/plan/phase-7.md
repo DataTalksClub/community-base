@@ -902,6 +902,50 @@ Done when
 Docs
 - `community_base/content_sync/FORMAT.md`, `community_base/content_sync/README.md`, `CHANGELOG.md`, `docs/01-decisions.md` (D42), `docs/plan/evidence/conversion-runs-2026-09-18.md`.
 
+## C7.12b Preserve mixed-course semantics during conversion
+
+Repository: community-base. Depends on: C7.12, C5.4. Freeze required: no. Related issue:
+DataTalksClub/community-base#347.
+
+Goal: the existing one-time converter preserves the mixed hierarchy, YAML homework and metadata
+accepted by C5.4, while retaining accepted legacy inputs and the existing partial-conversion
+failure policy. Actual source conversion and cutover remain A7.3/D7.4.
+
+Read first
+- Issue #347 for the exact preservation contract and AC1–AC9.
+- `community_base/content_sync/convert/courses.py`, `convert/report.py`, and `FORMAT.md`.
+- Shared course layout/parser and coursework binding/course-tree readers.
+- `tests/content_sync/test_convert_courses.py`, `tests/curriculum/test_mixed_source.py`.
+- C7.12, C7.12a, D7.3/D7.4 and the C5.4/D5.3 contracts.
+
+Steps
+1. Capture flat conversion baselines and regressions for ordered mixed trees, legacy unit-list
+   order, homework directories/unit bindings and section metadata.
+2. Reuse the shared format/validation owners; remove the obsolete mixed-shape prohibition,
+   preserve order/identity/parentage and refuse genuinely ambiguous new cases without guessing.
+3. Preserve explicit ignores and both homework source forms. Keep partial conversion: newly
+   refused inputs remain unchanged while unrelated valid files may convert. Clarify misleading
+   docstrings, without introducing whole-run rollback or changing unrelated refusal behavior.
+4. Prove semantic output through the shared parser, complete accounting, dry-run and idempotence.
+5. Run package and separate consumer gates; report runtime changes independently from tests.
+
+Verification
+- Focused converter/mixed-source regressions demonstrate the before-fix failures and pass after.
+- Touched content_sync/curriculum/coursework tests, quality, boundary, fresh migration and plan
+  checks pass with all extras. P16 AISL/DTC comparisons report exact SHAs/counts independently.
+- Existing flat semantics, all authored IDs/parents/orders/homework bindings/section metadata and
+  ignore behavior remain covered; byte inventory alone is insufficient semantic evidence.
+- Not run here, needs: approved live conversions, site storage/caller adoption and deploys.
+
+Done when
+- [ ] Ordered mixed inputs and both homework forms convert without semantic loss.
+- [ ] Legacy ordering/fallbacks and existing unrelated partial-conversion behavior remain supported.
+- [ ] Dry-run, idempotence, truthful accounting and bounded new refusals are proven.
+- [ ] Code/docs merged with required package and both consumer gates passed.
+
+Docs
+- Converter docstrings/README, CHANGELOG and `docs/plan/STATUS.md`.
+
 ## A7.2a Register the AISL site kinds and markdown extensions
 
 Repository: AI-Shipping-Labs/website. Depends on: C7.12a.
@@ -1066,10 +1110,22 @@ Docs
 
 ## D7.3 DTC: course repositories on the package course parser
 
-Repository: DataTalksClub/website. Depends on: D5.1, C7.12. Freeze required: no. Decision D23.
+Repository: DataTalksClub/website. Depends on: D5.1, C7.12, C7.12b. Freeze required: no. Decision D23.
 
 Goal: DTC imports its six course repositories through `community_base.curriculum` and
 `community_base.coursework`, and no DTC code parses `course.yaml`.
+
+D5.1 supplies accepted storage and the active single shared-parser-backed source writer. This
+issue completes six-source registration/proof and generic site-reader retirement; it is not the
+first runtime activation. D5.3b owns learner projection integration. Development-deploy acceptance may use approved
+converted scratch repositories or branches on the selected authorized target; record their
+exact identities and configured source refs. Merging authored conversions and changing final
+live source refs remain D7.4. Do not disable an active supported source before its environment
+has an approved compatible input and coordinated switch. Do not add a dual runtime parser.
+Existing flat route behavior must pass here; full nested projection acceptance remains D5.3b.
+Refresh the historical inventory below at the implementation head and apply P17: retire every
+live generic course reader, preserving transport, registration and site-policy responsibilities.
+Report actual removed bodies and net change, not the historical file totals as new deletions.
 
 Read first
 - DTC `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work.
@@ -1100,9 +1156,10 @@ Read first
 Steps
 1. Point the course import at `community_base.curriculum` and the homework import at
    `community_base.coursework`.
-2. Delete every reader in the table above, not two of them. One format means one branch, and
-   one parser. The `content_sync/course_repository*` family is four modules and about 2750 lines
-   that `community_base.curriculum.parsers` replaces wholesale.
+2. Retire local `course.yaml` parsing at every listed callsite through the shared parser. Delete
+   files only after P17 proves no live transport, registration, projection or site-policy role
+   remains. Preserve those responsibilities through their owning adapters; one runtime parser
+   remains. Report current removed bodies and net change rather than historical file totals.
 2a. Two of the nine are not course-repository parsers and need their own answer rather than
    deletion: `scripts/build_public_projection.py` is a projection build and
    `courses/services/local_course_seed.py` seeds a local dataset. Decide per module whether it
@@ -1184,11 +1241,14 @@ Docs
 
 ## D7.4 DTC: convert and cut over the content repositories
 
-Repository: DataTalksClub/website. Depends on: D7.2, D7.3. Freeze required: yes. Decision D23.
+Repository: DataTalksClub/website. Depends on: D7.2, D7.3, D5.3. Freeze required: yes. Decision D23.
 
 Goal: every DTC content repository is converted by the `C7.12` scripts, validated by
 `check_content` in its own CI, merged, and synced from `main` with zero errors, and
 `datatalksclub.github.io` stops being a sync source.
+
+D5.3 must have accepted source, storage, ingest and reader behavior before these live conversions
+and source-ref switches. Earlier scratch/branch deploy evidence does not complete this issue.
 
 Freeze: one day of no content writes per repository, taken one repository at a time, on
 `DataTalksClub/docs`, `DataTalksClub/podwiki`, `DataTalksClub/content`,

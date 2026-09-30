@@ -1453,7 +1453,7 @@ Verification
 
 ## D5.3 DTC: adopt repository-derived course hierarchy and homework units
 
-Repository: DataTalksClub/website. Depends on: C5.4. Related issue:
+Repository: DataTalksClub/website. Depends on: D5.3a, D5.3b, D7.3. Related issue:
 DataTalksClub/website#436.
 
 Use the package parser and projection for nested directories and structured homework units. Keep
@@ -1461,6 +1461,13 @@ only DTC-owned cohort placement/binding, access and route adapters; re-scope #39
 second generic parser or projection. Preserve project references, course features, site-owned
 presentation, API shapes and the existing route compatibility contract. The detailed migration
 and acceptance criteria are in #436.
+
+This remains the full adoption acceptance milestone. D5.3a proves the source/policy contract;
+D5.1 adopts storage and activates the single shared-parser-backed source writer; D7.3 completes
+six-source registration/proof and generic reader retirement; D5.3b integrates site projection. Account for every original #436 criterion with their linked evidence and a
+green selected development deploy. Source-contract completion alone does not finish D5.3.
+Approved scratch/branch sources can prove development acceptance; live authored conversion and
+source-ref cutover remain D7.4, with its existing freeze and human-review requirements.
 
 ### DTC development data boundary (D5.3, D5.1 and D5.2)
 
@@ -1486,6 +1493,101 @@ Verification
   created after import. In-place mode: preserve the existing rows and identities through cutover.
 - The route-contract test and affected DTC tests pass; package, AISL and DTC checks are reported
   separately.
+
+## D5.3a Prove the DTC source and policy contract for shared curriculum
+
+Repository: DataTalksClub/website. Depends on: C5.4, C7.12b. Freeze required: no. Related issue:
+DataTalksClub/website#446.
+
+Goal: establish executable source and DTC policy expectations against a tagged shared package,
+without adopting package storage, changing production readers or converting a live repository.
+
+Read first
+- DTC AGENTS/process/spec 04 and current source-format specs.
+- #436, #414, `courses/services/curriculum_source.py`, existing source fixtures and route contract.
+- Package FORMAT, public course parser, converter and #347 semantic regression evidence.
+- `courses/views/shared_course.py`, `curriculum_flow.py`, `course_context.py` and the existing
+  mapping document; read the affected contracts, do not reopen a broad inventory.
+
+Steps
+1. Inventory the exact public source commits and accepted source shapes for the six repositories,
+   plus target-required content absent from them. Record dispositions as decisions still owned by
+   D5.1; do not assume a source-only import recreates the public catalog.
+2. Add bounded executable fixtures consuming public tagged converter/parser APIs. Establish
+   expected source IDs, order, parentage, homework schemas/bindings, section/bonus metadata,
+   project references, explicit ignores and route identities from source data.
+3. Compare supported legacy flat source expectations with converted graphs; include the newly
+   supported mixed/YAML-homework shapes as synthetic contracts. Preserve module boundaries.
+4. Record DTC policy mappings separately from generic structure: publication, archive behavior,
+   cohort context, homework/project flow, module-local neighbors, access, asset links and URLs.
+5. Name unresolved metadata/storage/behavior gaps explicitly; each required field/feature needs
+   a known target owner before this milestone can be accepted. Do not introduce a runtime shim
+   or duplicate parser to make the contract look complete.
+
+Acceptance criteria
+- [ ] Exact tagged package and source/fixture identities are recorded. No branch/path dependency
+      is committed and DTC source guards pass.
+- [ ] Flat and mixed source fixtures produce the expected authored identities/parentage/order;
+      YAML homework/questions and explicit cohort bindings survive conversion without loss.
+- [ ] Course source conversion is idempotent and obeys the accepted #347 partial-refusal policy.
+- [ ] Explicit expected DTC canonical slugs/routes and module-local navigation are recorded;
+      package default prefix stripping or whole-course neighbors cannot silently replace them.
+- [ ] The required public-content inventory and field/policy owner matrix are reviewable. Missing
+      import paths/owners are unresolved blockers, not omissions from the contract.
+- [ ] Required DTC verification passes; no production reader, schema, database, template or UI
+      changes. This is source-contract proof, not imported-data/render/deployment equivalence.
+
+Verification
+- Run the selected source-contract and route-baseline tests through the maintained DTC test
+  runner and all components selected by its verification plan; record exact counts and source
+  identities. Validate converter output with the tagged package parser, not a copied parser.
+- Complete independent QA and PM review under the DTC process. Package capability evidence is
+  linked separately; imported site rows and deployed reader parity remain D5.1/D5.3b work.
+
+Docs: DTC source-contract/mapping documentation and this plan's STATUS row. Test additions use
+existing bounded fixture owners; no new general parser or generated production content files.
+
+## D5.3b Adopt shared curriculum projection behind DTC reader contracts
+
+Repository: DataTalksClub/website. Depends on: D5.1, D7.3. Freeze required: no. Related issue:
+DataTalksClub/website#447.
+
+Goal: consume the package curriculum tree/projection behind existing DTC routes and templates,
+with the site policy contract proved by D5.3a and package rows imported through D7.3.
+
+Read first
+- DTC AGENTS, process, spec 04, course route contracts and D5.3a's accepted policy matrix.
+- D5.1 target-model evidence, D7.3 ingest/caller inventory, shared CourseTree/projection APIs.
+- Current shared_course, curriculum_flow and course_context callers and their existing tests.
+
+Steps and acceptance criteria
+- [ ] Use CourseTree/shared projection for generic hierarchy and ordered traversal; remove the
+      replaced site projection bodies after full caller inventory. Keep DTC URL/policy mapping.
+- [ ] Existing flat public HTML and API shapes, canonical/compatibility routes, query context,
+      access and publication/retirement filtering, empty/error behavior and Studio remain equal.
+- [ ] Previous/next remains within published lessons of the current module where that is today's
+      contract. Do not substitute the package's whole-course neighbor policy.
+- [ ] Flat, nested, mixed and one-unit module fixtures resolve to real supported destinations;
+      preserve section/bonus metadata, project references and explicit homework bindings.
+- [ ] Repeated sync and moves preserve selected-mode data/link guarantees through actual site
+      callers. Use D5.1 data evidence, adding the reader-specific checks rather than claiming a
+      second independent full migration.
+- [ ] Independent QA verifies route/API semantics and desktop/mobile presentation on the selected
+      development target with synthetic learners. Current visible UI is unchanged. If exposing
+      new hierarchy cannot fit that contract, record the concrete product decision before edits.
+- [ ] Package/site evidence and deployment verdicts are recorded separately; no adoption claim
+      rests only on generic package template tests or generated links that were never resolved.
+
+Verification
+- Run the maintained DTC verification plan, including affected reader/API/route/Studio tests
+  and desktop/mobile evidence; resolve generated destinations through real site views.
+- Check representative flat before/after HTML/API contracts, module-local neighbors and
+  query counts. Prove nested/mixed and one-unit destinations with approved source fixtures.
+- Record independent QA/PM acceptance and green selected development deployment. Scratch-source
+  evidence does not complete D7.4 or authorize a live-source switch.
+
+Docs: DTC course/spec/route-policy documentation; STATUS here. No generic package templates or
+route mounting replaces DTC presentation. No source conversion or parser duplication.
 
 ## A5.1 Map AISL courses to the shared apps
 
@@ -1514,7 +1616,18 @@ a Free member (paywall), progress toggle persists, purchase flow grants access.
 
 ## D5.1 Map DTC course platform data to the shared apps
 
-Repository: DataTalksClub/website. Depends on: C5.3, D5.3.
+Repository: DataTalksClub/website. Depends on: C5.3, D5.3a.
+
+D5.3a supplies the verified source/policy contract. This issue owns storage adoption, field/data
+mapping and repointing existing callers while preserving current flat routes and UI. Prove
+nested/YAML-homework persistence and identity at the target-model boundary using shared APIs;
+new nested reader projection acceptance is D5.3b and repository-reader retirement is D7.3.
+Activate one shared-parser-backed scheduled/webhook writer against accepted package storage on
+the selected development target with approved compatible development source refs. Source updates
+must keep working: no legacy jobs writing old/disconnected tables, mirrored writes or second
+runtime parser. D7.3 completes six-source registration/proof and generic reader retirement;
+D7.4 alone changes final live authored refs under its original freezes. C5.3, all donor gates
+and the selected-mode data boundary remain unchanged.
 
 Steps
 1. Map every course, cohort, curriculum, enrollment, progress and coursework field and workflow
@@ -1557,7 +1670,7 @@ Verification
 
 ## D5.2 Freeze weekend: DTC courses cutover and self-paced mode
 
-Repository: DataTalksClub/website. Depends on: D5.1. Freeze required: yes.
+Repository: DataTalksClub/website. Depends on: D5.1, D5.3. Freeze required: yes.
 
 Use P13 and the site deployment process. Record the target/mode, code and package release,
 public import provenance, recovery plan and freeze scope. Fresh development adoption does not
