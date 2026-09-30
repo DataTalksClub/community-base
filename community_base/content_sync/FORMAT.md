@@ -482,6 +482,11 @@ because `register_kind` refuses a part that overrides a core key, so a cohort om
 rejected before a parser saw it. The conversion writes the key. `identifier`, `course`,
 `published`, `legacy_slug`, `year`, `format` and `flow` do not exist.
 
+The converter refuses nonempty legacy cohort `flow` without rewriting that cohort's manifest
+or homework. Its ordered module/project placement needs a host-owned source/import/projection
+mapping before adoption; dropping it or retaining a conversion report is not preservation.
+The project-module reader validates a different relationship and does not supply cohort flow.
+
 The existing `source` binding may still carry an optional `unit` page link. A binding with `unit`
 and no `source` selects that authored course-tree homework identity; it creates one separate
 cohort-owned assignment per binding and never infers an assignment for an unbound source unit.
