@@ -76,17 +76,6 @@ class CourseLayout(Layout):
         module_path = node.joined(MODULE_MANIFEST)
         items.append(self._module_item(node, container, parent))
         units, submodules, homework_units = self._module_contents(node)
-        if units and submodules:
-            problems.append(
-                (
-                    node.path,
-                    Problem(
-                        "",
-                        "3.5",
-                        "a module directory holds either submodule directories or unit files",
-                    ),
-                )
-            )
         self._append_units(node, module_path, units, items)
         for child in submodules:
             self._walk_module(child, node.path, module_path, level + 1, items, problems)

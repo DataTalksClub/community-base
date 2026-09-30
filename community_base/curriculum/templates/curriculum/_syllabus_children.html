@@ -1,0 +1,17 @@
+<ul class="cb-list">
+  {% for node in nodes %}
+    <li>
+      {% if node.is_module %}
+        <h4><a href="{{ node.url }}">{{ node.item.title }}</a></h4>
+        {% include "curriculum/_syllabus_children.html" with nodes=node.children has_access=has_access only %}
+      {% else %}
+        {% if has_access or node.item.is_preview %}
+          <a href="{{ node.url }}">{{ node.item.title }}</a>
+        {% else %}
+          {{ node.item.title }}
+        {% endif %}
+        {% if node.item.is_preview %}<span class="cb-badge">Preview</span>{% endif %}
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>

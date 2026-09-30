@@ -3,7 +3,7 @@
 from uuid import UUID, uuid4
 
 from community_base.curriculum.models import Module, Unit
-from community_base.curriculum.source import CurriculumParseError
+from community_base.curriculum.source import CurriculumParseError, UnitGraph
 
 
 def _identity(value):
@@ -45,9 +45,11 @@ class UnitImport:
         for graph in modules:
             module = self._existing_module(graph, parent, parent_exists)
             self.destinations[id(graph)] = module
-            for unit in graph.units:
-                yield id(graph), unit
-            yield from self._entries(graph.children, module, module is not None)
+            for sibling in graph.siblings:
+                if isinstance(sibling, UnitGraph):
+                    yield id(graph), sibling
+                    continue
+                yield from self._entries((sibling,), module, module is not None)
 
     def _index_modules(self):
         identities = {}

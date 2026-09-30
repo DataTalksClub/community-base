@@ -19,8 +19,40 @@
   toggle is on. New `COMMUNITY_BASE` keys `COURSEWORK_STUDIO_ENABLED` and
   `COURSEWORK_MEMBER_API_ENABLED` (both default `True`) let a site install coursework with no
   package Studio section and no member API routes. CMP and DTC behaviour is unchanged by default.
-- Security (#344): require PyJWT 2.14 or newer to prevent a malformed RSA key from aborting
-  an entire JWK set. Existing token verification and authentication policies are unchanged.
+
+## 0.5.18
+
+Adoption-provisional under D33. This release retains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`; `C3.7` and `C4.3` may still
+rewrite them, and donor-schema adoption remains gated on `C5.3` (0.6.0). Those migrations are
+unchanged from v0.5.17. This release adds two package-owned migrations:
+`cb_coursework.0005_authored_homework_metadata` and
+`cb_curriculum.0005_module_unit_source_sibling_position`. Neither is a kept-label migration.
+
+- C5.4a (#335, PR #336): preserve unit identities and learner links when a stable source unit
+  moves between modules, including valid destination swaps. Reject ambiguous identities and
+  destination conflicts before writes; retain existing missing-ID and slug-fallback behavior.
+- C5.4b (#338, PR #339): preserve module, child and learner-linked identities during reparenting,
+  promotion and demotion. Apply the complete module tree before retiring stale source modules.
+- C5.4c (#341, PR #342): import course-tree `homework.yaml` with its `homework.md` companion through
+  explicit cohort bindings. Preserve stable unit/question identities and authored question order;
+  add optional question step labels and homework stepper metadata. Keep cohort-manifest encrypted
+  answers separate from the course-tree answer representation, and keep unrevealed answers out of
+  learner projections. The new coursework migration adds these source metadata fields with
+  backward-compatible defaults.
+- C5.4 (#306, PR #346): accept ordered direct lessons, YAML homework and child modules together.
+  Store authored mixed-sibling position separately from public and cohort order, in nullable,
+  non-editable Module and Unit fields. Reuse one prefetched tree for syllabus and reader
+  projections, retaining existing flat output/routes and adding ancestry-scoped generic nested
+  destinations. Validate host-owned project-module references through a registered reader.
+- Security (#344, PR #345): require PyJWT 2.14 or newer so a malformed RSA key does not abort an
+  entire JWK set. Existing token verification and authentication policies are unchanged.
+
+The shared parser capability does not complete source conversion or site adoption. C7.12b (#347)
+remains pending: the one-time converter still needs mixed-tree, YAML-homework, authored-order and
+metadata preservation corrections. DTC/AISL pin changes require their own verification and must
+preserve existing UI, routes and features. DTC development recovery and donor compatibility remain
+separate open gates.
 
 ## 0.5.17
 

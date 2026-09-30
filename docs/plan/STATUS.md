@@ -155,7 +155,7 @@ issues that can start now.
 | `C5.2n` | community-base | Shared embeddable project submission form | C5.2m | no | in-progress | https://github.com/DataTalksClub/community-base/pull/352 (stacked on PR 351, C5.2m) |
 | `C5.2o` | community-base | FAQ contribution redesign and retirement of the `faq_*` project fields | C5.2n | no | todo |  |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e, C5.2h | no | todo | https://github.com/DataTalksClub/community-base/issues/273 |
-| `C5.4` | community-base | Repository-derived curriculum hierarchy and YAML-backed homework units | C5.1e, C5.2i, C7.10, C7.11, C5.4a, C5.4b, C5.4c | no | todo | https://github.com/DataTalksClub/community-base/issues/306 |
+| `C5.4` | community-base | Repository-derived curriculum hierarchy and YAML-backed homework units | C5.1e, C5.2i, C7.10, C7.11, C5.4a, C5.4b, C5.4c | no | in-progress | https://github.com/DataTalksClub/community-base/pull/346 |
 | `C5.4a` | community-base | Preserve unit identity across module moves | C5.1e, C5.2i, C7.10, C7.11 | no | done | https://github.com/DataTalksClub/community-base/pull/336 |
 | `C5.4b` | community-base | Preserve module identity during reparenting | C5.1e, C5.2i, C7.10, C7.11 | no | done | https://github.com/DataTalksClub/community-base/pull/339 |
 | `C5.4c` | community-base | Import course-tree YAML homework through explicit cohort bindings | C5.4a, C5.4b | no | done | https://github.com/DataTalksClub/community-base/pull/342 |
