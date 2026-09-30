@@ -28,7 +28,7 @@ uv run python manage.py migrate
 |---|---|
 | `Course` | Reusable course; tags, testimonials, links, access levels, provenance. |
 | `Cohort` | One delivery of a course: `mode="cohort"` (dated) or `mode="self_paced"` (one per course). |
-| `Module` | Ordered module, owned by the course (shared across every cohort). `parent` makes it a submodule of another module -- maximum two module levels. A module holds either child modules or direct units, never both. `is_bonus` and `available_after_days` (a drip offset for a top-level module, cascading to its units unless they override it) round it out. |
+| `Module` | Ordered module, owned by the course (shared across every cohort). `parent` makes it a submodule of another module -- maximum two module levels. A module may hold direct units and child modules together. `is_bonus` and `available_after_days` (a drip offset for a top-level module, cascading to its units unless they override it) round it out. |
 | `Unit` | Lesson, owned by its module. `kind` is `lesson` (default), `homework`, `event` or `checklist_item`; `event` units carry `session_position` (1-indexed, not a foreign key -- the site resolves the real event per viewer, against the viewer's own cohort, at render time) instead of embedding cohort-specific data in shared curriculum. `is_bonus` excludes a unit from the progress denominator while it is still tracked and displayed. |
 | `CohortModule` | Optional per-cohort placement of a top-level module: `cohort`, `module`, `sort_order`. A cohort with no placements shows the course's full module tree in module order -- the common case, requiring zero extra rows. A cohort with placements shows exactly that curated subset and order instead, for courses whose cohorts genuinely differ (two cohorts of the same course each placing a different module that represents an alternative treatment of one topic, for example). |
 | `Enrollment` | User-cohort enrollment with soft-delete history. |
@@ -41,9 +41,9 @@ uv run python manage.py migrate
 computes the same thing for one cohort. Progress (`Course.total_units()`,
 `Course.completed_units()`) and the depth-first reading order
 (`services.get_all_units_ordered()`, reused by `get_next_unit`/`get_prev_unit`) walk this same
-shape: for each top-level module, in `sort_order`, either its own units (a module with no
-children) or each child module's units in order (a module with children) -- never both, since a
-module never mixes children and direct units. `is_bonus` (on the unit, its module, or that
+shape: for each top-level module, in `sort_order`, its direct units and child modules follow their
+shared source order when both kinds are present. Pure legacy sibling sets retain their existing
+`sort_order` and primary-key ties. `is_bonus` (on the unit, its module, or that
 module's parent module) excludes a unit from the progress denominator; `kind="event"` units
 still count; `kind="checklist_item"` units never count, whether or not they are marked
 `is_bonus`.
@@ -127,7 +127,7 @@ diagnostic, not by a second rule written in the parser.
 |---|---|
 | `CourseGraph` | `course.yaml` plus the core keys; `image` becomes `cover_image_url`, `repository_url` becomes `github_repo_url`, `status` drives `visible`. |
 | `ModuleGraph` | one `module.yaml` per module directory, its `README.md` as `overview`, `sort_order` from the `NN-` prefix, recursive through `children` to at most two module levels. |
-| `UnitGraph` | one `NN-<unit>.md` per Markdown unit, or a flat module's `NN-<homework>/homework.yaml` with its sole `homework.md` prose companion. The YAML form is a homework Unit with stable identity, title, slug and order from the directory. |
+| `UnitGraph` | one `NN-<unit>.md` per Markdown unit, or a module's `NN-<homework>/homework.yaml` with its sole `homework.md` prose companion. The YAML form is a homework Unit with stable identity, title, slug and order from the directory. |
 | `CohortGraph` | one `cohorts/<identifier>/cohort.yaml` per cohort; `delivery` becomes `mode`, `modules` becomes `module_refs`, `homework` becomes `homework_bindings`. |
 
 Cohort placement follows the contract `CohortModule` already has: `module_refs is None` means
@@ -156,8 +156,19 @@ Three parser rulings, where section 3.8 is silent:
 One importer applies the graph: source-managed rows are created, updated or removed to match the
 repository, a course that vanishes is soft-deleted to `draft`, and every import records a
 `CurriculumImportRun`. Re-importing unchanged content is a no-op. `source.validate_module_tree`
-rejects a mixed module (children and direct units) or a tree deeper than two module levels,
-naming the offending directory.
+rejects duplicate sibling slugs, incomplete or duplicate mixed order, and trees deeper than two
+module levels, naming the offending directory. Mixed siblings carry nullable internal
+`source_sibling_position` values, separate from public `sort_order` and cohort placement order.
+Existing pure trees and Studio rows keep null positions and their legacy ordering.
+
+Hosts with project source files register one pure reader with
+`project_modules.register_project_module_reader`. The reader yields
+`ProjectModuleReference(project_id, source_path, module_path, pointer)` for each project in a
+course collection. `module_path` is a directory relative to that collection, such as
+`01-week-one/02-project`; `source_path` and `pointer` locate the host-owned authored reference.
+The same resolver runs during sync and `check_content --kinds` before any domain write. It rejects
+unknown or ambiguous module paths and duplicate project identities. The package neither parses
+opaque `extra.projects` nor stores a course-level project pointer.
 
 ### Module identity during parent moves
 
@@ -168,9 +179,9 @@ module, unit progress and homework links. A parent change counts as updated once
 reimport is unchanged. Stored slugs and parent-plus-slug fallback retain their existing behavior.
 Cohort placements still target top-level modules and follow their existing synchronization rules.
 
-This is the bounded module preservation guarantee of `C5.4b`. Mixed module/unit siblings and
-shared ordering remain in `C5.4`; YAML-backed homework units are covered by `C5.4c`, and unit
-movement between module rows is covered separately by `C5.4a`. Package fixtures do not establish
+This is the bounded module preservation guarantee of `C5.4b`; C5.4 adds mixed sibling order on
+top of it. YAML-backed homework units were added in `C5.4c`, and unit movement between module
+rows in `C5.4a`. Package fixtures do not establish
 AISL donor equivalence or replace
 the development-copy rehearsal required during adoption.
 
@@ -199,9 +210,8 @@ Moving out of a removed module therefore preserves UnitProgress, Homework.unit a
 homework questions, submissions and answers. Homework.module separately becomes null when its
 module is deleted, under its existing SET_NULL rule. This package behavior does not prove AISL
 UserCourseProgress or donor-data compatibility; those need the later site adoption rehearsal.
-Whole-module reparenting and mixed module/unit trees remain outside the unit-only C5.4a
-capability. C5.4c extends the same stable Unit identity to authored YAML homework units within
-flat modules; the complete mixed-tree projection and site adoption remain separate work.
+Whole-module reparenting was added by C5.4b, and C5.4c extended stable Unit identity to authored
+YAML homework units. C5.4 now projects mixed trees; donor site adoption remains separate work.
 
 The course parser validates both homework source forms before writing curriculum. Its one outer
 transaction applies curriculum and cohort-owned coursework, then cleans up only assignments not
@@ -361,12 +371,21 @@ locking self-paced or unenrolled learners -- `cohort` is explicit because curric
 course-owned, so a unit has no single cohort of its own) and the depth-first reading-order
 helpers.
 
+## Public curriculum navigation
+
+The generic curriculum views keep flat module and unit routes and JSON response shapes. Nested
+pages use `/courses/<course>/cohorts/<cohort>/curriculum/<ancestry>/`, where ancestry contains the
+root module, child module and optional unit slug. Repeated child slugs resolve through ancestry.
+The API emits full child payloads once and shallow ordered sibling references. A site may supply
+its own cohort-aware URL builder when rendering package projections.
+
+Cohort placements curate syllabus and `effective_modules()` only. Reader destinations, sidebars,
+previous/next and Continue follow the complete course tree, using the selected cohort for URLs,
+homework and drip. The selected cohort must belong to the course and be visible. This preserves
+flat reader behavior even when a cohort curates a subset or another order.
+
 ## Known limitations
 
-- Public pages (`/courses/<slug>/<cohort_slug>/<module_slug>/...`) resolve `module_slug`
-  against top-level modules only; deep-linking straight to a unit inside a submodule is not
-  yet routed. Nested content parses, imports and computes correctly; its public browsing pages
-  are a follow-up.
 - A cohort that places nothing and a cohort that declared no placement are indistinguishable at
   the database level: both leave zero `CohortModule` rows, so `Cohort.effective_modules()` falls
   back to the course's default tree for either. An `archive: true` cohort therefore parses to the

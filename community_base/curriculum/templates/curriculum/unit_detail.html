@@ -6,7 +6,7 @@
   <header class="cb-page-header">
     <p class="cb-card-meta">
       <a href="{{ course.get_absolute_url }}">{{ course.title }}</a> ·
-      <a href="{% url 'curriculum_module_overview' course.slug cohort.slug module.slug %}">{{ module.title }}</a>
+      {% for ancestor in breadcrumbs %}<a href="{{ ancestor.url }}">{{ ancestor.item.title }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
     </p>
     <h1 class="cb-page-title">{{ unit.title }}</h1>
   </header>
@@ -57,16 +57,16 @@
     {% endif %}
 
     <nav class="cb-list" aria-label="Course navigation">
-      {% if prev_unit %}<a class="cb-button" href="{% url 'curriculum_unit_detail' course.slug cohort.slug prev_unit.module.slug prev_unit.slug %}">Previous: {{ prev_unit.title }}</a>{% endif %}
-      {% if next_unit %}<a class="cb-button cb-button-primary" href="{% url 'curriculum_unit_detail' course.slug cohort.slug next_unit.module.slug next_unit.slug %}">Next: {{ next_unit.title }}</a>{% endif %}
+      {% if prev_node %}<a class="cb-button" href="{{ prev_node.url }}">Previous: {{ prev_node.item.title }}</a>{% endif %}
+      {% if next_node %}<a class="cb-button cb-button-primary" href="{{ next_node.url }}">Next: {{ next_node.item.title }}</a>{% endif %}
     </nav>
 
     <aside class="cb-list cb-unit-sidebar" aria-label="Lessons">
-      {% for sidebar_unit in units %}
+      {% for sidebar_node in unit_nodes %}
         <p>
-          {% if sidebar_unit.pk == unit.pk %}<strong>{{ sidebar_unit.title }}</strong>
-          {% else %}<a href="{% url 'curriculum_unit_detail' course.slug cohort.slug sidebar_unit.module.slug sidebar_unit.slug %}">{{ sidebar_unit.title }}</a>{% endif %}
-          {% if sidebar_unit.pk in completed_unit_ids %}<span class="cb-badge">✓</span>{% endif %}
+          {% if not sidebar_node.is_module and sidebar_node.item.pk == unit.pk %}<strong>{{ sidebar_node.item.title }}</strong>
+          {% else %}<a href="{{ sidebar_node.url }}">{{ sidebar_node.item.title }}</a>{% endif %}
+          {% if not sidebar_node.is_module and sidebar_node.item.pk in completed_unit_ids %}<span class="cb-badge">✓</span>{% endif %}
         </p>
       {% endfor %}
     </aside>

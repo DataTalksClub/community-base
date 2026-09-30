@@ -1248,11 +1248,31 @@ may contain direct units and child module folders together. The graph, importer 
 preserve their single shared sibling order. Stable IDs remain source data; no generated projection
 is checked in.
 
-Implementation is split: C5.4a first preserves unit identities in the existing importer without
-changing graph interfaces or public presentation. The remaining hierarchy, YAML homework,
-ordering and projection work stays here. Completing C5.4a does not complete C5.4 or site adoption.
+Implementation is split: C5.4a preserves unit identities across module moves, C5.4b preserves
+module identities across reparenting, and C5.4c imports YAML homework through explicit cohort
+bindings. The remaining mixed hierarchy, ordering, project-reference validation and projection
+work stays here. Completing those prerequisites does not complete C5.4 or site adoption.
 The existing draft PR #311 remains reference material; its route and markup changes do not belong
 to the owner's current no-visible-UI-change simplification work.
+
+Mixed authored siblings require a complete, unique order. Nullable internal
+`source_sibling_position` fields on Module and Unit preserve that order separately from public
+`sort_order` and cohort placements. Pure legacy siblings retain their existing sort and tie
+behavior. Importing site rows without authored source ordinals leaves the new fields null;
+replaying those imports preserves existing target metadata. DTC compatibility issue #445 verifies
+that contract against a concrete package candidate before this issue's final consumer comparison.
+
+One prefetched traversal owns syllabus, breadcrumbs, reading order, continuation and projection.
+Existing flat output, routes and API identities stay unchanged. Cohort placements continue to
+curate syllabus output; they do not become a new access restriction on course reader links.
+Reader navigation and continuation retain the complete course tree while using the selected
+cohort for homework and drip behavior. Generic nested destinations must resolve repeated child
+slugs by ancestry without shadowing independently mounted coursework routes. Site routes,
+templates and visible behavior remain governed by their later adoption work.
+A registered host reader supplies per-project source-relative module references; the shared
+resolver validates them before writes in both sync and `check_content --kinds`. Project schema
+and storage remain host-owned; no course-level project pointer or implicit extra-field parsing
+is introduced.
 
 Steps
 1. Implement the generic source convention, schema validation and graph/importer behavior in

@@ -9,7 +9,7 @@ from django.core.management import CommandError, call_command
 from community_base.content_sync.check import check_repository, heading_ids, main, run_check
 
 FIXTURES = Path(__file__).parent / "fixtures"
-VALID = ("valid_course", "valid_multi", "valid_docs")
+VALID = ("valid_course", "valid_multi", "valid_docs", "valid_mixed_module")
 
 # One malformed repository per rule of sections 3.1 to 3.7 and of the dialect,
 # with the diagnostic each must produce.
@@ -38,12 +38,6 @@ INVALID = (
         "3.5",
         "docs/01-a/02-b/03-c/04-d/05-e",
         "nesting is deeper than 4 levels below the collection",
-    ),
-    (
-        "course_mixed_module",
-        "3.5",
-        "01-module",
-        "either submodule directories or unit files",
     ),
     ("missing_asset", "3.6", "wiki/a-page.md", "does not exist"),
     ("absolute_asset", "3.6", "wiki/a-page.md", "must be a relative path"),

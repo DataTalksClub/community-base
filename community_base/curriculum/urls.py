@@ -43,4 +43,9 @@ urlpatterns = [
         views.unit_detail,
         name="curriculum_unit_detail",
     ),
+    path(
+        "<slug:course_slug>/cohorts/<slug:cohort_slug>/curriculum/<path:node_path>/",
+        views.nested_detail,
+        name="curriculum_nested_detail",
+    ),
 ]
