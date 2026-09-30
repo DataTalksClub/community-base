@@ -755,7 +755,7 @@ process exits 1 when any error was reported, and 0 when only warnings were.
   containing a plain link to the video. The site hydrates it. This keeps iframes out of stored
   HTML.
 - Raw HTML is allowed and passes through the sanitiser. `<figure>`, `<figcaption>`, `<details>`,
-  `<summary>`, `<img>` and `<table>` survive; `style` attributes, `<script>`, `<style>`, `<iframe>`
+  `<summary>`, `<section>`, `<aside>`, `<img>` and `<table>` survive; `style` attributes, `<script>`, `<style>`, `<iframe>`
   and event handlers do not.
 - Liquid (`{% %}`, `{{ }}`) and kramdown attribute lists (`{: .class }`) are errors outside fenced
   and inline code. Inside code they are text.
@@ -781,6 +781,8 @@ process exits 1 when any error was reported, and 0 when only warnings were.
   `sanitize_rendered_html` and `plain_text`. `curriculum/rendering.py` and
   `knowledge_base/rendering.py` become thin imports of it. This is issue C7.8; C7.7 ships the rule,
   not the module.
+  Its `html_policy.py` module owns the one allowlist and image-source admission rules; the public
+  rendering imports remain unchanged.
 - Rendering runs in the sync job through the parser toolkit, never in a model `save()`. The page
   and unit models store `body_html` as supplied.
 
