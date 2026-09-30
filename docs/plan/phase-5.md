@@ -1656,7 +1656,7 @@ Verification
 
 ## D5.3a Prove the DTC source and policy contract for shared curriculum
 
-Repository: DataTalksClub/website. Depends on: C5.4, C7.12b. Freeze required: no. Related issue:
+Repository: DataTalksClub/website. Depends on: C5.4, C7.12b, C7.12d. Freeze required: no. Related issue:
 DataTalksClub/website#446.
 
 Goal: establish executable source and DTC policy expectations against a tagged shared package,
@@ -1680,6 +1680,10 @@ Steps
    supported mixed/YAML-homework shapes as synthetic contracts. Preserve module boundaries.
 4. Record DTC policy mappings separately from generic structure: publication, archive behavior,
    cohort context, homework/project flow, module-local neighbors, access, asset links and URLs.
+   Unsupported nonempty cohort `flow` must be refused without mutation by tagged C7.12d;
+   source-contract acceptance requires executable refusal evidence and an explicit D5.1 blocker.
+   D5.1 still needs a host-owned source/import/projection contract preserving project identity
+   and interleaved module/project order before shared writer or storage activation.
 5. Name unresolved metadata/storage/behavior gaps explicitly; each required field/feature needs
    a known target owner before this milestone can be accepted. Do not introduce a runtime shim
    or duplicate parser to make the contract look complete.

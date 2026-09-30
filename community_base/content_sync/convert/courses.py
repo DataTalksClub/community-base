@@ -58,6 +58,7 @@ from typing import Any
 
 import yaml
 
+from community_base.content_sync.convert.cohort_policy import cohort_refusal
 from community_base.content_sync.convert.course_order import OrderRefusal, preserve_list_order
 from community_base.content_sync.convert.course_preview import mixed_directories, validate_proposed
 from community_base.content_sync.convert.course_text import (
@@ -528,20 +529,11 @@ class _Conversion:
     def _cohort_values(
         self, data: Mapping[str, Any], identifier: str, course_title: str, rel: str
     ) -> tuple[dict[str, Any], list[str]]:
+        refusal = cohort_refusal(data, identifier)
+        if refusal is not None:
+            raise Refused("3.8", refusal)
         values = dict(data)
         details: list[str] = []
-        written = values.get("identifier")
-        if written is not None and str(written) != identifier:
-            raise Refused("3.8", f"identifier is {written!r} and the directory is {identifier!r}")
-        curriculum = values.get("curriculum")
-        archived = values.get("archive") is not None
-        if curriculum is not None and (curriculum == "github_archive") != archived:
-            raise Refused(
-                "3.8",
-                f"curriculum is {curriculum!r} and archive is {'set' if archived else 'not set'}",
-            )
-        if archived and not isinstance(values["archive"], Mapping):
-            raise Refused("3.8", "archive is a mapping with an optional notice_path (D38)")
         if not values.get("title"):
             # Decision D34: section 3.3 makes `title` required and the part may
             # not default a core key, so the conversion writes it.

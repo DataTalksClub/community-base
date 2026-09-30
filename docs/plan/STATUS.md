@@ -161,7 +161,7 @@ issues that can start now.
 | `C5.4c` | community-base | Import course-tree YAML homework through explicit cohort bindings | C5.4a, C5.4b | no | done | https://github.com/DataTalksClub/community-base/pull/342 |
 | `A5.3` | AI-Shipping-Labs/website | AISL: render course hierarchy from repository structure | C5.4 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1830 |
 | `D5.3` | DataTalksClub/website | DTC: adopt repository-derived course hierarchy and homework units | D5.3a, D5.3b, D7.3 | no | todo | https://github.com/DataTalksClub/website/issues/436 |
-| `D5.3a` | DataTalksClub/website | Prove the DTC source and policy contract for shared curriculum | C5.4, C7.12b | no | todo | https://github.com/DataTalksClub/website/issues/446 |
+| `D5.3a` | DataTalksClub/website | Prove the DTC source and policy contract for shared curriculum | C5.4, C7.12b, C7.12d | no | todo | https://github.com/DataTalksClub/website/issues/446 |
 | `D5.3b` | DataTalksClub/website | Adopt shared curriculum projection behind DTC reader contracts | D5.1, D7.3 | no | todo | https://github.com/DataTalksClub/website/issues/447 |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3, A5.3 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1696 |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1697 |
@@ -206,6 +206,7 @@ issues that can start now.
 | `C7.12a` | community-base | Finish the package side the AISL adoption needs | C7.12 | no | done | https://github.com/DataTalksClub/community-base/pull/289 |
 | `C7.12b` | community-base | Preserve mixed-course semantics during conversion | C7.12, C5.4 | no | done | https://github.com/DataTalksClub/community-base/pull/360 |
 | `C7.12c` | community-base | Preserve semantic include containers in shared rendering | C7.8, C7.12a | no | in-progress | https://github.com/DataTalksClub/community-base/pull/364 |
+| `C7.12d` | community-base | Refuse conversion of unsupported ordered cohort flow | C7.12b | no | in-progress | https://github.com/DataTalksClub/community-base/pull/367 |
 | `A7.2a` | AI-Shipping-Labs/website | Register the AISL site kinds and markdown extensions | C7.12a | no | done | https://github.com/AI-Shipping-Labs/website/issues/1771 — merged as 9f0fc899; on-call fix 80fb8448 (colon-syntax MARKDOWN_EXTENSIONS). Deploy Dev 35577963604 green. Public wiki/ is the package wiki kind; member-gated _wiki/ is site-owned member_wiki in topics. |
 | `A7.2b` | AI-Shipping-Labs/website | Move the three core parsers onto the toolkit | A7.2a, C7.12b, C7.12c | no | todo |  |
 | `A7.2c` | AI-Shipping-Labs/website | Move the five family parsers onto the toolkit | A7.2b | no | todo |  |
