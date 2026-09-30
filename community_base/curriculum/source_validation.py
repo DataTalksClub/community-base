@@ -22,11 +22,10 @@ def course_source_diagnostics(result):
                 continue
             if document.part.name == "homework_unit":
                 authored.append(document)
-        if not authored:
-            continue
         try:
             parsed = parse_course(result, collection)
-            read_cohort_homework(result, collection, parsed)
+            if authored:
+                read_cohort_homework(result, collection, parsed)
         except CurriculumParseError as error:
             found.append(_diagnostic(collection, str(error)))
     return found

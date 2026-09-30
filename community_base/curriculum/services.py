@@ -3,7 +3,6 @@
 import datetime
 from dataclasses import dataclass
 
-from django.db.models import Prefetch
 from django.utils import timezone
 
 from community_base.curriculum.models import (
@@ -17,6 +16,7 @@ from community_base.curriculum.models import (
     Unit,
     UnitProgress,
 )
+from community_base.curriculum.projection import CourseTree
 
 
 def _is_authenticated(user) -> bool:
@@ -164,46 +164,17 @@ def decide_unit_drip(
 
 
 def get_all_units_ordered(course: Course) -> list[Unit]:
-    """Return every unit of the course in depth-first reading order.
-
-    For each top-level module, in ``sort_order``: if it has submodules, each submodule's
-    units in order; otherwise the module's own units directly -- a module holds either
-    children or units, never both (community-base#252). ``id`` is an explicit tiebreaker
-    after ``sort_order``, which is not unique.
-    """
-
-    top_modules = list(
-        Module.objects.filter(course=course, parent__isnull=True)
-        .prefetch_related(
-            Prefetch("children", queryset=Module.objects.order_by("sort_order", "pk")),
-            Prefetch("units", queryset=Unit.objects.order_by("sort_order", "pk")),
-        )
-        .order_by("sort_order", "pk")
-    )
-    child_ids = [child.pk for module in top_modules for child in module.children.all()]
-    units_by_module: dict[int, list[Unit]] = {}
-    if child_ids:
-        for unit in Unit.objects.filter(module_id__in=child_ids).order_by(
-            "module_id", "sort_order", "pk"
-        ):
-            units_by_module.setdefault(unit.module_id, []).append(unit)
-
-    ordered: list[Unit] = []
-    for module in top_modules:
-        children = list(module.children.all())
-        if children:
-            for child in children:
-                ordered.extend(units_by_module.get(child.pk, []))
-        else:
-            ordered.extend(module.units.all())
-    return ordered
+    """Return every unit through the shared mixed-sibling reading traversal."""
+    return CourseTree(course).ordered_units()
 
 
 def get_next_unit(course: Course, current_unit: Unit):
     units = get_all_units_ordered(course)
     for index, unit in enumerate(units):
         if unit.pk == current_unit.pk:
-            return units[index + 1] if index + 1 < len(units) else None
+            if index + 1 < len(units):
+                return units[index + 1]
+            return None
     return None
 
 
@@ -211,7 +182,9 @@ def get_prev_unit(course: Course, current_unit: Unit):
     units = get_all_units_ordered(course)
     for index, unit in enumerate(units):
         if unit.pk == current_unit.pk:
-            return units[index - 1] if index > 0 else None
+            if index > 0:
+                return units[index - 1]
+            return None
     return None
 
 

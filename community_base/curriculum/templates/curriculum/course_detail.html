@@ -23,7 +23,7 @@
         {% csrf_token %}
         <button class="cb-button" type="submit">Unenroll</button>
       </form>
-      {% if next_unit and default_cohort %}<a class="cb-button cb-button-primary" href="{% url 'curriculum_unit_detail' course.slug default_cohort.slug next_unit.module.slug next_unit.slug %}">Continue</a>{% endif %}
+      {% if next_node and default_cohort %}<a class="cb-button cb-button-primary" href="{{ next_node.url }}">Continue</a>{% endif %}
     {% elif has_access %}
       <form class="cb-form" method="post" action="{% url 'curriculum_course_enroll' course.slug %}">
         {% csrf_token %}
@@ -55,20 +55,9 @@
         {% elif cohort.registration_url %}
           <a class="cb-button" href="{{ cohort.registration_url }}">Register</a>
         {% endif %}
-        {% for module in cohort.syllabus_modules %}
-          <h3>{{ module.title }}</h3>
-          <ul class="cb-list">
-            {% for unit in module.units.all %}
-              <li>
-                {% if has_access or unit.is_preview %}
-                  <a href="{% url 'curriculum_unit_detail' course.slug cohort.slug module.slug unit.slug %}">{{ unit.title }}</a>
-                {% else %}
-                  {{ unit.title }}
-                {% endif %}
-                {% if unit.is_preview %}<span class="cb-badge">Preview</span>{% endif %}
-              </li>
-            {% endfor %}
-          </ul>
+        {% for node in cohort.syllabus_nodes %}
+          <h3>{{ node.item.title }}</h3>
+          {% include "curriculum/_syllabus_children.html" with nodes=node.children has_access=has_access only %}
         {% endfor %}
       </article>
     {% endfor %}

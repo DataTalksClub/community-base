@@ -47,6 +47,7 @@ from community_base.content_sync.documents import (
     read_repository,
 )
 from community_base.content_sync.kinds.base import resolve_level
+from community_base.curriculum.project_modules import resolve_project_modules
 from community_base.curriculum.source import (
     FORMAT_MODULES,
     MODE_COHORT,
@@ -59,7 +60,7 @@ from community_base.curriculum.source import (
     ParsedCurriculum,
     validate_module_tree,
 )
-from community_base.curriculum.source_unit_parser import _source_unit_graph
+from community_base.curriculum.source_tree import module_graphs
 
 #: One parser, one version. It names the format, not a site.
 PARSER_VERSION = "course-format-1"
@@ -68,7 +69,6 @@ PARSER_VERSION = "course-format-1"
 SCHEMA_VERSION = 1
 
 COURSE_KIND = "course"
-README = "README.md"
 SELF_PACED_SLUG = "self-paced"
 DELIVERY_MODES = {"live": MODE_COHORT, "self_paced": MODE_SELF_PACED}
 PUBLISHED = "published"
@@ -118,9 +118,10 @@ def parse_course(
     for document in documents:
         by_parent.setdefault(document.raw.parent, []).append(document)
 
-    modules = _module_graphs(result, by_parent, parent=course_document.raw.path, inherited=None)
+    modules = module_graphs(result, by_parent, parent=course_document.raw.path, inherited=None)
     validate_module_tree(modules, where=collection.path or ".")
-    course = _course_graph(result, course_document, documents, modules)
+    project_modules = resolve_project_modules(result, collection, modules)
+    course = _course_graph(result, course_document, documents, modules, project_modules)
     return ParsedCurriculum(
         parser_version=PARSER_VERSION,
         schema_version=SCHEMA_VERSION,
@@ -169,6 +170,7 @@ def _course_graph(
     document: ParsedDocument,
     documents: list[ParsedDocument],
     modules: tuple[ModuleGraph, ...],
+    project_modules,
 ) -> CourseGraph:
     values = document.values
     status = values.get("status") or PUBLISHED
@@ -195,6 +197,7 @@ def _course_graph(
         instructors=_instructors(result, values.get("instructors") or ()),
         modules=modules,
         cohorts=cohorts,
+        project_modules=project_modules,
     )
 
 
@@ -213,63 +216,6 @@ def _instructors(result: ReadResult, references: Iterable[Any]) -> tuple[Instruc
             InstructorGraph(name=person.title, slug=target, bio=person.values.get("summary") or "")
         )
     return tuple(found)
-
-
-# --- the module tree ----------------------------------------------------------
-
-
-def _module_graphs(
-    result: ReadResult,
-    by_parent: Mapping[str | None, list[ParsedDocument]],
-    *,
-    parent: str,
-    inherited: int | None,
-) -> tuple[ModuleGraph, ...]:
-    children = [item for item in by_parent.get(parent, ()) if item.part.name == "module"]
-    children.sort(key=lambda item: item.sort_key)
-    return tuple(_module_graph(result, by_parent, item, inherited) for item in children)
-
-
-def _module_graph(
-    result: ReadResult,
-    by_parent: Mapping[str | None, list[ParsedDocument]],
-    document: ParsedDocument,
-    inherited: int | None,
-) -> ModuleGraph:
-    values = document.values
-    level = resolve_level(document.data.get("required_level"))
-    if level is None:
-        level = inherited
-    units = [
-        item
-        for item in by_parent.get(document.raw.path, ())
-        if item.part.name in ("unit", "homework_unit")
-    ]
-    units.sort(key=lambda item: item.sort_key)
-    return ModuleGraph(
-        content_id=document.content_id,
-        slug=document.slug,
-        title=document.title,
-        source_path=document.raw.path,
-        overview=_overview(result, document),
-        syllabus_section=values.get("syllabus_section") or "",
-        sort_order=document.sort_order,
-        is_bonus=bool(values.get("is_bonus")),
-        available_after_days=values.get("available_after_days"),
-        units=tuple(_source_unit_graph(result, item, level) for item in units),
-        children=_module_graphs(result, by_parent, parent=document.raw.path, inherited=level),
-    )
-
-
-def _overview(result: ReadResult, document: ParsedDocument) -> str:
-    """A module's `README.md`, the one place section 3.2 reads one for a course."""
-
-    directory = document.raw.path.rsplit("/", 1)[0]
-    path = f"{directory}/{README}" if directory else README
-    repository = result.repository
-    if repository is None or path not in repository.files:
-        return ""
-    return repository.read_text(path)
 
 
 # --- cohorts and their placements ---------------------------------------------

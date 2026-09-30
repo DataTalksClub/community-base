@@ -5,6 +5,12 @@
 - Security (#344): require PyJWT 2.14 or newer to prevent a malformed RSA key from aborting
   an entire JWK set. Existing token verification and authentication policies are unchanged.
 
+- C5.4 (#306): accept ordered direct units, YAML homework and child modules in one course module;
+  keep source sibling position separate from public and cohort order. Share one prefetched
+  traversal for syllabus and reader projections, preserve flat output and routes, and add nested
+  generic destinations. Validate host-owned project-module references through one registered
+  reader before sync or source checks. Add nullable Module and Unit source-position fields.
+
 ## 0.5.17
 
 Adoption-provisional. This release still contains the nine provisional kept-label migrations

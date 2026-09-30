@@ -5,7 +5,7 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Prefetch, Q
+from django.db.models import Q
 
 from community_base.content_sync.provenance import (
     SourceProvenanceMixin,
@@ -196,34 +196,9 @@ class Course(SourceProvenanceMixin, models.Model):
         ).count()
 
     def get_syllabus(self):
-        """Return cohorts, each carrying its effective modules as ``syllabus_modules``.
+        from community_base.curriculum.projection import get_syllabus
 
-        A cohort's effective modules are its :class:`CohortModule` placements when it has
-        any, otherwise the course's full top-level module tree (see
-        :meth:`Cohort.effective_modules`) -- computed here in two queries total rather than
-        one query per cohort.
-        """
-
-        cohorts = list(self.cohorts.order_by("start_date", "pk"))
-        default_modules = list(
-            self.modules.filter(parent__isnull=True)
-            .prefetch_related(Prefetch("units", queryset=Unit.objects.order_by("sort_order", "pk")))
-            .order_by("sort_order", "pk")
-        )
-        placements_by_cohort: dict[int, list[Module]] = {}
-        placements = (
-            CohortModule.objects.filter(cohort__in=cohorts)
-            .select_related("module")
-            .prefetch_related(
-                Prefetch("module__units", queryset=Unit.objects.order_by("sort_order", "pk"))
-            )
-            .order_by("cohort_id", "sort_order", "pk")
-        )
-        for placement in placements:
-            placements_by_cohort.setdefault(placement.cohort_id, []).append(placement.module)
-        for cohort in cohorts:
-            cohort.syllabus_modules = placements_by_cohort.get(cohort.pk) or default_modules
-        return cohorts
+        return get_syllabus(self)
 
     def get_next_unit_for(self, user):
         from community_base.curriculum.services import get_next_unit_for_user
@@ -309,32 +284,16 @@ class Cohort(SourceProvenanceMixin, models.Model):
         return max(0, self.max_participants - self.enrollment_count)
 
     def effective_modules(self):
-        """Return this cohort's top-level modules: its placements, or the full course tree.
+        from community_base.curriculum.projection import CourseTree
 
-        A cohort with no :class:`CohortModule` rows shows every top-level module of its
-        course, in module order -- the common case (every AI Shipping Labs course today,
-        one evergreen tree, no curation). A cohort with placement rows shows exactly that
-        curated subset and order instead -- DataTalks.Club's case, where cohorts of the
-        same course family genuinely differ year to year.
-        """
-
-        placements = list(
-            CohortModule.objects.filter(cohort=self)
-            .select_related("module")
-            .order_by("sort_order", "pk")
-        )
-        if placements:
-            return [placement.module for placement in placements]
-        return list(Module.objects.filter(course_id=self.course_id, parent__isnull=True))
+        return CourseTree(self.course).modules_for(self)
 
 
 class Module(SourceProvenanceMixin, models.Model):
     """An ordered module of a course. A submodule is a module with ``parent`` set.
 
-    A module holds either child modules or direct units, never both (enforced in
-    :meth:`clean`, not a database constraint, because the rule spans two related
-    tables -- ``children`` and ``units`` -- which a ``CheckConstraint`` cannot express).
-    Nesting is capped at two module levels: a submodule cannot itself have children.
+    Direct units and child modules may be interleaved. Nesting is capped at two
+    module levels: a submodule cannot itself have children.
     """
 
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="modules")
@@ -349,6 +308,7 @@ class Module(SourceProvenanceMixin, models.Model):
     slug = models.SlugField(max_length=300, default="")
     title = models.CharField(max_length=300)
     sort_order = models.IntegerField(default=0)
+    source_sibling_position = models.PositiveIntegerField(null=True, blank=True, editable=False)
     syllabus_section = models.CharField(
         max_length=255,
         blank=True,
@@ -411,19 +371,6 @@ class Module(SourceProvenanceMixin, models.Model):
                     errors["parent"] = "A submodule cannot itself have children (max two levels)."
                 if self.course_id and self.parent.course_id != self.course_id:
                     errors["parent"] = "A parent module must belong to the same course."
-                if self.parent.units.exists():
-                    errors["parent"] = (
-                        f"Module {self.parent.title!r} already has direct units; "
-                        "it cannot also have child modules."
-                    )
-        if self.pk is not None:
-            has_children = self.children.exists()
-            has_units = self.units.exists()
-            if has_children and has_units:
-                errors["parent"] = (
-                    f"Module {self.title!r} has both child modules and direct units; "
-                    "it must have only one."
-                )
         if errors:
             raise ValidationError(errors)
 
@@ -484,6 +431,7 @@ class Unit(SourceProvenanceMixin, models.Model):
     slug = models.SlugField(max_length=300, default="")
     title = models.CharField(max_length=300)
     sort_order = models.IntegerField(default=0)
+    source_sibling_position = models.PositiveIntegerField(null=True, blank=True, editable=False)
     kind = models.CharField(
         max_length=20,
         choices=UNIT_KINDS,
@@ -583,18 +531,6 @@ class Unit(SourceProvenanceMixin, models.Model):
 
         self.body_html_source = BODY_HTML_SITE
         self.body_html = rendered_html
-
-    def clean(self):
-        super().clean()
-        if self.module_id and self.module.children.exists():
-            raise ValidationError(
-                {
-                    "module": (
-                        f"Module {self.module.title!r} has child modules; "
-                        "it cannot also have direct units."
-                    )
-                }
-            )
 
     @property
     def course(self):

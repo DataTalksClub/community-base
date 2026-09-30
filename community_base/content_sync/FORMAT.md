@@ -160,8 +160,8 @@ provenance set on those two models.
   files; maximum depth four below the collection root.
 - In a course: a module is a directory holding `module.yaml`; a submodule is a directory holding
   `module.yaml` inside a module directory; maximum two module levels
-  (`curriculum.source.validate_module_tree`); a module directory holds either submodule directories
-  or unit files, never both, apart from `README.md` and asset directories.
+  (`curriculum.source.validate_module_tree`). Direct unit files, YAML homework directories and
+  submodule directories may be siblings in one module directory.
 - A wiki collection is flat: one directory of `slug.md` files; subdirectories are an error, apart
   from asset directories.
 - Cohorts are not part of the tree; they are placements (section 3.8, course).
@@ -422,13 +422,23 @@ The body is the lesson. A `kind: homework` unit body is the instructions page; t
 assignment is the cohort's `homework.yaml`. `is_homework`, `is_preview`, `access`, `prev_url` and
 `next_url` do not exist.
 
-A flat module may also contain `NN-<homework>/homework.yaml` with exactly one `homework.md`
+A module may also contain `NN-<homework>/homework.yaml` with exactly one `homework.md`
 companion. This directory is one `kind: homework` Unit at that position; it has no `module.yaml`.
 The YAML owns the core `content_id`, title, optional slug and order derived from the `NN-` name,
 and all structured metadata. The Markdown file owns only the Unit prose. The two manifests in
 one directory, a missing companion or another Markdown companion are errors. This source shape
-may sit beside direct Markdown units. Mixed direct units and child module directories, shared
-module/unit sibling ordering and their destinations remain in C5.4.
+may sit beside direct Markdown units and child module directories. When direct units and child
+modules share one parent, every sibling needs an explicit `sort_order` or an `NN-` prefix, and
+their numeric orders must be unique. The importer stores their shared order in internal nullable
+`source_sibling_position` fields on Module and Unit. Pure unit-only or child-only parents keep
+their existing order and tie behavior; an absent source position stays null. The public
+`sort_order` and cohort placement order remain separate.
+
+A host may register one pure project-module reader with
+`curriculum.project_modules.register_project_module_reader`. It yields project identity, source
+location and a source-relative module directory path. The shared resolver validates each path
+against this course tree for both sync and `check_content --kinds` before domain writes. The
+host owns project source schema and storage; opaque `extra.projects` is not parsed by the package.
 
 Course-tree `homework.yaml` uses `due_at` (optional ISO datetime with offset), `initial_state`
 (`closed`, `open`, `scored`; default `closed`), `form` (the five keys below), `stepper` (boolean,

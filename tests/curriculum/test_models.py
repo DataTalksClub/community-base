@@ -3,6 +3,7 @@ import datetime
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.forms import modelform_factory
 
 from community_base.accounts.models import User
 from community_base.curriculum.models import (
@@ -44,6 +45,18 @@ def make_unit(module, **values):
     values.setdefault("slug", "welcome")
     values.setdefault("title", "Welcome")
     return Unit.objects.create(module=module, **values)
+
+
+def test_source_sibling_position_is_nullable_and_absent_from_generated_forms():
+    course = make_course()
+    module = make_module(course)
+    unit = make_unit(module)
+
+    assert module.source_sibling_position is None
+    assert unit.source_sibling_position is None
+    for model in (Module, Unit):
+        fields = modelform_factory(model, fields="__all__")().fields
+        assert "source_sibling_position" not in fields
 
 
 def test_course_renders_description_markdown():
@@ -278,37 +291,15 @@ def test_module_rejects_parent_from_another_course():
         child.full_clean()
 
 
-def test_module_with_children_cannot_also_have_direct_units():
+def test_module_accepts_direct_units_and_child_modules_together():
     course = make_course()
     parent = make_module(course, slug="week-1", title="Week 1")
-    make_module(course, slug="topic-a", title="Topic A", parent=parent)
-    # Bypass Unit.clean()'s own guard to construct the invalid state directly,
-    # so Module.clean()'s defensive check (both children and units present) is
-    # what is actually under test here.
-    Unit.objects.create(module=parent, slug="stray", title="Stray")
+    child = make_module(course, slug="topic-a", title="Topic A", parent=parent)
+    unit = make_unit(parent)
 
-    with pytest.raises(ValidationError):
-        parent.full_clean()
-
-
-def test_parent_with_units_cannot_also_have_children():
-    course = make_course()
-    parent = make_module(course, slug="week-1", title="Week 1")
-    make_unit(parent)
-
-    child = Module(course=course, slug="topic-a", title="Topic A", parent=parent)
-    with pytest.raises(ValidationError):
-        child.full_clean()
-
-
-def test_unit_cannot_be_added_to_a_module_with_children():
-    course = make_course()
-    parent = make_module(course, slug="week-1", title="Week 1")
-    make_module(course, slug="topic-a", title="Topic A", parent=parent)
-
-    unit = Unit(module=parent, slug="stray", title="Stray")
-    with pytest.raises(ValidationError):
-        unit.full_clean()
+    parent.full_clean()
+    child.full_clean()
+    unit.full_clean()
 
 
 def test_two_submodules_may_each_contain_a_unit_slugged_the_same():
