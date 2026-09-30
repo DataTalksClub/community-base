@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- C7.12c (#363): preserve semantic `section` and `aside` include containers through the shared
+  sanitizer. Keep existing media hooks, iframe rejection and public rendering APIs unchanged;
+  isolate the existing HTML policy from the renderer. AISL article rendering and media hydration
+  still require separate site adoption and visible-output verification in #1851.
+
 ## 0.5.20
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations
