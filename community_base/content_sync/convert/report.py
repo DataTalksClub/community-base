@@ -29,6 +29,8 @@ from typing import Any
 
 import yaml
 
+from community_base.content_sync.convert.report_render import render_changes
+
 __all__ = [
     "ACTIONS",
     "ConversionReport",
@@ -84,6 +86,7 @@ class ConversionReport:
     changes: list[FileChange] = field(default_factory=list)
     refusals: list[Refusal] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    applied: bool = field(default=True, kw_only=True)
 
     # -- recording -----------------------------------------------------------
 
@@ -105,7 +108,7 @@ class ConversionReport:
 
     @property
     def converted(self) -> int:
-        """Files the conversion wrote: rewritten, renamed or created."""
+        """Files rewritten, renamed or created (proposed during a dry run)."""
 
         return sum(self.counted(action) for action in ("rewritten", "renamed", "created"))
 
@@ -157,8 +160,11 @@ class ConversionReport:
     # -- rendering -----------------------------------------------------------
 
     def render(self) -> str:
+        title = f"# conversion report: {self.repository}"
+        if not self.applied:
+            title += " (dry-run proposals; no files written)"
         lines = [
-            f"# conversion report: {self.repository}",
+            title,
             "",
             f"files before: {len(self.before)}",
             f"files after:  {len(self.after)}",
@@ -178,15 +184,7 @@ class ConversionReport:
         else:
             lines.append("  none")
         lines.append("")
-        lines.append("## changes")
-        lines.extend(change.render() for change in self.changes if change.action != "unchanged")
-        lines.append("")
-        problems = self.verify()
-        lines.append("## inventory")
-        if problems:
-            lines.extend(f"  UNACCOUNTED {problem}" for problem in problems)
-        else:
-            lines.append("  every file before the conversion is accounted for after it")
+        render_changes(self, lines)
         return "\n".join(lines) + "\n"
 
 
