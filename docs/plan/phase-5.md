@@ -1230,6 +1230,146 @@ Done when
 Docs
 - `community_base/coursework/README.md`, `community_base/homework_steps/README.md`, `CHANGELOG.md`.
 
+## C5.2m Coursework adoption gaps: project module, optional commit id, optional Studio and member API
+
+Repository: community-base. Depends on: C5.2l. Freeze required: no. Related:
+DataTalksClub/community-base#350, AI-Shipping-Labs/website#1696 (A5.1 projects slice, phase 2).
+
+Goal: close the package gaps that block AISL from adopting `community_base.coursework` for course
+projects (findings F3, F4 and F5 of the #1696 projects plan). CMP and DTC behaviour is unchanged
+by default.
+
+Read first
+- `community_base/coursework/models.py` (`Project`, `ProjectSubmission`, `Homework.module`).
+- `community_base/coursework/projects.py` (`submit_project`).
+- `community_base/coursework/apps.py` and `community_base/curriculum/apps.py`
+  (`events_dependent_surfaces_active`).
+- `community_base/kernel/conf.py`.
+
+Steps
+1. Add a nullable `Project.module` FK to `cb_curriculum.Module` (`SET_NULL`,
+   `related_name="projects"`), mirroring `Homework.module`.
+2. Add `Project.commit_id_field` (default `True`). `ProjectSubmission.commit_id` becomes
+   `blank=True`, and `ProjectSubmission.clean` requires it only when the toggle is on, so
+   `submit_project` (which calls `full_clean`) enforces it. With the toggle off, `submit_project`
+   stores no commit id and the package project page hides the input.
+3. Gate the Studio section registration and the member `api_views` import in
+   `CourseworkConfig.ready()` on `COMMUNITY_BASE["COURSEWORK_STUDIO_ENABLED"]` and
+   `COMMUNITY_BASE["COURSEWORK_MEMBER_API_ENABLED"]`, both default `True`. The gate cannot key on
+   `community_base.accounts` being installed: DTC does not install it and keeps today's
+   registration.
+4. One migration, `cb_coursework.0006`, after `0005_authored_homework_metadata`.
+
+Verification
+- `uv run pytest tests/coursework` passes, including `tests/coursework/test_adoption_toggles.py`.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- `uv run pytest tests/test_boundaries.py`; `uv run python scripts/plan.py check` is OK.
+- Report package, DTC and AISL consumer results separately.
+
+Done when
+- [ ] A project can belong to a module and survives the module's deletion.
+- [ ] A project with `commit_id_field=False` accepts a link-only submission; the default still
+  requires a commit id.
+- [ ] With both settings `False`, a site without `community_base.accounts` boots with no
+  coursework Studio section and no coursework member API routes.
+- [ ] Released as `v0.5.19`, after `v0.5.18`.
+
+Docs
+- `community_base/coursework/README.md`, `CHANGELOG.md`.
+
+## C5.2n Shared embeddable project submission form
+
+Repository: community-base. Depends on: C5.2m. Freeze required: no. Related:
+AI-Shipping-Labs/website#1696 (owner requirement comment 5907906743), CMP
+`courses/templates/projects/project.html`.
+
+Goal: one project submission form for CMP, DataTalks.Club and AISL, owned by `cb_coursework` and
+embeddable inside a host's own reader or syllabus unit. It ports CMP's "Submission details": GitHub
+link, commit id with a "Where do I find the commit ID?" disclosure, learning in public links, time
+spent, an optional certificate name and a status line, each field with a help tooltip. The FAQ
+contribution field is not part of the shared form (owner decision 2026-09-30); a host adds it through
+the extension point.
+
+Read first
+- `community_base/coursework/projects.py` (`submit_project`, `clean_learning_in_public_links`).
+- `community_base/coursework/views.py` (`project_view`) and `templates/coursework/project.html`.
+- `community_base/coursework/templates/coursework/_homework_form.html` (the embeddable homework
+  form this mirrors).
+- CMP `courses/views/project_submission_edit.py` and
+  `courses/templates/include/learning_in_public_links.html`.
+
+Steps
+1. `project_accepts_submissions(project, now)` and `submission_editable(project, submission, now)`
+   in `projects.py`: edits are allowed while the project collects submissions and before
+   `submission_due_date`, and a pooled submission locks once it leaves `AW`.
+2. `submit_project(..., before_save=callable)` runs a host callback on the populated submission
+   before `full_clean`.
+3. `project_forms.py` (with `project_form_fields.py`): `ProjectSubmissionForm` (fields shaped
+   by the project toggles and the enrollment's `disable_learning_in_public`; GitHub repository link, 7 to 40 hex commit id, links
+   de-duplicated and capped, hours as a number of at least zero; locked after the deadline),
+   and, in `project_submission_flow.py`, `build_project_submission_form`,
+   `process_project_submission` and `ProjectSubmissionOutcome`.
+   The save keeps stored `problems_comments` and `faq_contribution_url`, which the form does not
+   show, and fires `COURSEWORK_PROJECT_SUBMITTED` / `COURSEWORK_PROJECT_DELETED` on commit.
+4. `COMMUNITY_BASE["COURSEWORK_PROJECT_CERTIFICATE_NAME_FIELD"]` (default `True`) plus the
+   `certificate_name_field` form argument, so a site (AISL: off) or a course can hide the field.
+5. Extension point: a subclass declares extra fields and writes them in `apply_extra_fields`; the
+   partial renders them after "Time spent", or includes the subclass's `extra_fields_template`.
+6. `coursework/_project_submission_form.html` (with `_form_help.html` and
+   `community_base/coursework_project_form.js`) uses only structural `cb-` classes and
+   `data-project-*` attributes. The package project page includes it.
+7. No migration: the `faq_*` columns stay untouched (C5.2o retires them).
+
+Verification
+- `uv run pytest tests/coursework` passes, including
+  `tests/coursework/test_project_submission_form.py` and `test_project_submission_flow.py` (with
+  a host-added FAQ field).
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- `uv run pytest tests/test_boundaries.py tests/test_static_asset_references.py`;
+  `uv run python scripts/plan.py check` is OK.
+- Report package, DTC and AISL consumer results separately.
+
+Done when
+- [ ] The shared partial renders GitHub link, commit id, learning in public links, time spent and
+  the status line, and the certificate name only when enabled.
+- [ ] Invalid input re-renders with field errors; edits lock after the deadline.
+- [ ] A host subclass adds, validates and saves an extra field without forking the partial.
+- [ ] Released after C5.2m (`v0.5.19` or later), coordinated with the release owner.
+
+Docs
+- `community_base/coursework/README.md`, `docs/02-architecture.md`, `CHANGELOG.md`.
+
+## C5.2o FAQ contribution redesign and retirement of the `faq_*` project fields
+
+Repository: community-base. Depends on: C5.2n. Freeze required: no. Related:
+AI-Shipping-Labs/website#1696 (owner decision 2026-09-30).
+
+Goal: replace pull-request-based FAQ contributions with the owner's redesign (not through a pull
+request), then retire `Project.faq_contribution_field` and `ProjectSubmission.faq_contribution`,
+`faq_contribution_url` and `project_faq_score`. Until then the columns stay, imported CMP and DTC
+data keeps its values, the shared form never renders them, and DataTalks.Club adds its FAQ field in
+`dtc-website` through the C5.2n extension point.
+
+Read first
+- `community_base/coursework/projects.py`, `scoring.py` and every reader of the `faq_*` fields.
+- DataTalks.Club's FAQ subclass of `ProjectSubmissionForm`, once it exists.
+
+Steps
+1. Owner designs the new FAQ contribution flow; record it here before building.
+2. Build it; move DataTalks.Club off its form subclass field.
+3. Inventory the `faq_*` values in CMP and DTC data, decide their archive, then drop the columns
+   in one migration with a documented rollback.
+
+Verification
+- To be written with the design.
+
+Done when
+- [ ] The new FAQ flow ships and no reader of the `faq_*` fields remains.
+- [ ] The columns are dropped with a verified data archive.
+
+Docs
+- `community_base/coursework/README.md`, `CHANGELOG.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.

@@ -976,17 +976,41 @@ Done when
 
 ## A7.2b Move the three core parsers onto the toolkit
 
-Repository: AI-Shipping-Labs/website. Depends on: A7.2a.
+Repository: AI-Shipping-Labs/website. Depends on: A7.2a, C7.12b.
 
-Delete `classify.py` and `parsing.py`; rewrite `courses.py`, `knowledge_base.py` and `articles.py`
-onto the toolkit; stop running `sanitize_html`, `normalize_inline_bullets` and `linkify_urls` over
-synced content, which the package renderer now owns.
+Route converted course and wiki/docs sources through the existing package parsers; rewrite the
+site-owned article adapter onto the toolkit. The tagged package and converter must preserve mixed
+course trees before the course path can replace its current reader; coordinate that boundary with
+A5.3. Retain legacy readers and active source refresh until the converted sources and adapters are
+verified together for the A7.3 cutover.
+
+Stop running `sanitize_html`, `normalize_inline_bullets` and `linkify_urls` over synced content
+only when the package renderer owns that path and equivalent rendered output has been verified.
+The article model's save-time renderer is part of this boundary; a `ParsedDocument` adapter alone
+does not remove it. Studio-authored event and email rendering remains site-owned.
+
+Do not delete `classify.py` or `parsing.py` while the dispatcher or other family parsers import
+them. A7.2c migrates the next families; A7.3 records the remaining callers at cutover and retires
+only paths with no active consumers. Adapter preparation does not establish completed source
+conversion, unchanged rendering or safe shared-helper deletion.
+
+Before marking A7.2b done, prove converted core-path behavior with fixtures and isolated
+development syncs, including all three courses, and pass `make test-affected`. Verify that
+unconverted sources remain refreshable. Whole-source converted sync waits for A7.2c's remaining
+family adapters. A7.3 then proves that converted live sources use package parsing and rendering
+once and removes their now-inactive duplicate passes; the skipped aggregate's checklist does not
+establish any of these results.
 
 ## A7.2c Move the five family parsers onto the toolkit
 
 Repository: AI-Shipping-Labs/website. Depends on: A7.2b.
 
 `workshops.py`, `projects.py`, `curated_links.py`, `interview_questions.py`, `member_wiki.py`.
+
+Before marking A7.2c done, sync converted branches of every AISL source on development with zero
+errors, including all three courses, and pass `make test-affected`. This completes the whole-source
+adapter rehearsal after A7.2b; the production source merges and duplicate-path retirement remain
+A7.3 work. Preserve refresh for sources that have not yet converted.
 
 Also settle the instructors question here rather than leaving it dormant. That site has an
 `InstructorsParser` for `instructors/*.yaml` and no `instructors/` directory exists in any of its
@@ -1189,7 +1213,7 @@ Docs
 
 ## A7.3 AISL: convert and cut over the content repositories
 
-Repository: AI-Shipping-Labs/website. Depends on: A7.2. Freeze required: yes. Decision D23.
+Repository: AI-Shipping-Labs/website. Depends on: A7.2c. Freeze required: yes. Decision D23.
 
 Goal: every AISL content repository is converted by the `C7.12` scripts, validated by
 `check_content` in its own CI, merged, and synced from `main` with zero errors.
@@ -1210,24 +1234,35 @@ Read first
   the content repositories.
 - the specification, section 5, the five AISL rows.
 - the `C7.12` conversion reports for those five repositories.
+- `content/kinds.py`: the private `_wiki/` source is `member_wiki`, not the public `wiki` kind;
+  do not use the `aisl-wiki` converter profile for that source.
 
 Steps
 1. Announce the freeze window for the repository being converted, record the pages it serves today,
    and stop merging content pull requests in it for the day.
 2. Run the `C7.12` conversion script on a branch of that repository.
 3. Add `check_content` to that repository's CI and make it a required check.
-4. Review the conversion report's unconvertible items. Section 5 records none for AISL; anything
-   the report lists is resolved before the merge, not after.
-5. Merge the conversion in the same hour the `A7.2` deploy reaches production, then sync.
+4. Review the current conversion report's unconvertible items, including the article source's
+   previously reported Liquid prompt refusal. Resolve every reported item before the merge;
+   an earlier source inventory is not proof of a zero-error conversion.
+5. Verify that the `A7.2b` and `A7.2c` adapters are deployed before merging each repository's
+   conversion, then sync. Coordinate the first repository merge with the adapter deploy; later
+   repositories retain their own freeze windows. The skipped aggregate `A7.2` is not completion
+   evidence for the replacement tasks.
 6. Delete `scripts/check_workshops.py`, `scripts/check_content_ids.py` and their siblings from the
    content repositories; `check_content` replaces them.
 7. Lift the freeze once that repository syncs with zero errors, then take the next one.
+8. Record the remaining dispatcher and family imports of `classify.py` and `parsing.py`. Delete
+   each helper only after its active consumers are gone; document any dependency on a legacy
+   family whose retirement is a separate issue. Do not remove that family's functionality.
 
 Verification
 - Every AISL source syncs from `main` with zero errors and zero warnings.
 - `check_content` is a required check in each of the five repositories.
 - The pages recorded in step 1 are served after the cutover, spot-checked per repository.
 - No script named in step 6 remains in any of the five repositories.
+- Converted sources use package parsing and rendering once; their former duplicate passes are
+  removed, with equivalent rendered output and continued refresh verified.
 
 Done when
 - [ ] all five repositories are converted and merged
@@ -2127,4 +2162,3 @@ Repository: DataTalksClub/website. Depends on: D7.5.
 The same gap on the other site, which adds its rules to `templates/core/_design_system.html`
 rather than a Tailwind entrypoint. Same fifteen hooks, same ordering argument: whichever hook
 carries a page's primary action comes first.
-
