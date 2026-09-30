@@ -26,7 +26,7 @@ from django.views.decorators.http import require_POST
 from community_base.coursework import (
     certificates,
     leaderboard,
-    project_forms,
+    project_submission_flow,
     projects,
     submissions,
     votes,
@@ -41,6 +41,7 @@ from community_base.coursework.models import (
     ProjectState,
     ProjectSubmission,
 )
+from community_base.coursework.project_form_fields import CLOSED_MESSAGE
 from community_base.curriculum.models import Cohort, Enrollment
 
 CRITERIA_ANSWER_PREFIX = "criteria_"
@@ -53,7 +54,7 @@ PROJECT_OUTCOME_MESSAGES = {
         "Your project submission is deleted. You can still make a new submission if you want."
     ),
     "invalid": "The submission could not be saved.",
-    "closed": project_forms.CLOSED_MESSAGE,
+    "closed": CLOSED_MESSAGE,
     "anonymous": "Sign in to submit this project.",
 }
 ANSWER_PREFIX = "answer_"
@@ -172,14 +173,14 @@ def project_view(request, course_slug: str, cohort_identifier: str, project_slug
         enrollment, _created = leaderboard.ensure_enrollment(cohort, request.user)
 
     if request.method == "POST":
-        outcome = project_forms.process_project_submission(request, project, enrollment)
+        outcome = project_submission_flow.process_project_submission(request, project, enrollment)
         if outcome.succeeded:
             messages.success(request, PROJECT_OUTCOME_MESSAGES[outcome.action])
             return redirect("coursework_project", course_slug, cohort_identifier, project_slug)
         messages.error(request, PROJECT_OUTCOME_MESSAGES[outcome.action])
         project_form = outcome.form
     else:
-        project_form = project_forms.build_project_submission_form(
+        project_form = project_submission_flow.build_project_submission_form(
             project, user=request.user, enrollment=enrollment
         )
 

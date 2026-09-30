@@ -153,7 +153,7 @@ Embedding. The host resolves the project and enrollment through its own access r
 partial inside its own unit page, and posts back to its own view:
 
 ```python
-from community_base.coursework.project_forms import (
+from community_base.coursework.project_submission_flow import (
     build_project_submission_form,
     process_project_submission,
 )

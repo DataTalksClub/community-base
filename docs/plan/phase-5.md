@@ -1304,10 +1304,11 @@ Steps
    `submission_due_date`, and a pooled submission locks once it leaves `AW`.
 2. `submit_project(..., before_save=callable)` runs a host callback on the populated submission
    before `full_clean`.
-3. `project_forms.py`: `ProjectSubmissionForm` (fields shaped by the project toggles and the
-   enrollment's `disable_learning_in_public`; GitHub repository link, 7 to 40 hex commit id, links
+3. `project_forms.py` (with `project_form_fields.py`): `ProjectSubmissionForm` (fields shaped
+   by the project toggles and the enrollment's `disable_learning_in_public`; GitHub repository link, 7 to 40 hex commit id, links
    de-duplicated and capped, hours as a number of at least zero; locked after the deadline),
-   `build_project_submission_form`, `process_project_submission` and `ProjectSubmissionOutcome`.
+   and, in `project_submission_flow.py`, `build_project_submission_form`,
+   `process_project_submission` and `ProjectSubmissionOutcome`.
    The save keeps stored `problems_comments` and `faq_contribution_url`, which the form does not
    show, and fires `COURSEWORK_PROJECT_SUBMITTED` / `COURSEWORK_PROJECT_DELETED` on commit.
 4. `COMMUNITY_BASE["COURSEWORK_PROJECT_CERTIFICATE_NAME_FIELD"]` (default `True`) plus the
@@ -1321,7 +1322,8 @@ Steps
 
 Verification
 - `uv run pytest tests/coursework` passes, including
-  `tests/coursework/test_project_submission_form.py` with a host-added FAQ field.
+  `tests/coursework/test_project_submission_form.py` and `test_project_submission_flow.py` (with
+  a host-added FAQ field).
 - `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
 - `uv run pytest tests/test_boundaries.py tests/test_static_asset_references.py`;
   `uv run python scripts/plan.py check` is OK.

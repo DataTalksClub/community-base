@@ -3,8 +3,9 @@
 ## Unreleased
 
 - C5.2n: the shared, embeddable project submission form (AI-Shipping-Labs/website#1696).
-  `coursework.project_forms` adds `ProjectSubmissionForm`, `build_project_submission_form` and
-  `process_project_submission`, rendered by `coursework/_project_submission_form.html`: GitHub link,
+  `coursework.project_forms` adds `ProjectSubmissionForm` (building blocks in
+  `project_form_fields`) and `coursework.project_submission_flow` adds
+  `build_project_submission_form` and `process_project_submission`, rendered by `coursework/_project_submission_form.html`: GitHub link,
   commit ID, learning in public links, time spent, an optional certificate name and a status line,
   with CMP's validation and a deadline lock. New `COMMUNITY_BASE` key
   `COURSEWORK_PROJECT_CERTIFICATE_NAME_FIELD` (default `True`). `submit_project` gains

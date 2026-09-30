@@ -12,95 +12,38 @@ One form for CMP, DataTalks.Club and AI Shipping Labs. It ports CMP's "Submissio
 - a status line with save-now, update-before-the-deadline semantics.
 
 A host site embeds ``coursework/_project_submission_form.html`` with ``project_form`` in the
-context and calls ``process_project_submission`` from its own view. Extension point: subclass
-``ProjectSubmissionForm``, declare extra fields, and write them in ``apply_extra_fields``; the
-partial renders every extra field, or includes ``extra_fields_template`` when the subclass sets
-one. DataTalks.Club adds its FAQ contribution field this way. The package form never renders the
-``faq_*`` columns; it only preserves their stored values.
+context and calls ``project_submission_flow.process_project_submission`` from its own view.
+Extension point: subclass ``ProjectSubmissionForm``, declare extra fields, and write them in
+``apply_extra_fields``; the partial renders every extra field, or includes
+``extra_fields_template`` when the subclass sets one. DataTalks.Club adds its FAQ contribution
+field this way. The package form never renders the ``faq_*`` columns; it only preserves their
+stored values.
 """
 
-import re
-from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from community_base.coursework.hooks import hooks as coursework_hooks
 from community_base.coursework.models import ProjectSubmission
+from community_base.coursework.project_form_fields import (
+    CERTIFICATE_NAME_HELP,
+    CLOSED_MESSAGE,
+    COMMIT_ID_HELP,
+    COMMIT_ID_PATTERN,
+    GITHUB_LINK_HELP,
+    LEARNING_IN_PUBLIC_HELP,
+    TIME_SPENT_HELP,
+    LearningInPublicLinksField,
+    certificate_name_field_enabled,
+)
 from community_base.coursework.projects import (
     WEB_LINK_VALIDATOR,
-    clean_learning_in_public_links,
-    delete_project_submission,
-    learner_submission_for,
     project_accepts_submissions,
     submission_editable,
     submit_project,
 )
-from community_base.kernel.conf import get
-
-COMMIT_ID_PATTERN = re.compile(r"^[0-9a-fA-F]{7,40}$")
-DELETE_ACTION = "delete"
-CLOSED_MESSAGE = "The submission form is closed."
-
-GITHUB_LINK_HELP = "Your project should be hosted on GitHub. Make sure your project is public."
-COMMIT_ID_HELP = "Paste the first 7 characters of the commit ID."
-LEARNING_IN_PUBLIC_HELP = (
-    "Links to social media posts where you share your progress (LinkedIn, X, etc)."
-)
-TIME_SPENT_HELP = "How much time (in hours) did you spend to work on the project?"
-CERTIFICATE_NAME_HELP = "Enter the name you would like to be shown on the certificate."
-
-
-class LearningInPublicLinksWidget(forms.Widget):
-    """Reads every ``<name>`` value of a repeated URL input; renders nothing itself.
-
-    The partial draws the inputs (one per saved link plus one blank slot, and ``+ Add link``
-    adds more up to the cap), so the widget only has to collect them.
-    """
-
-    def value_from_datadict(self, data, files, name):
-        if hasattr(data, "getlist"):
-            return data.getlist(name)
-        value = data.get(name)
-        if value is None:
-            return []
-        return list(value) if isinstance(value, list | tuple) else [value]
-
-    def value_omitted_from_data(self, data, files, name):
-        return False
-
-    def render(self, name, value, attrs=None, renderer=None):
-        return ""
-
-
-class LearningInPublicLinksField(forms.Field):
-    """Strip, de-duplicate, cap and validate links with the package's one definition."""
-
-    widget = LearningInPublicLinksWidget
-
-    def __init__(self, *, cap: int, **kwargs):
-        self.cap = cap
-        kwargs.setdefault("required", False)
-        super().__init__(**kwargs)
-
-    def to_python(self, value):
-        if not value:
-            return []
-        if isinstance(value, str):
-            value = [value]
-        return [str(link) for link in value]
-
-    def clean(self, value):
-        links = self.to_python(value)
-        return clean_learning_in_public_links(links, self.cap)
-
-
-def certificate_name_field_enabled() -> bool:
-    """The site-wide default for the certificate name field (``True`` keeps CMP parity)."""
-
-    return bool(get("COURSEWORK_PROJECT_CERTIFICATE_NAME_FIELD"))
 
 
 class ProjectSubmissionForm(forms.Form):
@@ -342,100 +285,3 @@ class ProjectSubmissionForm(forms.Form):
             return
         for field, messages in error.message_dict.items():
             self.add_error(field if field in self.fields else None, messages)
-
-
-@dataclass
-class ProjectSubmissionOutcome:
-    """What ``process_project_submission`` did. The host turns it into messages and a response.
-
-    ``action`` is one of ``"saved"``, ``"deleted"``, ``"invalid"``, ``"closed"`` or
-    ``"anonymous"``. ``form`` is ready to render again (``"invalid"`` and ``"closed"`` keep the
-    posted values and errors).
-    """
-
-    action: str
-    form: ProjectSubmissionForm
-    submission: ProjectSubmission | None = None
-    created: bool = False
-
-    @property
-    def succeeded(self) -> bool:
-        return self.action in {"saved", "deleted"}
-
-
-def build_project_submission_form(
-    project,
-    *,
-    user,
-    enrollment=None,
-    data=None,
-    form_class: type[ProjectSubmissionForm] = ProjectSubmissionForm,
-    **form_kwargs,
-) -> ProjectSubmissionForm:
-    """The form for ``user``'s own submission, for a GET or to re-render after a POST."""
-
-    submission = None
-    if user is not None and user.is_authenticated:
-        submission = learner_submission_for(project, user)
-    return form_class(
-        data,
-        project=project,
-        submission=submission,
-        enrollment=enrollment,
-        user=user,
-        **form_kwargs,
-    )
-
-
-def process_project_submission(
-    request,
-    project,
-    enrollment,
-    *,
-    form_class: type[ProjectSubmissionForm] = ProjectSubmissionForm,
-    **form_kwargs,
-) -> ProjectSubmissionOutcome:
-    """Handle a POST of the shared form: save, remove, or report why not.
-
-    The host resolves ``project`` and ``enrollment`` through its own access rules, then calls
-    this from its view. It does not add messages or redirect. After a successful save or delete
-    it fires ``COURSEWORK_PROJECT_SUBMITTED`` (``submission``, ``created``) or
-    ``COURSEWORK_PROJECT_DELETED`` (``project``, ``user``) once the transaction commits.
-    """
-
-    user = request.user
-    form = build_project_submission_form(
-        project,
-        user=user,
-        enrollment=enrollment,
-        data=request.POST,
-        form_class=form_class,
-        **form_kwargs,
-    )
-    if not form.is_authenticated:
-        return ProjectSubmissionOutcome("anonymous", form)
-    if not form.editable:
-        form.add_error(None, CLOSED_MESSAGE)
-        return ProjectSubmissionOutcome("closed", form, form.submission)
-
-    if request.POST.get("action") == DELETE_ACTION:
-        if delete_project_submission(project, user):
-            transaction.on_commit(
-                lambda: coursework_hooks.project_deleted(project=project, user=user)
-            )
-        blank = build_project_submission_form(
-            project, user=user, enrollment=enrollment, form_class=form_class, **form_kwargs
-        )
-        return ProjectSubmissionOutcome("deleted", blank)
-
-    if not form.is_valid():
-        return ProjectSubmissionOutcome("invalid", form, form.submission)
-    try:
-        submission, created = form.save()
-    except ValidationError as error:
-        form.add_model_errors(error)
-        return ProjectSubmissionOutcome("invalid", form, form.submission)
-    transaction.on_commit(
-        lambda: coursework_hooks.project_submitted(submission=submission, created=created)
-    )
-    return ProjectSubmissionOutcome("saved", form, submission, created)
