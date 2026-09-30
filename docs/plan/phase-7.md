@@ -981,14 +981,16 @@ Verification
   equivalence and normal development deployment in #1851.
 
 Done when
-- [ ] Supported include containers survive the final shared sanitizer.
-- [ ] Media hooks stay intact and stored iframes remain forbidden.
-- [ ] Unsafe sources/attributes remain rejected and sanitization stays idempotent.
-- [ ] Existing rendering contracts/public imports and required package/consumer gates pass.
-- [ ] A tagged package capability is available for the separate AISL adoption.
+- [x] Supported include containers survive the final shared sanitizer.
+- [x] Media hooks stay intact and stored iframes remain forbidden.
+- [x] Unsafe sources/attributes remain rejected and sanitization stays idempotent.
+- [x] Existing rendering contracts/public imports and required package/consumer gates pass.
+- [x] A tagged package capability is available for the separate AISL adoption.
 
 Docs
 - `content_sync/FORMAT.md`, `content_sync/README.md`, CHANGELOG, phase-7 and STATUS.
+
+Completion evidence: [exact-head package and consumer gates](https://github.com/DataTalksClub/community-base/pull/364#issuecomment-5917980696); [v0.5.21 tag, published wheel and isolated install](https://github.com/DataTalksClub/community-base/pull/365#issuecomment-5918743557). Site adoption remains subject to the separate verification listed above.
 
 ## C7.12d Refuse conversion of unsupported ordered cohort flow
 
@@ -1020,13 +1022,15 @@ Verification
   feature adoption.
 
 Done when
-- [ ] Unsupported ordered flow is refused without changing its cohort scope.
-- [ ] Other valid scopes, dry-run/repeat behavior and file inventory remain correct.
-- [ ] Package and consumer gates pass and an immutable tag is published.
-- [ ] DTC source-contract proof and full adoption remain distinct acceptance gates.
+- [x] Unsupported ordered flow is refused without changing its cohort scope.
+- [x] Other valid scopes, dry-run/repeat behavior and file inventory remain correct.
+- [x] Package and consumer gates pass and an immutable tag is published.
+- [x] DTC source-contract proof and full adoption remain distinct acceptance gates.
 
 Docs
 - content_sync README/FORMAT, CHANGELOG, phase-5/phase-7 and STATUS.
+
+Completion evidence: [exact-head package and consumer gates](https://github.com/DataTalksClub/community-base/pull/367#issuecomment-5918661120); [v0.5.21 tag, published wheel and isolated install](https://github.com/DataTalksClub/community-base/pull/365#issuecomment-5918743557). Site adoption remains subject to the separate verification listed above.
 
 ## A7.2a Register the AISL site kinds and markdown extensions
 
