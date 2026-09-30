@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterable, Mapping
+from dataclasses import replace
 from typing import Any
 
 from community_base.content_sync.documents import (
@@ -121,7 +122,13 @@ def parse_course(
     modules = module_graphs(result, by_parent, parent=course_document.raw.path, inherited=None)
     validate_module_tree(modules, where=collection.path or ".")
     project_modules = resolve_project_modules(result, collection, modules)
-    course = _course_graph(result, course_document, documents, modules, project_modules)
+    cohorts = _cohort_graphs(documents, modules, course_title=course_document.title)
+    course = replace(
+        _course_metadata(result, course_document),
+        modules=modules,
+        cohorts=cohorts,
+        project_modules=project_modules,
+    )
     return ParsedCurriculum(
         parser_version=PARSER_VERSION,
         schema_version=SCHEMA_VERSION,
@@ -165,17 +172,10 @@ def _one_course(documents: Iterable[ParsedDocument], collection: Collection) -> 
 # --- the course ---------------------------------------------------------------
 
 
-def _course_graph(
-    result: ReadResult,
-    document: ParsedDocument,
-    documents: list[ParsedDocument],
-    modules: tuple[ModuleGraph, ...],
-    project_modules,
-) -> CourseGraph:
+def _course_metadata(result: ReadResult, document: ParsedDocument) -> CourseGraph:
     values = document.values
     status = values.get("status") or PUBLISHED
     title = document.title
-    cohorts = _cohort_graphs(documents, modules, course_title=title)
     return CourseGraph(
         content_id=document.content_id,
         slug=document.slug,
@@ -195,9 +195,6 @@ def _course_graph(
         hashtag=values.get("hashtag") or "",
         visible=status == PUBLISHED,
         instructors=_instructors(result, values.get("instructors") or ()),
-        modules=modules,
-        cohorts=cohorts,
-        project_modules=project_modules,
     )
 
 
