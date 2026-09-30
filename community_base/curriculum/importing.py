@@ -19,6 +19,14 @@ from django.db import transaction
 from django.utils import timezone
 
 from community_base.curriculum.importing_units import UnitImport
+from community_base.curriculum.importing_values import (
+    cohort_values,
+    course_values,
+    file_checksum,
+    module_values,
+    provenance,
+    unit_values,
+)
 from community_base.curriculum.models import (
     Cohort,
     CohortModule,
@@ -27,24 +35,18 @@ from community_base.curriculum.models import (
     CurriculumImportRun,
     Module,
 )
-from community_base.curriculum.source import CurriculumParseError, InstructorGraph, ParsedCurriculum
+from community_base.curriculum.source import (
+    CurriculumParseError,
+    InstructorGraph,
+    ParsedCurriculum,
+    UnitGraph,
+)
 
 ACTION_CREATED = "created"
 ACTION_UPDATED = "updated"
 ACTION_UNCHANGED = "unchanged"
 _NO_COMMIT = ""
-
-
-def file_checksum(checkout, path: str | None) -> str:
-    """Return the sha256 of a checkout file, or empty when there is no file."""
-
-    if not path:
-        return ""
-    try:
-        payload = checkout.read_bytes(path)
-    except Exception:
-        return ""
-    return hashlib.sha256(payload).hexdigest()
+__all__ = ("apply_curriculum_graph", "delete_stale", "file_checksum", "provenance", "write_values")
 
 
 def _stable_commit(parsed: ParsedCurriculum) -> str:
@@ -156,7 +158,7 @@ def _apply(parsed, checkout, commit, course, units) -> tuple[Course, dict]:
     counts = {"created": 0, "updated": 0, "unchanged": 0, "deleted": 0}
     graph = parsed.course
 
-    action = write_values(course, _course_values(graph, commit, checkout))
+    action = write_values(course, course_values(graph, commit, checkout))
     counts[action] += 1
     _sync_instructors(course, graph)
     units.park()
@@ -185,7 +187,7 @@ def _apply(parsed, checkout, commit, course, units) -> tuple[Course, dict]:
     for cohort_graph in graph.cohorts:
         cohort = _cohort(course, cohort_graph)
         seen_cohort_ids.add(cohort_graph.content_id)
-        counts[write_values(cohort, _cohort_values(cohort_graph, commit, checkout))] += 1
+        counts[write_values(cohort, cohort_values(cohort_graph, commit, checkout))] += 1
         counts["deleted"] += _apply_placements(cohort, cohort_graph, top_level_by_ref)
     counts["deleted"] += delete_stale(
         Cohort.objects.filter(course=course).exclude(source_content_id__isnull=True),
@@ -208,33 +210,57 @@ def _apply_module_tree(
     depth: int = 0,
 ) -> None:
     for position, module_graph in enumerate(module_graphs):
-        module = _module(course, parent, module_graph)
-        seen.add(module_graph.content_id)
-        values = _module_values(module_graph, parent, position, commit, checkout)
-        counts[write_values(module, values)] += 1
-        units.visited_modules.add(module.pk)
-        if depth == 0:
-            top_level_by_ref[module_graph.content_id or module_graph.slug] = module
-
-        for unit_graph in module_graph.units:
-            unit = units.resolve(unit_graph)
-            values = _unit_values(unit_graph, commit, checkout)
-            values["module_id"] = module.pk
-            counts[write_values(unit, values)] += 1
-            units.seen.add(unit.pk)
-
-        _apply_module_tree(
+        _apply_module_graph(
             course,
-            module_graph.children,
+            module_graph,
             units,
-            parent=module,
-            commit=commit,
-            checkout=checkout,
-            counts=counts,
-            seen=seen,
-            top_level_by_ref=top_level_by_ref,
-            depth=depth + 1,
+            parent,
+            position,
+            commit,
+            checkout,
+            counts,
+            seen,
+            top_level_by_ref,
+            depth,
         )
+
+
+def _apply_module_graph(
+    course, graph, units, parent, position, commit, checkout, counts, seen, top_level_by_ref, depth
+):
+    module = _module(course, parent, graph)
+    seen.add(graph.content_id)
+    counts[write_values(module, module_values(graph, parent, position, commit, checkout))] += 1
+    units.visited_modules.add(module.pk)
+    if depth == 0:
+        top_level_by_ref[graph.content_id or graph.slug] = module
+    child_position = 0
+    for sibling in graph.siblings:
+        if isinstance(sibling, UnitGraph):
+            _apply_direct_unit(sibling, module, units, commit, checkout, counts)
+            continue
+        _apply_module_graph(
+            course,
+            sibling,
+            units,
+            module,
+            child_position,
+            commit,
+            checkout,
+            counts,
+            seen,
+            top_level_by_ref,
+            depth + 1,
+        )
+        child_position += 1
+
+
+def _apply_direct_unit(graph, module, units, commit, checkout, counts):
+    unit = units.resolve(graph)
+    values = unit_values(graph, commit, checkout)
+    values["module_id"] = module.pk
+    counts[write_values(unit, values)] += 1
+    units.seen.add(unit.pk)
 
 
 def _apply_placements(cohort: Cohort, cohort_graph, top_level_by_ref: dict) -> int:
@@ -305,88 +331,6 @@ def _module(course: Course, parent: Module | None, graph) -> Module:
         module = Module(course=course, slug=graph.slug)
     module.source_content_id = graph.content_id
     return module
-
-
-def _course_values(graph, commit, checkout) -> dict:
-    return {
-        "title": graph.title,
-        "description": graph.description,
-        "cover_image_url": graph.cover_image_url,
-        "required_level": graph.required_level,
-        "default_unit_required_level": graph.default_unit_required_level,
-        "status": graph.status,
-        "discussion_url": graph.discussion_url,
-        "tags": list(graph.tags),
-        "testimonials": list(graph.testimonials),
-        "github_repo_url": graph.github_repo_url,
-        "docs_url": graph.docs_url,
-        "faq_url": graph.faq_url,
-        "hashtag": graph.hashtag,
-        "visible": graph.visible,
-        **provenance(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
-    }
-
-
-def _cohort_values(graph, commit, checkout) -> dict:
-    return {
-        "title": graph.title,
-        "mode": graph.mode,
-        "start_date": graph.start_date,
-        "end_date": graph.end_date,
-        "registration_url": graph.registration_url,
-        "hashtag": graph.hashtag,
-        "visible": graph.visible,
-        **provenance(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
-    }
-
-
-def _module_values(graph, parent, position, commit, checkout) -> dict:
-    sort_order = graph.sort_order or position
-    return {
-        "title": graph.title,
-        "sort_order": sort_order,
-        "parent_id": getattr(parent, "pk", None),
-        "syllabus_section": graph.syllabus_section,
-        "overview": graph.overview,
-        "is_bonus": graph.is_bonus,
-        "available_after_days": graph.available_after_days,
-        **provenance(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
-    }
-
-
-def _unit_values(graph, commit, checkout) -> dict:
-    return {
-        "title": graph.title,
-        "sort_order": graph.sort_order,
-        "kind": graph.kind,
-        "session_position": graph.session_position,
-        "is_bonus": graph.is_bonus,
-        "video_url": graph.video_url,
-        "body": graph.body,
-        "homework": graph.homework,
-        "timestamps": list(graph.timestamps),
-        "is_preview": graph.is_preview,
-        "required_level": graph.required_level,
-        "content_hash": _body_hash(graph),
-        **provenance(graph.source_path, commit, file_checksum(checkout, graph.source_path)),
-    }
-
-
-def provenance(source_path, commit, checksum) -> dict:
-    """All-or-nothing provenance, as the table constraint requires."""
-
-    if not (source_path and commit and checksum):
-        return {"source_path": None, "source_commit_sha": None, "source_checksum": None}
-    return {
-        "source_path": source_path,
-        "source_commit_sha": commit,
-        "source_checksum": checksum,
-    }
-
-
-def _body_hash(graph) -> str:
-    payload = graph.body or graph.homework or ""
-    return hashlib.md5(payload.encode("utf-8")).hexdigest() if payload else ""
 
 
 def write_values(instance, values) -> str:

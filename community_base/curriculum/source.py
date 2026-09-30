@@ -10,7 +10,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from community_base.curriculum.project_modules import ProjectModuleBinding
 
 MODE_COHORT = "cohort"
 MODE_SELF_PACED = "self_paced"
@@ -49,11 +52,12 @@ class UnitGraph:
     kind: str = "lesson"
     session_position: int | None = None
     is_bonus: bool = False
+    source_sibling_position: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class ModuleGraph:
-    """One module, course-owned. Either ``children`` or ``units`` is non-empty, never both."""
+    """One course-owned module; ``siblings`` preserves mixed source order."""
 
     content_id: str | None
     slug: str
@@ -66,6 +70,24 @@ class ModuleGraph:
     available_after_days: int | None = None
     units: tuple[UnitGraph, ...] = field(default=())
     children: tuple[ModuleGraph, ...] = field(default=())
+    source_sibling_position: int | None = None
+
+    @property
+    def siblings(self) -> tuple[ModuleGraph | UnitGraph, ...]:
+        """Child modules and direct units in their shared authored order."""
+
+        if not self.children:
+            return self.units
+        if not self.units:
+            return self.children
+        positioned: list[tuple[int, ModuleGraph | UnitGraph]] = []
+        for node in (*self.children, *self.units):
+            position = node.source_sibling_position
+            if position is None:
+                raise CurriculumParseError(f"{self.source_path}: mixed sibling order is missing")
+            positioned.append((position, node))
+        positioned.sort(key=lambda item: item[0])
+        return tuple(node for _, node in positioned)
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,10 +138,11 @@ class CourseGraph:
     visible: bool = True
     instructors: tuple[InstructorGraph, ...] = field(default=())
     # The one module tree, owned by the course. Top-level modules in display
-    # order; each may carry ``children`` (submodules, max depth two) or
-    # ``units`` directly, never both.
+    # order; each may carry ``children`` (submodules, max depth two) and
+    # ``units`` directly. ``siblings`` carries their shared source order.
     modules: tuple[ModuleGraph, ...] = field(default=())
     cohorts: tuple[CohortGraph, ...] = field(default=())
+    project_modules: tuple[ProjectModuleBinding, ...] = field(default=())
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,10 +160,7 @@ class CurriculumParseError(ValueError):
 def validate_module_tree(modules: tuple[ModuleGraph, ...], *, where: str, depth: int = 1) -> None:
     """Validate a course's module tree once, for the one course parser.
 
-    Enforces: a module has either ``children`` or ``units``, never both, naming the
-    offending directory (``where``); nesting does not exceed two module levels; sibling
-    module slugs (and sibling unit slugs) are unique within their own parent, not globally
-    -- so two submodules under different parents may each contain a unit slugged the same.
+    Enforces a two-level module limit and unambiguous sibling slugs/order.
     """
 
     seen_module_slugs: set[str] = set()
@@ -149,19 +169,28 @@ def validate_module_tree(modules: tuple[ModuleGraph, ...], *, where: str, depth:
             raise CurriculumParseError(f"{where}: duplicate module slug {module.slug!r}")
         seen_module_slugs.add(module.slug)
         module_where = f"{module.source_path or where}"
-        if module.children and module.units:
-            raise CurriculumParseError(
-                f"{module_where}: has both child modules and direct units; "
-                "a module must have only one"
-            )
+        _validate_siblings(module, module_where)
         if module.children:
             if depth >= 2:
                 raise CurriculumParseError(
                     f"{module_where}: exceeds the maximum module depth of two levels"
                 )
             validate_module_tree(module.children, where=module_where, depth=depth + 1)
-        seen_unit_slugs: set[str] = set()
-        for unit in module.units:
-            if unit.slug in seen_unit_slugs:
-                raise CurriculumParseError(f"{module_where}: duplicate unit slug {unit.slug!r}")
-            seen_unit_slugs.add(unit.slug)
+
+
+def _validate_siblings(module: ModuleGraph, where: str) -> None:
+    seen_slugs: set[str] = set()
+    seen_positions: set[int] = set()
+    mixed = bool(module.children and module.units)
+    for node in (*module.children, *module.units):
+        if node.slug in seen_slugs:
+            raise CurriculumParseError(f"{where}: duplicate sibling slug {node.slug!r}")
+        seen_slugs.add(node.slug)
+        if not mixed:
+            continue
+        position = node.source_sibling_position
+        if position is None:
+            raise CurriculumParseError(f"{where}: mixed sibling order is missing")
+        if position in seen_positions:
+            raise CurriculumParseError(f"{where}: duplicate mixed sibling position {position}")
+        seen_positions.add(position)

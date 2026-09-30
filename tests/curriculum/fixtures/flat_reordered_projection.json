@@ -1,0 +1,85 @@
+{
+  "/courses/test-course/": {
+    "status": 200,
+    "html": "<main class=\"cb-page cb-course-detail\"><header class=\"cb-page-header\"><h1 class=\"cb-page-title\">Test Course</h1></header><section class=\"cb-card\"><p>Flat <strong>description</strong>.</p></section><p class=\"cb-card-meta\">Progress: 1/3 (33%)</p><form class=\"cb-form\" method=\"post\" action=\"/courses/test-course/unenroll/\"><input type=\"hidden\" name=\"csrfmiddlewaretoken\" value=\"TOKEN\"><button class=\"cb-button\" type=\"submit\">Unenroll</button></form><a class=\"cb-button cb-button-primary\" href=\"/courses/test-course/2026/intro/last/\">Continue</a><section class=\"cb-list\" aria-label=\"Cohorts\"><article class=\"cb-card cb-cohort-card\"><h2 class=\"cb-card-title\">2026 cohort</h2><p class=\"cb-card-meta\">\n          Self-paced\n          \n        </p><h3>Second</h3><ul class=\"cb-list\"><li><a href=\"/courses/test-course/2026/second/other/\">Other</a></li></ul><h3>Intro</h3><ul class=\"cb-list\"><li><a href=\"/courses/test-course/2026/intro/welcome/\">Welcome</a><span class=\"cb-badge\">Preview</span></li><li><a href=\"/courses/test-course/2026/intro/last/\">Last</a></li></ul></article></section></main>"
+  },
+  "/courses/test-course/2026/intro/": {
+    "status": 200,
+    "html": "<main class=\"cb-page cb-module-overview\"><header class=\"cb-page-header\"><p class=\"cb-card-meta\"><a href=\"/courses/test-course\">Test Course</a></p><h1 class=\"cb-page-title\">Intro</h1></header><section class=\"cb-card\"><p>Module <strong>overview</strong>.</p></section><section class=\"cb-list\" aria-label=\"Lessons\"><ol><li><a href=\"/courses/test-course/2026/intro/welcome/\">Welcome</a><span class=\"cb-badge\">Completed</span></li><li><a href=\"/courses/test-course/2026/intro/last/\">Last</a></li></ol></section></main>"
+  },
+  "/courses/test-course/2026/intro/last/": {
+    "status": 200,
+    "html": "<main class=\"cb-page cb-unit-detail\"><header class=\"cb-page-header\"><p class=\"cb-card-meta\"><a href=\"/courses/test-course\">Test Course</a> \u00b7\n      <a href=\"/courses/test-course/2026/intro/\">Intro</a></p><h1 class=\"cb-page-title\">Last</h1></header><div class=\"cb-page cb-unit-body\"><section class=\"cb-card\"><h2 class=\"cb-card-title\">Homework</h2><p>Exercise.</p></section></div><form class=\"cb-form\" id=\"mark-complete\" method=\"post\" action=\"/courses/test-course/units/32/complete/\"><input type=\"hidden\" name=\"csrfmiddlewaretoken\" value=\"TOKEN\"><button class=\"cb-button \" type=\"submit\">\n          Mark as completed\n        </button></form><nav class=\"cb-list\" aria-label=\"Course navigation\"><a class=\"cb-button\" href=\"/courses/test-course/2026/intro/welcome/\">Previous: Welcome</a><a class=\"cb-button cb-button-primary\" href=\"/courses/test-course/2026/second/other/\">Next: Other</a></nav><aside class=\"cb-list cb-unit-sidebar\" aria-label=\"Lessons\"><p><a href=\"/courses/test-course/2026/intro/welcome/\">Welcome</a><span class=\"cb-badge\">\u2713</span></p><p><strong>Last</strong></p><p><a href=\"/courses/test-course/2026/second/other/\">Other</a></p></aside></main>"
+  },
+  "/courses/test-course/2026/second/other/": {
+    "status": 200,
+    "html": "<main class=\"cb-page cb-unit-detail\"><header class=\"cb-page-header\"><p class=\"cb-card-meta\"><a href=\"/courses/test-course\">Test Course</a> \u00b7\n      <a href=\"/courses/test-course/2026/second/\">Second</a></p><h1 class=\"cb-page-title\">Other</h1></header><div class=\"cb-page cb-unit-body\"></div><form class=\"cb-form\" id=\"mark-complete\" method=\"post\" action=\"/courses/test-course/units/33/complete/\"><input type=\"hidden\" name=\"csrfmiddlewaretoken\" value=\"TOKEN\"><button class=\"cb-button \" type=\"submit\">\n          Mark as completed\n        </button></form><nav class=\"cb-list\" aria-label=\"Course navigation\"><a class=\"cb-button\" href=\"/courses/test-course/2026/intro/last/\">Previous: Last</a></nav><aside class=\"cb-list cb-unit-sidebar\" aria-label=\"Lessons\"><p><a href=\"/courses/test-course/2026/intro/welcome/\">Welcome</a><span class=\"cb-badge\">\u2713</span></p><p><a href=\"/courses/test-course/2026/intro/last/\">Last</a></p><p><strong>Other</strong></p></aside></main>"
+  },
+  "/courses/api/courses/test-course/": {
+    "status": 200,
+    "json": {
+      "id": 11,
+      "slug": "test-course",
+      "title": "Test Course",
+      "description": "Flat **description**.",
+      "cover_image_url": "",
+      "instructor_name": "",
+      "instructors": [],
+      "tags": [],
+      "is_free": true,
+      "required_level": 0,
+      "is_locked": false,
+      "public_url": "http://testserver/courses/test-course",
+      "instructor_bio": "",
+      "discussion_url": "",
+      "syllabus": [
+        {
+          "cohort": "2026",
+          "modules": [
+            {
+              "id": 22,
+              "slug": "second",
+              "title": "Second",
+              "sort_order": 2,
+              "units": [
+                {
+                  "id": 33,
+                  "slug": "other",
+                  "title": "Other",
+                  "sort_order": 0,
+                  "is_preview": false
+                }
+              ]
+            },
+            {
+              "id": 21,
+              "slug": "intro",
+              "title": "Intro",
+              "sort_order": 0,
+              "units": [
+                {
+                  "id": 31,
+                  "slug": "welcome",
+                  "title": "Welcome",
+                  "sort_order": 0,
+                  "is_preview": true
+                },
+                {
+                  "id": 32,
+                  "slug": "last",
+                  "title": "Last",
+                  "sort_order": 2,
+                  "is_preview": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "progress": {
+        "completed": 1,
+        "total": 3
+      }
+    }
+  }
+}

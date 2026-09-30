@@ -329,18 +329,18 @@ def test_a_published_live_cohort_declares_its_dates(tmp_path):
     assert "start_date" in str(error.value)
 
 
-def test_a_module_holding_both_submodules_and_units_is_rejected(tmp_path):
+def test_a_module_holding_both_submodules_and_units_keeps_them_at_source_level(tmp_path):
     root = copy(DTC_NESTED, tmp_path, "mixed")
     stray = root / "01-week-one" / "99-stray-unit.md"
     stray.write_text(
         "---\ncontent_id: 2b3c4d5e-000b-4000-8000-000000000001\n"
-        "title: Stray\n---\nShould not be allowed here.\n"
+        "title: Stray\n---\nA direct unit stays in its module.\n"
     )
 
-    with pytest.raises(CurriculumParseError) as error:
-        parse(root)
-
-    assert "01-week-one" in str(error.value)
+    week = parse(root).course.modules[0]
+    assert [child.slug for child in week.children] == ["topic-a", "topic-b"]
+    assert [unit.slug for unit in week.units] == ["stray-unit"]
+    assert [node.slug for node in week.siblings] == ["topic-a", "topic-b", "stray-unit"]
 
 
 def test_three_module_levels_are_rejected(tmp_path):

@@ -242,6 +242,24 @@ and package `tests/curriculum/test_services.py::TestReadingOrder`. Add cases
 for tied sort keys, bonus top-level modules, empty leaves, checklist items,
 missing current units and unchanged rendered navigation before replacement.
 
+## C5.4 package traversal follow-up
+
+The later C5.4 contract establishes a larger package responsibility than the small common branch
+considered in rows 3 and 4: ordered mixed siblings, source identity, one prefetched read tree,
+ancestry-safe destinations, syllabus serialization, reader navigation and continuation. Its
+candidate removes repeated traversal from package models, services and views. This is an ongoing
+capability implementation, not a completed net-deletion claim. Count replacement modules and
+permanent adapters when reporting its final diff.
+
+The AISL traversal deferral still applies. Its required-before-bonus policy, progress denominator,
+query loader and site routes must remain unchanged until adoption proves equivalence. A generic
+package projection is not evidence that either site's visible course experience has been unified.
+
+Before/after characterization also found that package cohort placements curate the syllabus while
+existing reader links and navigation use the complete course. C5.4 preserves that distinction;
+placements must not silently become an access restriction. Nested serialization should carry one
+recursive tree with shallow ordered sibling references, avoiding repeated copies of each subtree.
+
 ## Public renderer prerequisite for questionnaire consolidation
 
 A targeted follow-up compared AISL `questionnaires/onboarding_ai.py` on current main
