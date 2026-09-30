@@ -946,6 +946,50 @@ Done when
 Docs
 - Converter docstrings/README, CHANGELOG and `docs/plan/STATUS.md`.
 
+## C7.12c Preserve semantic include containers in shared rendering
+
+Repository: community-base. Depends on: C7.8, C7.12a. Freeze required: no. Related issue:
+DataTalksClub/community-base#363.
+
+Goal: existing AISL section/aside includes survive the final shared sanitizer, enabling A7.2b
+without a visible change or a second sanitizer. Existing `cb-embed` hooks remain the media
+contract: stored iframes stay forbidden by FORMAT 4.1. The existing `render_html` seam supports
+host transformations before sanitization; no new renderer callback or host allowlist is needed.
+
+Read first
+- Issue #363 for the observed host output and preservation/rejection cases.
+- D23, C7.8, A7.2b/A7.3, and the architecture extension-point rules.
+- `content_sync/rendering.py`, its README/FORMAT, and rendering compatibility tests.
+- AISL include, shared Markdown runtime and standalone-video fixtures, read-only.
+
+Steps
+1. Prove failing preservation tests against the published renderer for section/aside containers.
+   Cover the existing safe media hooks and unsafe-element/attribute rejection contract.
+2. Extend the one package allowlist only for these semantic containers. Keep iframes,
+   script/style, event handlers and `srcdoc` excluded; media hydration remains site-owned.
+3. Keep sanitization last and idempotent. Preserve public render APIs and existing outputs;
+   extract cohesive sanitizer policy rather than growing the oversized renderer module.
+4. Run package and both consumer gates, then publish an immutable tag before site adoption.
+
+Verification
+- New container preservation tests fail before the fix and pass after it; iframe and unsafe
+  element/attribute cases remain rejected, and existing media hooks survive unchanged.
+- Existing Markdown, headings, links, images, Mermaid and event widgets remain covered.
+- Focused rendering, full package suite, quality, boundary, fresh synthetic migration and plan
+  checks pass with all extras; P16 records both sites' exact SHAs and baseline/linked counts.
+- Not run here, needs: AISL transformation ordering, actual Article.save parity, learner-visible
+  equivalence and normal development deployment in #1851.
+
+Done when
+- [ ] Supported include containers survive the final shared sanitizer.
+- [ ] Media hooks stay intact and stored iframes remain forbidden.
+- [ ] Unsafe sources/attributes remain rejected and sanitization stays idempotent.
+- [ ] Existing rendering contracts/public imports and required package/consumer gates pass.
+- [ ] A tagged package capability is available for the separate AISL adoption.
+
+Docs
+- `content_sync/FORMAT.md`, `content_sync/README.md`, CHANGELOG, phase-7 and STATUS.
+
 ## A7.2a Register the AISL site kinds and markdown extensions
 
 Repository: AI-Shipping-Labs/website. Depends on: C7.12a.
@@ -976,7 +1020,7 @@ Done when
 
 ## A7.2b Move the three core parsers onto the toolkit
 
-Repository: AI-Shipping-Labs/website. Depends on: A7.2a, C7.12b.
+Repository: AI-Shipping-Labs/website. Depends on: A7.2a, C7.12b, C7.12c.
 
 Route converted course and wiki/docs sources through the existing package parsers; rewrite the
 site-owned article adapter onto the toolkit. The tagged package and converter must preserve mixed
@@ -988,6 +1032,12 @@ Stop running `sanitize_html`, `normalize_inline_bullets` and `linkify_urls` over
 only when the package renderer owns that path and equivalent rendered output has been verified.
 The article model's save-time renderer is part of this boundary; a `ParsedDocument` adapter alone
 does not remove it. Studio-authored event and email rendering remains site-owned.
+
+C7.12c supplies package allowlist support for existing article include containers.
+Independent adapter preparation can proceed against current tagged APIs, but the renderer switch
+and final acceptance require its published tag and site-specific transformation/parity checks.
+Package media hooks require host hydration that preserves the existing visible player; admitting
+stored iframes or retaining a second sanitizer is not a substitute for that integration.
 
 Do not delete `classify.py` or `parsing.py` while the dispatcher or other family parsers import
 them. A7.2c migrates the next families; A7.3 records the remaining callers at cutover and retires

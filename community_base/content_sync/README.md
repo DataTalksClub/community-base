@@ -315,6 +315,12 @@ Resolution rewrites between the heading ids and the sanitiser, through `render_h
 `img src` does not survive the allowlist, so a rewrite after the sanitiser would rewrite an
 attribute that is already gone. There is still one markdown pass and one allowlist.
 
+Semantic `section` and `aside` containers survive sanitization, including existing globally
+allowed attributes such as `id`. Host include expansion belongs before the final sanitizer;
+comment markers, executable attributes and stored iframes remain excluded. Media uses the existing
+`cb-embed` hooks and site hydration. The one allowlist lives in `html_policy.py`; callers retain
+the public `rendering.sanitize_rendered_html` and `rendering.is_admitted_site_image_src` imports.
+
 The dialect is python-markdown with `fenced_code`, `tables` and `sane_lists`, plus the package
 `mermaid` and `embed` fences. `attr_list` and `md_in_html` are not enabled, so a kramdown attribute
 list is inert text the validator rejects.
