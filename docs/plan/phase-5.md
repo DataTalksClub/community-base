@@ -1277,6 +1277,99 @@ Done when
 Docs
 - `community_base/coursework/README.md`, `CHANGELOG.md`.
 
+## C5.2n Shared embeddable project submission form
+
+Repository: community-base. Depends on: C5.2m. Freeze required: no. Related:
+AI-Shipping-Labs/website#1696 (owner requirement comment 5907906743), CMP
+`courses/templates/projects/project.html`.
+
+Goal: one project submission form for CMP, DataTalks.Club and AISL, owned by `cb_coursework` and
+embeddable inside a host's own reader or syllabus unit. It ports CMP's "Submission details": GitHub
+link, commit id with a "Where do I find the commit ID?" disclosure, learning in public links, time
+spent, an optional certificate name and a status line, each field with a help tooltip. The FAQ
+contribution field is not part of the shared form (owner decision 2026-09-30); a host adds it through
+the extension point.
+
+Read first
+- `community_base/coursework/projects.py` (`submit_project`, `clean_learning_in_public_links`).
+- `community_base/coursework/views.py` (`project_view`) and `templates/coursework/project.html`.
+- `community_base/coursework/templates/coursework/_homework_form.html` (the embeddable homework
+  form this mirrors).
+- CMP `courses/views/project_submission_edit.py` and
+  `courses/templates/include/learning_in_public_links.html`.
+
+Steps
+1. `project_accepts_submissions(project, now)` and `submission_editable(project, submission, now)`
+   in `projects.py`: edits are allowed while the project collects submissions and before
+   `submission_due_date`, and a pooled submission locks once it leaves `AW`.
+2. `submit_project(..., before_save=callable)` runs a host callback on the populated submission
+   before `full_clean`.
+3. `project_forms.py` (with `project_form_fields.py`): `ProjectSubmissionForm` (fields shaped
+   by the project toggles and the enrollment's `disable_learning_in_public`; GitHub repository link, 7 to 40 hex commit id, links
+   de-duplicated and capped, hours as a number of at least zero; locked after the deadline),
+   and, in `project_submission_flow.py`, `build_project_submission_form`,
+   `process_project_submission` and `ProjectSubmissionOutcome`.
+   The save keeps stored `problems_comments` and `faq_contribution_url`, which the form does not
+   show, and fires `COURSEWORK_PROJECT_SUBMITTED` / `COURSEWORK_PROJECT_DELETED` on commit.
+4. `COMMUNITY_BASE["COURSEWORK_PROJECT_CERTIFICATE_NAME_FIELD"]` (default `True`) plus the
+   `certificate_name_field` form argument, so a site (AISL: off) or a course can hide the field.
+5. Extension point: a subclass declares extra fields and writes them in `apply_extra_fields`; the
+   partial renders them after "Time spent", or includes the subclass's `extra_fields_template`.
+6. `coursework/_project_submission_form.html` (with `_form_help.html` and
+   `community_base/coursework_project_form.js`) uses only structural `cb-` classes and
+   `data-project-*` attributes. The package project page includes it.
+7. No migration: the `faq_*` columns stay untouched (C5.2o retires them).
+
+Verification
+- `uv run pytest tests/coursework` passes, including
+  `tests/coursework/test_project_submission_form.py` and `test_project_submission_flow.py` (with
+  a host-added FAQ field).
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- `uv run pytest tests/test_boundaries.py tests/test_static_asset_references.py`;
+  `uv run python scripts/plan.py check` is OK.
+- Report package, DTC and AISL consumer results separately.
+
+Done when
+- [ ] The shared partial renders GitHub link, commit id, learning in public links, time spent and
+  the status line, and the certificate name only when enabled.
+- [ ] Invalid input re-renders with field errors; edits lock after the deadline.
+- [ ] A host subclass adds, validates and saves an extra field without forking the partial.
+- [ ] Released after C5.2m (`v0.5.19` or later), coordinated with the release owner.
+
+Docs
+- `community_base/coursework/README.md`, `docs/02-architecture.md`, `CHANGELOG.md`.
+
+## C5.2o FAQ contribution redesign and retirement of the `faq_*` project fields
+
+Repository: community-base. Depends on: C5.2n. Freeze required: no. Related:
+AI-Shipping-Labs/website#1696 (owner decision 2026-09-30).
+
+Goal: replace pull-request-based FAQ contributions with the owner's redesign (not through a pull
+request), then retire `Project.faq_contribution_field` and `ProjectSubmission.faq_contribution`,
+`faq_contribution_url` and `project_faq_score`. Until then the columns stay, imported CMP and DTC
+data keeps its values, the shared form never renders them, and DataTalks.Club adds its FAQ field in
+`dtc-website` through the C5.2n extension point.
+
+Read first
+- `community_base/coursework/projects.py`, `scoring.py` and every reader of the `faq_*` fields.
+- DataTalks.Club's FAQ subclass of `ProjectSubmissionForm`, once it exists.
+
+Steps
+1. Owner designs the new FAQ contribution flow; record it here before building.
+2. Build it; move DataTalks.Club off its form subclass field.
+3. Inventory the `faq_*` values in CMP and DTC data, decide their archive, then drop the columns
+   in one migration with a documented rollback.
+
+Verification
+- To be written with the design.
+
+Done when
+- [ ] The new FAQ flow ships and no reader of the `faq_*` fields remains.
+- [ ] The columns are dropped with a verified data archive.
+
+Docs
+- `community_base/coursework/README.md`, `CHANGELOG.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.

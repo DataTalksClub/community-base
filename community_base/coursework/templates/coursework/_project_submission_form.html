@@ -1,0 +1,156 @@
+{% load static %}
+{% comment %}
+The shared project submission form (C5.2n), ported from CMP's "Submission details".
+Included by the package project page and embedded by host sites inside their own reader or
+syllabus unit:
+
+  {% include "coursework/_project_submission_form.html" with project_form=project_form %}
+
+Context: project_form, a `ProjectSubmissionForm` (built by `build_project_submission_form` or
+returned in `ProjectSubmissionOutcome.form`). The form posts to `project_form.action_url`, or to
+the current page when that is empty. The host view calls `process_project_submission`.
+
+Styling hooks: structural `cb-` classes and `data-project-*` attributes only; hosts style them.
+Extra fields a site adds by subclassing the form render after "Time spent", generically or
+through `project_form.extra_fields_template`.
+{% endcomment %}
+<section class="cb-section cb-project-submission" data-project-submission-form
+         data-project-editable="{{ project_form.editable|yesno:'true,false' }}">
+  <header>
+    <h2 class="cb-section-title">Submission details</h2>
+    <p class="cb-card-meta">Submit the public repository link{% if 'commit_id' in project_form.fields %} and the exact commit you want evaluated{% endif %}.</p>
+  </header>
+
+  {% if not project_form.is_authenticated %}
+    <aside class="cb-alert" role="note" data-project-sign-in><p>Sign in to submit this project.</p></aside>
+  {% elif not project_form.editable %}
+    <p class="cb-alert" role="status" data-project-closed>{% if project_form.has_submission %}The submission form is closed. Your saved submission is below.{% else %}You didn't submit this project, and the submission window is closed.{% endif %}</p>
+  {% endif %}
+
+  {% if project_form.non_field_errors %}
+    <div class="cb-alert" role="alert" data-project-form-errors>
+      {% for error in project_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+  {% endif %}
+
+  <form class="cb-form" method="post" action="{{ project_form.action_url }}" data-project-form>
+    {% csrf_token %}
+
+    {% with field=project_form.github_link %}
+      <div class="cb-field" data-project-field="github_link">
+        <label class="cb-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {% include "coursework/_form_help.html" %}
+        {{ field }}
+        {% for error in field.errors %}<p class="cb-form-error" data-field-error="github_link">{{ error }}</p>{% endfor %}
+      </div>
+    {% endwith %}
+
+    {% if 'commit_id' in project_form.fields %}
+      {% with field=project_form.commit_id %}
+        <div class="cb-field" data-project-field="commit_id">
+          <label class="cb-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {% include "coursework/_form_help.html" %}
+          <details class="cb-disclosure" data-commit-id-help>
+            <summary>Where do I find the commit ID?</summary>
+            <p>Open your repository on GitHub. The commit ID is the short code next to the latest commit message, for example <code>a1b2c3d</code>. In a terminal, <code>git rev-parse --short HEAD</code> prints it.</p>
+            {% if project_form.commit_id_help_image_url %}<img src="{{ project_form.commit_id_help_image_url }}" alt="Where the commit ID appears on GitHub">{% endif %}
+          </details>
+          {{ field }}
+          {% for error in field.errors %}<p class="cb-form-error" data-field-error="commit_id">{{ error }}</p>{% endfor %}
+        </div>
+      {% endwith %}
+    {% endif %}
+
+    {% if 'learning_in_public_links' in project_form.fields %}
+      {% with field=project_form.learning_in_public_links cap=project_form.learning_in_public_cap %}
+        <div class="cb-field" data-project-field="learning_in_public_links"
+             data-learning-in-public-links data-max-links="{{ cap }}">
+          <span class="cb-label" id="{{ field.auto_id }}_label">{{ field.label }} <span class="cb-card-meta">(optional)</span></span>
+          {% include "coursework/_form_help.html" %}
+          <p class="cb-card-meta" data-learning-in-public-guidance>Add up to {{ cap }} public progress link{{ cap|pluralize }}.</p>
+          <div data-learning-in-public-slots>
+            {% if project_form.editable %}
+              {% for link in project_form.learning_in_public_values %}
+                <input class="cb-input" type="url" name="{{ field.html_name }}" value="{{ link }}"
+                       inputmode="url" autocomplete="url" aria-labelledby="{{ field.auto_id }}_label">
+              {% endfor %}
+              {% if project_form.learning_in_public_blank_slot %}
+                <input class="cb-input" type="url" name="{{ field.html_name }}"
+                       inputmode="url" autocomplete="url" aria-labelledby="{{ field.auto_id }}_label">
+              {% endif %}
+            {% else %}
+              <ul class="cb-list">
+                {% for link in project_form.learning_in_public_values %}
+                  <li><a href="{{ link }}" rel="noopener noreferrer">{{ link }}</a></li>
+                {% empty %}
+                  <li class="cb-empty">No learning in public links submitted.</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+          {% if project_form.editable %}
+            <button class="cb-button" type="button" data-add-learning-in-public-link hidden><span aria-hidden="true">+</span> Add link</button>
+          {% endif %}
+          {% for error in field.errors %}<p class="cb-form-error" data-field-error="learning_in_public_links">{{ error }}</p>{% endfor %}
+        </div>
+      {% endwith %}
+    {% endif %}
+
+    {% if 'time_spent' in project_form.fields %}
+      {% with field=project_form.time_spent %}
+        <div class="cb-field" data-project-field="time_spent">
+          <label class="cb-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {% include "coursework/_form_help.html" %}
+          {{ field }}
+          {% for error in field.errors %}<p class="cb-form-error" data-field-error="time_spent">{{ error }}</p>{% endfor %}
+        </div>
+      {% endwith %}
+    {% endif %}
+
+    {% if project_form.extra_fields_template %}
+      {% include project_form.extra_fields_template %}
+    {% else %}
+      {% for field in project_form.extra_fields %}
+        <div class="cb-field" data-project-field="{{ field.name }}">
+          <label class="cb-label" for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required %} <span class="cb-card-meta">(optional)</span>{% endif %}</label>
+          {% include "coursework/_form_help.html" %}
+          {{ field }}
+          {% for error in field.errors %}<p class="cb-form-error" data-field-error="{{ field.name }}">{{ error }}</p>{% endfor %}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% if 'certificate_name' in project_form.fields %}
+      {% with field=project_form.certificate_name %}
+        <div class="cb-field" data-project-field="certificate_name">
+          <label class="cb-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {% include "coursework/_form_help.html" %}
+          {{ field }}
+          {% for error in field.errors %}<p class="cb-form-error" data-field-error="certificate_name">{{ error }}</p>{% endfor %}
+        </div>
+      {% endwith %}
+    {% endif %}
+
+    <div class="cb-form-status" data-project-status="{% if project_form.has_submission %}saved{% else %}not-saved{% endif %}">
+      {% if project_form.has_submission %}
+        <p>Last saved at: <time datetime="{{ project_form.submission.submitted_at|date:'c' }}">{{ project_form.submission.submitted_at }}</time></p>
+      {% else %}
+        <p>Status: Not saved yet</p>
+      {% endif %}
+      {% if project_form.editable %}
+        <p data-project-status-help>You can save your project now and keep working on it. Update the {% if 'commit_id' in project_form.fields %}commit ID{% else %}submission{% endif %} before the deadline when you have a newer version.</p>
+      {% endif %}
+    </div>
+
+    {% if project_form.editable %}
+      <div class="cb-form-actions">
+        <button class="cb-button cb-button-primary" type="submit" data-project-save>{% if project_form.has_submission %}Update submission{% else %}Save submission{% endif %}</button>
+        {% if project_form.has_submission %}
+          <button class="cb-button" type="submit" name="action" value="delete" formnovalidate
+                  data-project-remove data-confirm="Are you sure you want to delete your project submission?">Remove</button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </form>
+</section>
+{% if project_form.editable %}<script defer src="{% static 'community_base/coursework_project_form.js' %}"></script>{% endif %}

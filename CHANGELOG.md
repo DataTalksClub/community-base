@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- C5.2n: the shared, embeddable project submission form (AI-Shipping-Labs/website#1696).
+  `coursework.project_forms` adds `ProjectSubmissionForm` (building blocks in
+  `project_form_fields`) and `coursework.project_submission_flow` adds
+  `build_project_submission_form` and `process_project_submission`, rendered by `coursework/_project_submission_form.html`: GitHub link,
+  commit ID, learning in public links, time spent, an optional certificate name and a status line,
+  with CMP's validation and a deadline lock. New `COMMUNITY_BASE` key
+  `COURSEWORK_PROJECT_CERTIFICATE_NAME_FIELD` (default `True`). `submit_project` gains
+  `before_save`, and `projects` gains `project_accepts_submissions` and `submission_editable`. The
+  package project page now uses the form and posts after the due date are refused. Sites add fields
+  (such as a FAQ contribution URL) by subclassing the form. No migration.
 - C5.2m (#350): coursework adoption gaps for AISL (AI-Shipping-Labs/website#1696). Migration
   `cb_coursework.0006_project_module_commit_id_field` adds a nullable `Project.module` FK
   (`SET_NULL`, like `Homework.module`) and `Project.commit_id_field` (default `True`), and makes
