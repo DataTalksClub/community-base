@@ -125,6 +125,85 @@ package form shows the input and `ProjectSubmission.clean` requires a value, so 
 rejects a blank one (CMP and DTC behaviour). Off, the form asks only for the repository link and
 `submit_project` stores an empty commit id, ignoring any value passed in.
 
+## The shared project submission form
+
+`coursework/_project_submission_form.html` is the one project submission form for every site, ported
+from CMP's "Submission details". It renders, in order: GitHub link to the project (required), commit
+ID with a "Where do I find the commit ID?" disclosure (when `Project.commit_id_field`), learning in
+public links ("Add up to N", `+ Add link`, optional; hidden when the cap is `0` or the enrollment
+opted out), time spent on project in hours (when `time_spent_project_field`), any host-added fields,
+certificate name (when enabled), and a status line: "Status: Not saved yet" or "Last saved at", with
+"save now, update before the deadline" while editable. Each field has a help disclosure
+(`.cb-form-help`). The FAQ contribution field is not part of the shared form; the `faq_*` columns
+are kept and preserved on save (retirement is C5.2o).
+
+Validation (`ProjectSubmissionForm`): the link is an http(s) GitHub repository URL
+(`github_hosts`; a subclass sets `None` to accept any public host); the commit ID is 7 to 40
+hexadecimal characters, trimmed; learning in public links are stripped, de-duplicated, capped at
+`learning_in_public_cap_project` and must be public http(s) URLs; hours are a number of at least
+zero. Edits are allowed while the project collects submissions and before `submission_due_date`,
+and locked after it (`projects.submission_editable`); a pooled submission also locks once it joins
+a review batch.
+
+Certificate name: `COMMUNITY_BASE["COURSEWORK_PROJECT_CERTIFICATE_NAME_FIELD"]` (default `True`,
+CMP parity) sets the site default; `certificate_name_field=True/False` on the form overrides it per
+course. A non-blank value is saved to `Enrollment.certificate_name`. AISL sets the key to `False`.
+
+Embedding. The host resolves the project and enrollment through its own access rules, renders the
+partial inside its own unit page, and posts back to its own view:
+
+```python
+from community_base.coursework.project_forms import (
+    build_project_submission_form,
+    process_project_submission,
+)
+
+def project_unit(request, ...):
+    project, enrollment = ...  # host access rules
+    if request.method == "POST":
+        outcome = process_project_submission(request, project, enrollment, action_url=unit_url)
+        if outcome.succeeded:  # "saved" or "deleted"
+            return redirect(unit_url)
+        project_form = outcome.form  # "invalid", "closed" or "anonymous", with errors
+    else:
+        project_form = build_project_submission_form(
+            project, user=request.user, enrollment=enrollment, action_url=unit_url
+        )
+    return render(request, "site/unit.html", {"project_form": project_form, ...})
+```
+
+```django
+{% include "coursework/_project_submission_form.html" with project_form=project_form %}
+```
+
+`process_project_submission` never adds messages or redirects; `outcome.action` is `saved`,
+`deleted`, `invalid`, `closed` or `anonymous`. After commit it fires `COURSEWORK_PROJECT_SUBMITTED`
+(`submission`, `created`) or `COURSEWORK_PROJECT_DELETED` (`project`, `user`), where a site sends
+its confirmation mail. The package `coursework_project` page uses the same form and handler.
+
+Styling hooks: the partial uses structural `cb-` classes (`cb-section`, `cb-field`, `cb-label`,
+`cb-input`, `cb-form-help`, `cb-disclosure`, `cb-form-error`, `cb-form-status`, `cb-form-actions`)
+and `data-project-*` attributes, and no site CSS. A site may also override the template by name.
+`community_base/coursework_project_form.js` adds `+ Add link` and the Remove confirmation; without
+JavaScript the form still posts the saved links plus one blank slot.
+
+Extension point: subclass the form, declare fields, and write them in `apply_extra_fields`, which
+runs inside `submit_project`'s transaction before `full_clean` (model errors land on the form). The
+partial renders extra fields after "Time spent", or includes the subclass's `extra_fields_template`
+(which receives `project_form`). Pass the subclass as `form_class=` to both helpers.
+
+```python
+class FaqProjectSubmissionForm(ProjectSubmissionForm):
+    faq_contribution_url = forms.URLField(label="FAQ contribution PR or issue URL", required=False)
+
+    def clean_faq_contribution_url(self):
+        url = self.cleaned_data["faq_contribution_url"]
+        return url  # plus the site's own rule
+
+    def apply_extra_fields(self, submission):
+        submission.faq_contribution_url = self.cleaned_data["faq_contribution_url"]
+```
+
 ## Installing without the package Studio and member API
 
 `CourseworkConfig.ready()` registers two site-facing surfaces unless a site turns them off:

@@ -7,6 +7,7 @@ peer-review rollup and the submission service share one definition.
 """
 
 import ipaddress
+from collections.abc import Callable
 from urllib.parse import urlsplit
 
 from django.core.exceptions import ValidationError
@@ -14,7 +15,11 @@ from django.core.validators import URLValidator
 from django.db import transaction
 from django.utils import timezone
 
-from community_base.coursework.models import ProjectSubmission
+from community_base.coursework.models import (
+    ProjectState,
+    ProjectSubmission,
+    SubmissionReviewState,
+)
 
 WEB_LINK_VALIDATOR = URLValidator(schemes=["http", "https"])
 
@@ -78,6 +83,31 @@ def peer_review_lip_score(submission: ProjectSubmission, project, reviewed) -> i
     return total
 
 
+def project_accepts_submissions(project, now=None) -> bool:
+    """Whether the project takes new submissions and edits right now.
+
+    The project must be collecting submissions, and a dated project's ``submission_due_date``
+    must not have passed. A self-paced project has no due date, so only its state closes it.
+    """
+    if project.state != ProjectState.COLLECTING_SUBMISSIONS.value:
+        return False
+    due = project.submission_due_date
+    return due is None or (now or timezone.now()) <= due
+
+
+def submission_editable(project, submission, now=None) -> bool:
+    """Whether a learner may still save or remove ``submission`` (``None``: create one).
+
+    Edits are allowed until the deadline and locked after it. A pooled (self-paced) submission
+    also locks once it joins a review batch, because peers are then reviewing that exact link.
+    """
+    if not project_accepts_submissions(project, now):
+        return False
+    if submission is None or not project.uses_pooled_review:
+        return True
+    return submission.review_state == SubmissionReviewState.AWAITING_ASSIGNMENT.value
+
+
 def learner_submission_for(project, user) -> ProjectSubmission | None:
     return ProjectSubmission.objects.filter(
         project=project, student=user, volunteer_review_only=False
@@ -95,8 +125,14 @@ def submit_project(
     time_spent: float | None = None,
     problems_comments: str = "",
     faq_contribution_url: str = "",
+    before_save: Callable[[ProjectSubmission], None] | None = None,
 ) -> tuple[ProjectSubmission, bool]:
-    """Create or update the learner's submission, honouring the project field toggles."""
+    """Create or update the learner's submission, honouring the project field toggles.
+
+    ``before_save`` runs on the populated submission just before ``full_clean``, inside the same
+    transaction. A host form uses it to write the fields it adds itself (C5.2n), so their model
+    validation and the save stay one step.
+    """
     submission = learner_submission_for(project, enrollment.user)
     created = submission is None
     if created:
@@ -123,6 +159,8 @@ def submit_project(
         submission.problems_comments = (problems_comments or "").strip()
     if project.faq_contribution_field:
         submission.faq_contribution_url = (faq_contribution_url or "").strip()
+    if before_save is not None:
+        before_save(submission)
 
     submission.full_clean()
     submission.save()

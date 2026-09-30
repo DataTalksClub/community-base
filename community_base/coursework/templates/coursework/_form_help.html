@@ -1,0 +1,9 @@
+{% comment %}
+A field's help tooltip, as a disclosure so it works without JavaScript or site CSS.
+Context: field (a bound field with help_text). The text carries Django's `<auto_id>_helptext`
+id, which the input's `aria-describedby` already names. Hosts style `.cb-form-help`.
+{% endcomment %}
+{% if field.help_text %}<details class="cb-form-help" data-cb-form-help>
+  <summary aria-label="{{ field.label }} help">?</summary>
+  <span id="{{ field.auto_id }}_helptext">{{ field.help_text }}</span>
+</details>{% endif %}

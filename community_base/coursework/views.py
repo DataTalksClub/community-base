@@ -23,7 +23,14 @@ from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from community_base.coursework import certificates, leaderboard, projects, submissions, votes
+from community_base.coursework import (
+    certificates,
+    leaderboard,
+    project_forms,
+    projects,
+    submissions,
+    votes,
+)
 from community_base.coursework import review as peer_reviews
 from community_base.coursework.models import (
     Homework,
@@ -37,6 +44,18 @@ from community_base.coursework.models import (
 from community_base.curriculum.models import Cohort, Enrollment
 
 CRITERIA_ANSWER_PREFIX = "criteria_"
+PROJECT_OUTCOME_MESSAGES = {
+    "saved": (
+        "Thank you for submitting your project, it is now saved. "
+        "You can update your submission at any point before the due date."
+    ),
+    "deleted": (
+        "Your project submission is deleted. You can still make a new submission if you want."
+    ),
+    "invalid": "The submission could not be saved.",
+    "closed": project_forms.CLOSED_MESSAGE,
+    "anonymous": "Sign in to submit this project.",
+}
 ANSWER_PREFIX = "answer_"
 
 
@@ -141,43 +160,30 @@ def homework_view(request, course_slug: str, cohort_identifier: str, homework_sl
 
 
 def project_view(request, course_slug: str, cohort_identifier: str, project_slug: str):
-    """Project submission; public GET, authenticated POST, closed gate re-renders."""
+    """Project submission; public GET, authenticated POST through the shared form (C5.2n)."""
 
     cohort = _cohort_or_404(course_slug, cohort_identifier)
     project = get_object_or_404(Project, cohort=cohort, slug=project_slug)
-    accepting_submissions = project.state == ProjectState.COLLECTING_SUBMISSIONS.value
 
     enrollment = None
-    submission = None
     if request.user.is_authenticated:
         # Donor parity: unlike the homework page, an authenticated GET
         # get-or-creates the enrollment.
         enrollment, _created = leaderboard.ensure_enrollment(cohort, request.user)
-        submission = projects.learner_submission_for(project, request.user)
 
     if request.method == "POST":
-        if not request.user.is_authenticated:
-            messages.error(request, "Sign in to submit this project.")
-        elif not accepting_submissions:
-            messages.error(request, "The submission form is closed.")
-        elif request.POST.get("action") == "delete":
-            if projects.delete_project_submission(project, request.user):
-                messages.success(request, "Your submission was deleted.")
+        outcome = project_forms.process_project_submission(request, project, enrollment)
+        if outcome.succeeded:
+            messages.success(request, PROJECT_OUTCOME_MESSAGES[outcome.action])
             return redirect("coursework_project", course_slug, cohort_identifier, project_slug)
-        else:
-            try:
-                submission, _created = projects.submit_project(
-                    project,
-                    enrollment,
-                    github_link=request.POST.get("github_link", ""),
-                    commit_id=request.POST.get("commit_id", ""),
-                )
-            except ValidationError:
-                messages.error(request, "The submission could not be saved.")
-            else:
-                messages.success(request, "Your submission was saved.")
-                return redirect("coursework_project", course_slug, cohort_identifier, project_slug)
+        messages.error(request, PROJECT_OUTCOME_MESSAGES[outcome.action])
+        project_form = outcome.form
+    else:
+        project_form = project_forms.build_project_submission_form(
+            project, user=request.user, enrollment=enrollment
+        )
 
+    accepting_submissions = project_form.accepting_submissions
     certificate_name = ""
     if enrollment is not None:
         certificate_name = enrollment.certificate_name or enrollment.display_name
@@ -187,8 +193,9 @@ def project_view(request, course_slug: str, cohort_identifier: str, project_slug
         {
             **_page_context(cohort),
             "project": project,
-            "submission": submission,
-            "has_submission": submission is not None,
+            "project_form": project_form,
+            "submission": project_form.submission,
+            "has_submission": project_form.has_submission,
             "is_authenticated": request.user.is_authenticated,
             "disabled": not accepting_submissions,
             "accepting_submissions": accepting_submissions,
