@@ -161,7 +161,7 @@ issues that can start now.
 | `C5.4c` | community-base | Import course-tree YAML homework through explicit cohort bindings | C5.4a, C5.4b | no | done | https://github.com/DataTalksClub/community-base/pull/342 |
 | `A5.3` | AI-Shipping-Labs/website | AISL: render course hierarchy from repository structure | C5.4 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1830 |
 | `D5.3` | DataTalksClub/website | DTC: adopt repository-derived course hierarchy and homework units | D5.3a, D5.3b, D7.3 | no | todo | https://github.com/DataTalksClub/website/issues/436 |
-| `D5.3a` | DataTalksClub/website | Prove the DTC source and policy contract for shared curriculum | C5.4, C7.12b | no | todo | https://github.com/DataTalksClub/website/issues/446 |
+| `D5.3a` | DataTalksClub/website | Prove the DTC source and policy contract for shared curriculum | C5.4, C7.12b | no | in-progress | https://github.com/DataTalksClub/website/issues/446 |
 | `D5.3b` | DataTalksClub/website | Adopt shared curriculum projection behind DTC reader contracts | D5.1, D7.3 | no | todo | https://github.com/DataTalksClub/website/issues/447 |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3, A5.3 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1696 |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1697 |
@@ -206,7 +206,7 @@ issues that can start now.
 | `C7.12a` | community-base | Finish the package side the AISL adoption needs | C7.12 | no | done | https://github.com/DataTalksClub/community-base/pull/289 |
 | `C7.12b` | community-base | Preserve mixed-course semantics during conversion | C7.12, C5.4 | no | done | https://github.com/DataTalksClub/community-base/pull/360 |
 | `A7.2a` | AI-Shipping-Labs/website | Register the AISL site kinds and markdown extensions | C7.12a | no | done | https://github.com/AI-Shipping-Labs/website/issues/1771 — merged as 9f0fc899; on-call fix 80fb8448 (colon-syntax MARKDOWN_EXTENSIONS). Deploy Dev 35577963604 green. Public wiki/ is the package wiki kind; member-gated _wiki/ is site-owned member_wiki in topics. |
-| `A7.2b` | AI-Shipping-Labs/website | Move the three core parsers onto the toolkit | A7.2a, C7.12b | no | todo |  |
+| `A7.2b` | AI-Shipping-Labs/website | Move the three core parsers onto the toolkit | A7.2a, C7.12b | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1851 |
 | `A7.2c` | AI-Shipping-Labs/website | Move the five family parsers onto the toolkit | A7.2b | no | todo |  |
 | `A7.2` | AI-Shipping-Labs/website | AISL: adopt the toolkit and the one course parser | C7.12 | no | skipped | split on 2026-09-19 into A7.2a, A7.2b and A7.2c after measurement against that site's five real content sources showed it could not land in one piece, and that part of it is package work rather than site work (C7.12a). The original toolkit pin is insufficient for the mixed-course cutover: A7.2b now requires C7.12b and its tagged package pin under P15; see #354. |
 | `D7.2` | DataTalksClub/website | DTC: editorial, people and data kinds on the toolkit | C7.12, D7.1 | no | todo |  |
