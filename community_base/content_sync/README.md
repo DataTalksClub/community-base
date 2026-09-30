@@ -271,6 +271,10 @@ rule. Module `syllabus_section`, `is_bonus`, stored slugs and project references
 The converter validates a disposable proposed tree through the shared course and coursework
 readers before writing newly supported shapes. A refusal protects the affected input; unrelated
 valid files may still convert. `--dry-run` writes nothing and labels report changes as proposals.
+Nonempty legacy cohort `flow` is refused at that cohort's scope, including its homework; the
+shared format cannot represent its interleaved module/project placement. A host must provide a
+reviewed source/import/projection mapping before adopting that cohort. Refusal preserves source
+bytes but does not prove feature adoption; the project-module reader is a separate path validator.
 `documents.py` converts a Jekyll-shaped document collection under a per-repository profile: files
 out of the underscore directory, keys renamed, dropped or moved under `extra`, `content_id` minted
 where a file carries none, kramdown and Liquid removed, and `[[wikilinks]]` turned into typed

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- C7.12d (#366): refuse a cohort with nonempty legacy `flow` before rewriting its manifest or
+  homework. Preserve ordered module/project placement in the untouched source and continue
+  unrelated valid scopes. DTC source/import/projection mapping remains required before adoption.
+
 ## 0.5.20
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations

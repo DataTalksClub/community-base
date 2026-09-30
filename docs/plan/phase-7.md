@@ -946,6 +946,44 @@ Done when
 Docs
 - Converter docstrings/README, CHANGELOG and `docs/plan/STATUS.md`.
 
+## C7.12d Refuse conversion of unsupported ordered cohort flow
+
+Repository: community-base. Depends on: C7.12b. Freeze required: no. Related issue:
+DataTalksClub/community-base#366.
+
+Goal: refuse a cohort whose nonempty legacy `flow` has no shared representation, preserving
+its original source rather than dropping ordered module/project placement. Core FORMAT stays
+unchanged. This safety prerequisite is separate from the full DTC feature-preservation gate.
+
+Read first
+- Issue #366, FORMAT cohort/project boundaries and converter scoped-refusal tests.
+- DTC #446 tagged-source reproduction and #414 placement ownership.
+
+Steps
+1. Prove the old converter drops nonempty ordered flow while reporting success.
+2. Refuse that cohort scope with rule 3.8, its path and an actionable host-mapping requirement;
+   preserve its manifest and homework bytes while unrelated valid scopes still convert.
+3. Cover module-only curation, interleaved projects, dry-run, repeat refusal, inventory and
+   unchanged empty/no-flow behavior. Do not introduce a second parser or a core flow field.
+4. Publish an immutable tag after package and both consumer gates pass.
+
+Verification
+- New red/green regressions and existing converter tests pass.
+- Full package, quality, boundary, fresh synthetic migration and plan checks pass.
+- P16 records exact site commits and baseline/linked counts with no new failures.
+- Not run here, needs: DTC-owned source/import/projection preserving project identity and
+  interleaved order before #414 activates shared storage or its writer. Refusal alone is not
+  feature adoption.
+
+Done when
+- [ ] Unsupported ordered flow is refused without changing its cohort scope.
+- [ ] Other valid scopes, dry-run/repeat behavior and file inventory remain correct.
+- [ ] Package and consumer gates pass and an immutable tag is published.
+- [ ] DTC source-contract proof and full adoption remain distinct acceptance gates.
+
+Docs
+- content_sync README/FORMAT, CHANGELOG, phase-5/phase-7 and STATUS.
+
 ## A7.2a Register the AISL site kinds and markdown extensions
 
 Repository: AI-Shipping-Labs/website. Depends on: C7.12a.
