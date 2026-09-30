@@ -1,6 +1,6 @@
 """Convert one course repository to the content format (`FORMAT.md` 3.8).
 
-    uv run python -m community_base.content_sync.convert.courses <path> [--apply]
+    uv run python -m community_base.content_sync.convert.courses <path> [--dry-run]
 
 Deleted from this package after the last conversion merges, which is `D7.4`
 step 9. It exists for one pass over the eight course repositories.
@@ -37,11 +37,12 @@ What it refuses, rather than guess:
   would drop the cohort;
 - a cohort whose `curriculum` and `archive` disagree;
 - a homework binding naming a module the repository does not have;
-- a module directory holding both unit files and submodule directories;
+- mixed siblings whose authored positions the shared parser cannot reconcile;
 - a YAML file it cannot parse.
 
-Every refusal leaves its file exactly as it was found and is printed in the
-report with the rule it failed. A key the format cannot express is moved under
+Every refusal leaves its affected input exactly as it was found, while unrelated
+valid files may still convert. The report names each refusal and its rule.
+A key the format cannot express is moved under
 `extra` rather than dropped, and the report prints the value of every key that
 is dropped outright.
 """
@@ -49,7 +50,6 @@ is dropped outright.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 import uuid
 from collections.abc import Mapping, Sequence
@@ -58,6 +58,17 @@ from typing import Any
 
 import yaml
 
+from community_base.content_sync.convert.course_order import OrderRefusal, preserve_list_order
+from community_base.content_sync.convert.course_preview import mixed_directories, validate_proposed
+from community_base.content_sync.convert.course_text import (
+    ASSET_SUFFIXES,
+    _convert_body,
+    _dropped,
+    _is_asset_dir,
+    _join,
+    _relative_links,
+    _slug_of,
+)
 from community_base.content_sync.convert.report import (
     ConversionReport,
     dump_yaml,
@@ -66,7 +77,6 @@ from community_base.content_sync.convert.report import (
     read_front_matter,
     write_front_matter,
 )
-from community_base.content_sync.kinds.base import ORDER_PREFIX_PATTERN
 from community_base.content_sync.kinds.layouts import (
     CODE_DIR,
     COHORT_MANIFEST,
@@ -80,7 +90,6 @@ from community_base.content_sync.kinds.layouts import (
 __all__ = ["convert_course_repository", "main"]
 
 MANIFEST_NAME = "content.yaml"
-ASSET_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".pdf")
 
 #: Core keys first, in the order `FORMAT.md` section 3.3 lists them.
 CORE_ORDER = (
@@ -109,7 +118,7 @@ COURSE_KEYS = (
     "hashtag",
     "testimonials",
 )
-MODULE_KEYS = ("is_bonus", "available_after_days")
+MODULE_KEYS = ("syllabus_section", "is_bonus", "available_after_days")
 UNIT_KEYS = ("kind", "video_url", "timestamps", "session_position", "is_bonus", "code")
 COHORT_KEYS = (
     "delivery",
@@ -122,6 +131,7 @@ COHORT_KEYS = (
     "homework",
 )
 HOMEWORK_KEYS = ("instructions_path", "due_at", "initial_state", "form", "questions")
+HOMEWORK_UNIT_KEYS = ("due_at", "initial_state", "form", "stepper", "questions")
 
 #: `urls:` in a schema-2 course manifest, flattened (section 3.8).
 URL_KEYS = {
@@ -156,10 +166,6 @@ RENAMED = {
     "description": "summary",
 }
 
-STRIKETHROUGH = re.compile(r"~~([^~\s][^~]*)~~")
-STYLE_ATTRIBUTE = re.compile(r'\s+style\s*=\s*(["\'])[^"\']*\1', re.IGNORECASE)
-FENCE = re.compile(r"^(\s*)(```+|~~~+)")
-
 
 class Refused(Exception):
     """One file the conversion will not guess at; it stays as it was."""
@@ -181,7 +187,7 @@ def convert_course_repository(root: Path, *, apply: bool = True) -> ConversionRe
     """
 
     root = Path(root)
-    report = ConversionReport(repository=root.name, before=inventory(root))
+    report = ConversionReport(repository=root.name, before=inventory(root), applied=apply)
     conversion = _Conversion(root, report, apply=apply)
     conversion.run()
     report.after = inventory(root)
@@ -189,11 +195,7 @@ def convert_course_repository(root: Path, *, apply: bool = True) -> ConversionRe
 
 
 class _Conversion:
-    """One pass over one repository. Nothing is written before the walk ends.
-
-    Every rule appends to `self.writes`, so a refusal found late leaves the
-    checkout untouched rather than half converted.
-    """
+    """One pass; queued valid writes apply even when another input is refused."""
 
     def __init__(self, root: Path, report: ConversionReport, *, apply: bool) -> None:
         self.root = root
@@ -203,6 +205,9 @@ class _Conversion:
         self.touched: set[str] = set()
         self.ignore: list[str] = []
         self.module_slugs: dict[str, str] = {}
+        self.top_level_slugs: dict[str, int] = {}
+        self.unit_bindings: set[str] = set()
+        self.homework_units: set[str] = set()
 
     # -- the walk ------------------------------------------------------------
 
@@ -222,6 +227,7 @@ class _Conversion:
         self._convert_cohorts(course)
         self._convert_course(course)
         self._write_manifest()
+        self._validate_proposal()
         self._audit_links()
         self._account()
         self._flush()
@@ -295,12 +301,21 @@ class _Conversion:
     # -- modules and units ---------------------------------------------------
 
     def _collect_modules(self) -> None:
-        """Every module directory, and the slug its name strips to."""
+        """Every module directory and its authored or derived slug."""
 
         for manifest in sorted(self.root.glob(f"**/{MODULE_MANIFEST}")):
             directory = manifest.parent
             rel = directory.relative_to(self.root).as_posix()
-            self.module_slugs[rel] = _slug_of(directory.name)
+            slug = _slug_of(directory.name)
+            try:
+                data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+            except yaml.YAMLError:
+                data = None  # The normal manifest conversion reports the refusal.
+            if isinstance(data, Mapping) and data.get("slug"):
+                slug = str(data["slug"])
+            self.module_slugs[rel] = slug
+            if "/" not in rel:
+                self.top_level_slugs[slug] = self.top_level_slugs.get(slug, 0) + 1
 
     def _convert_modules(self) -> None:
         for rel in sorted(self.module_slugs):
@@ -311,12 +326,26 @@ class _Conversion:
                 continue
             try:
                 declared = self._unit_declarations(rel, data)
-                self._check_module_shape(rel, directory)
             except Refused as refusal:
                 self.report.refuse(path, refusal.rule, refusal.message)
                 continue
             self._convert_units(rel, directory, declared, enumerated=data.get("units") is not None)
+            self._convert_course_homework(directory, rel)
             self._write(path, dump_yaml(self._module_values(data)), details=_dropped(data, rel))
+
+    def _convert_course_homework(self, directory: Path, rel: str) -> None:
+        for child in sorted(directory.iterdir()):
+            if not child.is_dir() or not (child / HOMEWORK_MANIFEST).is_file():
+                continue
+            path = f"{rel}/{child.name}/{HOMEWORK_MANIFEST}"
+            if self._ignored(f"{rel}/{child.name}") or self._ignored(path):
+                continue
+            self.homework_units.add(path)
+            data = self._load(path)
+            if data is None:
+                continue
+            values, details = self._shape(data, HOMEWORK_UNIT_KEYS, HOMEWORK_DROPPED, [], path)
+            self._write(path, dump_yaml(values), details=details)
 
     def _unit_declarations(self, rel: str, data: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
         """The `units:` list as `{unit path: {content_id, title}}`.
@@ -334,33 +363,61 @@ class _Conversion:
             raise Refused("3.8", "units is a list of {content_id, title, path}")
         found: dict[str, dict[str, Any]] = {}
         for index, entry in enumerate(declared):
-            if not isinstance(entry, Mapping) or not entry.get("path"):
-                raise Refused("3.8", f"units/{index} carries no path")
-            name = str(entry["path"])
-            if not (self.root / rel / name).is_file():
-                raise Refused("3.8", f"units/{index} names {name}, which is not in {rel}")
-            found[name] = {
-                key: entry[key] for key in ("content_id", "title", "sort_order") if key in entry
-            }
+            name, values = self._unit_declaration(rel, index, entry)
+            if name in found:
+                raise Refused("3.8", f"units/{index} repeats {name} in {rel}")
+            found[name] = values
+        try:
+            preserve_list_order(self.root, rel, found, list(declared), self._ignored)
+        except OrderRefusal as error:
+            raise Refused("3.8", str(error)) from error
         return found
 
-    def _check_module_shape(self, rel: str, directory: Path) -> None:
-        units = [
-            item.name
-            for item in sorted(directory.iterdir())
-            if item.is_file() and item.suffix == ".md" and item.name != README
-        ]
-        submodules = [
-            item.name
-            for item in sorted(directory.iterdir())
-            if item.is_dir() and (item / MODULE_MANIFEST).is_file()
-        ]
-        if units and submodules:
-            raise Refused(
-                "3.5",
-                "a module directory holds either submodule directories or unit files, "
-                f"found {len(units)} unit file(s) and {len(submodules)} submodule(s)",
-            )
+    def _unit_declaration(self, rel: str, index: int, entry: Any) -> tuple[str, dict[str, Any]]:
+        if not isinstance(entry, Mapping) or not entry.get("path"):
+            raise Refused("3.8", f"units/{index} carries no path")
+        name = str(entry["path"])
+        if Path(name).name != name or name in (".", ".."):
+            raise Refused("3.8", f"units/{index} path {name!r} is not a direct unit file")
+        if not (self.root / rel / name).is_file():
+            raise Refused("3.8", f"units/{index} names {name}, which is not in {rel}")
+        values = {}
+        for key in ("content_id", "title", "sort_order"):
+            if key in entry:
+                values[key] = entry[key]
+        return name, values
+
+    def _validate_proposal(self) -> None:
+        mixed = mixed_directories(self.root, set(self.module_slugs), self._ignored)
+        failures = validate_proposed(
+            self.root, self.writes, mixed, self.unit_bindings, self.homework_units
+        )
+        for path, rule, message, scope in failures:
+            self.report.refuse(path, rule, message)
+            self._discard_scope(path, scope)
+
+    def _discard_scope(self, refused: str, scope: str) -> None:
+        discarded = set()
+        kept_writes = []
+        for path, text in self.writes:
+            if path == scope or path.startswith(f"{scope}/"):
+                discarded.add(path)
+            else:
+                kept_writes.append((path, text))
+        self.writes = kept_writes
+        kept_changes = []
+        for change in self.report.changes:
+            if change.path not in discarded and change.path != refused:
+                kept_changes.append(change)
+        self.report.changes = kept_changes
+        for path in discarded:
+            if path not in self.report.before:
+                self.touched.discard(path)
+            elif path != refused:
+                self.report.record(path, "unchanged")
+        if refused in self.report.before:
+            self.report.record(refused, "refused")
+            self.touched.add(refused)
 
     def _convert_units(
         self,
@@ -456,12 +513,17 @@ class _Conversion:
             try:
                 values, details = self._cohort_values(data, child.name, title, rel)
             except Refused as refusal:
-                self.report.refuse(f"{rel}/{COHORT_MANIFEST}", refusal.rule, refusal.message)
-                self.report.record(f"{rel}/{COHORT_MANIFEST}", "refused")
-                self.touched.add(f"{rel}/{COHORT_MANIFEST}")
+                self._refuse_cohort(rel, refusal)
                 continue
             self._write(f"{rel}/{COHORT_MANIFEST}", dump_yaml(values), details=details)
             self._convert_homework(child, rel)
+
+    def _refuse_cohort(self, rel: str, refusal: Refused) -> None:
+        path = f"{rel}/{COHORT_MANIFEST}"
+        self.unit_bindings.discard(path)
+        self.report.refuse(path, refusal.rule, refusal.message)
+        self.report.record(path, "refused")
+        self.touched.add(path)
 
     def _cohort_values(
         self, data: Mapping[str, Any], identifier: str, course_title: str, rel: str
@@ -497,26 +559,57 @@ class _Conversion:
         for index, entry in enumerate(declared):
             if not isinstance(entry, Mapping):
                 raise Refused("3.8", f"homework/{index} is a mapping")
-            binding = dict(entry)
-            module = str(binding.get("module") or "")
-            slug = _slug_of(module)
-            if slug not in set(self.module_slugs.values()):
-                raise Refused(
-                    "3.8",
-                    f"homework/{index} places the module {module!r}, which is not in this course",
-                )
-            if slug != module:
-                details.append(f"homework/{index}/module: {module!r} -> {slug!r}")
-            binding["module"] = slug
-            source = str(binding.get("source") or "")
-            relative = source[len(rel) + 1 :] if source.startswith(f"{rel}/") else source
-            if relative != source:
-                details.append(f"homework/{index}/source: {source!r} -> {relative!r}")
-            binding["source"] = relative
-            if not (self.root / rel / relative).is_file():
-                raise Refused("3.8", f"homework/{index} names {source!r}, which is not there")
-            found.append(binding)
+            found.append(self._binding(dict(entry), rel, index, details))
         return found
+
+    def _binding(self, binding, rel, index, details):
+        module = str(binding.get("module") or "")
+        slug = self._binding_slug(module, index)
+        if slug not in self.top_level_slugs:
+            raise Refused(
+                "3.8",
+                f"homework/{index} places the module {module!r}, which is not in this course",
+            )
+        if self.top_level_slugs[slug] > 1:
+            raise Refused("3.8", f"homework/{index} module {slug!r} matches multiple modules")
+        if slug != module:
+            details.append(f"homework/{index}/module: {module!r} -> {slug!r}")
+        binding["module"] = slug
+        if binding.get("unit"):
+            self.unit_bindings.add(f"{rel}/{COHORT_MANIFEST}")
+        self._binding_source(binding, rel, index, details)
+        return binding
+
+    def _binding_slug(self, module: str, index: int) -> str:
+        stored = None
+        if module in self.top_level_slugs:
+            stored = module
+        directory = self.module_slugs.get(module)
+        if stored and directory and stored != directory:
+            raise Refused("3.8", f"homework/{index} module {module!r} is ambiguous")
+        if stored:
+            return stored
+        if directory:
+            return directory
+        return _slug_of(module)
+
+    def _binding_source(self, binding, rel, index, details):
+        if not binding.get("source"):
+            if not binding.get("unit"):
+                raise Refused("3.8", f"homework/{index} needs source or unit")
+            return
+        source = str(binding["source"])
+        relative = source
+        if source.startswith(f"{rel}/"):
+            relative = source[len(rel) + 1 :]
+        candidate = PurePosixPath(relative)
+        if candidate.is_absolute() or ".." in candidate.parts:
+            raise Refused("3.8", f"homework/{index} source {source!r} leaves its cohort")
+        if relative != source:
+            details.append(f"homework/{index}/source: {source!r} -> {relative!r}")
+        binding["source"] = relative
+        if not (self.root / rel / relative).is_file():
+            raise Refused("3.8", f"homework/{index} names {source!r}, which is not there")
 
     def _convert_homework(self, directory: Path, rel: str) -> None:
         for manifest in sorted(directory.glob(f"**/{HOMEWORK_MANIFEST}")):
@@ -666,9 +759,14 @@ class _Conversion:
                 if not child.is_dir() or child.name.startswith((".", "_")):
                     continue
                 nested = f"{rel}/{child.name}"
-                if nested in modules or child.name == CODE_DIR or _is_asset_dir(child):
+                if self._skip_module_child(child, nested, modules):
                     continue
                 self._ignore_directory(child, nested)
+
+    def _skip_module_child(self, child: Path, rel: str, modules: set[str]) -> bool:
+        if rel in modules or child.name == CODE_DIR or _is_asset_dir(child):
+            return True
+        return (child / HOMEWORK_MANIFEST).is_file()
 
     def _ignore_directory(self, directory: Path, rel: str) -> None:
         """Declare one directory not-content, without hiding the assets in it.
@@ -805,106 +903,6 @@ class _Conversion:
         if extra:
             values["extra"] = extra
         return ordered(values, (*CORE_ORDER, *kind_keys, "extra")), details
-
-
-# --- helpers ------------------------------------------------------------------
-
-
-LINK = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)>\s]+)>?\s*(?:\"[^\"]*\")?\)")
-
-
-def _relative_links(body: str) -> list[tuple[int, str]]:
-    """Every markdown link or image destination that is not external."""
-
-    found: list[tuple[int, str]] = []
-    fence: str | None = None
-    for number, line in enumerate(body.split("\n"), start=1):
-        match = FENCE.match(line)
-        if fence is not None:
-            if match is not None and match.group(2).startswith(fence):
-                fence = None
-            continue
-        if match is not None:
-            fence = match.group(2)
-            continue
-        for destination in LINK.findall(line):
-            if destination.startswith(("http://", "https://", "#", "mailto:", "//", "/")):
-                continue
-            if ":" in destination.split("/")[0]:
-                continue
-            found.append((number, destination))
-    return found
-
-
-def _join(source: str, target: str) -> str | None:
-    parts = source.split("/")[:-1]
-    for part in target.split("/"):
-        if part in ("", "."):
-            continue
-        if part == "..":
-            if not parts:
-                return None
-            parts.pop()
-            continue
-        parts.append(part)
-    return "/".join(parts)
-
-
-def _slug_of(name: str) -> str:
-    return ORDER_PREFIX_PATTERN.sub("", name)
-
-
-def _is_asset_dir(directory: Path) -> bool:
-    files = [item for item in directory.glob("**/*") if item.is_file()]
-    return bool(files) and all(item.suffix.lower() in ASSET_SUFFIXES for item in files)
-
-
-def _dropped(data: Mapping[str, Any], rel: str) -> list[str]:
-    units = data.get("units")
-    if not units:
-        return []
-    return [f"units -> the unit files of {rel}/ ({len(units)} of them)"]
-
-
-def _convert_body(body: str, title: str) -> tuple[str, list[str]]:
-    """The two body rewrites section 4.3 names, and the H1 section 3.3 forbids."""
-
-    details: list[str] = []
-    body, removed = _strip_leading_h1(body, title)
-    if removed:
-        details.append("removed the leading H1 that repeats the title")
-    lines = body.split("\n")
-    fence: str | None = None
-    struck = styled = 0
-    for index, line in enumerate(lines):
-        match = FENCE.match(line)
-        if fence is not None:
-            if match is not None and match.group(2).startswith(fence):
-                fence = None
-            continue
-        if match is not None:
-            fence = match.group(2)
-            continue
-        rewritten, count = STRIKETHROUGH.subn(r"<del>\1</del>", line)
-        struck += count
-        rewritten, count = STYLE_ATTRIBUTE.subn("", rewritten)
-        styled += count
-        lines[index] = rewritten
-    if struck:
-        details.append(f"~~strikethrough~~ -> <del> ({struck})")
-    if styled:
-        details.append(f"removed a style attribute the sanitiser drops ({styled})")
-    return "\n".join(lines), details
-
-
-def _strip_leading_h1(body: str, title: str) -> tuple[str, bool]:
-    stripped = body.lstrip("\n")
-    first, _, rest = stripped.partition("\n")
-    if not first.startswith("# "):
-        return body, False
-    if first[2:].strip().lower() != title.strip().lower():
-        return body, False
-    return rest.lstrip("\n"), True
 
 
 # --- the command line ---------------------------------------------------------

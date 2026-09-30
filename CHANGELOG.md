@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- C7.12b (#347): preserve mixed module, direct unit and YAML-homework order and identities in the
+  one-time course converter. Carry legacy `units:` list order, module section and bonus metadata,
+  stored slugs, course-tree homework questions, both cohort binding forms and project references.
+  Validate proposed mixed and bound output through the shared readers, keep affected refused inputs
+  unchanged while unrelated valid files convert, and identify dry-run changes as proposals. Live
+  source conversion and cutover remain A7.3/D7.4.
+
 ## 0.5.19
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations
