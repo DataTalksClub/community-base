@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Security (#344): require PyJWT 2.14 or newer to prevent a malformed RSA key from aborting
+  an entire JWK set. Existing token verification and authentication policies are unchanged.
+
 ## 0.5.17
 
 Adoption-provisional. This release still contains the nine provisional kept-label migrations
