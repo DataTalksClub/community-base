@@ -1032,6 +1032,93 @@ Docs
 
 Completion evidence: [exact-head package and consumer gates](https://github.com/DataTalksClub/community-base/pull/367#issuecomment-5918661120); [v0.5.21 tag, published wheel and isolated install](https://github.com/DataTalksClub/community-base/pull/365#issuecomment-5918743557). Site adoption remains subject to the separate verification listed above.
 
+## C7.12g Give converted courses one owner with site adaptation
+
+Repository: community-base. Depends on: C7.12a, C7.12c. Freeze required: no. Related issue:
+DataTalksClub/community-base#379.
+
+Goal: keep package parsing, graph/homework application, provenance and cleanup as the one
+converted-course owner while retaining the host's policy, atomic extensions, renderer and rich
+reporting. Preserve default package behavior and later AISL legacy refresh. No UI, schema,
+settings, generic parser routing or active-reader retirement belongs to this capability issue.
+
+Read first
+- Issue #379 and AISL #1851's actual duplicate-owner diagnosis; #378 is separate Host compatibility.
+- Curriculum content_sync_parsers, importing, parsers and project_modules registry.
+- Content-sync parsers/orchestration and AISL FamilyParser, converted_courses, course_graph and
+  run_state collector contracts; use read-only site inspection.
+- Architecture, decisions D21/D24, quality gates and coding standard.
+
+Steps
+1. Review the supported extension options and record the smallest course-specific API. Preserve
+   the actual per-course error/valid-sibling behavior, fatal checkout boundaries, report emission
+   and transaction ownership before writing source. Do not create a general routing framework.
+2. Add authoritative RED fixture contracts for the missing adaptation boundary and one converted
+   course apply. Include policy refusal plus a valid sibling, default-package compatibility,
+   core-call ownership, atomic pre/core/post behavior and existing reporting/cleanup semantics.
+3. Implement explicit conflict-checked registration, looked up at parser discovery, and the
+   course-specific adaptation boundary. Package reads/validates course and homework before writes,
+   owns the per-course transaction, applies graph/homework once and owns provenance/stale cleanup.
+   The host retains validated render rewrites and atomic pre/core/post work. Keep the no-adapter
+   path unchanged. Call the core directly from the package rather than exposing it to a host
+   continuation; reject incompatible rewritten identity before pre-core effects, without partial
+   effects or mismatched homework bindings. Fail closed inside the transaction if the site scope
+   suppresses a core or post-apply exception.
+4. Preserve the measured AISL item boundary: every non-checkout item failure rolls back, reports
+   distinctly, continues valid siblings and suppresses cleanup. Exact package checkout failures
+   and the supported translation of AISL ContentCheckoutError stop the course parser without
+   cleanup. The unchanged generic package engine records PARTIAL for parser exceptions. The later
+   AISL reporter preserves the original structured ContentCheckoutError entry with
+   `step: filesystem_boundary`; the site wrapper uses that entry to upgrade its run to FAILED.
+   A bare CourseSiteBoundaryError string is insufficient. Keep known authored parse/homework and
+   policy errors distinct from database/programming failures. Publish successful/error
+   deltas immediately with cumulative site totals, retaining accepted details before a later fatal
+   boundary; report cleanup separately. Nonfatal render warnings permit safe cleanup.
+5. Verify registration/order, optional coursework, identity/repeat/provenance and all error/cleanup
+   contracts. Split long affected functions cohesively; report net runtime lines separately from
+   moved code, tests and docs. Run package gates, independent review and both P16 consumers.
+6. Publish a separately reviewed immutable release before the later AISL adoption. That site
+   change registers the adapter, removes duplicate converted parse/apply orchestration and skips
+   legacy converted ownership/cleanup while retaining unconverted refresh. Its own review, full
+   affected gates, UI proof and development deploy remain mandatory and separate.
+
+Verification
+- Actual package orchestration records PARTIAL while an exact checkout failure stops remaining
+  course items and course cleanup. Later AISL FAILED requires its structured reporter/wrapper proof.
+- Accepted-first then fatal-checkout preserves immediate rich details/cumulative counts; ordinary
+  post-core errors roll back only their collection, continue siblings and suppress cleanup.
+- Render-only cover/overview/body/homework rewrites preserve all structural identities and original
+  homework bindings; mismatches fail before scope entry or writes. Scope suppression rolls back.
+- Safe render warnings preserve accepted writes and permit cleanup while reporting partial.
+- `uv run pytest tests/curriculum/test_course_site_adaptation.py` records RED before implementation
+  and passes after it; cases prove required behavior rather than merely checking callback calls.
+- `uv run pytest tests/curriculum/test_sync.py tests/curriculum/test_import.py` preserves the
+  ordinary package path, source provenance, repeat identity and cleanup.
+- Full package tests, lint, format, Django checks, fresh migrations, boundaries and plan checks
+  pass with no migration, setting, Studio, generic registry/orchestrator or site-import diff.
+- P16 records exact AISL/DTC commits and raw baseline/linked counts and qualifies exclusions.
+- Not run here, needs: later immutable AISL pin, real site fields/side effects, all three courses,
+  no duplicate writers, unconverted refresh, unchanged desktop/mobile rendering and Dev deploy.
+- Wiki/docs duplicate ownership is separate raw issue #381; this course task cannot complete the
+  three-core-parser adoption by itself. Member wiki and article ownership stay separate.
+
+Done when
+- [ ] The supported adapter preserves one package graph/homework apply, transaction, validation,
+  identity and provenance per accepted converted collection.
+- [ ] Host policy/rendering/extensions/reporting and actual scoped failure/cleanup behavior are
+  covered without changing ordinary package mode or generic parser routing.
+- [ ] Package gates, independent review and both consumer checks pass; runtime accounting is honest.
+- [ ] An immutable release is published; later site adoption and UI/development gates remain open.
+
+Runtime scope
+- New curriculum/site_adaptation.py and cohesive lifecycle/validation helpers as needed.
+- Curriculum/content_sync_parsers.py; importing.py only if a proven public core reuse needs it.
+- No new function exceeds 30 lines or source file 300 lines; split materially changed oversized
+  cleanup cohesively, without ternaries or filtered/nested comprehensions.
+
+Docs
+- Curriculum README, CHANGELOG, phase-7 and STATUS.
+
 ## C7.12e Resolve course instructors through the installed events app
 
 Repository: community-base. Depends on: C7.12a, C7.12c. Freeze required: no. Related issue:
