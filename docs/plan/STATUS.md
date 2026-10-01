@@ -161,7 +161,7 @@ issues that can start now.
 | `C5.4c` | community-base | Import course-tree YAML homework through explicit cohort bindings | C5.4a, C5.4b | no | done | https://github.com/DataTalksClub/community-base/pull/342 |
 | `A5.3` | AI-Shipping-Labs/website | AISL: render course hierarchy from repository structure | C5.4 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1830 |
 | `D5.3` | DataTalksClub/website | DTC: adopt repository-derived course hierarchy and homework units | D5.3a, D5.3b, D7.3 | no | todo | https://github.com/DataTalksClub/website/issues/436 |
-| `D5.3a` | DataTalksClub/website | Prove the DTC source and policy contract for shared curriculum | C5.4, C7.12b, C7.12d | no | blocked | https://github.com/DataTalksClub/website/issues/449 (required dependency security gate for #446) |
+| `D5.3a` | DataTalksClub/website | Prove the DTC source and policy contract for shared curriculum | C5.4, C7.12b, C7.12d | no | in-progress | https://github.com/DataTalksClub/website/issues/446 (source-only proof integrated at 5646d84a after independent QA/PM; CI fix pending for #446 collection isolation, development acceptance remains #442/aws-infra#58) |
 | `D5.3b` | DataTalksClub/website | Adopt shared curriculum projection behind DTC reader contracts | D5.1, D7.3 | no | todo | https://github.com/DataTalksClub/website/issues/447 |
 | `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3, A5.3 | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1696 |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1697 |
