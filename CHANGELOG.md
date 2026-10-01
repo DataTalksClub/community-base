@@ -8,6 +8,12 @@
   identity, per-item rollback and valid siblings, fatal checkout boundaries, provenance and stale
   cleanup. Immutable release and AISL adoption remain separate.
 
+- C7.12h (#381): make the package the sole converted wiki and documentation
+  page parser, storage and cleanup owner. Add a bounded site projection and
+  reporting adapter while preserving package defaults, page identity,
+  provenance, family-scoped diagnostics, partial sibling imports and safe
+  cleanup. No migration, setting, generic registry, UI or site import change.
+
 ## 0.5.23
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations

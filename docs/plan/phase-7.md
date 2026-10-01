@@ -1240,6 +1240,93 @@ rendering/Dev checks; C3.7/C4.3/C5.3 donor equivalence and development-copy rehe
 Docs
 - Curriculum README, CHANGELOG, phase-7 and STATUS.
 
+## C7.12h Give converted wiki/docs one package owner
+
+Repository: community-base. Depends on: C7.9c, C7.8. Freeze required: no. Related issue:
+DataTalksClub/community-base#381.
+
+Goal: keep the package as the sole converted wiki/docs discover, apply and cleanup owner under
+D24 while preserving site storage projection, bounded diagnostics, navigation and operator
+reporting. No visible UI, feature, schema, setting, source-pin or generic routing change.
+
+Read first
+- Issue #381's actual isolated AISL duplicate-owner RED and field/collector inventory.
+- Knowledge-base content_sync_parsers, sync, models and package-parser tests.
+- Content-sync documents/resolution diagnostics, parsers and orchestration; kernel redaction.
+- Read-only AISL knowledge-base family, FamilyParser, converted_core, checkout_view, media,
+  navigation cache and integration collector/wrapper contracts.
+- Decisions D21/D23/D24, architecture, quality gates, coding standard and P15/P16/P17.
+
+Steps
+1. Record the actual RED: two converted pages currently cause four writes and four cleanups;
+   real wrapper reports SUCCESS with created2/updated0 and four details. Preserve its published
+   v0.5.22 provenance and exclude the earlier pre-Django harness failure from product evidence.
+2. Review the smallest page-specific projection/error/final-report contract. The package retains
+   collection selection, source reading/validation, resolution, storage calls and cleanup.
+   The site may map existing public storage values, perform bounded current-page asset rendering,
+   redact a live error and publish the completed report. No site core callable, discovery,
+   transaction, cleanup decision, generic registry replacement or second framework.
+3. Write authoritative package RED contracts, then implement explicit conflict-checked registration
+   resolved at discovery. Keep the unconfigured package path unchanged. Extract the oversized page
+   parser cohesively; preserve shared one-read/one-resolution and public imports. Validate immutable
+   section/source/page identity before effects. Only existing supported storage seams are projected.
+4. Preserve error and cleanup boundaries: ordinary item projection/storage failure retains its
+   discovered identity and continues valid siblings; genuinely missing other pages may still draft.
+   Scoped read/discovery/resolution defects reject affected pages and suppress that family's cleanup
+   while unaffected siblings remain eligible. Content-manifest defects are global; diagnostics in
+   unrelated course/person/article or the other page collection must not change this family's report
+   or cleanup. Root and overlapping collection attribution must be proved; ambiguity fails closed.
+5. Preserve cleanup-safe missing-image diagnostics through a validated, same-document missing-asset
+   disposition. The page remains stored, safe cleanup runs and the error stays operator-visible;
+   unrelated reference/resolution defects cannot be downgraded. Default strict package mode is
+   unchanged without an adapter. The package chooses the safe disposition, not an arbitrary callback.
+6. Preserve exact structured filesystem-boundary fields and traceback-time redaction through an
+   explicit package boundary value, without site imports, exception duck typing or generic engine
+   changes. Publish accepted details and the original rich error once before fatal exit; no later
+   sibling, cleanup or navigation refresh. Generic parser status is PARTIAL; later AISL FAILED
+   requires its preserved `step: filesystem_boundary` record and actual wrapper proof.
+7. Publish one final typed report after successful cleanup or intentional suppression; ordinary
+   errors then make the package family partial. The site reports counts/details/errors and refreshes
+   navigation only for completed reports. Prove adapter/report exceptions fail visibly, canaries are
+   absent from messages/logs and no registration leaks between tests. Review both parser orders.
+8. Run package gates and independent review, then both exact P16 consumers and an immutable release.
+   Later AISL adoption supplies projection/report compatibility and makes only the corresponding
+   retired converted owner's discovery, cleanup and collector emission silent. Preserve undeclared
+   or unconverted legacy-kind behavior until its separately reviewed cutover; a manifest alone is
+   not proof that every legacy kind can be retired. Final family deletion belongs to A7.3/P17.
+
+Verification
+- `uv run pytest tests/knowledge_base/test_page_site_adapter.py tests/knowledge_base/test_page_site_failures.py`
+  records authoritative RED and then GREEN with real rows and actual orchestration.
+- Ordinary failed row stays while an unrelated removed sibling drafts; diagnostic cleanup suppression
+  retains both. Same-kind/cross-kind/global/root attribution and default mode are covered separately.
+- Safe missing-image page persists, cleanup runs and its structured diagnostic survives; unrelated
+  diagnostics retain their original refusal behavior. No arbitrary broad error downgrade.
+- Fatal structured boundary preserves accepted reports, skips later work and navigation refresh;
+  later AISL wrapper status remains separately proved. Captured report/traceback logs contain no canary.
+- Projected field values, parent binding, checksum, repeated identities and final counts/details are
+  covered; package storage/cleanup has one owner and both registration orders agree.
+- Existing knowledge-base tests, full all-extras suite, lint/format, Django checks, fresh migrations,
+  boundaries and plan checks pass. No models, migrations, settings, generic registry/engine or UI diff.
+- P16 records exact sites and raw baseline/linked counts with qualified exclusions.
+- Not run here, needs: immutable AISL pin, real site fields/parents, legacy refresh, actual collector,
+  navigation, desktop/mobile rendering and development deploy. No donor or adoption completion here.
+
+Done when
+- [ ] One package owner applies and cleans converted wiki/docs with preserved identity/provenance.
+- [ ] Projection, diagnostics, error/cleanup/report behavior and default mode are proven without UI changes.
+- [ ] Package gates, independent review and both consumers pass; net runtime versus moves/tests/docs recorded.
+- [ ] An immutable release is published; later AISL adoption and A7.3 deletion remain open.
+
+Runtime scope
+- Knowledge-base content_sync_parsers and cohesive page lifecycle/registration/value modules.
+- No importing site code, new function over 30 lines, source file over 300 lines, ternary or
+  filtered/nested comprehension. Existing oversized files cannot grow without a genuine exception.
+- Record added/moved/deleted source separately. Preparation estimates are not achieved deletion.
+
+Docs
+- Knowledge-base README, CHANGELOG, phase-7 and STATUS.
+
 ## A7.2a Register the AISL site kinds and markdown extensions
 
 Repository: AI-Shipping-Labs/website. Depends on: C7.12a.

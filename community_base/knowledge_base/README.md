@@ -132,9 +132,38 @@ renderer and sanitizer, and what is left is the mapping onto the models.
 
 ## Parser contract
 
-A site that fills these models from a shape of its own registers its own
-`content_sync` parser (`community_base.content_sync.parsers.register_parser`)
-and calls, per item:
+The package remains the one parser, storage and cleanup owner for converted
+`wiki` and `docs` collections. A site that needs its existing rendered HTML,
+record shape and operator report registers one
+`page_adaptation.PageSiteAdapter` from `AppConfig.ready()`. The adapter has
+three bounded operations:
+
+- `project(context, document, default)` returns a `PageProjection`. It may
+  replace render fields on the supplied `PageWrite`, but the package checks
+  that section, page identity and source provenance are unchanged before any
+  write.
+- `describe_error(context, source_path, error, traceback)` converts a live
+  exception into the typed six-field `PageError` (`file`, `error`, `step`,
+  `kind`, `filesystem_boundary`, `retryable`). The package supplies the
+  traceback while the exception is active and redacts secret-looking values
+  before reporting.
+- `finished(context, report)` receives the authoritative typed counts, details
+  and errors after package cleanup, or an incomplete report when a filesystem
+  boundary or cleanup write stops the collection.
+
+Read and resolution diagnostics are scoped to the declared page family. They
+suppress cleanup for that family, while an ordinary projection or storage
+failure retains that page and still permits safe cleanup and later siblings.
+A missing image may remain cleanup-safe only when it belongs to a declared
+page and the adapter reports it as `image_reference_missing`; other unresolved
+references retain the strict failure behavior. A filesystem boundary stops
+later siblings and cleanup, preserving its structured record in the final
+report. With no adapter registered, package rendering and the existing strict
+collection behavior are unchanged.
+
+The public storage service remains available to a site-owned parser for a
+different, unconverted content kind. Such a parser registers through
+`community_base.content_sync.parsers.register_parser` and calls, per item:
 
 - `sync.upsert_page(source, *, section, slug, title, body="", summary="",
   parent_slug=None, parent_path=None, nav_order=0, public_path=None,
