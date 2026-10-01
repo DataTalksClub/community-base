@@ -16,6 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from community_base.coursework import notifications
+from community_base.coursework.automation import get_automation_policy
 from community_base.coursework.hooks import hooks
 from community_base.coursework.models import (
     PeerReview,
@@ -53,45 +54,39 @@ def _waiting_submissions(project, limit: int):
     )
 
 
+def _create_batch(project, waiting):
+    batch = PeerReviewBatch.objects.create(
+        project=project,
+        due_at=timezone.now() + timezone.timedelta(days=project.pooled_review_window_days),
+    )
+    assignments = select_random_assignment(
+        waiting, project.number_of_peers_to_evaluate, seed=_batch_seed(project, batch)
+    )
+    for assignment in assignments:
+        assignment.batch = batch
+    PeerReview.objects.bulk_create(assignments)
+    waiting_ids = [submission.id for submission in waiting]
+    ProjectSubmission.objects.filter(id__in=waiting_ids).update(
+        review_state=SubmissionReviewState.IN_REVIEW.value
+    )
+    return batch, assignments
+
+
 def try_form_batch(project) -> PeerReviewBatch | None:
-    """Form and assign one pooled review batch if enough submissions are waiting.
-
-    A no-op (returns ``None``) for a non-pooled project, a closed pooled project, or a pooled
-    project without ``number_of_peers_to_evaluate + 1`` submissions yet waiting. Locks the
-    project row for the duration so two learners submitting at the same moment cannot both form a
-    batch from the same waiting submissions.
-    """
-
+    """Form one pooled batch when enough submissions are waiting."""
+    if not get_automation_policy().enabled:
+        return None
     if not project.uses_pooled_review:
         return None
-
     batch_size = project.number_of_peers_to_evaluate + 1
-
     with transaction.atomic():
         project = Project.objects.select_for_update().get(pk=project.pk)
         if project.state == ProjectState.CLOSED.value:
             return None
-
         waiting = _waiting_submissions(project, batch_size)
         if len(waiting) < batch_size:
             return None
-
-        batch = PeerReviewBatch.objects.create(
-            project=project,
-            due_at=timezone.now() + timezone.timedelta(days=project.pooled_review_window_days),
-        )
-        assignments = select_random_assignment(
-            waiting, project.number_of_peers_to_evaluate, seed=_batch_seed(project, batch)
-        )
-        for assignment in assignments:
-            assignment.batch = batch
-        PeerReview.objects.bulk_create(assignments)
-
-        waiting_ids = [submission.id for submission in waiting]
-        ProjectSubmission.objects.filter(id__in=waiting_ids).update(
-            review_state=SubmissionReviewState.IN_REVIEW.value
-        )
-
+        batch, assignments = _create_batch(project, waiting)
     hooks.peer_reviews_assigned(project=project, review_count=len(assignments))
     # One email per batch member: in a pooled batch every member is also a reviewer, so the
     # batch-ready email carries their review links and replaces the deadline-mode
@@ -109,6 +104,8 @@ def form_pooled_batches(project) -> list[PeerReviewBatch]:
     drain; submissions left over below ``n + 1`` keep waiting for later ones.
     """
 
+    if not get_automation_policy().enabled:
+        return []
     batches = []
     while True:
         batch = try_form_batch(project)
@@ -138,6 +135,8 @@ def form_pooled_batches_job(context: JobContext, payload: JobPayload):
     for batches that callback missed, the same way ``expire_pooled_reviews`` is for expiry.
     """
 
+    if not get_automation_policy().enabled:
+        return {"formed_batches": 0}
     del context, payload
     formed = 0
     for project in _projects_with_waiting_submissions():
@@ -155,40 +154,34 @@ def _batch_fully_resolved(batch) -> bool:
     return not batch.reviews.filter(state=PeerReviewState.TO_REVIEW.value).exists()
 
 
+def _score_locked_batch(batch):
+    batch = PeerReviewBatch.objects.select_for_update().get(pk=batch.pk)
+    if batch.scored_at is not None or not _batch_fully_resolved(batch):
+        return None
+    batch_reviews = batch.reviews.select_related(
+        "submission_under_evaluation",
+        "submission_under_evaluation__enrollment",
+        "reviewer",
+    )
+    calculation = calculate_project_scoring(batch.project, batch_reviews)
+    persist_scored_submissions(calculation)
+    member_ids = _batch_member_ids(batch)
+    ProjectSubmission.objects.filter(id__in=member_ids).update(
+        review_state=SubmissionReviewState.SCORED.value
+    )
+    batch.scored_at = timezone.now()
+    batch.save(update_fields=["scored_at"])
+    return batch
+
+
 def try_score_batch(batch: PeerReviewBatch) -> bool:
-    """Score every submission in a pooled batch once every review in it is resolved.
-
-    THE BATCH IS THE SCORING UNIT (``PeerReviewBatch``'s docstring). Idempotent and safe to call
-    speculatively: returns ``False`` with no writes if the batch is already scored or is not yet
-    fully resolved (every review ``SUBMITTED`` or ``EXPIRED``). Called from the happy path
-    (``review.submit_peer_review``, every review lands before ``due_at``) and from the expiry
-    sweep (``coursework.pooling.expire_pooled_reviews``, C5.2g) -- whichever observes "fully
-    resolved" first scores it; the row lock below and the ``scored_at`` check serialize the race
-    between them.
-    """
-
+    """Score a fully resolved pooled batch exactly once."""
+    if not get_automation_policy().enabled:
+        return False
     with transaction.atomic():
-        batch = PeerReviewBatch.objects.select_for_update().get(pk=batch.pk)
-        if batch.scored_at is not None:
-            return False
-        if not _batch_fully_resolved(batch):
-            return False
-
-        batch_reviews = batch.reviews.select_related(
-            "submission_under_evaluation",
-            "submission_under_evaluation__enrollment",
-            "reviewer",
-        )
-        calculation = calculate_project_scoring(batch.project, batch_reviews)
-        persist_scored_submissions(calculation)
-
-        member_ids = _batch_member_ids(batch)
-        ProjectSubmission.objects.filter(id__in=member_ids).update(
-            review_state=SubmissionReviewState.SCORED.value
-        )
-
-        batch.scored_at = timezone.now()
-        batch.save(update_fields=["scored_at"])
+        batch = _score_locked_batch(batch)
+    if batch is None:
+        return False
 
     hooks.project_leaderboard_updater(project=batch.project)
     return True
@@ -203,37 +196,34 @@ def _expired_pooled_reviews():
     ).select_related("batch", "reviewer", "reviewer__student")
 
 
+def _expire_review_if_pending(review) -> bool:
+    with transaction.atomic():
+        updated = PeerReview.objects.filter(
+            pk=review.pk, state=PeerReviewState.TO_REVIEW.value
+        ).update(state=PeerReviewState.EXPIRED.value)
+    if not updated:
+        return False
+    notifications.send_review_expired_notification(review)
+    return True
+
+
 @register_handler("coursework.expire_pooled_reviews")
 def expire_pooled_reviews(context: JobContext, payload: JobPayload):
-    """Release both parties of a pooled review whose window has closed.
-
-    Reviewer: their ``PeerReview`` moves ``TO_REVIEW`` -> ``EXPIRED`` (excluded from the
-    reviewee's score from that point on) and they are told the window closed. Reviewee: never
-    handled here directly -- ``try_score_batch`` scores their batch the moment every review in it
-    is resolved, submitted or expired, which this function's state change is what makes true. No
-    reassignment: see ``models.PeerReviewBatch`` and the C5.2g plan entry for why.
-    """
-
+    """Expire overdue pooled reviews and score newly resolved batches."""
+    if not get_automation_policy().enabled:
+        return {"expired": 0, "scored_batches": 0}
     del context, payload
     expired = 0
     scored_batches = 0
     batch_ids: set[int] = set()
-
     for review in _expired_pooled_reviews():
-        with transaction.atomic():
-            updated = PeerReview.objects.filter(
-                pk=review.pk, state=PeerReviewState.TO_REVIEW.value
-            ).update(state=PeerReviewState.EXPIRED.value)
-        if not updated:
+        if not _expire_review_if_pending(review):
             continue  # submitted or already expired by a concurrent run since the query above
         expired += 1
         batch_ids.add(review.batch_id)
-        notifications.send_review_expired_notification(review)
-
     for batch in PeerReviewBatch.objects.filter(id__in=batch_ids):
         if try_score_batch(batch):
             scored_batches += 1
-
     return {"expired": expired, "scored_batches": scored_batches}
 
 
