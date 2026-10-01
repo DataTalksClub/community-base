@@ -13,11 +13,11 @@ graph content so provenance stays complete and re-imports stay idempotent.
 from __future__ import annotations
 
 import hashlib
-import re
 
 from django.db import transaction
 from django.utils import timezone
 
+from community_base.curriculum.importing_instructors import sync_instructors as _sync_instructors
 from community_base.curriculum.importing_units import UnitImport
 from community_base.curriculum.importing_values import (
     cohort_values,
@@ -31,13 +31,11 @@ from community_base.curriculum.models import (
     Cohort,
     CohortModule,
     Course,
-    CourseInstructor,
     CurriculumImportRun,
     Module,
 )
 from community_base.curriculum.source import (
     CurriculumParseError,
-    InstructorGraph,
     ParsedCurriculum,
     UnitGraph,
 )
@@ -367,37 +365,3 @@ def delete_stale(queryset, seen_ids: set) -> int:
     for row in stale:
         row.delete()
     return len(stale)
-
-
-def _sync_instructors(course: Course, graph) -> None:
-    # Imported lazily: sites may install curriculum for the models and sync
-    # contract without the package events app (A7.1); the parser imports
-    # this module at ready() time, before any app registry is complete.
-    from community_base.events.models import Host
-
-    for position, entry in enumerate(graph.instructors):
-        if not isinstance(entry, InstructorGraph):
-            continue
-        host = None
-        if entry.slug:
-            host = Host.objects.filter(slug=entry.slug, kind="instructor").first()
-        if host is None:
-            host = Host.objects.filter(name=entry.name, kind="instructor").first()
-        if host is None:
-            host = Host.objects.create(
-                name=entry.name,
-                slug=entry.slug or _host_slug(entry.name),
-                kind="instructor",
-                bio=entry.bio,
-            )
-        elif entry.bio and host.bio != entry.bio:
-            host.bio = entry.bio
-            host.save(update_fields=["bio", "bio_html", "updated_at"])
-        CourseInstructor.objects.update_or_create(
-            course=course, host=host, defaults={"position": position}
-        )
-
-
-def _host_slug(name: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-    return slug or "instructor"

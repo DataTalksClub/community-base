@@ -384,6 +384,15 @@ previous/next and Continue follow the complete course tree, using the selected c
 homework and drip. The selected cohort must belong to the course and be visible. This preserves
 flat reader behavior even when a cohort curates a subset or another order.
 
+## Instructor import compatibility
+
+The importer uses the installed model targeted by `CourseInstructor.host` (`events.Host`).
+Consumers may retain their own events app while adopting curriculum models and sync. Their host
+model supplies name, slug, kind, bio, bio_html and updated_at; slug/name lookup, biography updates
+and course-instructor positions retain the existing import behavior. Instructor-free graphs do
+not resolve or import an events model. Package events API and Studio surfaces remain conditional
+on the package events app being installed.
+
 ## Known limitations
 
 - A cohort that places nothing and a cohort that declared no placement are indistinguishable at
