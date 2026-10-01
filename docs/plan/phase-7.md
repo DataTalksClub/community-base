@@ -1151,7 +1151,7 @@ Verification
 
 Done when
 - [x] Instructor-free imports work with a site-owned events app.
-- [ ] Instructor identity, ordering and biography updates use the installed host model.
+- [x] Instructor identity, ordering and biography updates use the installed host model.
 - [x] Package and both consumer gates pass and a narrow immutable tag is published.
 - [x] AISL's pin scope is refreshed separately; no site adoption acceptance is inferred.
 
@@ -1168,10 +1168,11 @@ and disposable dependency-rewrite failures recorded in those receipts.
 Actual AISL adoption exposed a remaining field-contract error: the installed `events.Host`
 has no `kind` field, but instructor lookup and creation still require it. The synthetic
 consumer Host had that field and did not cover this case. [Issue #378](https://github.com/DataTalksClub/community-base/issues/378)
-tracks the correction; instructor identity, ordering and biography compatibility remain
-unverified for this donor model. Keep C7.12e in progress until its corrected contract and
-immutable release pass verification. Duplicate converted-course application is separately
-tracked in [issue #379](https://github.com/DataTalksClub/community-base/issues/379).
+tracks the correction. C7.12f now proves the installed-field contract with a synthetic consumer
+Host matching those common fields and no `kind`; identity, order, biography and repeat import
+checks pass. Immutable v0.5.23 contains the correction. This package evidence does not establish
+AISL's actual tagged-pin/parser/rendering adoption. Duplicate converted-course application is
+separately tracked in [issue #379](https://github.com/DataTalksClub/community-base/issues/379).
 
 Docs
 - Curriculum README, CHANGELOG, phase-7 and STATUS.
@@ -1211,12 +1212,30 @@ Verification
   adoption and parser routing remain separate issues.
 
 Done when
-- [ ] A consumer-owned Host without `kind` preserves instructor lookup, creation, biography,
+- [x] A consumer-owned Host without `kind` preserves instructor lookup, creation, biography,
   ordering and repeat identity.
-- [ ] A package Host with `kind` still scopes and creates imported instructors with
+- [x] A package Host with `kind` still scopes and creates imported instructors with
   `kind="instructor"`.
-- [ ] Package gates pass with no schema, settings, UI or parser-routing change.
-- [ ] Both P16 consumer jobs pass from a reviewed pull request; no site adoption is inferred.
+- [x] Package gates pass with no schema, settings, UI or parser-routing change.
+- [x] Both P16 consumer jobs pass from a reviewed pull request; no site adoption is inferred.
+
+Verified package completion: [PR #380](https://github.com/DataTalksClub/community-base/pull/380)
+merged the independently reviewed correction; [release PR #382](https://github.com/DataTalksClub/community-base/pull/382)
+published immutable `v0.5.23` at `bf498039636e01e28831ad03a22bff912b9c5aff`.
+[Required release checks](https://github.com/DataTalksClub/community-base/pull/382#issuecomment-5931746137),
+[publication receipt](https://github.com/DataTalksClub/community-base/pull/382#issuecomment-5931865622),
+[published-wheel and immutable-tag install verification](https://github.com/DataTalksClub/community-base/issues/378#issuecomment-5931913152),
+and [merged-main checks](https://github.com/DataTalksClub/community-base/pull/382#issuecomment-5932581930)
+are separate measured evidence. All 644 package files and 60 migrations in the isolated tag
+install match the release source; published wheel SHA-256 is
+`b38085ce727c76b1988b8cfe01458f91ea81d5a46b27b7fdb6c326b172c99692`.
+The release gates ran 2,496 package tests with two existing warnings. Merged-main P16 used
+AISL `9d50e8fb221d3735258cfb27617f58fc47aca15b` (18,029 baseline and linked tests,
+OK with 25 skips) and DTC `1456e0f91461a955ddb305f19dbdda4f8136962f` (4,172 tests:
+raw baseline one error, linked two failures). Both jobs succeeded under the documented P16
+shallow-history and disposable dependency-rewrite qualification; raw DTC is not a clean PASS.
+Not run here, needs: AISL #1851 tagged-pin adoption, all three course parsers, real collector and
+rendering/Dev checks; C3.7/C4.3/C5.3 donor equivalence and development-copy rehearsals remain open.
 
 Docs
 - Curriculum README, CHANGELOG, phase-7 and STATUS.
