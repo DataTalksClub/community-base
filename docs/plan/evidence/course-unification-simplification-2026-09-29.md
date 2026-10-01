@@ -18,24 +18,72 @@ unification proceeds through shared equivalent behavior; remaining differences s
 
 ## Current delivery state
 
-This summary supersedes historical local-only or pending-release statements in the evidence below.
+Checked 2026-10-01. This section supersedes earlier local-only, release and deployment
+observations in the historical investigation below. `docs/plan/STATUS.md` and the linked
+acceptance receipts remain the progress authority. Full course unification is incomplete.
 
-- AISL #1842/#1843/#1844 landed through the receiving owner and passed development deployment.
-- DTC #438 and the #440 drain correction are on main; exact CI is green, development deployment
-  remains red at migration exit 21, and the public development site returns 503. The earlier reset
-  attempt failed before SQL. The requested scoped IAM log access remains pending; no second reset
-  ran. #439 remains on its explicit operational hold.
-- Package v0.5.15 is published with the homework error-input fix; DTC still pins v0.5.10.
-  The proposed pin update has a documented checkbox-draft message difference to resolve first.
-- Aplexer PR #23 messaging and worker fixes passed hosted CI. The maintainer's mouse changes have
-  since been added as combined head `6a71a69f850a42956ba4bf434b5f7e4599d260e9`; that exact head's
-  CI passed. Final main integration is awaiting the maintainer; it owns installation and preservation
-  of the separate config overlay.
-- C5.4 has a concrete backend-only separation plan. The proposed first slice preserves Unit identity
-  during source moves. The existing draft owner has received the coordination request; no source
-  changes have been made to that draft or to the transferred AISL worktrees.
-- Full course unification remains incomplete. No visible site UI or feature was removed to obtain
-  the reported reductions. AISL data-preservation and donor-adoption gates remain in force.
+| Area | Verified state | Remaining boundary |
+|---|---|---|
+| AISL cleanup | #1842, #1843 and #1844 landed through the receiving owner and passed development deployment | Preserve the new course Home and mobile work; these cleanups do not prove full course parity |
+| Shared package | [v0.5.21](https://github.com/DataTalksClub/community-base/releases/tag/v0.5.21) is published. The installed-Host importer fix [PR #374](https://github.com/DataTalksClub/community-base/pull/374#issuecomment-5927919195) passed independent review and all four required checks and merged as `dddcb9c6`; no migrations changed | v0.5.22 release preparation is local and unpublished; no site pin or adoption acceptance is inferred |
+| DTC source contract | [#446](https://github.com/DataTalksClub/website/issues/446#issuecomment-5923944769) source proof and its independently reviewed collection fix are on main `1456e0f9`; exact CI `36808204223` passed, including the reviewed #449 security baseline. Runtime remains v0.5.10; v0.5.21 runs in a separate proof environment | Development run `36808204208` failed on target secret references; D5.3a remains in progress pending #442/aws-infra#58 |
+| AISL parser integration | #1851 resumed at `f8b5068c` with its archive preserved and owns the explicitly released parser/pin files. The [PM amendment](https://github.com/AI-Shipping-Labs/website/issues/1851#issuecomment-5927994008) permits invisible hydration hooks to preserve existing media; five foreign-dirty course/reader templates remain held | v0.5.21 fails the installed-Host importer contract. Complete publication and separately reviewed v0.5.22 pin, all three parsers, ownership handoffs and full rendered-behavior gates before A7.2b acceptance |
+| AISL test isolation | [#1852](https://github.com/AI-Shipping-Labs/website/issues/1852#issuecomment-5926178439) passed full SWE and independent Tester gates, received separate PM acceptance, and landed as main `f8b5068c`. Independent QA included 105 Django and 1001 core browser tests | [Development run `36826236503`](https://github.com/AI-Shipping-Labs/website/issues/1852#issuecomment-5926418043) first cancelled a Django shard; the one coordinated rerun cancelled PostgreSQL verification and skipped deployment. The watcher omitted that required job, so its raw green was not readiness. #1856 owns the correction; #1852 remains open and no second rerun is authorized |
+| AISL query fixture | [#1853](https://github.com/AI-Shipping-Labs/website/issues/1853#issuecomment-5925806875) preserves the strict query bound through deterministic cache setup; main `7be067a8` passed development run `36821726110` | [PR #371 consumer run `36826404489`](https://github.com/DataTalksClub/community-base/pull/371#issuecomment-5926806051) passed at package `326578e`, AISL `f8b5068c` and DTC `1456e0f9`; the fixture fix changes no API runtime |
+| DTC development recovery | Reviewed compatibility fixes and the operator runbook are on main | [website#442](https://github.com/DataTalksClub/website/issues/442) and [aws-infra#58](https://github.com/DataTalksClub/aws-infra/issues/58) remain open: selected task sources lack required target secret references, so ordinary deployment refuses promotion before registration |
+| Agent communication | [aplexer PR #28](https://github.com/PocketShell-io/aplexer/pull/28) is merged and installed; the reusable `a2a-communication` skill is installed in `../.agents` | Deliver the original queued message only to a freshly verified empty, idle prompt; obtain explicit ownership replies and preserve human drafts |
+
+The DTC runtime pin must stay distinct from the source-proof pin. Upgrading runtime v0.5.10
+to v0.5.21 introduces intervening migrations and changes live coursework behavior; that belongs
+to later adoption. The earlier runtime-upgrade candidate for #446 is superseded and is not
+acceptance evidence. Source proof changes no production reader, course storage, database or UI.
+
+The earlier AISL #1851 staging snapshot added 347 implementation/template lines. Subsequent
+cohesive extraction reduced existing `curriculum_compat.py` from 759 to 740 lines and the
+course parser from 2576 to 2569, while adding shared-adapter helpers. Those file reductions
+are not overall net deletion; final frozen runtime/template and test accounting remains pending.
+Keep every live legacy reader until equivalent converted-source and caller behavior is proven;
+record actual net deletion when A7.3 or D7.3 retires it. C7.12e adds a net seven runtime lines
+while replacing the incorrect host-model dependency; it is a compatibility fix, not a deletion.
+
+AISL membership acceptance is also unverified. Closing #1579 did not supply the missing
+aggregate development-copy rehearsal or paid-member account/dashboard receipts. The owner
+could not recall their location. Follow the [recorded checklist](https://github.com/AI-Shipping-Labs/website/issues/1579#issuecomment-5919685449)
+and preserve A3.1 and downstream donor-compatibility gates. Do not infer these checks from
+package fixtures, local SQLite counts or an issue's closed state.
+
+### Remaining execution sequence
+
+1. Preserve #446's accepted source-proof evidence and exact v0.5.10 runtime boundary.
+   [Tracking PR #372](https://github.com/DataTalksClub/community-base/pull/372) records its
+   passing CI and failed development deployment; it does not mark D5.3a done. It merged as
+   `ed05d343`; [all three main workflows passed](https://github.com/DataTalksClub/community-base/pull/372#issuecomment-5927571063).
+   PR #371's genuine consumer verification passed at the updated site commits: AISL baseline and linked
+   suites each passed 17995 tests with 25 skips. DTC's baseline retains its shallow-checkout Gate B error; the two linked
+   failures are documented P16 rewrite artefacts. Consumer success is not a clean raw
+   DTC suite. PR #371's historical required-check failure remains separate from that genuine
+   run-specific green; this documentation update is still local and unaccepted. Complete fresh
+   review, current-head checks and P18 before publishing or merging it. Keep
+   historical failed and superseded evidence explicit.
+2. Preserve the unresolved #1852 development verdict and #1856 watcher correction. With the
+   explicit AISL parser/pin handoff recorded, #1851's current-main reconciliation is complete
+   and the amended PM scope is published. Publish the reviewed installed-Host fix before
+   adopting its immutable pin, then complete all three core parsers and their independent gates.
+   Preserve the receiving owner's newer
+   course behavior, legacy compatibility, desktop/mobile rendering and coursework settings.
+3. Complete AISL's outstanding membership and donor-equivalence checks and restore DTC
+   development through the reviewed infrastructure activation and service-pointer reconciliation.
+   No further database reset is planned; AISL data remains protected.
+4. Follow the existing DTC chain: D5.3a source proof, then C5.3 plus D5.3a for D5.1 storage and
+   its single shared-parser-backed writer; D7.3 completes six-source proof and reader retirement;
+   D5.3b integrates learner projections. D5.3 accepts the aggregate before D5.2 and D7.4 cutovers.
+5. Delete replaced implementations only after source, route, API, Studio and learner-workflow
+   equivalence is verified. Preserve grading policies, enrollment, progress, homework, reviews,
+   certificates, notification timing and both sites' existing presentation.
+
+These tracks may proceed in parallel when their owned paths and prerequisites are clear.
+FAQ redesign and feature-field retirement in C5.2o are outside this task's no-visible-change
+and no-feature-removal constraints. This checkpoint changes no dependency or completion status.
 
 ## Objective and constraints
 
@@ -103,8 +151,8 @@ This is a proposed revision to the later adoption criteria, not a declaration th
 
 The independent PM review also identified old learner-ID/submission preservation language in
 D5.3 / site #436. Amend that prerequisite together with D5.1 and D5.2 for the explicitly scoped
-fresh target; do not silently override it downstream. Keep the dependency chain
-C5.4 -> D5.3, then C5.3 + D5.3 -> D5.1 -> D5.2. An in-place target retains its preservation
+fresh target; do not silently override it downstream. Follow the corrected dependency chain
+C5.4 -> D5.3a, then C5.3 + D5.3a -> D5.1; D5.2 waits for D5.1 and full D5.3 acceptance. An in-place target retains its preservation
 requirements. Historical count equality and original certificate-row preservation become
 `Not applicable: authorized fresh DTC development target`, rather than reported passes.
 
@@ -116,7 +164,10 @@ with package-owned storage and excludes learner and operational data. Establish 
 source/import contract before using it for adoption. A green empty-schema deployment cannot
 stand in for imported content or course-workflow evidence.
 
-### Next shared curriculum prerequisite
+### Historical shared curriculum investigation (2026-09-29)
+
+The draft and release state below is retained as investigation evidence. Use the current
+delivery checkpoint and phase files above for execution; this draft is no longer the next task.
 
 The current-main audit at package `f35acecd2a95f34920433c71b7c0b649c0eeec4e` identified
 [C5.4 / #306](https://github.com/DataTalksClub/community-base/issues/306), drafted in
@@ -141,7 +192,7 @@ ordering, preserved progress and coursework identities when a unit moves, reject
 writes for invalid source data, and no correct answers in learner projections. Run package and
 both consumer gates separately after the implementation is reconciled.
 
-Current D5.1 depends on both D5.3 and C5.3. C5.4 feeds the A5.3/D5.3 adapters; it does not
+Current D5.1 depends on both D5.3a and C5.3. C5.4 feeds the A5.3/D5.3 adapters; it does not
 replace C5.3's C3.7/C4.3 donor compatibility prerequisites. AISL's outstanding donor-equivalence
 and development-copy rehearsals remain required despite DTC's fresh-schema allowance.
 
