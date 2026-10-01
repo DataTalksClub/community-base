@@ -1064,19 +1064,27 @@ Verification
 
 Done when
 - [x] Instructor-free imports work with a site-owned events app.
-- [x] Instructor identity, ordering and biography updates use the installed host model.
+- [ ] Instructor identity, ordering and biography updates use the installed host model.
 - [x] Package and both consumer gates pass and a narrow immutable tag is published.
 - [x] AISL's pin scope is refreshed separately; no site adoption acceptance is inferred.
 
-Completion evidence: [PR #374 package and consumer gates](https://github.com/DataTalksClub/community-base/pull/374#issuecomment-5928724402),
+Verified release evidence: [PR #374 package and consumer gates](https://github.com/DataTalksClub/community-base/pull/374#issuecomment-5928724402),
 [PR #375 release gates](https://github.com/DataTalksClub/community-base/pull/375#issuecomment-5928987419),
 and [published-wheel verification](https://github.com/DataTalksClub/community-base/pull/375#issuecomment-5929053397).
 Immutable `v0.5.22` points at `91c8ee09edda0989adb09778e9b18ec4fd1d2822`.
 [AISL #1851's separate PM pin-scope refresh](https://github.com/AI-Shipping-Labs/website/issues/1851#issuecomment-5929084958)
-preserves all 11 unchecked acceptance criteria and the five reserved templates. Package
-completion does not complete AISL's pin implementation, parser adoption or rendering gates.
+preserves all 11 unchecked acceptance criteria and the five reserved templates. Release
+verification does not complete AISL's pin implementation, parser adoption or rendering gates.
 Both consumers passed P16 comparisons; the raw DTC suites retain the documented shallow-history
 and disposable dependency-rewrite failures recorded in those receipts.
+
+Actual AISL adoption exposed a remaining field-contract error: the installed `events.Host`
+has no `kind` field, but instructor lookup and creation still require it. The synthetic
+consumer Host had that field and did not cover this case. [Issue #378](https://github.com/DataTalksClub/community-base/issues/378)
+tracks the correction; instructor identity, ordering and biography compatibility remain
+unverified for this donor model. Keep C7.12e in progress until its corrected contract and
+immutable release pass verification. Duplicate converted-course application is separately
+tracked in [issue #379](https://github.com/DataTalksClub/community-base/issues/379).
 
 Docs
 - Curriculum README, CHANGELOG, phase-7 and STATUS.
