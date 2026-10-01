@@ -1103,12 +1103,33 @@ Verification
   three-core-parser adoption by itself. Member wiki and article ownership stay separate.
 
 Done when
-- [ ] The supported adapter preserves one package graph/homework apply, transaction, validation,
+- [x] The supported adapter preserves one package graph/homework apply, transaction, validation,
   identity and provenance per accepted converted collection.
-- [ ] Host policy/rendering/extensions/reporting and actual scoped failure/cleanup behavior are
+- [x] Host policy/rendering/extensions/reporting and actual scoped failure/cleanup behavior are
   covered without changing ordinary package mode or generic parser routing.
-- [ ] Package gates, independent review and both consumer checks pass; runtime accounting is honest.
-- [ ] An immutable release is published; later site adoption and UI/development gates remain open.
+- [x] Package gates, independent review and both consumer checks pass; runtime accounting is honest.
+- [x] An immutable release is published; later site adoption and UI/development gates remain open.
+
+Completion evidence: [PR #385](https://github.com/DataTalksClub/community-base/pull/385)
+merged reviewed source `cce571d9ac0d789c2d51f38b6f6d2ac4c34a695a` through final head
+`bf65fb944b5c49fb83570da366eb553d7f6d59b1` as
+`7ecc85c40f00aaa19ae1217a4216f5c2bb1e68e2`, tree
+`59193dd382d6e5365f1d56fbaee274cc075eb85e`. Independent review and local gates covered 2,512
+tests with two existing warnings; runtime changed by +428/-52, net +376. The
+[merged-main receipt](https://github.com/DataTalksClub/community-base/pull/385#issuecomment-5933766286)
+records package, plan and both P16 jobs green. AISL baseline and linked failure sets were 0/0;
+raw DTC retained one baseline error and two linked failures under the documented P16 comparison
+qualification, so it is not claimed as a clean raw suite pass.
+
+Immutable release evidence: [`v0.5.24` publication](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5936991949)
+and [downloaded-wheel and isolated-tag verification](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5937042938)
+prove tag `v0.5.24` at `ae0c065366244590f4143d0519c40ec7efb29cad`, wheel SHA-256
+`dc5380fa1392970c56b55f4a2e68d601327c31b8f548cd273f828f96829a684c`, and exact equality for
+651 package files and all 60 migration files. The
+[release-main gates](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5936950583)
+retain the raw DTC qualification and latest-main AISL 0/0 comparison; the release PR's earlier
+AISL baseline rate-limit failure remains separate. AISL #1851 pin/adoption, real site behavior,
+UI and development checks, donor gates and A7.3 legacy deletion remain open.
 
 Runtime scope
 - New curriculum/site_adaptation.py and cohesive lifecycle/validation helpers as needed.
@@ -1313,10 +1334,33 @@ Verification
   navigation, desktop/mobile rendering and development deploy. No donor or adoption completion here.
 
 Done when
-- [ ] One package owner applies and cleans converted wiki/docs with preserved identity/provenance.
-- [ ] Projection, diagnostics, error/cleanup/report behavior and default mode are proven without UI changes.
-- [ ] Package gates, independent review and both consumers pass; net runtime versus moves/tests/docs recorded.
-- [ ] An immutable release is published; later AISL adoption and A7.3 deletion remain open.
+- [x] One package owner applies and cleans converted wiki/docs with preserved identity/provenance.
+- [x] Projection, diagnostics, error/cleanup/report behavior and default mode are proven without UI changes.
+- [x] Package gates, independent review and both consumers pass; net runtime versus moves/tests/docs recorded.
+- [x] An immutable release is published; later AISL adoption and A7.3 deletion remain open.
+
+Completion evidence: [PR #386](https://github.com/DataTalksClub/community-base/pull/386)
+merged reviewed source `c3635f414ab25156bf4fc7d37b3cf3193eee1ed2` through final head
+`1cfd5d540b27ea4fd65b6c40111354a3c5e9db5d` as
+`8b2a35b4c14869b1e2e60f87d2543f90cc2888c7`, tree
+`093f89a9c96635312fab30950c70f8570c21fa8a`. Independent review and local gates covered 2,524
+tests with two existing warnings; runtime changed by +852/-254, net +598. G and H therefore add
+net +974 runtime lines; later site retirement is not counted as achieved simplification. The
+[merged-main receipt](https://github.com/DataTalksClub/community-base/pull/386#issuecomment-5936010430)
+records package, plan and both P16 jobs green. AISL baseline and linked failure sets were 0/0;
+raw DTC retained one baseline error and two linked failures under the documented P16 comparison
+qualification, so it is not claimed as a clean raw suite pass.
+
+Immutable release evidence: [`v0.5.24` publication](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5936991949)
+and [downloaded-wheel and isolated-tag verification](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5937042938)
+prove tag `v0.5.24` at `ae0c065366244590f4143d0519c40ec7efb29cad`, wheel SHA-256
+`dc5380fa1392970c56b55f4a2e68d601327c31b8f548cd273f828f96829a684c`, and exact equality for
+651 package files and all 60 migration files. The
+[release-main gates](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5936950583)
+retain the raw DTC qualification and latest-main AISL 0/0 comparison; the release PR's earlier
+AISL baseline rate-limit failure remains separate. AISL #1851 pin/adoption, real fields and
+collector/navigation/rendering behavior, UI and development checks, donor gates and A7.3 legacy
+deletion remain open.
 
 Runtime scope
 - Knowledge-base content_sync_parsers and cohesive page lifecycle/registration/value modules.
