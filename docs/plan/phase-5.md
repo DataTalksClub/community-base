@@ -1894,6 +1894,67 @@ Verification
 Docs: DTC course/spec/route-policy documentation; STATUS here. No generic package templates or
 route mounting replaces DTC presentation. No source conversion or parser duplication.
 
+## D5.3c Preserve ordered cohort module/project flow in converted source
+
+Repository: DataTalksClub/website. Depends on: C5.4, C7.12d. Freeze required: no.
+
+Goal: preserve DTC's authored cohort module/project order through a source-only conversion
+contract. A pure typed reader validates `extra.dtc_flow`, and a deterministic DTC pre-pass
+normalizes the existing schema-1 fixture in a disposable destination before the package converter
+runs. No database, runtime parser, source registration, package pin, route, template or UI changes.
+
+Read first
+- DTC AGENTS/process, specifications 01 and 04, coding standard and verification-plan contract.
+- `content_sync/course_repository.py`, `courses/services/curriculum_source.py`, the maintained
+  `llm_zoomcamp_2026` fixture and the exact existing source IDs.
+- Package FORMAT `extra` and cohort rules, the public converter/parser APIs and C7.12d's immutable
+  v0.5.21 refusal proof.
+- The DTC course-platform mapping, current cohort flow model/importer and project route identity.
+
+Steps
+1. Record the actual RED against immutable v0.5.21: direct generic conversion refuses the
+   fixture's nonempty flow under rule 3.8 and leaves that cohort scope unchanged. Keep that default.
+2. Add a pure, frozen DTC `extra.dtc_flow` state over already parsed package values. Validate exact
+   version/item shapes, cohort/module identities, complete module coverage and relative order,
+   unique cohort-scoped project slugs and bounded code/path/pointer errors. Parse no YAML twice.
+3. Build one complete normalization plan from the existing frozen schema-1 graph before effects.
+   In a disposable destination only, move the module subtree and terminal homework to standard
+   locations, preserve every stable ID and unrelated byte, write standard module/homework bindings
+   plus the full mixed flow, and remove legacy `flow` only after collision and inventory checks.
+4. Run the public v0.5.21 converter and parser over that destination. Prove the standard graph and
+   DTC state reconstruct the original module/project sequence and a second complete run changes no
+   path or digest. Never invent project metadata; current identity remains cohort plus project slug.
+5. Keep committed pure tests green with DTC's tracked v0.5.10 dependency. Run the v0.5.21 proof in
+   an isolated maintained link, record exact tag/source, then restore dependency files byte-for-byte.
+6. Keep each new or materially changed handwritten source and test file at or below 300 lines and
+   each new function at or below 30 lines, with no ternary or filtered/nested comprehension. Split
+   the pure contract from normalization if the complete behavior cannot meet those limits; the
+   pure half alone does not complete this issue or any adoption milestone.
+
+Verification
+- Focused source-contract and normalization tests use the unchanged maintained fixture, prove the
+  exact IDs/order, bounded refusals, no-write failures, full path inventory and byte idempotence.
+- Existing course-repository parser tests pass. Direct unpreprocessed conversion still refuses.
+- `uv run --frozen python scripts/ci.py verification-plan`,
+  `uv run --frozen python scripts/ci.py verification-run`,
+  `uv run --frozen python scripts/ci.py verification-evidence-check` and
+  `uv run --frozen python scripts/ci.py verification-report-check` pass with every component
+  classified once. Backend-only screenshots and migration evidence are explicitly not applicable.
+- An independent Tester recomputes the plan, reruns required components and exact v0.5.21 proof,
+  verifies restored pin/lock bytes, then a separate Product Manager accepts under the DTC process.
+- Not run here, needs: released C7.12g runtime integration, D5.1 data adoption, D5.3b projection,
+  D7.3 runtime cutover, D7.4 live conversion, deployment and visible-route equivalence.
+
+Done when
+- [ ] The typed source contract preserves exact cohort/module/project identity and order.
+- [ ] Disposable normalization preserves every stable ID and file disposition without metadata loss.
+- [ ] The package converter/parser accepts the normalized output and repeat output is byte-identical.
+- [ ] Tracked-pin and exact v0.5.21 evidence, DTC verification, Tester and PM gates pass.
+- [ ] Runtime, data, deployment and live-source adoption remain explicitly open.
+
+Docs: DTC course-platform shared-app mapping and `docs/plan/STATUS.md` here. No generated converted
+fixture or second parser is checked in.
+
 ## A5.1 Map AISL courses to the shared apps
 
 Repository: AI-Shipping-Labs/website. Depends on: C5.3, A5.3.
