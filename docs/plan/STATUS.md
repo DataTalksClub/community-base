@@ -207,7 +207,7 @@ issues that can start now.
 | `C7.12b` | community-base | Preserve mixed-course semantics during conversion | C7.12, C5.4 | no | done | https://github.com/DataTalksClub/community-base/pull/360 |
 | `C7.12c` | community-base | Preserve semantic include containers in shared rendering | C7.8, C7.12a | no | done | https://github.com/DataTalksClub/community-base/pull/364 |
 | `C7.12d` | community-base | Refuse conversion of unsupported ordered cohort flow | C7.12b | no | done | https://github.com/DataTalksClub/community-base/pull/367 |
-| `C7.12g` | community-base | Give converted courses one owner with site adaptation | C7.12a, C7.12c | no | in-progress | https://github.com/DataTalksClub/community-base/pull/383 |
+| `C7.12g` | community-base | Give converted courses one owner with site adaptation | C7.12a, C7.12c | no | in-progress | https://github.com/DataTalksClub/community-base/pull/385 |
 | `C7.12e` | community-base | Resolve course instructors through the installed events app | C7.12a, C7.12c | no | in-progress | https://github.com/DataTalksClub/community-base/pull/374 |
 | `C7.12f` | community-base | Support installed instructor hosts without a kind field | C7.12a, C7.12c | no | in-progress | https://github.com/DataTalksClub/community-base/pull/380 |
 | `C7.12h` | community-base | Give converted wiki/docs one package owner | C7.9c, C7.8 | no | in-progress | https://github.com/DataTalksClub/community-base/pull/386 |

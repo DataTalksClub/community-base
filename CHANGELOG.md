@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- C7.12g (#379): keep the package course parser as the single converted-course owner while
+  supporting one conflict-checked site adapter for policy, render-only graph changes, atomic host
+  extensions and rich reporting. Preserve the ordinary package path, structural and homework
+  identity, per-item rollback and valid siblings, fatal checkout boundaries, provenance and stale
+  cleanup. Immutable release and AISL adoption remain separate.
+
 - C7.12h (#381): make the package the sole converted wiki and documentation
   page parser, storage and cleanup owner. Add a bounded site projection and
   reporting adapter while preserving package defaults, page identity,
