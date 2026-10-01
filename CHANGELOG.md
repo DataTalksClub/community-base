@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- C7.12e (#373): resolve imported course instructors through the installed `events.Host`
+  relation. Support consumers retaining their own events app, including instructor-free
+  imports, without importing package events models. Preserve host identity, order and biography
+  updates. No migrations or site UI changes; tagged AISL adoption remains separate.
+
 ## 0.5.21
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations

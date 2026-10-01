@@ -1032,6 +1032,45 @@ Docs
 
 Completion evidence: [exact-head package and consumer gates](https://github.com/DataTalksClub/community-base/pull/367#issuecomment-5918661120); [v0.5.21 tag, published wheel and isolated install](https://github.com/DataTalksClub/community-base/pull/365#issuecomment-5918743557). Site adoption remains subject to the separate verification listed above.
 
+## C7.12e Resolve course instructors through the installed events app
+
+Repository: community-base. Depends on: C7.12a, C7.12c. Freeze required: no. Related issue:
+DataTalksClub/community-base#373.
+
+Goal: make the shared course importer use the installed `events.Host` model, including
+sites that retain their own events app. Preserve instructor identity, ordering, biography
+updates and import transaction behavior. No migration or visible UI changes.
+
+Read first
+- AISL #1851 importer reproduction and the curriculum app's model-only adoption boundary.
+- `curriculum/importing.py`, `curriculum/models.py`, instructor import tests and coding standard.
+
+Steps
+1. Reproduce the v0.5.21 failure with no instructors and with a site-owned events app.
+2. Resolve instructor hosts through the existing model relation or Django app registry;
+   never import a site model or patch process-global importer functions.
+3. Extract the instructor synchronization responsibility from the oversized importer without
+   changing slug/name lookup, ordering, biography updates or transaction ownership.
+4. Verify existing package-event imports and synthetic site-event imports, including repeat
+   imports, before publishing a narrow immutable release through P15.
+
+Verification
+- New regressions fail before the fix and pass after it, with no package events app installed.
+- Full curriculum tests, lint, format, Django checks, fresh migrations and boundaries pass.
+- P16 verifies both consumers with exact refs and baseline/linked failure comparisons.
+- Plan check passes. No model or migration diff; runtime and test lines reported separately.
+- Not run here, needs: AISL's separately reviewed tagged-pin adoption, all three parsers and
+  current desktop/mobile rendering gates. This package fix alone does not complete A7.2b.
+
+Done when
+- [x] Instructor-free imports work with a site-owned events app.
+- [x] Instructor identity, ordering and biography updates use the installed host model.
+- [ ] Package and both consumer gates pass and a narrow immutable tag is published.
+- [ ] AISL's pin scope is refreshed separately; no site adoption acceptance is inferred.
+
+Docs
+- Curriculum README, CHANGELOG, phase-7 and STATUS.
+
 ## A7.2a Register the AISL site kinds and markdown extensions
 
 Repository: AI-Shipping-Labs/website. Depends on: C7.12a.
