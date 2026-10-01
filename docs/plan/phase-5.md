@@ -1370,6 +1370,147 @@ Done when
 Docs
 - `community_base/coursework/README.md`, `CHANGELOG.md`.
 
+## C5.2p Guard coursework automation with a consumer-resolved runtime switch
+
+Repository: community-base. Depends on: C5.2l, C7.12e, C7.12f. Freeze required: no. Related:
+DataTalksClub/community-base#376; AI-Shipping-Labs/website#1696 Phase 5A.
+
+Goal: let a consumer populate shared coursework shadow rows without package automation
+forming or scoring pooled batches, expiring pooled reviews, invoking coursework hooks, or
+sending coursework reminders before cutover. Preserve current automation for consumers that
+do not opt out. Keep this package capability separate from the consumer rollout and from the
+later schema/copy stage.
+
+Baseline
+- Start runtime implementation after C7.12e/f is officially complete. A pending
+  dependency-bearing plan entry may be prepared earlier. Immutable v0.5.23 at
+  `bf498039636e01e28831ad03a22bff912b9c5aff` is the corrected runtime baseline.
+- Publish C5.2p in a later independently reviewed immutable package release. Do not rewrite,
+  retag or append source to v0.5.23, and do not require a separate AISL v0.5.22-only adoption
+  before package implementation.
+
+Read first
+- `community_base/coursework/apps.py`, `pooling.py`, `projects.py`, `review.py`,
+  `reminders.py`, hooks and notifications. `community_base/coursework/settings_keys.py`
+  does not exist at the v0.5.23 baseline and is a proposed new file.
+- Existing `community_base/mail/settings_keys.py` for the package runtime-key declaration
+  convention; do not claim a coursework declaration already exists.
+- `community_base/config/registry.py` and `service.py`, especially `declare_if_absent`,
+  consumer-first declaration, source precedence and worker reads. The current registry has
+  no hidden-definition option, and its complete `definitions()`/`groups()` output feeds the
+  staff Studio and configuration API.
+- Jobs registry, local schedule dispatch, Relay ingress, due runner, sweep and retry paths.
+- Issue #376's accepted guard boundary and AI-Shipping-Labs/website#1696 Phase 5A contract.
+
+Steps
+1. Declare `COURSEWORK_AUTOMATION_ENABLED` through the package config registry with boolean
+   type, package default `true`, `django_settings_fallback=True`, operator documentation and
+   `declare_if_absent`. The package imports no consumer module. A consumer declaration loaded
+   first keeps its own metadata and default; a consumer with no declaration retains enabled
+   package behavior. The registry service is the sole configuration owner. The definition is
+   visible to staff operators under the existing Studio contract and creates no learner UI.
+   Do not add a parallel `kernel.conf`, raw-setting owner or generic hidden-definition
+   framework. Existing registry rendering is sufficient; add no config template, form or view
+   work for this key. Preserve existing resolution order: stored database value, declared
+   environment variable, declared Django fallback, then registry/call default.
+2. Add one package-owned read-only policy/introspection owner used by every guarded entrypoint.
+   Each call resolves the current effective value and returns an immutable contract with
+   `enabled: bool`, `guard_version: str` fixed at `"1"`, and tuple-valued
+   `guarded_handlers` and `guarded_operations`. Version 1 has these ordered names:
+   - handlers: `coursework.form_pooled_batches`, `coursework.expire_pooled_reviews`,
+     `coursework.send_homework_deadline_reminders`,
+     `coursework.send_project_submission_deadline_reminders`, and
+     `coursework.send_peer_review_deadline_reminders`;
+   - operations: `try_form_batch`, `form_pooled_batches`, and `try_score_batch`.
+   The helper exposes no stored value, secret, database row, consumer state or transport data.
+   Consumers use this released contract instead of duplicating flag parsing, guard version or
+   guarded-name inventories.
+3. Resolve the policy at each call in web and worker processes. Guard `try_form_batch`,
+   `form_pooled_batches` and `try_score_batch` before a coursework query, domain write, mail or
+   hook. Preserve disabled returns exactly: `None`, `[]` and `False`, respectively. This also
+   covers the existing submission and review callbacks that call these operations after the
+   learner action commits.
+4. Guard the registered formation and expiry handlers before a coursework query, domain write,
+   mail or hook. Preserve disabled returns exactly: `{"formed_batches": 0}` and
+   `{"expired": 0, "scored_batches": 0}`.
+5. Guard all three registered reminder handlers before window evaluation, coursework query or
+   mail. Each returns `{"reminders": 0}` while disabled. Cover both deadline and pooled
+   peer-review reminder modes.
+6. Keep all five handlers and both existing 15-minute pooled schedules registered at either
+   flag value. Local or Relay dispatch may create and finish transport bookkeeping while false,
+   but no coursework row, state, score, evaluation, marker, leaderboard, hook or mail may
+   change.
+7. Preserve intentional APIs outside the switch: `calculate_project_scoring`, explicit
+   `persist_scored_submissions`, and deadline-mode Studio `score_project`. A later AISL copy may
+   call the calculation/persistence pair intentionally; it must not call `score_project` or an
+   actor-bearing convenience path.
+8. Document the consumer contract, complete package review and gates, run both exact P16
+   consumers, then publish and verify a new immutable guard release. AISL Phase 5A adoption is a
+   separate site issue and remains open after this package capability is released.
+
+Verification
+- Config tests prove package-default enabled, consumer-first false, web and worker reads, and
+  the unchanged order: environment `True` beats Django `False` without a stored row; absent
+  environment lets Django `False` protect startup; stored database `False` beats environment
+  `True`; clearing/re-enabling restores the existing fallback behavior. An unconfigured
+  consumer keeps current enabled behavior.
+- Policy tests prove `enabled` is resolved on each call, `guard_version` is stable, both ordered
+  tuples match the guarded implementation, and the five handler names are registered. A caller
+  can inspect the contract without importing a consumer or querying coursework rows.
+- With the switch false and enough real `AW` submissions, direct `try_form_batch`,
+  `form_pooled_batches`, registered formation dispatch and the submission callback create no
+  batch/reviews, make no `AW -> IR` change, and invoke no hook or mail. Returns are exactly
+  `None`, `[]` and `{"formed_batches": 0}` as applicable.
+- With the switch false and a fully resolved real batch, direct and callback-driven
+  `try_score_batch` creates no scores/evaluations, `SC` state, `scored_at`, leaderboard or hook
+  effect and returns `False`. The intentional learner review submission itself remains intact.
+- With the switch false and overdue real `TR` reviews, expiry returns
+  `{"expired": 0, "scored_batches": 0}` and causes no `TR -> EX`, mail, scoring,
+  evaluation, submission-state, scored-marker, leaderboard or hook effect.
+- Each reminder handler runs against eligible rows and returns `{"reminders": 0}` with no mail.
+  Peer-review coverage includes deadline and pooled rows.
+- Local dispatch, signed Relay ingress, due execution and retry/recovery of the real registered
+  names may update transport state but leave coursework rows, mail and hooks unchanged.
+- Default-enabled regressions retain current formation, expiry/scoring, reminder mail, state and
+  hook behavior. Tests prove calculation, intentional persistence and explicit deadline-mode
+  Studio scoring remain available while automated actors are disabled.
+- Focused tests and all package quality gates pass. Independent package acceptance and separate
+  P16 results for AI Shipping Labs and DataTalksClub/website identify exact refs and raw
+  baseline/linked outcomes before release.
+- The release adds no model, migration, site path, dependency pin, learner UI, mail-sender
+  integration, generic registry-presentation option, AISL diagnostic endpoint, schema or copy
+  implementation. It adds no configuration template, form or view change.
+
+Done when
+- [ ] Package default-enabled and consumer-first disabled resolution are proven in web and
+      worker contexts, including environment-before-Django fallback, stored override precedence
+      and re-enable behavior, with no generic framework reorder.
+- [ ] One package policy owner reports the effective value, guard version, five exact handlers
+      and three exact operations, and every guarded entrypoint uses that owner.
+- [ ] Every automatic formation, pooled-scoring, expiry and reminder entrypoint performs the
+      exact successful no-op before coursework domain, mail and hook effects while false.
+- [ ] Public return shapes, registration, both pooled schedules and transport bookkeeping
+      compatibility remain stable at either flag value.
+- [ ] Intentional calculation, persistence and deadline-mode Studio scoring remain usable.
+- [ ] Package gates, independent review and both exact P16 consumers pass and are reported
+      separately.
+- [ ] A new immutable release after v0.5.23 is published and verified. AISL Phase 5A pin,
+      diagnostics, false database override, deployment and quiescence proof remain open in
+      AI-Shipping-Labs/website#1696.
+
+Runtime scope
+- Package config declaration and one cohesive coursework automation policy/helper.
+- `community_base/coursework/pooling.py` and `reminders.py` guard calls.
+- Focused policy, actor, handler and transport tests; avoid growing existing oversized files when
+  a cohesive focused module is clearer.
+- No new function over 30 lines, new source/test file over 300 lines, ternary expression, or
+  filtered/nested comprehension. Record added, moved and deleted runtime separately.
+
+Docs
+- `community_base/coursework/README.md`.
+- `CHANGELOG.md` in the later guard release.
+- `docs/plan/phase-5.md` and `docs/plan/STATUS.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.
