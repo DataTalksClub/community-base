@@ -388,10 +388,12 @@ flat reader behavior even when a cohort curates a subset or another order.
 
 The importer uses the installed model targeted by `CourseInstructor.host` (`events.Host`).
 Consumers may retain their own events app while adopting curriculum models and sync. Their host
-model supplies name, slug, kind, bio, bio_html and updated_at; slug/name lookup, biography updates
-and course-instructor positions retain the existing import behavior. Instructor-free graphs do
-not resolve or import an events model. Package events API and Studio surfaces remain conditional
-on the package events app being installed.
+model supplies name, slug, bio, bio_html and updated_at; slug/name lookup, biography updates and
+course-instructor positions retain the existing import behavior. The `kind` discriminator is
+optional: when the installed model defines it, lookup and creation use `kind="instructor"`; a
+model without it keeps the same identity and update behavior through its common fields.
+Instructor-free graphs do not resolve or import an events model. Package events API and Studio
+surfaces remain conditional on the package events app being installed.
 
 ## Known limitations
 
