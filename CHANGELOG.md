@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.5.22
+
+Adoption-provisional under D33. This release retains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`, unchanged from v0.5.21; `C3.7` and
+`C4.3` may still rewrite them, and donor-schema adoption remains gated on `C5.3` (0.6.0). No
+migrations are added in this release.
+
 - C7.12e (#373): resolve imported course instructors through the installed `events.Host`
   relation. Support consumers retaining their own events app, including instructor-free
   imports, without importing package events models. Preserve host identity, order and biography
