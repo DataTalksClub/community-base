@@ -1065,8 +1065,18 @@ Verification
 Done when
 - [x] Instructor-free imports work with a site-owned events app.
 - [x] Instructor identity, ordering and biography updates use the installed host model.
-- [ ] Package and both consumer gates pass and a narrow immutable tag is published.
-- [ ] AISL's pin scope is refreshed separately; no site adoption acceptance is inferred.
+- [x] Package and both consumer gates pass and a narrow immutable tag is published.
+- [x] AISL's pin scope is refreshed separately; no site adoption acceptance is inferred.
+
+Completion evidence: [PR #374 package and consumer gates](https://github.com/DataTalksClub/community-base/pull/374#issuecomment-5928724402),
+[PR #375 release gates](https://github.com/DataTalksClub/community-base/pull/375#issuecomment-5928987419),
+and [published-wheel verification](https://github.com/DataTalksClub/community-base/pull/375#issuecomment-5929053397).
+Immutable `v0.5.22` points at `91c8ee09edda0989adb09778e9b18ec4fd1d2822`.
+[AISL #1851's separate PM pin-scope refresh](https://github.com/AI-Shipping-Labs/website/issues/1851#issuecomment-5929084958)
+preserves all 11 unchecked acceptance criteria and the five reserved templates. Package
+completion does not complete AISL's pin implementation, parser adoption or rendering gates.
+Both consumers passed P16 comparisons; the raw DTC suites retain the documented shallow-history
+and disposable dependency-rewrite failures recorded in those receipts.
 
 Docs
 - Curriculum README, CHANGELOG, phase-7 and STATUS.
