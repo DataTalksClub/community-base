@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- C7.12g (#379): keep the package course parser as the single converted-course owner while
+  supporting one conflict-checked site adapter for policy, render-only graph changes, atomic host
+  extensions and rich reporting. Preserve the ordinary package path, structural and homework
+  identity, per-item rollback and valid siblings, fatal checkout boundaries, provenance and stale
+  cleanup. Immutable release and AISL adoption remain separate.
+
 ## 0.5.23
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations

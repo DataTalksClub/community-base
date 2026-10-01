@@ -15,14 +15,16 @@ active checkout and its read result on the instance between ``discover`` and
 ``upsert``.
 """
 
+from dataclasses import replace
+
 from django.apps import apps
 from django.db import transaction
 
+from community_base.content_sync.checkout import CheckoutError
 from community_base.content_sync.documents import MANIFEST_NAME
 from community_base.content_sync.kinds.layouts import COURSE_MANIFEST
 from community_base.content_sync.parsers import SourceItem
 from community_base.curriculum.importing import apply_curriculum_graph, graph_commit
-from community_base.curriculum.models import CurriculumImportRun
 from community_base.curriculum.parsers import (
     PARSER_VERSION,
     check_read,
@@ -30,6 +32,24 @@ from community_base.curriculum.parsers import (
     parse_course,
     read_courses,
 )
+from community_base.curriculum.site_adaptation import (
+    CourseCoreResult,
+    CourseSiteBoundaryError,
+    CourseSiteContext,
+    CourseSitePartialError,
+    CourseSiteRefusal,
+    counts_action,
+    get_course_site_adapter,
+    merged_action,
+    merged_counts,
+    validate_prepared_course,
+    validate_site_result,
+)
+from community_base.curriculum.site_cleanup import draft_missing_courses
+from community_base.curriculum.source import CurriculumParseError
+
+_MISSING = object()
+_EMPTY_COUNTS = {"created": 0, "updated": 0, "unchanged": 0, "deleted": 0}
 
 
 class CourseParser:
@@ -42,6 +62,11 @@ class CourseParser:
         self._result = None
         self._collections = {}
         self._seen_content_ids = set()
+        self._site_adapter = None
+        self._site_context = None
+        self._site_failed = False
+        self._site_partial = False
+        self._site_totals = dict(_EMPTY_COUNTS)
 
     def discover(self, checkout, source):
         """Read the repository once and name every course collection it declares.
@@ -53,13 +78,11 @@ class CourseParser:
         content.
         """
 
-        self._checkout = checkout
-        self._seen_content_ids = set()
-        self._result = None
-        self._collections = {}
+        self._start_discovery(checkout, source)
         if not any(path.as_posix() == MANIFEST_NAME for path in checkout.files()):
             return ()
         self._result = read_courses(checkout)
+        self._site_context = replace(self._site_context, read_result=self._result)
         collections = course_collections(self._result)
         if not collections:
             check_read(self._result)
@@ -68,11 +91,29 @@ class CourseParser:
         for collection in collections:
             key = collection.path or "."
             self._collections[key] = collection
-            path = f"{collection.path}/{COURSE_MANIFEST}" if collection.path else COURSE_MANIFEST
+            path = COURSE_MANIFEST
+            if collection.path:
+                path = f"{collection.path}/{COURSE_MANIFEST}"
             items.append(SourceItem(key=key, path=path, data={}))
         return tuple(items)
 
+    def _start_discovery(self, checkout, source):
+        self._checkout = checkout
+        self._seen_content_ids = set()
+        self._result = None
+        self._collections = {}
+        self._site_adapter = get_course_site_adapter()
+        self._site_context = CourseSiteContext(checkout, source, None, None)
+        self._site_failed = False
+        self._site_partial = False
+        self._site_totals = dict(_EMPTY_COUNTS)
+
     def upsert(self, item, source, media):
+        if self._site_adapter is not None:
+            return self._upsert_adapted(item, media)
+        return self._upsert_default(item, source)
+
+    def _upsert_default(self, item, source):
         from community_base.content_sync.orchestration import UpsertResult
 
         parsed = self._parse(item)
@@ -91,6 +132,105 @@ class CourseParser:
             action = "unchanged"
         return UpsertResult(course, action)
 
+    def _upsert_adapted(self, item, media):
+        context = replace(self._site_context, media=media)
+        try:
+            parsed = self._parse(item)
+            graphs = self._read_homework(item, parsed)
+        except (CheckoutError, CourseSiteBoundaryError) as error:
+            self._report_fatal(context, item, error)
+        except CurriculumParseError as error:
+            return self._report_failure(context, item, error, authored=True)
+        except Exception as error:  # adapter.report owns redacted source/traceback logging
+            return self._report_failure(context, item, error, authored=False)
+        prepared = self._prepare(context, item, parsed)
+        if prepared is None:
+            return self._failed_result()
+        try:
+            validate_prepared_course(parsed, prepared)
+            core, site = self._apply_prepared(context, prepared, graphs)
+        except (CheckoutError, CourseSiteBoundaryError) as error:
+            self._report_fatal(context, item, error)
+        except CurriculumParseError as error:
+            return self._report_failure(context, item, error, authored=True)
+        except Exception as error:  # adapter.report owns redacted source/traceback logging
+            return self._report_failure(context, item, error, authored=False)
+        return self._report_success(context, parsed, core, site)
+
+    def _prepare(self, context, item, parsed):
+        try:
+            return self._site_adapter.prepare(context, self._collections[item.key], parsed)
+        except (CheckoutError, CourseSiteBoundaryError) as error:
+            self._report_fatal(context, item, error)
+        except CourseSiteRefusal as error:
+            self._report_failure(context, item, error, authored=True)
+        except CurriculumParseError as error:
+            self._report_failure(context, item, error, authored=True)
+        except Exception as error:  # adapter.report owns redacted source/traceback logging
+            self._report_failure(context, item, error, authored=False)
+        return None
+
+    def _apply_prepared(self, context, prepared, graphs):
+        core = _MISSING
+        site = _MISSING
+        with transaction.atomic():
+            with self._site_adapter.apply_scope(context, prepared):
+                core = self._apply_core(prepared.curriculum, graphs)
+                site = self._site_adapter.after_apply(context, prepared, core)
+            if core is _MISSING or site is _MISSING:
+                raise RuntimeError("Course site scope suppressed an apply failure")
+            validate_site_result(site)
+        return core, site
+
+    def _apply_core(self, parsed, graphs):
+        course, curriculum_counts = apply_curriculum_graph(
+            parsed, self._site_context.source, self._checkout
+        )
+        homework_counts = self._apply_homework(parsed, course, graphs)
+        counts = merged_counts(curriculum_counts, homework_counts)
+        return CourseCoreResult(course, counts_action(counts), counts)
+
+    def _report_success(self, context, parsed, core, site):
+        from community_base.content_sync.orchestration import UpsertResult
+
+        counts = merged_counts(core.counts, site.counts)
+        self._site_totals = merged_counts(self._site_totals, counts)
+        self._site_adapter.report(
+            context, results=(site,), errors=(), drafted=(), totals=dict(self._site_totals)
+        )
+        if site.warnings:
+            self._site_partial = True
+        if parsed.course.content_id:
+            self._seen_content_ids.add(parsed.course.content_id)
+        return UpsertResult(core.course, merged_action(core.action, site.action))
+
+    def _report_failure(self, context, item, error, *, authored):
+        self._site_failed = True
+        self._site_partial = True
+        self._site_adapter.report(
+            context,
+            results=(),
+            errors=((item, error, authored),),
+            drafted=(),
+            totals=dict(self._site_totals),
+        )
+        return self._failed_result()
+
+    def _report_fatal(self, context, item, error):
+        self._site_adapter.report(
+            context,
+            results=(),
+            errors=((item, error, False),),
+            drafted=(),
+            totals=dict(self._site_totals),
+        )
+        raise error
+
+    def _failed_result(self):
+        from community_base.content_sync.orchestration import UpsertResult
+
+        return UpsertResult(None, "unchanged")
+
     def soft_delete_missing(self, seen_keys: set, source):
         """Soft-delete this source's courses that vanished from the repository.
 
@@ -101,53 +241,27 @@ class CourseParser:
         content) this is a no-op.
         """
 
-        runs = CurriculumImportRun.objects.filter(
-            source_uuid=source.pk, parser_version=self.parser_version
-        ).order_by("-created_at")
-        latest = runs.first()
-        if latest is None or latest.state != CurriculumImportRun.State.SUCCEEDED:
-            return ()
-        reference_commits = list(
-            CurriculumImportRun.objects.filter(
-                source_uuid=source.pk,
-                parser_version=self.parser_version,
-                state=CurriculumImportRun.State.SUCCEEDED,
-                created_at__lt=latest.created_at,
-            )
-            .values_list("commit_sha", flat=True)
-            .distinct()
-        )
-        if latest.state == CurriculumImportRun.State.SUCCEEDED:
-            reference_commits.append(latest.commit_sha)
-        if not reference_commits:
-            return ()
-        from community_base.curriculum.models import Course
-
-        # Only courses this parser version actually imported for the source
-        # can be drafted; commit shas alone are not a safe scope when two
-        # sources share one repository (as local fixture checkouts do).
-        managed_slugs = list(
-            CurriculumImportRun.objects.filter(
-                source_uuid=source.pk,
-                parser_version=self.parser_version,
-                state=CurriculumImportRun.State.SUCCEEDED,
-            )
-            .values_list("source_stable_id", flat=True)
-            .distinct()
-        )
-        candidates = Course.objects.filter(
-            slug__in=managed_slugs, source_commit_sha__in=reference_commits
-        )
-        seen = {str(value) for value in self._seen_content_ids if value is not None}
-        drafted = [
-            course
-            for course in candidates
-            if course.source_content_id is None or str(course.source_content_id) not in seen
-        ]
-        for course in drafted:
-            course.status = "draft"
-            course.save(update_fields=["status", "updated_at"])
+        if self._site_adapter is not None and self._site_failed:
+            raise CourseSitePartialError("Adapted course items failed; stale cleanup was skipped")
+        drafted = draft_missing_courses(source, self.parser_version, self._seen_content_ids)
+        if self._site_adapter is None:
+            return drafted
+        self._report_cleanup(drafted)
+        if self._site_partial:
+            raise CourseSitePartialError("Adapted course items completed with warnings")
         return drafted
+
+    def _report_cleanup(self, drafted):
+        cleanup_counts = dict(_EMPTY_COUNTS)
+        cleanup_counts["deleted"] = len(drafted)
+        self._site_totals = merged_counts(self._site_totals, cleanup_counts)
+        self._site_adapter.report(
+            self._site_context,
+            results=(),
+            errors=(),
+            drafted=tuple(drafted),
+            totals=dict(self._site_totals),
+        )
 
     def _read_homework(self, item, parsed):
         """Import the manifests this course's cohorts bind (`FORMAT.md` 3.8, C7.11).

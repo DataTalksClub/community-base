@@ -225,6 +225,51 @@ Run imports with the content sync command:
 uv run python manage.py sync_content --from-disk <checkout> --source <slug>
 ```
 
+### Site course adaptation
+
+The package remains the only parser and writer for converted course collections. A host that
+needs its own policy, rendering and extension rows may register one course-specific adapter with
+`curriculum.site_adaptation.register_course_site_adapter`. Registration rejects a different
+second adapter, and `CourseParser` reads the registration during `discover`, so Django app order
+does not change which object owns the import.
+
+The adapter has four bounded operations:
+
+- `prepare(context, collection, parsed)` validates host policy and returns `PreparedCourse`;
+- `apply_scope(context, prepared)` supplies the renderer and validated pre-write work;
+- `after_apply(context, prepared, core)` writes host extension rows and returns
+  `CourseSiteResult`;
+- `report(context, results=..., errors=..., drafted=..., totals=...)` publishes item deltas and
+  cumulative host counts.
+
+The package reads course and homework sources, validates the prepared graph, opens the transaction,
+calls its graph and homework importers exactly once, and owns provenance and stale cleanup. A
+prepared graph may change only the course cover URL, module overview, and unit body or homework
+render fields. Course, module, unit and cohort identity, topology and homework bindings must stay
+equal. Validation happens before the site scope or any writes.
+
+`CourseSiteRefusal` is an authored refusal only when `prepare` raises it. Other per-item failures
+roll back, report as internal failures, continue valid siblings and suppress stale cleanup. Known
+`CurriculumParseError` subclasses are authored source failures in any phase. The adapter's
+`report` implementation owns source-scoped exception logging: it receives the `SourceItem`, the
+live exception with its traceback and the authored/internal classification, and must redact secrets.
+`CheckoutError` and `CourseSiteBoundaryError` stop the parser. Accepted results and failures report
+immediately, so their details and cumulative counts survive a later boundary failure. A nonfatal
+warning still commits and permits cleanup, then makes the adapted family partial. A scope that
+suppresses a core or post-apply exception fails closed inside the transaction.
+
+The generic package orchestrator records a fatal course-parser boundary as `partial`, because its
+parser boundary catches all parser exceptions while continuing other content types. A host may
+upgrade that run to `failed` only from its own structured boundary evidence. AISL does this when
+the adapter reports the original `ContentCheckoutError.as_error()` entry with
+`step: filesystem_boundary`; a bare `CourseSiteBoundaryError` message is not that evidence.
+
+The ordinary path uses no lifecycle calls and retains its existing behavior when no adapter is
+registered. A later site adoption must also stop its retired converted-course parser from emitting
+an empty family cleanup/count report: a collector keyed by family can otherwise replace the
+adapter's totals depending on registration order. The legacy parser may continue to own only
+unconverted sources. That adoption must test both parser registration orders.
+
 ## Code annotations
 
 A unit body can attach notes to lines of a fenced code block. The author writes a standalone
