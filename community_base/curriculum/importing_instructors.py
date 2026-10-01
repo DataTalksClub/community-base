@@ -20,22 +20,31 @@ def sync_instructors(course, graph) -> None:
 
 
 def instructor_host(host_model, entry):
+    kind = _instructor_kind(host_model)
     host = None
     if entry.slug:
-        host = host_model.objects.filter(slug=entry.slug, kind="instructor").first()
+        host = host_model.objects.filter(slug=entry.slug, **kind).first()
     if host is None:
-        host = host_model.objects.filter(name=entry.name, kind="instructor").first()
+        host = host_model.objects.filter(name=entry.name, **kind).first()
     if host is None:
-        return host_model.objects.create(
-            name=entry.name,
-            slug=entry.slug or host_slug(entry.name),
-            kind="instructor",
-            bio=entry.bio,
-        )
+        values = {
+            "name": entry.name,
+            "slug": entry.slug or host_slug(entry.name),
+            "bio": entry.bio,
+        }
+        values.update(kind)
+        return host_model.objects.create(**values)
     if entry.bio and host.bio != entry.bio:
         host.bio = entry.bio
         host.save(update_fields=["bio", "bio_html", "updated_at"])
     return host
+
+
+def _instructor_kind(host_model):
+    fields = {field.name for field in host_model._meta.concrete_fields}
+    if "kind" in fields:
+        return {"kind": "instructor"}
+    return {}
 
 
 def host_slug(name: str) -> str:

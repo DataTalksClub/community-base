@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- C7.12f (#378): support consumer-owned instructor Host models without a `kind` field. The course
+  importer applies `kind="instructor"` only when the installed Host defines that concrete field;
+  package Host lookup and creation, identity, ordering and biography updates remain unchanged.
+  No migration, setting, parser-routing or UI change.
+
 ## 0.5.22
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations

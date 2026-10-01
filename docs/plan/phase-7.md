@@ -1071,6 +1071,51 @@ Done when
 Docs
 - Curriculum README, CHANGELOG, phase-7 and STATUS.
 
+## C7.12f Support installed instructor hosts without a kind field
+
+Repository: community-base. Depends on: C7.12a, C7.12c. Freeze required: no. Related issue:
+DataTalksClub/community-base#378. Follow-up to C7.12e.
+
+Goal: let the shared course importer preserve instructors when the installed `events.Host` model
+has the common host fields but no `kind` discriminator. Keep package-host lookup and creation
+semantics unchanged when `kind` exists. No parser-routing API, migration, setting or UI change.
+
+Read first
+- Issue #378 and its AISL v0.5.22 reproduction, including the actual site Host fields.
+- `curriculum/importing_instructors.py`, the synthetic host adapter tests and coding standard.
+
+Steps
+1. Add a red synthetic consumer regression whose Host matches the AISL common fields and
+   timestamps but has no `kind`; retain the instructor-free, slug/name lookup, creation,
+   biography rendering, order, repeat-identity and installed-model assertions.
+2. Derive instructor lookup and create values from the installed model's actual concrete fields.
+   Add `kind="instructor"` only when that concrete field exists; do not silently drop any other
+   lookup or create field.
+3. Verify the ordinary package Host still receives `kind="instructor"`, and preserve the existing
+   importer API, caller-owned transaction and empty-import behavior.
+4. Run package gates and P16 consumer checks before a separately reviewed immutable release.
+
+Verification
+- Red/green: `uv run pytest tests/curriculum/test_instructor_host_adoption.py` fails against the
+  old importer on the no-kind Host and passes after the fix.
+- `uv run pytest tests/curriculum/test_import.py tests/curriculum/test_instructor_host_adoption.py`
+  passes, including the default package Host `kind` assertion.
+- Full package tests, lint, format, Django checks, fresh migrations, boundaries and plan checks
+  pass with no model or migration diff.
+- P16 records exact AISL and DTC commits and baseline/linked counts after the pull request; site
+  adoption and parser routing remain separate issues.
+
+Done when
+- [ ] A consumer-owned Host without `kind` preserves instructor lookup, creation, biography,
+  ordering and repeat identity.
+- [ ] A package Host with `kind` still scopes and creates imported instructors with
+  `kind="instructor"`.
+- [ ] Package gates pass with no schema, settings, UI or parser-routing change.
+- [ ] Both P16 consumer jobs pass from a reviewed pull request; no site adoption is inferred.
+
+Docs
+- Curriculum README, CHANGELOG, phase-7 and STATUS.
+
 ## A7.2a Register the AISL site kinds and markdown extensions
 
 Repository: AI-Shipping-Labs/website. Depends on: C7.12a.

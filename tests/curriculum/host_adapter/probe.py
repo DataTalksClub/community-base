@@ -30,7 +30,7 @@ from tests.curriculum.host_adapter.models import Host  # noqa: E402
 
 
 def check_instructor_import(course):
-    named = Host.objects.create(name="Ada", slug="ada", kind="instructor", bio="Old")
+    named = Host.objects.create(name="Ada", slug="ada", bio="Old")
     entries = (InstructorGraph("Grace", bio="First"), InstructorGraph("Ada", bio="Updated"))
     graph = SimpleNamespace(instructors=entries)
     _sync_instructors(course, graph)
@@ -40,7 +40,9 @@ def check_instructor_import(course):
     assert links[1].host_id == named.pk
     named.refresh_from_db()
     assert named.bio == "Updated"
+    assert named.bio_html == "<p>Updated</p>"
     assert links[0].host.slug == "grace"
+    assert links[0].host.bio_html == "<p>First</p>"
     identities = [link.pk for link in links]
     _sync_instructors(course, graph)
     repeated = list(CourseInstructor.objects.order_by("position").values_list("pk", flat=True))
@@ -57,6 +59,7 @@ def check_instructor_import(course):
 def main():
     assert not apps.is_installed("community_base.events")
     assert CourseInstructor._meta.get_field("host").remote_field.model is Host
+    assert "kind" not in {field.name for field in Host._meta.concrete_fields}
     with connection.schema_editor() as editor:
         for model in (ContentSource, Host, Course, CourseInstructor):
             editor.create_model(model)
