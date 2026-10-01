@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.5.23
+
+Adoption-provisional under D33. This release retains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`, unchanged from v0.5.22; `C3.7` and
+`C4.3` may still rewrite them, and donor-schema adoption remains gated on `C5.3` (0.6.0). No
+migrations are added in this release.
+
 - C7.12f (#378): support consumer-owned instructor Host models without a `kind` field. The course
   importer applies `kind="instructor"` only when the installed Host defines that concrete field;
   package Host lookup and creation, identity, ordering and biography updates remain unchanged.
