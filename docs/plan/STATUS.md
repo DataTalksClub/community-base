@@ -210,6 +210,7 @@ issues that can start now.
 | `C7.12g` | community-base | Give converted courses one owner with site adaptation | C7.12a, C7.12c | no | in-progress | https://github.com/DataTalksClub/community-base/pull/383 |
 | `C7.12e` | community-base | Resolve course instructors through the installed events app | C7.12a, C7.12c | no | in-progress | https://github.com/DataTalksClub/community-base/pull/374 |
 | `C7.12f` | community-base | Support installed instructor hosts without a kind field | C7.12a, C7.12c | no | in-progress | https://github.com/DataTalksClub/community-base/pull/380 |
+| `C7.12h` | community-base | Give converted wiki/docs one package owner | C7.9c, C7.8 | no | in-progress | https://github.com/DataTalksClub/community-base/issues/381 |
 | `A7.2a` | AI-Shipping-Labs/website | Register the AISL site kinds and markdown extensions | C7.12a | no | done | https://github.com/AI-Shipping-Labs/website/issues/1771 — merged as 9f0fc899; on-call fix 80fb8448 (colon-syntax MARKDOWN_EXTENSIONS). Deploy Dev 35577963604 green. Public wiki/ is the package wiki kind; member-gated _wiki/ is site-owned member_wiki in topics. |
 | `A7.2b` | AI-Shipping-Labs/website | Move the three core parsers onto the toolkit | A7.2a, C7.12b, C7.12c | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1851 |
 | `A7.2c` | AI-Shipping-Labs/website | Move the five family parsers onto the toolkit | A7.2b | no | todo |  |
