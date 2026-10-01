@@ -302,7 +302,7 @@ wheels = [
 
 [[package]]
 name = "community-base"
-version = "0.5.23"
+version = "0.5.24"
 source = { editable = "." }
 dependencies = [
     { name = "apispec" },

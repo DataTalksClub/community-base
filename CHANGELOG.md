@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.5.24
+
+Adoption-provisional under D33. This release retains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`, unchanged from v0.5.23; `C3.7` and
+`C4.3` may still rewrite them, and donor-schema adoption remains gated on `C5.3` (0.6.0). No
+migrations are added in this release.
+
 - C7.12g (#379): keep the package course parser as the single converted-course owner while
   supporting one conflict-checked site adapter for policy, render-only graph changes, atomic host
   extensions and rich reporting. Preserve the ordinary package path, structural and homework
