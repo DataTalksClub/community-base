@@ -1466,55 +1466,90 @@ Docs
 
 Repository: DataTalksClub/website. Depends on: C7.12, D7.1. Freeze required: no. Decision D23.
 
-Goal: DTC's article, book, podcast, person and data parsers are rewritten over the toolkit,
-`SyncedDocument` stays, and the media parser stops uploading every file under `images/`.
+Goal: DTC's article, book, podcast and data ingestion reads through the toolkit while preserving
+the site's current storage and public contracts; the package person parser becomes the one person
+owner only after its storage and readers replace the current people path. Referenced-asset upload
+applies to approved converted inputs without withdrawing currently served legacy asset paths.
+
+Before implementation, create and groom a DTC issue under that repository's process. It must name
+the exact released package API and immutable tag/pin, assign parser/storage/reader ownership, and
+prove the selected live source is supported. This plan text does not authorize a local package
+link, an unreviewed adapter seam, a dual reader or an inferred source cutover.
 
 Read first
 - DTC `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work.
 - DTC `_docs/specs/03-github-content-and-people.md`, the product authority here, whose adapter
   sections this issue amends to cite the format.
 - DTC `_docs/architecture/app-boundaries.md`.
+- DTC `content/sync_parsers/articles.py`, `books.py`, `podcasts.py`, `people.py`, `platforms.py`,
+  `slack.py` and `media.py`, the current ingest owners.
+- DTC `content/catalogue.py`, `article_content.py`, `person_content.py`, `person_chip.py`,
+  `public_views.py` and `review_views.py`, the current public-reader and route owners.
 - the specification, section 3.8 (`article`, `person`, `data`) and the tier B rows for `podcast`,
   `book` and `faq`.
 - `docs/01-decisions.md`, D25, D26 and D27.
-- `content/sync_parsers/media.py` lines 22 to 27 and 131 to 140, which upload every file under
-  `images/` whether a document references it or not.
+- package `content_sync/kinds/data.py` and `knowledge_base/content_sync_parsers.py`; opaque data
+  transport and package-owned person storage have different validation and persistence contracts.
 
 Steps
-1. Rewrite the article, book and podcast parsers as thin adapters over the toolkit. They validate
-   nothing; the toolkit does. The `person` parser is NOT rewritten here: D24 moved it into the
-   package and C7.9c shipped it, so DTC stops having a person parser at all and configures the
-   package one. An earlier revision of this step listed `person` among the site adapters, which
-   contradicted D24; D24 is the later owner decision and wins.
-2. Keep `SyncedDocument` (D21). The format is upstream of storage.
-3. Replace the media parser with the referenced-asset upload of `C7.9b`. An unreferenced file is no
-   longer a media row.
+1. Rewrite the article, book and podcast parsers as thin adapters over the toolkit. The toolkit
+   owns common parsing and rendering validation; the adapters retain current DTC schema policy,
+   projection and storage rules that the shared kind does not express. The `person` parser is NOT
+   adapted: D24 moved that parser and storage into the package, so DTC retires its parser only with
+   the compatible package storage and reader cutover described below.
+2. Keep `SyncedDocument` for the D21 site-owned editorial and DTC data contracts. Do not route the
+   package person parser back into that model: move person readers to the package-owned Person
+   contract while preserving public identity and behavior, then remove the old people rows/parser
+   without a dual-store or fallback path.
+3. Use the referenced-asset upload of `C7.9b` for approved converted inputs. Before narrowing any
+   existing source, inventory and preserve every currently served public path and byte, including
+   legacy assets with external links that no current document references. Retire the old media
+   record only through a separately reviewed compatibility cutover; absence from the new reference
+   graph alone is not deletion evidence.
 4. Stop applying the bleach cleaner in `content/services.py` to synced content. `D7.1` moved wiki
    and docs rendering; this issue finishes the editorial kinds.
 5. Register `faq` as a site kind with its current file shape (D26). Do not convert the questions.
 6. Register `graph/graph.json` and `search/search-corpus.json` as `data` files (D27). The podwiki's
    own scripts keep producing them; rebuilding the graph from synced references is a later
    DTC-owned issue.
-7. Register `podcast-platforms.yaml` and `slack.yaml` as `data` files, and delete the two parsers
-   that publish nothing today.
-8. Point the `person` kind at `DataTalksClub/content` rather than `datatalksclub.github.io`, and
-   delete DTC's own person parser rather than adapting it. The file move itself is `D7.4` (D25).
+7. Register `podcast-platforms.yaml` and `slack.yaml` through the toolkit data read only with a
+   functional shared replacement. Their current parsers publish `podcast_platforms` and
+   `slack_page` singleton rows used by public podcast buttons and `/slack`; preserve source/path,
+   field validation, list order, HTTPS and duplicate refusals, `SyncedDocument` identities,
+   provenance, cleanup, operator reports and existing readers before deleting either parser.
+   Opaque `data` transport does not supply those domain rules, and this step adds no generic
+   framework merely to host them.
+8. Adopt the D24 package Person model/parser and move DTC readers only after proving the current
+   short identity, `/people/<short>.html` routes, author/guest/event relationships, public fields,
+   provenance, stale behavior and portrait paths/bytes. Keep the existing live people source
+   supported until D7.4 performs D25's separately reviewed file move and source cutover; this issue
+   must not silently point production at `DataTalksClub/content` early.
 
 Verification
-- The route contract and sitemap contract tests pass unchanged for articles, books, podcasts and
-  people.
-- A development deploy serves the `/images/` route from the referenced assets of a converted
-  repository, and an unreferenced file in that repository is not served.
+- Route, redirect, sitemap, SEO and reader contracts pass unchanged for articles, books, podcasts,
+  people and `/slack`; podcast platform buttons, person credits/relationships and portraits retain
+  their current values and order.
+- Parser/storage/operator compatibility proves source-scoped identity, provenance, repeat/stale
+  behavior, cleanup suppression, counts, details and bounded diagnostics before an old owner is
+  deleted.
+- A development deploy serves referenced assets from an approved converted repository and does
+  not serve an unreferenced new asset, while every retained legacy external path serves the same
+  reviewed bytes until its compatibility cutover.
 - The rendered output of the 55 converted articles matches the human-reviewed rendering diff that
   `C7.12` produced.
 - The package is pinned by tag in `uv.lock`, and `scripts/check_community_base_source.py` passes.
+- Final completion requires an actual green development deploy. The current #442 deployment block
+  must be resolved through its owning infrastructure process; it is not waived by local or CI
+  acceptance.
 
 Done when
 - [ ] article, book, podcast, person and data kinds read through the toolkit
+- [ ] public storage, reader, route, relationship, portrait and platform/Slack contracts are preserved
 - [ ] route and sitemap contract tests pass unchanged
-- [ ] only referenced assets are uploaded
+- [ ] converted inputs upload only referenced assets and retained legacy asset contracts still pass
 - [ ] the bleach cleaner no longer runs on synced content
 - [ ] `_docs/specs/03-github-content-and-people.md` cites the format
+- [ ] the immutable package pin and actual development deploy are green
 
 Docs
 - DTC `_docs/specs/03-github-content-and-people.md`; `docs/plan/STATUS.md` here.
