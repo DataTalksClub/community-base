@@ -16,6 +16,13 @@ from community_base.content_sync.rendering import (
     sanitize_rendered_html,
     strip_leading_title_h1,
 )
+from community_base.curriculum.course_enrollment import CourseEnrollment as CourseEnrollment
+from community_base.curriculum.enrollment_sources import ENROLLMENT_SOURCES as ENROLLMENT_SOURCES
+from community_base.curriculum.enrollment_sources import SOURCE_ADMIN as SOURCE_ADMIN
+from community_base.curriculum.enrollment_sources import (
+    SOURCE_AUTO_PROGRESS as SOURCE_AUTO_PROGRESS,
+)
+from community_base.curriculum.enrollment_sources import SOURCE_MANUAL as SOURCE_MANUAL
 from community_base.curriculum.rendering import render_annotated_markdown
 from community_base.curriculum.validators import (
     SHA1_PATTERN,
@@ -63,14 +70,6 @@ UNIT_KINDS = (
     (UNIT_KIND_HOMEWORK, "Homework"),
     (UNIT_KIND_EVENT, "Event"),
     (UNIT_KIND_CHECKLIST_ITEM, "Checklist item"),
-)
-SOURCE_MANUAL = "manual"
-SOURCE_AUTO_PROGRESS = "auto_progress"
-SOURCE_ADMIN = "admin"
-ENROLLMENT_SOURCES = (
-    (SOURCE_MANUAL, "Manual"),
-    (SOURCE_AUTO_PROGRESS, "Auto (first lesson complete)"),
-    (SOURCE_ADMIN, "Admin (Studio)"),
 )
 COURSE_LEVEL_CHOICES = (
     (LEVEL_OPEN, "Open (everyone)"),
