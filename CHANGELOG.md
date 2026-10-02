@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 0.5.25
+
+Adoption-provisional under D33. This release retains the nine provisional kept-label migrations
+listed in `docs/plan/evidence/release-readiness-2026-09-17.md`, unchanged from v0.5.24; `C3.7` and
+`C4.3` may still rewrite them, and donor-schema adoption remains gated on `C5.3` (0.6.0). No
+migrations are added in this release.
+
+- C5.2p (#376, PR #390): add the visible, non-secret
+  `COURSEWORK_AUTOMATION_ENABLED` runtime guard, default `true`, with consumer-first declaration
+  and a public immutable policy contract at guard version `"1"`. The policy reports the five
+  registered formation, expiry and reminder handlers and the three direct pooled operations.
+  When a consumer resolves the setting to `false`, all eight entries stop before coursework
+  queries, writes, hooks or mail while retaining their successful no-op returns, job registration
+  and transport bookkeeping. Learner submission/review actions, explicit scoring calculation and
+  persistence, and deadline-mode operator scoring remain available. Workers read database
+  overrides per call; web processes use the existing stamp-cache contract, and consumer rollout
+  owns any required cross-process cache or restart proof. No learner UI, generic configuration
+  framework, model or migration change.
+
 - C7.32 (#394): share curriculum collection read-error scope between the course parser and
   source validator, preserving collection isolation, parser rejection and semantic diagnostics.
 
