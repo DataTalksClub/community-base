@@ -1511,6 +1511,97 @@ Docs
 - `CHANGELOG.md` in the later guard release.
 - `docs/plan/phase-5.md` and `docs/plan/STATUS.md`.
 
+## C5.2q Preserve 500-character project repository URLs
+
+Repository: community-base. Depends on: C5.2m, C5.2n. Freeze required: no.
+
+Goal
+Preserve the existing AISL 500-character project URL contract in shared storage and the
+embeddable project form. At package baseline `c3f726f`, both `github_link` model validation
+and the explicit form field cap values at 200. Widen only this capacity, keeping existing
+URL validation, host rules, controls, routes, authorization and lifecycle behavior.
+This is package capability, separate from data adoption and backend retirement.
+
+Read first
+- `AGENTS.md`, `docs/PROCESS.md`, `docs/04-quality-gates.md`, architecture and coding standard.
+- D1, D8, D15, D18, D33 and D41; playbooks P15 and P16.
+- `community_base/coursework/models.py`, `project_forms.py`, `projects.py` and
+  `project_submission_flow.py`; all released coursework migrations and their actual leaf.
+- `tests/coursework/test_models.py`, `test_projects.py`, `test_project_submission_form.py`,
+  `test_project_submission_flow.py` and `project_form_support.py`.
+- AISL `content/models/peer_review.py`: `ProjectSubmission.project_url` has `max_length=500`.
+
+Steps
+1. Record exact baseline, ownership and migration graph. Verify C5.2m and C5.2n are done;
+   check for overlapping URL-width work. Use an isolated worktree and all package extras.
+   Record the touched-app baseline before runtime edits. Keep this change outside the
+   separately owned C5.2p/v0.5.25 guard release inventory; coordinate later main/tag ordering.
+2. Add one bounded behavior test owner covering valid URLs of exactly 200, 201 and 500
+   characters, and rejection at 501. Demonstrate old model/form length rejection for 201/500
+   before changing capacity, retaining valid 200 controls. Use valid fixed-host URLs and
+   assert their exact lengths; unrelated URL/host errors are not length-sensitivity evidence.
+3. Set only `ProjectSubmission.github_link` to `max_length=500`. Derive the existing form
+   field maximum from that model field metadata, so capacity has one owner. Preserve
+   requiredness, validators, default GitHub owner/repository checks, HTTP(S) form validation
+   and the existing `github_hosts=None` extension. Do not add fields, schemes, endpoints,
+   selectors or hooks. Keep both existing declaration edits at their current physical line
+   count; do not grow oversized files or include an unrelated model refactor.
+4. Generate one append-only AlterField migration from the actual current graph leaf. At
+   baseline the leaf is `0006_project_module_commit_id_field`; reserve the next number
+   explicitly before editing. Never modify released migrations or another field. Test fresh
+   apply and forward/reverse/reapply with original valid rows at or below 200 characters.
+   Round-trip a synthetic 500-character value under the new state, then remove only that
+   synthetic row before the narrow-schema reverse. Compare original values and counts.
+5. Document rollback limits: narrowing to 200 after longer writes cannot be called lossless.
+   Never truncate or shorten input. Retain the widened schema when rolling back application
+   code after longer writes, unless a separately rehearsed safe narrowing disposition exists.
+   SQLite does not prove PostgreSQL varchar enforcement or populated-copy reversibility.
+6. Run package gates and submit one focused PR. Require both P16 consumer verdicts at the
+   actual submitted head. The sole on-call observer runs the supported watcher once; the
+   orchestrator does not poll Actions. Release/pin work requires a separate coordinated
+   immutable release and does not borrow the guard's CI or tag allocation.
+
+Verification
+- `uv sync --all-extras`; `make test tests/coursework` before/after -> pass, collected counts
+  recorded against this checkout's baseline.
+- `make test tests/coursework/test_project_url_width.py` -> model/form validate and preserve
+  exact 200/201/500 values; 501 has a length-specific error and no persisted mutation.
+  One accepted 500-character form save proves form-to-model integration. The existing input
+  maxlength reflects 500; labels/help/fields/templates/layout remain unchanged.
+- The same 500-character non-GitHub HTTP(S) link succeeds only through the existing host
+  override; malformed/non-HTTP(S) form values and default GitHub path/host violations fail.
+  Preserve model URLValidator semantics, which need not equal form scheme restrictions.
+- Existing access, locked/deadline, enrollment and commit-toggle tests remain green.
+  No project URL API exists at baseline; do not invent an API solely to test this change.
+- Migration test -> only the URL field changes; original row values/counts survive forward,
+  safe reverse and reapply. Fresh SQLite application passes. Report its PostgreSQL limits.
+- `make lint`; `uv run ruff format --check .` -> exit 0.
+- `uv run python testproject/manage.py check` -> no issues.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- On a fresh task-specific database:
+  `DATABASE_URL=sqlite:////tmp/c5.2q-fresh.sqlite3 uv run python testproject/manage.py migrate`
+  -> all migrations apply; never reuse or remove another session's database.
+- `make test tests/test_boundaries.py`; `uv run python scripts/plan.py check`;
+  `git diff --check` -> pass.
+- On-call: `uv run python scripts/watch-ci.py --pr <N> --repo DataTalksClub/community-base --quiet`
+  -> package test, plan and both P16 consumer jobs succeed; record package/site identities,
+  raw baseline/linked counts and documented normalized failure-set comparison.
+- Not run here, needs: authorized donor inventory, PostgreSQL development-copy rehearsal,
+  Phase 5B identity/reverse/quiescence contracts, site policy/reader/writer/UI parity,
+  adoption deployment and any applicable freeze. Wider URL storage proves none of these.
+
+Done when
+- [ ] Valid 200/201/500-character links round-trip unchanged through model and form.
+- [ ] 501-character links fail by length; existing validation/access/lifecycle rules remain.
+- [ ] One capacity owner and one append-only migration; no visible layout/control change.
+- [ ] Package gates and safe fixture migration checks pass with rollback limits recorded.
+- [ ] Both P16 consumer CI verdicts pass on the submitted head; PR merged before STATUS done.
+- [ ] Later immutable release and site adoption remain separately coordinated.
+
+Docs
+- `community_base/coursework/README.md`, `CHANGELOG.md`, `docs/plan/phase-5.md` and
+  `docs/plan/STATUS.md`; PR records baseline/sensitivity/final gates and deferred checks.
+
 ## C5.2r Add shared course enrollment history
 
 Repository: community-base. Depends on: C5.1e. Freeze required: no.
