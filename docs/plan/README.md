@@ -27,6 +27,13 @@ gates for subsequent adoption. After the adoption-ready `v0.6.0`
 release, use dependency order across Relay, DTC and AISL. Relay issues in Phase 1 have the longest
 external lead time and may be opened independently.
 
+The owner also assigned the current AISL/DTC course unification and backend simplification work.
+The already active A7.2b/#1851 released-package parser adoption may continue within that assigned
+scope, preserving all current visible UI, routes and features. This does not authorize A5.3's
+visible hierarchy or URL changes, release another session's files, or waive the donor, release,
+rehearsal and freeze gates for shared-storage adoption. Backend convergence and verified deletion
+remain the goal; parser adapters alone do not complete it.
+
 Package readiness milestones:
 
 | Milestone | Package evidence | Adoption evidence |

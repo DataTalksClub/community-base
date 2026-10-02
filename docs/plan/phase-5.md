@@ -1732,10 +1732,17 @@ Done when
 Docs: `content_sync/FORMAT.md`, curriculum/coursework READMEs, `docs/plan/phase-5.md`,
 `docs/plan/STATUS.md`.
 
-## A5.3 AISL: render course hierarchy from repository structure
+## A5.3 Future AISL repository hierarchy and URL rollout
 
-Repository: AI-Shipping-Labs/website. Depends on: C5.4. Related issue:
+Repository: AI-Shipping-Labs/website. Depends on: C5.4, A5.2. Related issue:
 AI-Shipping-Labs/website#1830.
+
+This complete visible-product change is blocked under the owner's current instruction to preserve
+visible UI and features. It requires a future explicit request for hierarchy and route/redirect
+changes, plus accepted source placements from #1675/#1775. It is not a prerequisite for A5.1/A5.2
+backend convergence. A7.2b parser adoption, a canonical internal graph or a compatibility adapter
+does not complete any visible acceptance criterion here. Retain the complete #1830 scope below
+for that future rollout.
 
 Remove the local course-inline flattening and course-specific hierarchy branches. Use the package
 parser and projection, retain site-owned policy, and coordinate the 32 first-level Buildcamp source
@@ -1957,7 +1964,14 @@ fixture or second parser is checked in.
 
 ## A5.1 Map AISL courses to the shared apps
 
-Repository: AI-Shipping-Labs/website. Depends on: C5.3, A5.3.
+Repository: AI-Shipping-Labs/website. Depends on: C5.3, A7.2b.
+
+Adopt shared curriculum/coursework storage and reusable services behind the current AISL policy,
+routes and presentation. Preserve every current visible UI interaction and supported feature.
+Public course templates remain site-owned under D18. A5.3's future hierarchy and URL rollout is
+separate; this issue preserves current redirects and the existing reader projection.
+Use an immutable tagged release containing every required curriculum/coursework API. C5.3's
+C3.7/C4.3 donor gates remain required; an earlier capability release does not satisfy them.
 
 Steps
 1. Mapping document in the pull request: every field of `content.Course`, `Module`, `Unit`,
@@ -1967,27 +1981,97 @@ Steps
    attach to it; `CohortEnrollment` rows become `Enrollment` rows on their cohort.
 3. `CourseAccess` and Stripe product creation stay in AISL; implement `COURSE_ACCESS_GRANTS`.
 4. Workshops keep their own models and pages; `WorkshopInstructor` references `events.Host`.
-5. Register the curriculum parser for the content repository; delete the local course dispatcher.
-6. Delete local models, views, templates, Studio pages, API views for courses.
+5. Integrate the shared curriculum parser through the A7.2b source contract. Preserve active
+   refresh for unconverted sources until A7.3; do not add a second converted parser or mirrored
+   live writer. Identify every dispatcher, command, task and caller that must switch at cutover.
+6. Repoint domain services and prepare thin route, reader-context, Studio and API adapters over
+   shared storage. Keep public templates, styling and site-specific policy. Preserve enrollments,
+   purchases, progress, homework drafts/submissions/answers/scoring, projects, reviews,
+   leaderboards, certificate URLs and cohort/self-paced behavior. A missing shared capability is
+   a blocker, not permission to remove a feature.
+7. Rehearse the writer/reader switch and rollback on a sanctioned populated PostgreSQL development
+   copy. Retain replaced backend code until the accepted cutover and A5.2a retirement gates.
 
 Verification
 - P14 rehearsal: counts of courses, modules, units, enrollments, progress rows and certificates
   equal before and after; `sync_content --from-disk` after the change reports zero changes.
+- Record exact site commit, tagged package, source refs, donor migration inventory and identity-keyed
+  before/after counts for all mapped course and learner-state tables. Repeat sync is idempotent;
+  rollback/back-copy restores learner state and routes. Fresh/empty databases, fixtures and SQLite
+  are capability evidence, not this populated-copy rehearsal. AISL data cannot be reset.
+- Verify the same nonempty fixtures before/after for current Home, syllabus, module overview,
+  reader, homework, project/review, leaderboard, certificate and Studio surfaces on desktop/mobile.
+  Rendered hierarchy/order, navigation, redirects, APIs, permissions, gated content and supported
+  actions remain equivalent, including cohort and self-paced states. Screenshots and meaningful
+  behavior assertions prove parity; status codes and empty inventories do not.
 - `make test-affected` -> pass.
 
 ## A5.2 Freeze weekend: AISL courses cutover
 
-Repository: AI-Shipping-Labs/website. Depends on: A5.1. Freeze required: yes. Playbook P13. Production checks: course catalog, one gated unit for a Basic member (allowed) and
+Repository: AI-Shipping-Labs/website. Depends on: A5.1, A7.3. Freeze required: yes. Playbook P13. Production checks: course catalog, one gated unit for a Basic member (allowed) and
 a Free member (paywall), progress toggle persists, purchase flow grants access.
+
+Switch to one authoritative shared-storage writer and reader using the rehearsed mapping and
+rollback. Preserve source refresh, all current UI/routes/features and site policy. Record the
+green development deployment and existing P13 owner-operated production checks; agents do not
+access production data or credentials. Backend deletion is a separately verified A5.2a step.
+
+## A5.2a Retire replaced AISL course backend
+
+Repository: AI-Shipping-Labs/website. Depends on: A5.2. Freeze required: no.
+
+Goal: delete replaced local course models, parsers, business services, commands, tasks and
+compatibility code after shared-storage cutover is accepted, preserving every supported behavior.
+Keep site-owned public templates, routes and policy adapters under D18 and D29.
+The no-freeze scope is code retirement of responsibilities already cut over. It does not authorize
+dropping tables, changing schema or ending the accepted rollback boundary. Any such change needs
+its own rehearsed migration and applicable D11 freeze and owner-operated approval gates.
+
+Read first
+- AISL `AGENTS.md`, `_docs/PROCESS.md`, coding and testing standards.
+- The accepted A5.1 mapping and A5.2 cutover, parity and rollback evidence.
+- D11, D18 and D29; playbook P17 and the production cutover playbook.
+
+Steps
+1. Inventory each proposed deletion's complete responsibility and replacement owner. Run P17 over
+   all Python import forms and alias attributes, tests, scripts and management commands. Also
+   inspect dynamic registrations, queued dotted task names, settings, URLs and template references.
+   An empty or incomplete inventory is not evidence of safe deletion.
+2. Verify the replacement against the accepted populated-copy and rendered/access/navigation/API
+   contracts. Confirm converted live sources parse/render once and continue to refresh under A7.3.
+   Preserve legacy functionality still owned by other active families.
+3. Delete only code with no remaining responsibility; move site-specific behavior to its explicit
+   adapter where needed. Preserve the accepted rollback boundary and document retained code.
+4. Repeat reference and behavior checks on the deletion candidate. Run the site's required review,
+   affected tests and development deployment gates before completion.
+
+Verification
+- Independent Tester and PM verify feature/UI/data parity and the complete deletion inventory.
+- `make test-affected` passes and the development deployment is green.
+- Report runtime lines added, moved, deleted and net change across package and both sites,
+  separately from tests and migrations. Adapter additions or code moved into the package are
+  not net simplification. DTC adoption and retirement remain required by D5.1/D5.3/D7.3/D5.2.
+
+Done when
+- [ ] Replaced backend responsibilities have one authoritative owner and no remaining callers.
+- [ ] Current visible UI, routes, features, learner state and source refresh remain equivalent.
+- [ ] Independent review, affected tests and development deployment pass for the deletion.
+- [ ] Actual runtime deletion and retained site-specific adapters are recorded.
+
+Docs: AISL course mapping and this repository's `docs/plan/STATUS.md`.
 
 ## D5.1 Map DTC course platform data to the shared apps
 
-Repository: DataTalksClub/website. Depends on: C5.3, D5.3a.
+Repository: DataTalksClub/website. Depends on: C5.3, D5.3a, D5.3c, C7.12g.
 
 D5.3a supplies the verified source/policy contract. This issue owns storage adoption, field/data
 mapping and repointing existing callers while preserving current flat routes and UI. Prove
 nested/YAML-homework persistence and identity at the target-model boundary using shared APIs;
 new nested reader projection acceptance is D5.3b and repository-reader retirement is D7.3.
+Before shared storage or writer activation, prove the D5.3c ordered-flow contract through released
+C7.12g APIs at the runtime persistence/projection boundary. Source-only normalization evidence
+does not establish runtime parity. Each adoption uses an immutable tagged release containing all
+required curriculum/coursework APIs; C5.3's donor and rehearsal gates remain required.
 Activate one shared-parser-backed scheduled/webhook writer against accepted package storage on
 the selected development target with approved compatible development source refs. Source updates
 must keep working: no legacy jobs writing old/disconnected tables, mirrored writes or second

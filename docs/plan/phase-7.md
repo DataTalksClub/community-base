@@ -1103,12 +1103,33 @@ Verification
   three-core-parser adoption by itself. Member wiki and article ownership stay separate.
 
 Done when
-- [ ] The supported adapter preserves one package graph/homework apply, transaction, validation,
+- [x] The supported adapter preserves one package graph/homework apply, transaction, validation,
   identity and provenance per accepted converted collection.
-- [ ] Host policy/rendering/extensions/reporting and actual scoped failure/cleanup behavior are
+- [x] Host policy/rendering/extensions/reporting and actual scoped failure/cleanup behavior are
   covered without changing ordinary package mode or generic parser routing.
-- [ ] Package gates, independent review and both consumer checks pass; runtime accounting is honest.
-- [ ] An immutable release is published; later site adoption and UI/development gates remain open.
+- [x] Package gates, independent review and both consumer checks pass; runtime accounting is honest.
+- [x] An immutable release is published; later site adoption and UI/development gates remain open.
+
+Completion evidence: [PR #385](https://github.com/DataTalksClub/community-base/pull/385)
+merged reviewed source `cce571d9ac0d789c2d51f38b6f6d2ac4c34a695a` through final head
+`bf65fb944b5c49fb83570da366eb553d7f6d59b1` as
+`7ecc85c40f00aaa19ae1217a4216f5c2bb1e68e2`, tree
+`59193dd382d6e5365f1d56fbaee274cc075eb85e`. Independent review and local gates covered 2,512
+tests with two existing warnings; runtime changed by +428/-52, net +376. The
+[merged-main receipt](https://github.com/DataTalksClub/community-base/pull/385#issuecomment-5933766286)
+records package, plan and both P16 jobs green. AISL baseline and linked failure sets were 0/0;
+raw DTC retained one baseline error and two linked failures under the documented P16 comparison
+qualification, so it is not claimed as a clean raw suite pass.
+
+Immutable release evidence: [`v0.5.24` publication](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5936991949)
+and [downloaded-wheel and isolated-tag verification](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5937042938)
+prove tag `v0.5.24` at `ae0c065366244590f4143d0519c40ec7efb29cad`, wheel SHA-256
+`dc5380fa1392970c56b55f4a2e68d601327c31b8f548cd273f828f96829a684c`, and exact equality for
+651 package files and all 60 migration files. The
+[release-main gates](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5936950583)
+retain the raw DTC qualification and latest-main AISL 0/0 comparison; the release PR's earlier
+AISL baseline rate-limit failure remains separate. AISL #1851 pin/adoption, real site behavior,
+UI and development checks, donor gates and A7.3 legacy deletion remain open.
 
 Runtime scope
 - New curriculum/site_adaptation.py and cohesive lifecycle/validation helpers as needed.
@@ -1313,10 +1334,33 @@ Verification
   navigation, desktop/mobile rendering and development deploy. No donor or adoption completion here.
 
 Done when
-- [ ] One package owner applies and cleans converted wiki/docs with preserved identity/provenance.
-- [ ] Projection, diagnostics, error/cleanup/report behavior and default mode are proven without UI changes.
-- [ ] Package gates, independent review and both consumers pass; net runtime versus moves/tests/docs recorded.
-- [ ] An immutable release is published; later AISL adoption and A7.3 deletion remain open.
+- [x] One package owner applies and cleans converted wiki/docs with preserved identity/provenance.
+- [x] Projection, diagnostics, error/cleanup/report behavior and default mode are proven without UI changes.
+- [x] Package gates, independent review and both consumers pass; net runtime versus moves/tests/docs recorded.
+- [x] An immutable release is published; later AISL adoption and A7.3 deletion remain open.
+
+Completion evidence: [PR #386](https://github.com/DataTalksClub/community-base/pull/386)
+merged reviewed source `c3635f414ab25156bf4fc7d37b3cf3193eee1ed2` through final head
+`1cfd5d540b27ea4fd65b6c40111354a3c5e9db5d` as
+`8b2a35b4c14869b1e2e60f87d2543f90cc2888c7`, tree
+`093f89a9c96635312fab30950c70f8570c21fa8a`. Independent review and local gates covered 2,524
+tests with two existing warnings; runtime changed by +852/-254, net +598. G and H therefore add
+net +974 runtime lines; later site retirement is not counted as achieved simplification. The
+[merged-main receipt](https://github.com/DataTalksClub/community-base/pull/386#issuecomment-5936010430)
+records package, plan and both P16 jobs green. AISL baseline and linked failure sets were 0/0;
+raw DTC retained one baseline error and two linked failures under the documented P16 comparison
+qualification, so it is not claimed as a clean raw suite pass.
+
+Immutable release evidence: [`v0.5.24` publication](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5936991949)
+and [downloaded-wheel and isolated-tag verification](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5937042938)
+prove tag `v0.5.24` at `ae0c065366244590f4143d0519c40ec7efb29cad`, wheel SHA-256
+`dc5380fa1392970c56b55f4a2e68d601327c31b8f548cd273f828f96829a684c`, and exact equality for
+651 package files and all 60 migration files. The
+[release-main gates](https://github.com/DataTalksClub/community-base/pull/389#issuecomment-5936950583)
+retain the raw DTC qualification and latest-main AISL 0/0 comparison; the release PR's earlier
+AISL baseline rate-limit failure remains separate. AISL #1851 pin/adoption, real fields and
+collector/navigation/rendering behavior, UI and development checks, donor gates and A7.3 legacy
+deletion remain open.
 
 Runtime scope
 - Knowledge-base content_sync_parsers and cohesive page lifecycle/registration/value modules.
@@ -1357,12 +1401,14 @@ Done when
 
 ## A7.2b Move the three core parsers onto the toolkit
 
-Repository: AI-Shipping-Labs/website. Depends on: A7.2a, C7.12b, C7.12c.
+Repository: AI-Shipping-Labs/website. Depends on: A7.2a, C7.12b, C7.12c, C7.12e, C7.12f, C7.12g, C7.12h.
 
 Route converted course and wiki/docs sources through the existing package parsers; rewrite the
 site-owned article adapter onto the toolkit. The tagged package and converter must preserve mixed
-course trees before the course path can replace its current reader; coordinate that boundary with
-A5.3. Retain legacy readers and active source refresh until the converted sources and adapters are
+course trees before the course path can replace its current reader. Preserve the current AISL
+reader projection, visible hierarchy, labels/order, Home, navigation, URLs/redirects, access,
+progress, desktop/mobile controls and styling. A5.3's future visible hierarchy rollout is separate.
+Retain legacy readers and active source refresh until the converted sources and adapters are
 verified together for the A7.3 cutover.
 
 Stop running `sanitize_html`, `normalize_inline_bullets` and `linkify_urls` over synced content
@@ -1387,6 +1433,11 @@ unconverted sources remain refreshable. Whole-source converted sync waits for A7
 family adapters. A7.3 then proves that converted live sources use package parsing and rendering
 once and removes their now-inactive duplicate passes; the skipped aggregate's checklist does not
 establish any of these results.
+
+Record runtime lines added, moved and deleted separately. Parser/renderer adoption is an
+intermediate milestone: A7.3 owns live conversion and inactive duplicate parse/render retirement;
+A5.1/A5.2/A5.2a own shared-storage adoption, cutover and backend retirement. Full unification also
+requires the DTC adoption milestones. No template ownership is released by this plan amendment.
 
 ## A7.2c Move the five family parsers onto the toolkit
 
@@ -1466,55 +1517,90 @@ Docs
 
 Repository: DataTalksClub/website. Depends on: C7.12, D7.1. Freeze required: no. Decision D23.
 
-Goal: DTC's article, book, podcast, person and data parsers are rewritten over the toolkit,
-`SyncedDocument` stays, and the media parser stops uploading every file under `images/`.
+Goal: DTC's article, book, podcast and data ingestion reads through the toolkit while preserving
+the site's current storage and public contracts; the package person parser becomes the one person
+owner only after its storage and readers replace the current people path. Referenced-asset upload
+applies to approved converted inputs without withdrawing currently served legacy asset paths.
+
+Before implementation, create and groom a DTC issue under that repository's process. It must name
+the exact released package API and immutable tag/pin, assign parser/storage/reader ownership, and
+prove the selected live source is supported. This plan text does not authorize a local package
+link, an unreviewed adapter seam, a dual reader or an inferred source cutover.
 
 Read first
 - DTC `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work.
 - DTC `_docs/specs/03-github-content-and-people.md`, the product authority here, whose adapter
   sections this issue amends to cite the format.
 - DTC `_docs/architecture/app-boundaries.md`.
+- DTC `content/sync_parsers/articles.py`, `books.py`, `podcasts.py`, `people.py`, `platforms.py`,
+  `slack.py` and `media.py`, the current ingest owners.
+- DTC `content/catalogue.py`, `article_content.py`, `person_content.py`, `person_chip.py`,
+  `public_views.py` and `review_views.py`, the current public-reader and route owners.
 - the specification, section 3.8 (`article`, `person`, `data`) and the tier B rows for `podcast`,
   `book` and `faq`.
 - `docs/01-decisions.md`, D25, D26 and D27.
-- `content/sync_parsers/media.py` lines 22 to 27 and 131 to 140, which upload every file under
-  `images/` whether a document references it or not.
+- package `content_sync/kinds/data.py` and `knowledge_base/content_sync_parsers.py`; opaque data
+  transport and package-owned person storage have different validation and persistence contracts.
 
 Steps
-1. Rewrite the article, book and podcast parsers as thin adapters over the toolkit. They validate
-   nothing; the toolkit does. The `person` parser is NOT rewritten here: D24 moved it into the
-   package and C7.9c shipped it, so DTC stops having a person parser at all and configures the
-   package one. An earlier revision of this step listed `person` among the site adapters, which
-   contradicted D24; D24 is the later owner decision and wins.
-2. Keep `SyncedDocument` (D21). The format is upstream of storage.
-3. Replace the media parser with the referenced-asset upload of `C7.9b`. An unreferenced file is no
-   longer a media row.
+1. Rewrite the article, book and podcast parsers as thin adapters over the toolkit. The toolkit
+   owns common parsing and rendering validation; the adapters retain current DTC schema policy,
+   projection and storage rules that the shared kind does not express. The `person` parser is NOT
+   adapted: D24 moved that parser and storage into the package, so DTC retires its parser only with
+   the compatible package storage and reader cutover described below.
+2. Keep `SyncedDocument` for the D21 site-owned editorial and DTC data contracts. Do not route the
+   package person parser back into that model: move person readers to the package-owned Person
+   contract while preserving public identity and behavior, then remove the old people rows/parser
+   without a dual-store or fallback path.
+3. Use the referenced-asset upload of `C7.9b` for approved converted inputs. Before narrowing any
+   existing source, inventory and preserve every currently served public path and byte, including
+   legacy assets with external links that no current document references. Retire the old media
+   record only through a separately reviewed compatibility cutover; absence from the new reference
+   graph alone is not deletion evidence.
 4. Stop applying the bleach cleaner in `content/services.py` to synced content. `D7.1` moved wiki
    and docs rendering; this issue finishes the editorial kinds.
 5. Register `faq` as a site kind with its current file shape (D26). Do not convert the questions.
 6. Register `graph/graph.json` and `search/search-corpus.json` as `data` files (D27). The podwiki's
    own scripts keep producing them; rebuilding the graph from synced references is a later
    DTC-owned issue.
-7. Register `podcast-platforms.yaml` and `slack.yaml` as `data` files, and delete the two parsers
-   that publish nothing today.
-8. Point the `person` kind at `DataTalksClub/content` rather than `datatalksclub.github.io`, and
-   delete DTC's own person parser rather than adapting it. The file move itself is `D7.4` (D25).
+7. Register `podcast-platforms.yaml` and `slack.yaml` through the toolkit data read only with a
+   functional shared replacement. Their current parsers publish `podcast_platforms` and
+   `slack_page` singleton rows used by public podcast buttons and `/slack`; preserve source/path,
+   field validation, list order, HTTPS and duplicate refusals, `SyncedDocument` identities,
+   provenance, cleanup, operator reports and existing readers before deleting either parser.
+   Opaque `data` transport does not supply those domain rules, and this step adds no generic
+   framework merely to host them.
+8. Adopt the D24 package Person model/parser and move DTC readers only after proving the current
+   short identity, `/people/<short>.html` routes, author/guest/event relationships, public fields,
+   provenance, stale behavior and portrait paths/bytes. Keep the existing live people source
+   supported until D7.4 performs D25's separately reviewed file move and source cutover; this issue
+   must not silently point production at `DataTalksClub/content` early.
 
 Verification
-- The route contract and sitemap contract tests pass unchanged for articles, books, podcasts and
-  people.
-- A development deploy serves the `/images/` route from the referenced assets of a converted
-  repository, and an unreferenced file in that repository is not served.
+- Route, redirect, sitemap, SEO and reader contracts pass unchanged for articles, books, podcasts,
+  people and `/slack`; podcast platform buttons, person credits/relationships and portraits retain
+  their current values and order.
+- Parser/storage/operator compatibility proves source-scoped identity, provenance, repeat/stale
+  behavior, cleanup suppression, counts, details and bounded diagnostics before an old owner is
+  deleted.
+- A development deploy serves referenced assets from an approved converted repository and does
+  not serve an unreferenced new asset, while every retained legacy external path serves the same
+  reviewed bytes until its compatibility cutover.
 - The rendered output of the 55 converted articles matches the human-reviewed rendering diff that
   `C7.12` produced.
 - The package is pinned by tag in `uv.lock`, and `scripts/check_community_base_source.py` passes.
+- Final completion requires an actual green development deploy. The current #442 deployment block
+  must be resolved through its owning infrastructure process; it is not waived by local or CI
+  acceptance.
 
 Done when
 - [ ] article, book, podcast, person and data kinds read through the toolkit
+- [ ] public storage, reader, route, relationship, portrait and platform/Slack contracts are preserved
 - [ ] route and sitemap contract tests pass unchanged
-- [ ] only referenced assets are uploaded
+- [ ] converted inputs upload only referenced assets and retained legacy asset contracts still pass
 - [ ] the bleach cleaner no longer runs on synced content
 - [ ] `_docs/specs/03-github-content-and-people.md` cites the format
+- [ ] the immutable package pin and actual development deploy are green
 
 Docs
 - DTC `_docs/specs/03-github-content-and-people.md`; `docs/plan/STATUS.md` here.
@@ -1613,8 +1699,11 @@ freeze exists because a conversion rewrites every file in the repository, so any
 request opened during the window conflicts with all of them.
 
 Order: `wiki`, `content`, `python-course`, `workshops-content`, then `ai-buildcamp-course` last,
-because a paid cohort is running against it and it converts from the `restructure-1675-maven-tree`
-branch rather than from `main`.
+because a paid cohort is running against it. Use approved source refs proven to preserve the
+current visible UI, hierarchy, routes, redirects and features. Do not require or merge the
+`restructure-1675-maven-tree` placements as part of this backend conversion; #1675/#1775 source
+placements and their visible rollout remain future A5.3 work. A source ref that changes current
+behavior blocks this conversion until a behavior-preserving source contract is accepted.
 
 Read first
 - AISL `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work, including who may merge in
