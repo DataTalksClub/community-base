@@ -7,6 +7,7 @@ query due items and create mail deliveries with stable idempotency keys.
 
 from django.utils import timezone
 
+from community_base.coursework.automation import get_automation_policy
 from community_base.coursework.models import (
     Homework,
     HomeworkState,
@@ -98,6 +99,8 @@ def _active_enrollments_without(cohort, submitted_enrollment_ids):
 
 @register_handler("coursework.send_homework_deadline_reminders")
 def send_homework_deadline_reminders(context: JobContext, payload: JobPayload):
+    if not get_automation_policy().enabled:
+        return {"reminders": 0}
     del context
     now, horizon = _window(payload)
     sent = 0
@@ -127,6 +130,8 @@ def send_homework_deadline_reminders(context: JobContext, payload: JobPayload):
 
 @register_handler("coursework.send_project_submission_deadline_reminders")
 def send_project_submission_deadline_reminders(context: JobContext, payload: JobPayload):
+    if not get_automation_policy().enabled:
+        return {"reminders": 0}
     del context
     now, horizon = _window(payload)
     sent = 0
@@ -154,10 +159,7 @@ def send_project_submission_deadline_reminders(context: JobContext, payload: Job
     return {"reminders": sent}
 
 
-@register_handler("coursework.send_peer_review_deadline_reminders")
-def send_peer_review_deadline_reminders(context: JobContext, payload: JobPayload):
-    del context
-    now, horizon = _window(payload)
+def _send_deadline_peer_review_reminders(now, horizon):
     sent = 0
     for project in projects_peer_reviewing_between(now, horizon):
         pending_reviews = PeerReview.objects.filter(
@@ -182,7 +184,11 @@ def send_peer_review_deadline_reminders(context: JobContext, payload: JobPayload
                 user=student,
             )
             sent += 1
+    return sent
 
+
+def _send_pooled_peer_review_reminders(now, horizon):
+    sent = 0
     # C5.2f/g: pooled mode's per-batch counterpart -- same purpose, same idempotency-key shape.
     for review in pooled_reviews_due_between(now, horizon):
         student = review.reviewer.student
@@ -203,4 +209,15 @@ def send_peer_review_deadline_reminders(context: JobContext, payload: JobPayload
             user=student,
         )
         sent += 1
+    return sent
+
+
+@register_handler("coursework.send_peer_review_deadline_reminders")
+def send_peer_review_deadline_reminders(context: JobContext, payload: JobPayload):
+    if not get_automation_policy().enabled:
+        return {"reminders": 0}
+    del context
+    now, horizon = _window(payload)
+    sent = _send_deadline_peer_review_reminders(now, horizon)
+    sent += _send_pooled_peer_review_reminders(now, horizon)
     return {"reminders": sent}

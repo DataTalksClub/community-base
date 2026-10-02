@@ -218,6 +218,40 @@ routes and Studio (AISL) sets both keys to `False` and calls the package service
 gate does not key on `community_base.accounts` being installed, because DTC does not install it and
 keeps both surfaces. These are startup settings read once in `ready()`, not runtime config keys.
 
+## Automation guard
+
+`COURSEWORK_AUTOMATION_ENABLED` is the package-wide runtime switch for automatic pooled-batch
+formation and scoring, pooled-review expiry, and coursework deadline reminders. It is a normal,
+non-secret `coursework` setting in the package configuration registry, so staff operators can see
+and change it through the existing Studio configuration surface. It creates no learner UI.
+
+The package default is `true`. A consumer may declare the same key first to supply its own
+metadata and startup default. Effective values resolve in this order: stored database value,
+environment variable, Django setting, then registry default. Policy calls use the existing
+runtime-config service. Workers read database overrides on each call; web processes follow its
+documented stamp-cache contract. Consumer rollout owns any required cross-process cache or restart
+proof.
+
+Use `coursework.automation.get_automation_policy()` for read-only introspection. Its immutable
+version `"1"` contract reports the effective boolean plus the ordered registered-handler and
+direct-operation inventories. Consumers should use that contract instead of parsing the setting
+or duplicating the inventories.
+
+When disabled, the five registered handlers remain registered and the two pooled 15-minute
+schedules remain present. Job dispatch and completion bookkeeping may still run, while the
+guarded calls return successful empty results before coursework queries, writes, hooks, or mail:
+
+- `try_form_batch` returns `None`, `form_pooled_batches` returns `[]`, and `try_score_batch`
+  returns `False`.
+- `coursework.form_pooled_batches` returns `{"formed_batches": 0}`.
+- `coursework.expire_pooled_reviews` returns `{"expired": 0, "scored_batches": 0}`.
+- Each of the three coursework reminder handlers returns `{"reminders": 0}`.
+
+Learner submission and review writes still complete, including their intentional submission and
+review-received effects. Explicit `calculate_project_scoring`, `persist_scored_submissions`, and
+deadline-mode `score_project` calls also remain available. The switch controls automatic actors;
+it does not change registration, learner forms, models, migrations, or the mail transport.
+
 ## Notifications
 
 `community_base/coursework/notifications.py` covers the four event-driven purposes, each a plain
