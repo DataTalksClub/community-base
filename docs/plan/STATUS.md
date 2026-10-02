@@ -154,7 +154,7 @@ issues that can start now.
 | `C5.2m` | community-base | Coursework adoption gaps: project module, optional commit id, optional Studio and member API | C5.2l | no | done | https://github.com/DataTalksClub/community-base/pull/351 (issue 350, released v0.5.19) |
 | `C5.2n` | community-base | Shared embeddable project submission form | C5.2m | no | done | https://github.com/DataTalksClub/community-base/pull/352 (released v0.5.19; follow-ups #357) |
 | `C5.2o` | community-base | FAQ contribution redesign and retirement of the `faq_*` project fields | C5.2n | no | todo |  |
-| `C5.2p` | community-base | Guard coursework automation with a consumer-resolved runtime switch | C5.2l, C7.12e, C7.12f | no | in-progress | https://github.com/DataTalksClub/community-base/pull/390 (issue 376) |
+| `C5.2p` | community-base | Guard coursework automation with a consumer-resolved runtime switch | C5.2l, C7.12e, C7.12f | no | done | https://github.com/DataTalksClub/community-base/pull/390 (issue 376) |
 | `C5.2q` | community-base | Preserve 500-character project repository URLs | C5.2m, C5.2n | no | in-progress | https://github.com/DataTalksClub/community-base/pull/403 |
 | `C5.2r` | community-base | Add shared course enrollment history | C5.1e | no | todo |  |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e, C5.2h | no | todo | https://github.com/DataTalksClub/community-base/issues/273 |
@@ -247,4 +247,4 @@ issues that can start now.
 | `C7.31` | community-base | A shared public page must be usable before a site styles it | C7.25 | no | done | https://github.com/DataTalksClub/community-base/pull/290 |
 | `A7.5` | AI-Shipping-Labs/website | AISL: write the cb- rules for shared public pages | A7.4 | no | done | merged to origin/main as 31b431be. Fifteen cb- hooks in assets/css/tailwind.css; primary action and field first |
 | `D7.6` | DataTalksClub/website | DTC: write the cb- rules for shared public pages | D7.5 | no | done | merged to origin/main as 30a69930. Fifteen cb- hooks in templates/core/_design_system.html; primary action and field first |
-| `C7.32` | community-base | Consolidate curriculum collection diagnostic scope | C7.10, C7.11 | no | in-progress | https://github.com/DataTalksClub/community-base/pull/395 |
+| `C7.32` | community-base | Consolidate curriculum collection diagnostic scope | C7.10, C7.11 | no | done | https://github.com/DataTalksClub/community-base/pull/395 |

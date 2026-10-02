@@ -1482,19 +1482,19 @@ Verification
   implementation. It adds no configuration template, form or view change.
 
 Done when
-- [ ] Package default-enabled and consumer-first disabled resolution are proven in web and
+- [x] Package default-enabled and consumer-first disabled resolution are proven in web and
       worker contexts, including environment-before-Django fallback, stored override precedence
       and re-enable behavior, with no generic framework reorder.
-- [ ] One package policy owner reports the effective value, guard version, five exact handlers
+- [x] One package policy owner reports the effective value, guard version, five exact handlers
       and three exact operations, and every guarded entrypoint uses that owner.
-- [ ] Every automatic formation, pooled-scoring, expiry and reminder entrypoint performs the
+- [x] Every automatic formation, pooled-scoring, expiry and reminder entrypoint performs the
       exact successful no-op before coursework domain, mail and hook effects while false.
-- [ ] Public return shapes, registration, both pooled schedules and transport bookkeeping
+- [x] Public return shapes, registration, both pooled schedules and transport bookkeeping
       compatibility remain stable at either flag value.
-- [ ] Intentional calculation, persistence and deadline-mode Studio scoring remain usable.
-- [ ] Package gates, independent review and both exact P16 consumers pass and are reported
+- [x] Intentional calculation, persistence and deadline-mode Studio scoring remain usable.
+- [x] Package gates, independent review and both exact P16 consumers pass and are reported
       separately.
-- [ ] A new immutable release after v0.5.23 is published and verified. AISL Phase 5A pin,
+- [x] A new immutable release after v0.5.23 is published and verified. AISL Phase 5A pin,
       diagnostics, false database override, deployment and quiescence proof remain open in
       AI-Shipping-Labs/website#1696.
 
