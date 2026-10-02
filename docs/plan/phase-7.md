@@ -1401,12 +1401,14 @@ Done when
 
 ## A7.2b Move the three core parsers onto the toolkit
 
-Repository: AI-Shipping-Labs/website. Depends on: A7.2a, C7.12b, C7.12c.
+Repository: AI-Shipping-Labs/website. Depends on: A7.2a, C7.12b, C7.12c, C7.12e, C7.12f, C7.12g, C7.12h.
 
 Route converted course and wiki/docs sources through the existing package parsers; rewrite the
 site-owned article adapter onto the toolkit. The tagged package and converter must preserve mixed
-course trees before the course path can replace its current reader; coordinate that boundary with
-A5.3. Retain legacy readers and active source refresh until the converted sources and adapters are
+course trees before the course path can replace its current reader. Preserve the current AISL
+reader projection, visible hierarchy, labels/order, Home, navigation, URLs/redirects, access,
+progress, desktop/mobile controls and styling. A5.3's future visible hierarchy rollout is separate.
+Retain legacy readers and active source refresh until the converted sources and adapters are
 verified together for the A7.3 cutover.
 
 Stop running `sanitize_html`, `normalize_inline_bullets` and `linkify_urls` over synced content
@@ -1431,6 +1433,11 @@ unconverted sources remain refreshable. Whole-source converted sync waits for A7
 family adapters. A7.3 then proves that converted live sources use package parsing and rendering
 once and removes their now-inactive duplicate passes; the skipped aggregate's checklist does not
 establish any of these results.
+
+Record runtime lines added, moved and deleted separately. Parser/renderer adoption is an
+intermediate milestone: A7.3 owns live conversion and inactive duplicate parse/render retirement;
+A5.1/A5.2/A5.2a own shared-storage adoption, cutover and backend retirement. Full unification also
+requires the DTC adoption milestones. No template ownership is released by this plan amendment.
 
 ## A7.2c Move the five family parsers onto the toolkit
 
@@ -1692,8 +1699,11 @@ freeze exists because a conversion rewrites every file in the repository, so any
 request opened during the window conflicts with all of them.
 
 Order: `wiki`, `content`, `python-course`, `workshops-content`, then `ai-buildcamp-course` last,
-because a paid cohort is running against it and it converts from the `restructure-1675-maven-tree`
-branch rather than from `main`.
+because a paid cohort is running against it. Use approved source refs proven to preserve the
+current visible UI, hierarchy, routes, redirects and features. Do not require or merge the
+`restructure-1675-maven-tree` placements as part of this backend conversion; #1675/#1775 source
+placements and their visible rollout remain future A5.3 work. A source ref that changes current
+behavior blocks this conversion until a behavior-preserving source contract is accepted.
 
 Read first
 - AISL `AGENTS.md` and `_docs/PROCESS.md` first; they govern the work, including who may merge in
