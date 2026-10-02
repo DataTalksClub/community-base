@@ -2628,3 +2628,126 @@ Repository: DataTalksClub/website. Depends on: D7.5.
 The same gap on the other site, which adds its rules to `templates/core/_design_system.html`
 rather than a Tailwind entrypoint. Same fifteen hooks, same ordering argument: whichever hook
 carries a page's primary action comes first.
+
+## C7.32 Consolidate curriculum collection diagnostic scope
+
+Repository: community-base. Depends on: C7.10, C7.11.
+Freeze required: no.
+
+Goal
+Give collection read-error scope one internal owner, preserving course parser rejection and
+semantic-diagnostic suppression. At `7fb9208`, `curriculum/parsers.py::_in_scope` and
+`curriculum/source_validation.py::_has_read_errors` repeat the same rule. Reuse the existing
+predicate in the validator; expect a small runtime deletion, not a broad simplification.
+This implements one backend part of the owner's request to simplify courses. It changes no UI,
+routes, features, services or navigation, storage, source format, schema, public parser API,
+package pins, site adoption or deployment.
+
+Read first
+- `AGENTS.md`, `docs/PROCESS.md` and `docs/04-quality-gates.md`.
+- Protected `/home/alexey/git/community-base/coding-standard.md` (read-only; never copy or edit),
+  SHA256 `6225deff7714bc66cd12e47138c210e125e40315d152bac6e7e1bd2d3cc6bc69`.
+- `docs/01-decisions.md`, D8, D15, D23 and D24; `docs/02-architecture.md`, sections 2 and 6.
+- `docs/03-playbooks.md`, P16 and P17.
+- `community_base/curriculum/parsers.py`, `check_read`, `_in_scope` and `parse_course`.
+- `community_base/curriculum/source_validation.py`, `course_source_diagnostics` and
+  `_has_read_errors`; `community_base/content_sync/check.py::check_repository`.
+- `community_base/content_sync/documents.py`, `Diagnostic`, `Collection` and `ReadResult.errors`.
+- `tests/curriculum/test_parsers.py`, `tests/curriculum/test_project_modules.py`,
+  `tests/curriculum/test_mixed_source.py`, `tests/curriculum/utils.py` and
+  `tests/content_sync/test_check.py`.
+
+Steps
+1. Record the package base SHA and protected coding-standard hash. Run `uv sync --all-extras`
+   and the baseline touched-app tests listed below before changing runtime code; record collected
+   counts in this checkout. Inspect imports and call sites of both helpers, covering P17's three
+   import forms and alias attribute accesses before deleting any symbol. The predicate is already
+   in a module the validator imports, so the preferred reuse adds no dependency cycle.
+2. Add `tests/curriculum/test_collection_error_scope.py` before refactoring. Exercise real
+   `parse_course`/`parse_course_repository`, `check_read`, `course_source_diagnostics` and
+   `check_repository` contracts with valid course fixtures, not direct assertions of `_in_scope`
+   or mocked parser results. Use one authoritative set of behavior cases:
+   - a malformed document under `courses/alpha/` rejects alpha with its rendered diagnostic,
+     but a valid `courses/beta/` still returns its expected course graph;
+   - a read error under `courses/alpha-extra/` leaves `courses/alpha/` parsable, proving the
+     slash boundary rather than a broad string prefix;
+   - a course with an independently observable semantic error (for example a published live
+     cohort with missing dates) emits that diagnostic when it has no scoped read error, even
+     when beta or alpha-extra has read errors;
+   - the same semantic error is suppressed when its collection has a read error; the parser
+     raises the read diagnostic, and `check_repository` retains the primary read diagnostic
+     without appending a secondary course semantic diagnostic for that collection;
+   - an empty-path root collection treats an otherwise unrelated path's read error as scoped;
+     a `content.yaml` error affects every collection; `check_read(result)` without a collection
+     rejects all read errors; warning-only diagnostics neither reject nor suppress semantics.
+   For root, manifest and warning edge cases, a synthetic `ReadResult` derived from a real
+   successful read may add a located `Diagnostic` while retaining real documents and collections.
+   Say which cases are synthetic: an invalid repository manifest can prevent collections from
+   being discovered, so a zero-collection validator result alone proves no suppression behavior.
+   Assert exact diagnostic path, pointer, rule, message and count where knowable, and assert that
+   the semantic-error control emits a nonempty result before testing its suppression.
+3. Run the new tests against unchanged runtime code and record the green baseline. In a
+   disposable copy, deliberately broaden scope to include a sibling (and remove the slash
+   boundary for the similar-prefix case); run the new test module and record assertion failures
+   at the parser/diagnostic contracts. Separately force the validator to skip a clean collection
+   and prove the semantic-error control fails. Restore each mutation and record a green rerun.
+   Import, lint, setup or system-check failures do not demonstrate test sensitivity. Do not trust
+   the new checks until the intended assertions have failed.
+4. Change only `curriculum/source_validation.py` runtime code: import the existing `_in_scope`
+   internally. Prefer `any(_in_scope(error, collection) for error in result.errors)` at the
+   sole validator call site and delete `_has_read_errors` after the step 1 dependency inventory
+   proves deletion safe. This simple generator preserves short-circuiting; check the changed
+   function stays within the coding standard's 30-line cap. Reusing `_in_scope` in the existing
+   helper loop is a safe fallback if that cap or a real dependency requires keeping the helper.
+   Delete the repeated path policy either way. Keep root/global/exact-prefix semantics and
+   existing diagnostic ordering and formatting. Leave the 334-line `parsers.py`
+   untouched and introduce no public API or general-purpose abstraction. If private reuse is
+   unsound on inspection, stop and report evidence instead of expanding this issue.
+5. Run the verification and package gates. Record runtime lines added/deleted separately from
+   test and documentation lines. After opening or pushing the package PR, dispatch the on-call
+   engineer asynchronously per `docs/PROCESS.md` section 4a. Require both P16 consumer CI jobs'
+   baseline-versus-linked verdicts against the actual package head. Do not link the real site
+   checkouts or change pins. Report unresolved checks honestly; CI evidence here proves consumer
+   regression coverage, not donor equivalence or course adoption.
+
+Verification
+- `uv sync --all-extras` -> all package test extras installed in the implementation checkout.
+- Before runtime edits: `make test tests/curriculum tests/content_sync tests/coursework` -> all
+  pass; record collected counts and baseline SHA.
+- Before and after refactor: `make test tests/curriculum/test_collection_error_scope.py` -> all
+  collection isolation, similar-prefix, root, manifest and warning contracts pass, with a nonzero
+  collected count; save the deliberate assertion-failure evidence from step 3 separately.
+- `make test tests/curriculum tests/content_sync tests/coursework` -> all pass after refactor,
+  with collected counts compared to the same checkout's baseline and added tests accounted for.
+- `make lint` and `uv run ruff format --check .` -> exit 0, formatting already satisfied.
+- `uv run python testproject/manage.py check` -> no system-check issues.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes detected.
+- On a fresh SQLite database: `DATABASE_URL=sqlite:////tmp/c7.32-fresh.sqlite3 uv run python testproject/manage.py migrate`
+  -> all migrations apply; remove any previous file at that task-specific path before the run.
+- `make test tests/test_boundaries.py` -> pass.
+- `uv run python scripts/plan.py check` -> OK.
+- On-call: `uv run python scripts/watch-ci.py --pr <N> --repo DataTalksClub/community-base --quiet`
+  -> package `test`, `plan` and both Cross-repo consumer jobs succeed at the submitted head.
+  Record run URL, package SHA, both site checkout SHAs, baseline and linked test counts and
+  normalized failure-set comparison for DataTalksClub/website and AI-Shipping-Labs/website.
+  Follow P16's classification of link-seal and asset-build artefacts; cancelled, missing or red
+  consumer verdicts remain unresolved. The orchestrator does not poll Actions.
+- Not run here, needs: donor migration equivalence, development-copy rehearsals, real-service
+  conformance and deployed course adoption remain the later compatibility/adoption issues' work.
+
+Done when
+- [ ] One existing internal predicate owns collection read-error scope for parser and validator.
+- [ ] Public parser rejection and actual semantic-diagnostic suppression remain unchanged across
+  isolated collections, similar prefixes, root/global scope and warning-only inputs.
+- [ ] Added behavior tests pass before and after runtime edits, and deliberate mutations reached
+  and failed their intended assertions before the checks were trusted.
+- [ ] Runtime diff is limited to the validator's private predicate reuse and redundant policy
+  deletion; `parsers.py`, public API, UI, routes, features, schemas and site pins are untouched.
+- [ ] Package gates and both P16 consumer CI verdicts passed with evidence tied to the PR head.
+- [ ] PR merged before STATUS becomes `done`; broader course simplification and adoption remain
+  separate work.
+
+Docs
+- `docs/plan/phase-7.md` and `docs/plan/STATUS.md`; `CHANGELOG.md` on implementation only.
+- PR description: baseline, mutation and final verification outputs, runtime line delta and P16
+  evidence; preserve deferred compatibility checks as `Not run here, needs:`.

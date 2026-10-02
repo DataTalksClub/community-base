@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- C7.32 (#394): share curriculum collection read-error scope between the course parser and
+  source validator, preserving collection isolation, parser rejection and semantic diagnostics.
+
 ## 0.5.24
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations

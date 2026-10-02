@@ -3,7 +3,7 @@
 import re
 
 from community_base.content_sync.documents import Diagnostic
-from community_base.curriculum.parsers import course_collections, parse_course
+from community_base.curriculum.parsers import _in_scope, course_collections, parse_course
 from community_base.curriculum.source import CurriculumParseError
 
 LOCATED = re.compile(r"^(?P<path>[^:]+):(?P<pointer>/[^:]*): \[(?P<rule>[^]]+)\] (?P<message>.*)$")
@@ -14,7 +14,7 @@ def course_source_diagnostics(result):
 
     found = []
     for collection in course_collections(result):
-        if _has_read_errors(result, collection):
+        if any(_in_scope(error, collection) for error in result.errors):
             continue
         authored = []
         for document in result.documents:
@@ -29,15 +29,6 @@ def course_source_diagnostics(result):
         except CurriculumParseError as error:
             found.append(_diagnostic(collection, str(error)))
     return found
-
-
-def _has_read_errors(result, collection):
-    for error in result.errors:
-        if not collection.path or error.path.startswith(f"{collection.path}/"):
-            return True
-        if error.path == "content.yaml":
-            return True
-    return False
 
 
 def _diagnostic(collection, message):

@@ -244,3 +244,4 @@ issues that can start now.
 | `C7.31` | community-base | A shared public page must be usable before a site styles it | C7.25 | no | done | https://github.com/DataTalksClub/community-base/pull/290 |
 | `A7.5` | AI-Shipping-Labs/website | AISL: write the cb- rules for shared public pages | A7.4 | no | done | merged to origin/main as 31b431be. Fifteen cb- hooks in assets/css/tailwind.css; primary action and field first |
 | `D7.6` | DataTalksClub/website | DTC: write the cb- rules for shared public pages | D7.5 | no | done | merged to origin/main as 30a69930. Fifteen cb- hooks in templates/core/_design_system.html; primary action and field first |
+| `C7.32` | community-base | Consolidate curriculum collection diagnostic scope | C7.10, C7.11 | no | in-progress | https://github.com/DataTalksClub/community-base/issues/394 |
