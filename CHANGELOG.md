@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- C5.2q (#396): preserve valid project repository URLs through 500 characters in the shared model and form;
+  reject 501 characters without truncation. The form derives capacity from model metadata.
+  Existing URL validation, host restrictions, access, lifecycle, controls and layout remain.
+- Append `cb_coursework.0007_alter_projectsubmission_github_link`. Narrowing back to 200 after
+  longer writes is unsafe; retain the widened schema for application rollback unless a separate
+  safe narrowing rehearsal exists. Fresh SQLite and safe synthetic reversal do not establish
+  PostgreSQL enforcement, populated donor equivalence or adoption compatibility. Release and
+  consumer pin work remain separately coordinated outside the guard release inventory.
+
 ## 0.5.25
 
 Adoption-provisional under D33. This release retains the nine provisional kept-label migrations

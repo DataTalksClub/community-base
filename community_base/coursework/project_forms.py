@@ -72,7 +72,7 @@ class ProjectSubmissionForm(forms.Form):
 
     github_link = forms.CharField(
         label="GitHub link to the project",
-        max_length=200,
+        max_length=ProjectSubmission._meta.get_field("github_link").max_length,
         help_text=GITHUB_LINK_HELP,
         widget=forms.URLInput(
             attrs={"class": "cb-input", "inputmode": "url", "autocomplete": "url"}
