@@ -480,7 +480,7 @@ class ProjectSubmission(models.Model):
         Enrollment, on_delete=models.CASCADE, related_name="project_submissions"
     )
 
-    github_link = models.URLField(validators=[URLValidator()])
+    github_link = models.URLField(max_length=500, validators=[URLValidator()])
     # Required only when the project's ``commit_id_field`` is on (``clean``).
     commit_id = models.CharField(max_length=40, blank=True)
 
