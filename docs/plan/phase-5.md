@@ -1511,6 +1511,177 @@ Docs
 - `CHANGELOG.md` in the later guard release.
 - `docs/plan/phase-5.md` and `docs/plan/STATUS.md`.
 
+## C5.2r Add shared course enrollment history
+
+Repository: community-base. Depends on: C5.1e. Freeze required: no.
+Related: A5.1.
+
+Goal: add a distinct shared `CourseEnrollment` owner for a learner's course-level enrollment
+signal and soft history. Keep the existing cohort `Enrollment` model, services, database contract,
+reverse relations, coursework foreign keys, APIs and Studio behavior unchanged. Ship model and
+Python service capability only: no UI, template, route, HTTP API, Studio registration, importer,
+site side effect, credential API, cohort creation or consumer data copy.
+
+Read first
+- Protected `coding-standard.md` as the style authority, read-only.
+- `docs/01-decisions.md` D2, D8, D17, D18 and D29; none mandates one physical enrollment table.
+- `docs/02-architecture.md` section 3 and this issue's accepted model-list update.
+- `docs/04-quality-gates.md`, especially migration gates, nonempty checks and package consumer
+  verification.
+- `community_base/curriculum/models.py` `Course`, `Enrollment`, `ENROLLMENT_SOURCES` and the active
+  cohort-enrollment constraint.
+- `community_base/curriculum/services.py` enrollment helpers and their unauthenticated/idempotent
+  behavior.
+- `community_base/coursework/models.py` enrollment foreign keys; they remain typed to cohort
+  `Enrollment`.
+- AISL `content/models/enrollment.py` at the accepted donor commit for the field and history
+  contract. This issue uses synthetic fixtures and does not copy donor data.
+- The accepted storage-design evidence. Cohort eligibility and credential allocation are later
+  adoption questions, not prerequisites for this fresh capability.
+
+Design
+- Add `CourseEnrollment` in `community_base.curriculum`; do not rename or alter `Enrollment`.
+- Pin the donor field contract exactly:
+  - implicit `BigAutoField` primary key under `CurriculumConfig.default_auto_field`;
+  - non-null `user` FK to `settings.AUTH_USER_MODEL`, `on_delete=CASCADE`;
+  - non-null `course` FK to `Course`, `on_delete=CASCADE`;
+  - `enrolled_at = DateTimeField(auto_now_add=True)` with no nullable/default/index override;
+  - `unenrolled_at = DateTimeField(null=True, blank=True)` with no default or explicit index;
+  - `source = CharField(max_length=20, default="manual")`, non-null and non-blank, using the exact
+    stored/display choices `manual` / `Manual`, `auto_progress` / `Auto (first lesson complete)`,
+    and `admin` / `Admin (Studio)` from the existing package constants;
+  - no extra donor field or generic policy metadata.
+- Use distinct reverse names: `user.curriculum_course_enrollments` and
+  `course.course_enrollments`. Keep `user.curriculum_enrollments` and `cohort.enrollments`
+  unchanged for cohort membership.
+- Order newest first by `enrolled_at`. Add an active-only unique constraint for `(user, course)`
+  where `unenrolled_at IS NULL`; proposed constraint name `cb_course_enroll_active_uq`.
+  The two foreign keys retain Django's normal FK indexes; add no speculative index beyond the
+  partial unique index supplied by the constraint.
+- Preserve donor display behavior: `__str__` returns
+  `<user> -> <course.title> (active|unenrolled)`, and `is_active` is true exactly when
+  `unenrolled_at` is null. Choice display text is part of the tested contract.
+- Preserve the two model types and PK namespaces. A cohort `Enrollment(pk=N)` and a
+  `CourseEnrollment(pk=N)` may coexist. Coursework, leaderboard state and shared `Certificate`
+  continue to reference only cohort `Enrollment`.
+- Add only explicit Python lookups/mutations in `curriculum.services`:
+  `get_active_course_enrollment`, `is_course_enrolled`, `ensure_course_enrollment`,
+  `unenroll_from_course`, `course_enrollment_history`, and
+  `active_course_enrollment_count`.
+- Use these concrete contracts:
+  - `get_active_course_enrollment(user, course) -> CourseEnrollment | None`;
+  - `is_course_enrolled(user, course) -> bool`;
+  - `ensure_course_enrollment(user, course, source=SOURCE_MANUAL) -> tuple[CourseEnrollment | None, bool]`;
+  - `unenroll_from_course(user, course) -> bool`;
+  - `course_enrollment_history(user, *, course=None) -> QuerySet[CourseEnrollment]`, returning
+    all active and inactive rows for the user, optionally narrowed to one course, in model order;
+  - `active_course_enrollment_count(course) -> int`.
+  Unauthenticated user lookups return `None`, `False` or an empty queryset consistently with the
+  existing cohort helpers; count takes a course and does not inspect a user.
+- `ensure_course_enrollment` returns `(row, created)`, does not refresh `enrolled_at` or overwrite
+  the first source, and creates a new row after an earlier row was unenrolled.
+  `unenroll_from_course` soft-closes only the active course row and is false/idempotent when none
+  exists. These services never call or change cohort enrollment helpers or rows and emit no CRM,
+  analytics, tags, notification, access or other site side effects.
+- Do not add an HTTP endpoint, public/staff serializer, Studio destination, admin action,
+  template, parser/import hook, certificate relation or synthetic self-paced cohort.
+- Follow the coding standard: new functions at most 30 lines and new source/test files at most
+  300 lines. Use cohesive focused modules rather than growing the existing oversized model file;
+  preserve current model exports and source constants without a broad model rewrite. Record
+  runtime lines added, moved and deleted separately from tests and migrations. This package
+  capability alone does not establish net simplification or authorize deleting site code.
+
+Steps
+1. Add focused model/service lifecycle contract tests first. In the first idempotence or re-enrol
+   history test, import the existing curriculum modules and resolve the named model/service
+   attributes inside the test body with an explicit capability assertion. The exact parent source
+   must collect and run a nonzero test before failing that assertion; after implementation the same
+   test continues to its lifecycle assertions. Record that red result. A collection error, zero-test
+   run or unrelated setup failure is not red proof. Do not add or retain a standalone presence-only
+   test.
+2. Add `CourseEnrollment` with the exact fields, source choice values/display labels, reverse
+   names, ordering, string display and active partial uniqueness above. Reuse the existing source
+   constants without changing cohort `Enrollment`.
+3. Add the six explicit service functions above. Keep their queries model-specific; no generic
+   “enrollment of either type” resolver and no implicit cohort selection. Leave every existing
+   cohort service body and signature untouched.
+4. Generate one new additive curriculum migration from the actual migration leaf. The migration
+   number and filename are deliberately unreserved until implementation. Do not edit, replace,
+   squash or renumber an existing migration; do not alter the existing `Enrollment` table,
+   constraints or foreign keys.
+5. Add a migration regression fixture that starts at the previous package migration state with an
+   existing cohort Enrollment and at least one coursework row referencing it. Migrate forward and
+   prove every existing PK, value and FK is unchanged. Reverse while the new table is empty, prove
+   only the new table disappears, then migrate forward again. This is synthetic package evidence,
+   not P14 or a populated consumer rehearsal. The empty-table reverse proves schema migration
+   mechanics only. Once a consumer populates `CourseEnrollment`, application rollback retains the
+   applied migration/table, back-copies under A5.1's rehearsed contract and switches the old app
+   reader/writer back; it must not drop populated course history by unapplying this migration.
+6. Document `CourseEnrollment`, its history semantics, reverse names and service functions in
+   `community_base/curriculum/README.md`. State that cohort `Enrollment` remains the coursework and
+   certificate type and that sites own public presentation and side effects.
+7. Search the package for `Enrollment` foreign keys and public registration. Prove none were
+   repointed and that the new model/service is not registered as an API or Studio surface.
+
+Verification
+- Red proof before implementation: the first lifecycle contract test runs against the exact parent
+  source and fails its explicit capability assertion after the test module collects. After
+  implementation, the same test continues to idempotence or re-enrol history assertions. Record the
+  command and failure in the pull request; do not use a standalone presence-only test.
+- `uv run pytest tests/curriculum` -> pass, including:
+  - active uniqueness rejects a second active course row;
+  - soft-close followed by ensure creates a second history row and retains the first row's source,
+    timestamps and identity;
+  - idempotent ensure preserves source and `enrolled_at`;
+  - history is user/course scoped and newest first; active count ignores inactive history;
+  - source max length, null/default semantics and all three stored/display choice pairs match the
+    donor contract; `__str__` and `is_active` preserve its display/state behavior;
+  - the same integer PK can exist once in cohort `Enrollment` and once in `CourseEnrollment`;
+  - unauthenticated lookup/ensure behavior matches the documented service contract;
+  - course ensure/unenrol leaves a same-user/course cohort Enrollment byte-for-byte unchanged and
+    invokes no cohort mutation; the existing cohort model, reverse names and service signatures
+    retain their current behavior.
+- A focused relation test asserts that `Submission`, `ProjectSubmission`,
+  `LeaderboardComplaint` and shared `Certificate` still target cohort `Enrollment`; no field can
+  accept `CourseEnrollment` as its related model.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` -> no changes.
+- Fresh migration gate:
+  `DATABASE_URL=sqlite:////tmp/cb-c52r.sqlite3 uv run python testproject/manage.py migrate`
+  -> all migrations apply from zero. First use a bounded `uv run python` reset of that exact
+  task file, refusing symlinks and non-files; no other database is reset.
+- Migration regression: previous curriculum leaf -> new leaf -> previous leaf -> new leaf passes
+  while the new table is empty,
+  with the synthetic existing cohort and coursework identities and values equal at every
+  applicable checkpoint. Use the generated migration names recorded by implementation; this draft
+  reserves no number.
+- `uv run python testproject/manage.py check` -> no issues.
+- `uv run pytest tests/test_boundaries.py` -> pass; no site imports.
+- Standard package lint/format gates pass after `uv sync --all-extras`; report the collected test
+  count against a baseline from the same checkout.
+- P16's DTC and AISL jobs each compare the consumer's pinned baseline with the in-progress package
+  and report no new failure. The designated on-call engineer observes those jobs. This issue does
+  not query CI during planning and does not substitute a package fixture for either consumer.
+
+Done when
+- [ ] `CourseEnrollment` owns only course-level enrollment history with one active row per
+      `(user, course)` and distinct reverse/PK namespaces.
+- [ ] The six model-specific Python services pass their idempotence, history, source and timestamp
+      contracts.
+- [ ] Existing cohort `Enrollment`, coursework/certificate FKs, public APIs and Studio
+      registrations are structurally and behaviorally unchanged.
+- [ ] The new migration is additive, fresh-applicable, reversible while empty and drift-free; the
+      previous-state regression preserves synthetic existing cohort and coursework rows exactly.
+- [ ] The issue and migration documentation distinguish empty-schema reversal from later
+      application rollback, which retains a populated extra table until back-copy and rollback
+      acceptance permit retirement.
+- [ ] Package, boundary and both P16 consumer gates pass with nonempty evidence.
+- [ ] No site copy, side effect, UI, credential, eligibility or cutover behavior is claimed.
+
+Docs
+- `community_base/curriculum/README.md`.
+- `docs/02-architecture.md` model list, if the accepted plan-preparation change has not already
+  landed it.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.
@@ -1964,7 +2135,7 @@ fixture or second parser is checked in.
 
 ## A5.1 Map AISL courses to the shared apps
 
-Repository: AI-Shipping-Labs/website. Depends on: C5.3, A7.2b.
+Repository: AI-Shipping-Labs/website. Depends on: C5.3, A7.2b, C5.2r.
 
 Adopt shared curriculum/coursework storage and reusable services behind the current AISL policy,
 routes and presentation. Preserve every current visible UI interaction and supported feature.
@@ -1977,8 +2148,15 @@ Steps
 1. Mapping document in the pull request: every field of `content.Course`, `Module`, `Unit`,
    `Cohort`, `CohortEnrollment`, `Enrollment`, `UserCourseProgress`, `CourseCertificate`,
    `ProjectSubmission`, `PeerReview` to its shared target.
-2. Data migration (P6): courses with no cohort get one `self_paced` cohort; `Enrollment` rows
-   attach to it; `CohortEnrollment` rows become `Enrollment` rows on their cohort.
+2. Data migration (P6): copy every active and historical local course `Enrollment` row to
+   shared `CourseEnrollment`, independently of cohort membership. Preserve course enrollment
+   IDs, source and timestamps under the accepted target inventory and reversible mapping.
+   Local `CohortEnrollment` rows map to the unchanged shared cohort `Enrollment` through the
+   accepted cohort identities. Keep the existing no-cohort `self_paced` curriculum mapping;
+   never select or invent a cohort merely to carry course-level enrollment history. Existing
+   shared rows, target-only eligibility, certificate allocation and all donor parity/rehearsal
+   gates remain this adoption issue's responsibility; the fresh package capability proves none
+   of those populated-copy contracts.
 3. `CourseAccess` and Stripe product creation stay in AISL; implement `COURSE_ACCESS_GRANTS`.
 4. Workshops keep their own models and pages; `WorkshopInstructor` references `events.Host`.
 5. Integrate the shared curriculum parser through the A7.2b source contract. Preserve active

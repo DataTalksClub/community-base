@@ -165,7 +165,7 @@ These rules are checked by tests inside the package (`tests/test_boundaries.py`,
 | `community_base.content_sync` | `cb_content_sync` | `ContentSource`, `SyncLog`, `WebhookLog` | AISL `integrations/services/github_sync/`, `integrations.models`; the content format, kind registry and `check_content` (phase 7 `C7.7`, D23) | 2 |
 | `community_base.studio` | `cb_studio` | none | AISL `studio` shell, sidebar, templatetags, users pages | 2 |
 | `community_base.events` | `events` | as in AISL | AISL `events` | 4 |
-| `community_base.curriculum` | `cb_curriculum` | `Course`, `Cohort`, `Module`, `Unit`, `Enrollment`, `UnitProgress`, `Certificate` | AISL `content` course models, DTC `courses` provenance and cohort split | 5 |
+| `community_base.curriculum` | `cb_curriculum` | `Course`, `Cohort`, `Module`, `Unit`, cohort `Enrollment`, course `CourseEnrollment` (C5.2r), `UnitProgress`, `Certificate` | AISL `content` course models, DTC `courses` provenance and cohort split | 5 |
 | `community_base.coursework` | `cb_coursework` | `Homework`, `Question`, `Submission`, `Answer`, `Project`, `ProjectSubmission`, `ReviewCriteria`, `PeerReview`, `Leaderboard*` | DTC `courses` | 5 |
 | `community_base.knowledge_base` | `cb_knowledge_base` | `KnowledgeBasePage`, `Person` | DTC wiki + docs projections (hierarchy, sanitizer allowlist); new model (D16); the package parsers for the `wiki`, `docs` and `person` kinds and the person record (D24, D31) | 7 |
 

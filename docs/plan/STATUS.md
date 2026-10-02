@@ -155,6 +155,7 @@ issues that can start now.
 | `C5.2n` | community-base | Shared embeddable project submission form | C5.2m | no | done | https://github.com/DataTalksClub/community-base/pull/352 (released v0.5.19; follow-ups #357) |
 | `C5.2o` | community-base | FAQ contribution redesign and retirement of the `faq_*` project fields | C5.2n | no | todo |  |
 | `C5.2p` | community-base | Guard coursework automation with a consumer-resolved runtime switch | C5.2l, C7.12e, C7.12f | no | in-progress | https://github.com/DataTalksClub/community-base/pull/390 (issue 376) |
+| `C5.2r` | community-base | Add shared course enrollment history | C5.1e | no | todo |  |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e, C5.2h | no | todo | https://github.com/DataTalksClub/community-base/issues/273 |
 | `C5.4` | community-base | Repository-derived curriculum hierarchy and YAML-backed homework units | C5.1e, C5.2i, C7.10, C7.11, C5.4a, C5.4b, C5.4c | no | done | https://github.com/DataTalksClub/community-base/pull/346; released as v0.5.18 via #353, wheel installation verified; final consumer receipt https://github.com/DataTalksClub/community-base/pull/353#issuecomment-5912426124. Converter and site adoption remain separate. |
 | `C5.4a` | community-base | Preserve unit identity across module moves | C5.1e, C5.2i, C7.10, C7.11 | no | done | https://github.com/DataTalksClub/community-base/pull/336 |
@@ -165,7 +166,7 @@ issues that can start now.
 | `D5.3a` | DataTalksClub/website | Prove the DTC source and policy contract for shared curriculum | C5.4, C7.12b, C7.12d | no | in-progress | https://github.com/DataTalksClub/website/issues/446 (source-only proof and reviewed CI isolation fix integrated at 1456e0f9; exact-commit CI 36808204223 passed, development deploy 36808204208 failed on target secret references; acceptance remains #442/aws-infra#58) |
 | `D5.3b` | DataTalksClub/website | Adopt shared curriculum projection behind DTC reader contracts | D5.1, D7.3 | no | todo | https://github.com/DataTalksClub/website/issues/447 |
 | `D5.3c` | DataTalksClub/website | Preserve ordered cohort module/project flow in converted source | C5.4, C7.12d | no | in-progress | https://github.com/DataTalksClub/website/issues/450 |
-| `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3, A7.2b | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1696 |
+| `A5.1` | AI-Shipping-Labs/website | Map AISL courses to the shared apps | C5.3, A7.2b, C5.2r | no | todo | https://github.com/AI-Shipping-Labs/website/issues/1696 |
 | `A5.2` | AI-Shipping-Labs/website | Freeze weekend: AISL courses cutover | A5.1, A7.3 | yes | todo | https://github.com/AI-Shipping-Labs/website/issues/1697 |
 | `A5.2a` | AI-Shipping-Labs/website | Retire replaced AISL course backend | A5.2 | no | todo |  |
 | `D5.1` | DataTalksClub/website | Map DTC course platform data to the shared apps | C5.3, D5.3a, D5.3c, C7.12g | no | todo | https://github.com/DataTalksClub/website/issues/414 |
