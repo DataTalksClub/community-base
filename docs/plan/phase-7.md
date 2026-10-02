@@ -2746,15 +2746,15 @@ Verification
   conformance and deployed course adoption remain the later compatibility/adoption issues' work.
 
 Done when
-- [ ] One existing internal predicate owns collection read-error scope for parser and validator.
-- [ ] Public parser rejection and actual semantic-diagnostic suppression remain unchanged across
+- [x] One existing internal predicate owns collection read-error scope for parser and validator.
+- [x] Public parser rejection and actual semantic-diagnostic suppression remain unchanged across
   isolated collections, similar prefixes, root/global scope and warning-only inputs.
-- [ ] Added behavior tests pass before and after runtime edits, and deliberate mutations reached
+- [x] Added behavior tests pass before and after runtime edits, and deliberate mutations reached
   and failed their intended assertions before the checks were trusted.
-- [ ] Runtime diff is limited to the validator's private predicate reuse and redundant policy
+- [x] Runtime diff is limited to the validator's private predicate reuse and redundant policy
   deletion; `parsers.py`, public API, UI, routes, features, schemas and site pins are untouched.
-- [ ] Package gates and both P16 consumer CI verdicts passed with evidence tied to the PR head.
-- [ ] PR merged before STATUS becomes `done`; broader course simplification and adoption remain
+- [x] Package gates and both P16 consumer CI verdicts passed with evidence tied to the PR head.
+- [x] PR merged before STATUS becomes `done`; broader course simplification and adoption remain
   separate work.
 
 Docs
