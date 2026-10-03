@@ -31,10 +31,19 @@ uv run python manage.py migrate
 | `Module` | Ordered module, owned by the course (shared across every cohort). `parent` makes it a submodule of another module -- maximum two module levels. A module may hold direct units and child modules together. `is_bonus` and `available_after_days` (a drip offset for a top-level module, cascading to its units unless they override it) round it out. |
 | `Unit` | Lesson, owned by its module. `kind` is `lesson` (default), `homework`, `event` or `checklist_item`; `event` units carry `session_position` (1-indexed, not a foreign key -- the site resolves the real event per viewer, against the viewer's own cohort, at render time) instead of embedding cohort-specific data in shared curriculum. `is_bonus` excludes a unit from the progress denominator while it is still tracked and displayed. |
 | `CohortModule` | Optional per-cohort placement of a top-level module: `cohort`, `module`, `sort_order`. A cohort with no placements shows the course's full module tree in module order -- the common case, requiring zero extra rows. A cohort with placements shows exactly that curated subset and order instead, for courses whose cohorts genuinely differ (two cohorts of the same course each placing a different module that represents an alternative treatment of one topic, for example). |
-| `Enrollment` | User-cohort enrollment with soft-delete history. |
+| `Enrollment` | User-cohort enrollment with soft-delete history; remains the coursework and certificate enrollment type. |
+| `CourseEnrollment` | User-course enrollment with soft history and at most one active row per user and course. |
 | `UnitProgress` | Per-user unit completion. |
 | `Certificate` | One certificate per enrollment. |
 | `CurriculumImportRun` | Bounded evidence for one source import attempt. |
+
+`CourseEnrollment` is independent of cohort membership. Its reverse relations are
+`user.curriculum_course_enrollments` and `course.course_enrollments`; an inactive row stays as
+history, and a later enrollment creates a new active row. Cohort `Enrollment` remains the type
+used by coursework, certificates and the existing public and staff enrollment endpoints.
+The additive course-enrollment migration can be reversed while its table is empty. Once a site
+has populated course history, application rollback retains the migration and table until A5.1's
+rehearsed back-copy and rollback acceptance permit retirement.
 
 `Course.get_syllabus()` returns cohorts with each one's effective modules attached as
 `.syllabus_modules` (placements, or the course's default tree); `Cohort.effective_modules()`
@@ -415,6 +424,12 @@ its module's and then that module's parent module's, against the cohort start da
 locking self-paced or unenrolled learners -- `cohort` is explicit because curriculum is
 course-owned, so a unit has no single cohort of its own) and the depth-first reading-order
 helpers.
+
+Course-level history uses six separate services: `get_active_course_enrollment`,
+`is_course_enrolled`, `ensure_course_enrollment`, `unenroll_from_course`,
+`course_enrollment_history` and `active_course_enrollment_count`. They query and mutate only
+`CourseEnrollment`; they do not select or create a cohort. Sites own public presentation,
+entitlement policy and side effects for this signal.
 
 ## Public curriculum navigation
 
