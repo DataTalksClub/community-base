@@ -282,6 +282,16 @@ references. `aisl-content` and `aisl-workshops` cover the two AI-Shipping-Labs r
 kinds only that site registers (`C7.12a`); those profiles convert, and `check_content` on the
 result waits on `A7.2a` registering the kinds.
 
+The `dtc-articles` profile preserves `subtitle`, ordered `authors`, `faq`, publication inputs and
+all other authored site metadata. It records the original path, whole-file SHA-256, lexical front
+matter, authored image and selected publication field under `extra.dtc_article_v1`; the shared
+`date` is derived only after the complete selected ISO value validates. A string `description`
+becomes `summary`, and the one supported single-entry string mapping becomes `key: value`.
+Conflicting summaries, malformed values and reserved or unequal `extra` collisions refuse the
+file. The profile also removes standalone `{% raw %}` wrapper lines only when they surround
+exactly one closed backtick or tilde code fence. It preserves the fenced bytes and refuses prose,
+nested or unbalanced wrappers, additional fenced blocks and every unknown include.
+
 Both hold to two rules, and both write the same report.
 
 - They are idempotent. Running one over its own output changes nothing, so a conversion can be
