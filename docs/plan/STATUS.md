@@ -21,7 +21,7 @@ issues that can start now.
 | `C0.4` | community-base | API app: keys with scopes, bearer auth, OpenAPI, route registry | C0.2 | no | done | https://github.com/DataTalksClub/community-base/pull/11 |
 | `C0.5` | community-base | First release | C0.2, C0.3, C0.4 | no | done | https://github.com/DataTalksClub/community-base/releases/tag/v0.1.0 |
 | `C0.6` | community-base | Owner-scoped exception to D1 for a required, always-latest cross-repo check |  | no | done | https://github.com/DataTalksClub/community-base/pull/277 (D15 recorded in docs/01-decisions.md, cross-repo-check.yml on push and pull_request, playbook P16 and AGENTS.md narrowed; branch-protection enrollment stays an owner repository setting) |
-| `C0.6a` | community-base | Fetch DTC history for the P16 baseline guard | C0.6 | no | in-progress | https://github.com/DataTalksClub/community-base/pull/409 |
+| `C0.6a` | community-base | Fetch DTC history for the P16 baseline guard | C0.6 | no | done | https://github.com/DataTalksClub/community-base/pull/409 |
 | `A0.1` | AI-Shipping-Labs/website | Add the package dependency and the local link targets | C2.4 | no | done | https://github.com/AI-Shipping-Labs/website/commit/2d567da34b493eb9e6901540c1bf5a0a5d1913d7 |
 | `A0.2` | AI-Shipping-Labs/website | Replace the settings framework with the package config app | A0.1 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1584 (closed 2026-09-13 with PM acceptance; Deploy Dev 34699777409 green at head 1638e419) |
 | `A0.3` | AI-Shipping-Labs/website | Access policy hook | A0.1 | no | done | https://github.com/AI-Shipping-Labs/website/issues/1582 |
