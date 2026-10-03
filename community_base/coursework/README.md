@@ -455,3 +455,27 @@ fragment are documented in `community_base/homework_steps/README.md`. For a self
 adapter reports a learner who has submitted as `scored`, refuses further writes, and supplies
 `Assignment.question_results` from `homework_reveal`; for a dated homework it supplies them only
 after scoring.
+
+## Project repository URL capacity
+
+`ProjectSubmission.github_link` accepts valid URLs through 500 characters. The shared
+`ProjectSubmissionForm` derives its capacity from that model field. Its existing HTTP(S)
+validation, default GitHub owner/repository restriction and `github_hosts=None` host override
+are unchanged. The model retains its existing `URLValidator` scheme behavior, which differs
+from the form's HTTP(S) restriction. A 501-character value fails length validation; input is
+never shortened or truncated.
+
+Migration `0007_alter_projectsubmission_github_link` widens only this field from 200 to 500.
+Reversing it after links longer than 200 have been written cannot preserve those values in a
+200-character column. Retain the widened schema when rolling back application code after longer
+writes, unless a separately rehearsed safe narrowing disposition exists. Safe synthetic
+forward/reverse/reapply tests preserve original rows of at most 200 characters; their temporary
+500-character row is removed before reversal. SQLite tests verify migration field state,
+declared column width and validated value round trips. SQLite does not enforce varchar length,
+so these tests do not prove PostgreSQL enforcement or populated-copy rollback compatibility.
+
+This capacity change does not modify project submission, review, pooling or certificate policy.
+Donor inventory, PostgreSQL development-copy rehearsal, identity and reverse-copy contracts,
+consumer cutover and deployed UI parity remain separate adoption checks. An immutable package
+release and site pin bump require separate coordination after the guard release; this change
+does not allocate a version or tag.
