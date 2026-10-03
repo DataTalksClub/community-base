@@ -1371,6 +1371,68 @@ Runtime scope
 Docs
 - Knowledge-base README, CHANGELOG, phase-7 and STATUS.
 
+## C7.12i Preserve DTC article metadata and fenced raw code during conversion
+
+Repository: community-base. Depends on: C7.12. Freeze required: no. Decisions D21, D23, D24.
+Related issue: https://github.com/DataTalksClub/community-base/issues/406.
+
+Goal: correct the existing dtc-articles converter's metadata/date/media mapping and admit only
+balanced raw wrappers around fenced code, keeping public imports, UUID/report identity and other
+profiles stable. Parent DTC #452/D7.2 article adoption still owes the complete 55 rendering comparison.
+
+Read first
+- AGENTS, PROCESS, quality gates, coding-standard, D21/D23/D24 and architecture public boundaries.
+- content_sync/FORMAT sections 3.3–3.7/4, kinds/article.py, convert/documents.py and report.py.
+- Existing document/report compatibility tests and immutable C7.12 conversion evidence.
+- Groomed issue #406's exact versioned extra schema/raw grammar and retained immutable 55 inventory.
+- DTC 106c777 article parser/public projection policy through committed objects; no site imports.
+
+Steps
+1. Allocate an isolated exact source base/write set; current 231b evidence subject stays frozen.
+2. Characterize generic converter public entry points, other profiles, body/refusals and report/
+   UUID/dry-run/replay behavior before extracting complete owners. Keep extraction separate from
+   intentional correction. New functions at most 30 lines/files at most 300; no oversized growth.
+   Preserve documents.py public imports; contracts.py owns the fixed types/profile catalogue.
+   document_collections.py owns existing discovery/tree/placement/targets; document_metadata.py
+   owns metadata; document_body.py owns body transforms; document_output.py owns the existing
+   sole writer/manifest/accounting. article_profile.py enters only during intentional correction.
+   Move each concern once, remove superseded private methods and report actual size/duplication
+   and total production-line changes. No second walker/writer, forwarding chain or mixin waiver.
+   Final source allocation follows independent characterization/design QA; all 55 rendering
+   parity is produced by D7.2a before its acceptance, not required before this source assignment.
+3. Keep builtin subtitle/authors/faq, normalize only the recognized one-entry string description
+   mapping, preserve date/datepublished/layout/media and original metadata/provenance through
+   extra.dtc_article_v1's source/publication schema. Reject reserved/unequal extra collisions.
+   Current DTC publication precedence stays date → datepublished → filename; validate shared ISO
+   chronology without changing the retained published display value. No core-width changes.
+4. Remove only standalone balanced raw/endraw delimiter lines around one closed fenced code block;
+   preserve enclosed bytes. Refuse prose/multiple blocks/malformed pairs/unclosed fences. Unknown
+   includes stay refused; no Liquid evaluation, sanitizer change or iframe/script restoration.
+5. Keep existing path/UUIDv5 algorithm, supplied IDs and report schema. Reuse the existing
+   orchestration/writer, no second converter/walker. Update README/CHANGELOG with retained limits.
+
+Verification
+- uv sync --all-extras, focused dtc-article and before/after characterization/report tests pass.
+- Metadata/date disagreement/collision/Unicode/media and raw positive/negative controls measure
+   actual preserved values; deliberately broken code removal/Liquid admission fails its assertion.
+- uv run pytest tests/content_sync tests/test_boundaries.py and uv run pytest -q pass with counts.
+- make lint, ruff format --check, package Django check/makemigrations check and isolated fresh
+   migrations pass; uv run python scripts/plan.py check prints OK.
+- Both fresh exact-candidate consumers pass under P16/sole OnCall and their site testing policies.
+
+Done when
+- [ ] Characterization/extraction and bounded metadata/raw correction meet the exact groomed contract.
+- [ ] Public API, UUID/report/replay/other-profile behavior stays stable with truthful refusals.
+- [ ] Independent verification/review and both consumers pass; docs retain all outstanding gates.
+
+Not run here, needs: D7.2a full 55 projection/render/human review including all 12 semantic cases,
+remaining 11 include-bearing candidates, current UI/FAQ/charts/assets/history/rollback/deploy parity;
+D7.4 real authoring/source cutover and converter deletion. No partial 43/44 corpus publication,
+donor retirement, source-pin/release or other #452 part completion is authorized by this card.
+
+Docs
+- community_base/content_sync/README.md, CHANGELOG.md; phase 7/STATUS in isolated plan amendment.
+
 ## A7.2a Register the AISL site kinds and markdown extensions
 
 Repository: AI-Shipping-Labs/website. Depends on: C7.12a.
