@@ -10,6 +10,12 @@
   safe narrowing rehearsal exists. Fresh SQLite and safe synthetic reversal do not establish
   PostgreSQL enforcement, populated donor equivalence or adoption compatibility. Release and
   consumer pin work remain separately coordinated outside the guard release inventory.
+- C7.12i (#406): preserve DTC article metadata, publication/media provenance and deterministic
+  identity during conversion. Admit only balanced Liquid raw wrappers around one closed fenced
+  code block, preserving the enclosed bytes, and retain supported YouTube include line boundaries;
+  malformed wrappers and unknown includes still refuse. Public converter entry points, UUID/report
+  identity, replay behavior and other profiles remain stable. Full 55-article parity, remaining
+  include-bearing candidates, consumer verification, release and DTC adoption remain separate.
 
 ## 0.5.25
 
