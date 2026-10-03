@@ -66,7 +66,8 @@ class DocumentCollections:
             source = path.relative_to(self.root).as_posix()
             if self.is_ignored(source) or path.name.startswith("."):
                 continue
-            front, body = read_front_matter(path.read_text(encoding="utf-8"))
+            raw_bytes, raw_text, text = _page_text(path, self.profile.name)
+            front, body = read_front_matter(text)
             if front is None:
                 self.output.refuse_page(source, "3.2", "a document carries front matter")
                 continue
@@ -81,6 +82,8 @@ class DocumentCollections:
                     "path": path,
                     "front": front,
                     "body": body,
+                    "raw_bytes": raw_bytes,
+                    "raw_text": raw_text,
                     "slug": _slug_of(name, collection),
                 }
             )
@@ -174,6 +177,15 @@ def _joined(*parts: str) -> str:
         if part:
             found.append(part)
     return "/".join(found)
+
+
+def _page_text(path: Path, profile_name: str) -> tuple[bytes, str, str]:
+    raw_bytes = path.read_bytes()
+    raw_text = raw_bytes.decode("utf-8")
+    text = path.read_text(encoding="utf-8")
+    if profile_name == "dtc-articles":
+        text = raw_text
+    return raw_bytes, raw_text, text
 
 
 def _slug_of(name: str, collection: Collection) -> str:

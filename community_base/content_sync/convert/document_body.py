@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from community_base.content_sync.convert.article_profile import unwrap_raw_fences
 from community_base.content_sync.convert.contracts import Refused
 
 KRAMDOWN_LINE = re.compile(r"^\s*\{:\s*[.#][^}]*\}\s*$")
@@ -35,13 +36,22 @@ ABSOLUTE_SRC = re.compile(r"(?P<open>\bsrc\s*=\s*[\"'])(?P<path>/[^\"']*)")
 
 
 class BodyConversion:
-    def __init__(self, urls: dict[str, str]) -> None:
+    def __init__(self, urls: dict[str, str], profile_name: str = "") -> None:
         self.urls = urls
+        self.profile_name = profile_name
 
     def convert(self, collection, page, titles, slugs) -> tuple[str, list[str]]:
-        body, embeds = _youtube_embeds(str(page["body"]))
-        _check_fences(body)
+        body = str(page["body"])
         details = []
+        if self.profile_name == "dtc-articles":
+            body, wrappers = unwrap_raw_fences(body)
+            if wrappers:
+                details.append(f"removed raw wrappers around fenced code: {wrappers}")
+        if self.profile_name == "dtc-articles":
+            body, embeds = _article_youtube_embeds(body)
+        else:
+            body, embeds = _youtube_embeds(body)
+        _check_fences(body)
         if embeds:
             details.append(f"youtube.html include -> embed fence: {embeds}")
         body, removed = _strip_leading_h1(body, str(page["front"].get("title") or ""))
@@ -158,6 +168,42 @@ def _youtube_embeds(body: str) -> tuple[str, int]:
         return f"```embed\ntype: youtube\nid: {found.group('id')}\n```"
 
     return YOUTUBE_INCLUDE.subn(replace, body)
+
+
+def _article_youtube_embeds(body: str) -> tuple[str, int]:
+    """Convert supported includes outside fences without changing code bytes."""
+
+    output = []
+    count = 0
+    fence = None
+    for line in body.splitlines(keepends=True):
+        match = FENCE.match(line)
+        if fence is not None:
+            output.append(line)
+            if match is not None and match.group(2).startswith(fence):
+                fence = None
+            continue
+        if match is not None:
+            fence = match.group(2)
+            output.append(line)
+            continue
+        found = YOUTUBE_INCLUDE.fullmatch(line.rstrip("\r\n"))
+        if found is None:
+            output.append(line)
+            continue
+        output.append(_article_youtube_fence(found.group("id"), line))
+        count += 1
+    return "".join(output), count
+
+
+def _article_youtube_fence(video_id: str, source_line: str) -> str:
+    line_end = ""
+    separator = "\n"
+    if source_line.endswith("\r\n"):
+        line_end = separator = "\r\n"
+    elif source_line.endswith("\n"):
+        line_end = "\n"
+    return separator.join(("```embed", "type: youtube", f"id: {video_id}", "```")) + line_end
 
 
 def _check_fences(body: str) -> None:

@@ -7,34 +7,48 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from community_base.content_sync.convert.article_profile import (
+    ARTICLE_KEYS,
+    prepare_metadata,
+    preserve_extra,
+)
 from community_base.content_sync.convert.contracts import CORE_ORDER, DATE_NAME, Collection, Refused
 from community_base.content_sync.convert.document_body import _relative_to
 from community_base.content_sync.convert.report import ordered
 
 
 class MetadataConversion:
-    def __init__(self, namespace: uuid.UUID, known_slugs: set[str]) -> None:
+    def __init__(self, namespace: uuid.UUID, known_slugs: set[str], profile_name: str = "") -> None:
         self.namespace = namespace
         self.known_slugs = known_slugs
+        self.profile_name = profile_name
 
     def values(self, collection, page, target, titles, slugs) -> tuple[dict[str, Any], list[str]]:
         data = dict(page["front"])
         details: list[str] = []
-        for old, new in collection.rename.items():
-            if old in data and new not in data:
-                data[new] = data.pop(old)
-                details.append(f"{old} -> {new}")
+        if self.profile_name == "dtc-articles":
+            prepare_metadata(page, data, details)
+        else:
+            for old, new in collection.rename.items():
+                if old in data and new not in data:
+                    data[new] = data.pop(old)
+                    details.append(f"{old} -> {new}")
         links = self._links(collection, data, details)
         if links:
             data["links"] = links
-        if collection.date_from_name:
+        if collection.date_from_name and self.profile_name != "dtc-articles":
             data["date"] = self._date(page, data, details)
         self._references(collection, page, data, titles, slugs, details)
         self._identity(collection, data, target, details)
         known = {*CORE_ORDER, *collection.keep, *collection.rename.values(), "extra", "links"}
         known |= set(collection.title_references) | set(collection.slug_references)
-        _extra(collection, data, known, details)
-        return ordered(data, (*CORE_ORDER, "links", "related", "extra")), details
+        if self.profile_name == "dtc-articles":
+            preserve_extra(data, known, details)
+            order = (*CORE_ORDER, *ARTICLE_KEYS, "links", "related", "extra")
+        else:
+            _extra(collection, data, known, details)
+            order = (*CORE_ORDER, "links", "related", "extra")
+        return ordered(data, order), details
 
     def _references(self, collection, page, data, titles, slugs, details) -> None:
         for name in collection.title_references:

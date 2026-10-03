@@ -91,8 +91,8 @@ class _Conversion:
         urls = {}
         if collection.jekyll_urls:
             urls = _jekyll_urls(collection, pages)
-        metadata = MetadataConversion(self.namespace, slugs)
-        body = BodyConversion(urls)
+        metadata = MetadataConversion(self.namespace, slugs, self.profile.name)
+        body = BodyConversion(urls, self.profile.name)
         landing = {}
         for page in pages:
             try:
