@@ -5,6 +5,25 @@ from dataclasses import dataclass
 
 from django.utils import timezone
 
+from community_base.curriculum.enrollment_services import _is_authenticated
+from community_base.curriculum.enrollment_services import (
+    active_course_enrollment_count as active_course_enrollment_count,
+)
+from community_base.curriculum.enrollment_services import (
+    course_enrollment_history as course_enrollment_history,
+)
+from community_base.curriculum.enrollment_services import (
+    ensure_course_enrollment as ensure_course_enrollment,
+)
+from community_base.curriculum.enrollment_services import (
+    get_active_course_enrollment as get_active_course_enrollment,
+)
+from community_base.curriculum.enrollment_services import (
+    is_course_enrolled as is_course_enrolled,
+)
+from community_base.curriculum.enrollment_services import (
+    unenroll_from_course as unenroll_from_course,
+)
 from community_base.curriculum.models import (
     SOURCE_AUTO_PROGRESS,
     SOURCE_MANUAL,
@@ -17,10 +36,6 @@ from community_base.curriculum.models import (
     UnitProgress,
 )
 from community_base.curriculum.projection import CourseTree
-
-
-def _is_authenticated(user) -> bool:
-    return user is not None and getattr(user, "is_authenticated", False)
 
 
 def get_active_enrollment(user, cohort: Cohort):
