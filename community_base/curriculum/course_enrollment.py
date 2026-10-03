@@ -37,7 +37,9 @@ class CourseEnrollment(models.Model):
         ]
 
     def __str__(self):
-        state = "unenrolled" if self.unenrolled_at else "active"
+        state = "active"
+        if self.unenrolled_at:
+            state = "unenrolled"
         return f"{self.user} -> {self.course.title} ({state})"
 
     @property
