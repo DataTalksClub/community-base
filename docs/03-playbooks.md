@@ -474,6 +474,8 @@ It runs on every push and pull request in this repository (`.github/workflows/cr
 under D15's owner-scoped exception to D1 (`docs/01-decisions.md`, issue C0.6): each job checks out
 the site at its default branch as of the trigger, so it always tests against that site's latest
 commit, not a stale snapshot. It can also be run by hand against a non-default ref.
+The disposable DTC donor checkout fetches full history so its unchanged historical Git
+assertions can inspect prior workflow blobs, matching the native DTC Django checkout.
 
 1. Automatic: push or open a pull request here; both jobs run without further action.
 2. Manual, e.g. to check a specific site branch:

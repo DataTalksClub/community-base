@@ -307,6 +307,93 @@ Done when
 Docs
 - `docs/01-decisions.md`, `docs/03-playbooks.md`, `AGENTS.md`.
 
+## C0.6a Fetch DTC history for the P16 baseline guard
+
+Repository: community-base. Depends on: C0.6. Freeze required: no.
+Related issue: https://github.com/DataTalksClub/community-base/issues/408.
+
+Goal: make the unchanged DTC historical workflow guard executable in the disposable P16 donor
+checkout. Add full history to that checkout so its baseline can examine the historical workflow
+blob and remaining assertions. Preserve site selection, baseline/linked comparison semantics,
+all current seals and the exact existing link-artifact exceptions. D15 and D0.2 remain unchanged.
+
+Read first
+- AGENTS.md, docs/PROCESS.md, docs/04-quality-gates.md and coding-standard.md.
+- docs/01-decisions.md D15 and docs/03-playbooks.md P16.
+- .github/workflows/cross-repo-check.yml and phase-0 C0.6.
+- DTC donor core/tests/test_deployment_workflow.py and .github/workflows/ci.yml through committed
+  objects, initially donor 106c777d2cd39666afb5f0990c7301fe5ad418c3; record the actual donor used.
+- Preserved PR407 P16 raw baseline/linked evidence and independent qualification.
+
+Ownership and scope
+- SWE owns only .github/workflows/cross-repo-check.yml, docs/03-playbooks.md's P16 checkout
+  explanation, this phase-0 task entry and its generated STATUS row.
+- No site file, package runtime, UI, feature, dependency, migration, seal, assertion, guard,
+  exclusion, failure-category normalization or CI trigger change belongs to this issue.
+- Only the DTC donor checkout needs fetch-depth: 0. Keep both package checkouts and the AISL
+  checkout settings, donor ref/default-branch semantics and native site commands unchanged.
+
+Steps
+1. Add this accepted task immediately after C0.6, run uv run python scripts/plan.py sync, and set
+   its STATUS row to in-progress with issue408 until a PR exists. Confirm C0.6 is done and no
+   existing row changes. One bounded bug PR may include this normative entry and implementation;
+   it adds a task and fixes setup, without changing an existing decision or contradicting a step.
+2. Preserve the known failing receipt: PR407 baseline executed 4174 tests and the unchanged
+   operator guard raised ERROR when git show 91490f0d3f172327a400c9edf5b441265890f897:.github/workflows/ci.yml
+   exited128. Record its exact package/donor/command/category. Git stderr is unavailable in that
+   traceback; do not invent its literal message or promote prior P16 comparison green to a fixed
+   baseline. The earlier two linked seal FAILs are distinct link artifacts.
+3. Add fetch-depth: 0 to the existing Check out DataTalksClub/website step. Keep its repository,
+   ref expression and sibling path. Add a concise P16 explanation that the full donor history
+   supports unchanged historical Git assertions, matching native DTC Django checkout behavior.
+4. In a disposable donor checkout with reviewed baseline pin and full history, execute the actual
+   unchanged guard at verbosity2 as a single non-skipped test. Record its Git source, module/test
+   provenance, dependency pin and natural output/exit. It must reach the historical digest and
+   final workflow-isolation assertions; a separate git show success alone is insufficient. Never
+   link or alter a shared real site checkout. If the donor moves, inspect and bind its actual
+   unchanged guard before interpreting results; do not rewrite assertions to make it pass.
+5. Run workflow lint and applicable package quality gates; publish only after the root releases
+   the package publication window. Dispatch the sole designated OnCall for fresh exact-head
+   required CI and both P16 consumers. Preserve raw baseline/linked logs, counts, skips,
+   ERROR/FAIL categories, checkout refs, package install provenance and normalized failure sets.
+   Independent review must establish the DTC historical baseline ERROR is resolved rather than
+   hidden and qualify any linked seal failures by actual tracebacks and unchanged policy.
+
+Verification
+- actionlint .github/workflows/cross-repo-check.yml -> no findings.
+- Committed diff -> DTC donor fetch-depth: 0 plus explanatory P16/plan tracking only; current
+  triggers, ref expressions, commands, two exact FAIL exclusions and category handling unchanged.
+- Disposable baseline command, with the donor's documented test environment:
+  DJANGO_SETTINGS_MODULE=website.settings.test PUBLIC_MEDIA_STORE_BACKEND=memory uv run python
+  manage.py test core.tests.test_deployment_workflow.DeploymentWorkflowContractTests.test_gate_b_operator_contract_is_exact_and_workflow_isolated
+  --verbosity 2 --parallel 1 -> exactly1 executed, zero skipped, passes naturally. Verify the
+  imported unchanged method has no early return/skip and includes the historical digest and final
+  assertions. Capture actual argv as one shell command; line wrapping above is documentation.
+- git rev-parse --is-shallow-repository -> false in the actual DTC full-history checkout;
+  historical git show succeeds and SHA-256 matches the unchanged test constant. Initial donor
+  expected digest is d6730d36c41866adcfd933ef733132e26ea67d292ddd0334caf42f9b2524850d.
+- Standard package gates applicable under docs/04-quality-gates.md section1 pass; record actual
+  commands/counts and list genuinely unavailable evidence as Not run here, needs:.
+- uv run python scripts/plan.py check -> OK, no foreign tracking change.
+- Fresh exact-head sole OnCall -> package test/plan and both real consumer comparisons succeed.
+  DTC raw baseline no longer has this historical Git ERROR; linked exceptions are limited to the
+  existing two link-induced seal FAILs after independent qualification. Report all other donor
+  failures accurately; no claim that a comparison pass makes a native site suite green.
+
+Done when
+- [ ] The DTC P16 donor checkout fetches full history with existing selection/path semantics.
+- [ ] The actual unchanged baseline guard executes through historical and final assertions.
+- [ ] Fresh exact-head full baseline/linked consumer evidence is preserved and independently
+      qualified without new exclusions, edited seals, skipped guard or category relabeling.
+- [ ] Applicable package/workflow/plan gates and required consumer CI pass; docs/tracking are updated.
+
+Not run here, needs: implementation, actual guard execution, fresh exact-head required CI/P16,
+merge and resulting-main observation. No site native-green, deployment, donor retirement, runtime
+feature, tag/release or adoption acceptance is supplied by grooming or historical PR407 evidence.
+
+Docs
+- docs/03-playbooks.md P16, docs/plan/phase-0.md and generated docs/plan/STATUS.md.
+
 ## A0.1 Add the package dependency and the local link targets
 
 Repository: AI-Shipping-Labs/website. Depends on: C2.4.
