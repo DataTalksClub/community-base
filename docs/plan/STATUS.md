@@ -157,7 +157,7 @@ issues that can start now.
 | `C5.2o` | community-base | FAQ contribution redesign and retirement of the `faq_*` project fields | C5.2n | no | todo |  |
 | `C5.2p` | community-base | Guard coursework automation with a consumer-resolved runtime switch | C5.2l, C7.12e, C7.12f | no | done | https://github.com/DataTalksClub/community-base/pull/390 (issue 376) |
 | `C5.2q` | community-base | Preserve 500-character project repository URLs | C5.2m, C5.2n | no | in-progress | https://github.com/DataTalksClub/community-base/pull/403 |
-| `C5.2r` | community-base | Add shared course enrollment history | C5.1e | no | in-progress | https://github.com/DataTalksClub/community-base/pull/402 |
+| `C5.2r` | community-base | Add shared course enrollment history | C5.1e | no | done | https://github.com/DataTalksClub/community-base/pull/402 |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e, C5.2h | no | todo | https://github.com/DataTalksClub/community-base/issues/273 |
 | `C5.4` | community-base | Repository-derived curriculum hierarchy and YAML-backed homework units | C5.1e, C5.2i, C7.10, C7.11, C5.4a, C5.4b, C5.4c | no | done | https://github.com/DataTalksClub/community-base/pull/346; released as v0.5.18 via #353, wheel installation verified; final consumer receipt https://github.com/DataTalksClub/community-base/pull/353#issuecomment-5912426124. Converter and site adoption remain separate. |
 | `C5.4a` | community-base | Preserve unit identity across module moves | C5.1e, C5.2i, C7.10, C7.11 | no | done | https://github.com/DataTalksClub/community-base/pull/336 |
