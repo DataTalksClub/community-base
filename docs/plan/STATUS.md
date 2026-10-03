@@ -156,7 +156,7 @@ issues that can start now.
 | `C5.2n` | community-base | Shared embeddable project submission form | C5.2m | no | done | https://github.com/DataTalksClub/community-base/pull/352 (released v0.5.19; follow-ups #357) |
 | `C5.2o` | community-base | FAQ contribution redesign and retirement of the `faq_*` project fields | C5.2n | no | todo |  |
 | `C5.2p` | community-base | Guard coursework automation with a consumer-resolved runtime switch | C5.2l, C7.12e, C7.12f | no | done | https://github.com/DataTalksClub/community-base/pull/390 (issue 376) |
-| `C5.2q` | community-base | Preserve 500-character project repository URLs | C5.2m, C5.2n | no | in-progress | https://github.com/DataTalksClub/community-base/pull/403 |
+| `C5.2q` | community-base | Preserve 500-character project repository URLs | C5.2m, C5.2n | no | done | https://github.com/DataTalksClub/community-base/pull/405 |
 | `C5.2r` | community-base | Add shared course enrollment history | C5.1e | no | done | https://github.com/DataTalksClub/community-base/pull/402 |
 | `C5.3` | community-base | Release 0.6.0 | C3.7, C4.3, C5.2e, C5.1e, C5.2h | no | todo | https://github.com/DataTalksClub/community-base/issues/273 |
 | `C5.4` | community-base | Repository-derived curriculum hierarchy and YAML-backed homework units | C5.1e, C5.2i, C7.10, C7.11, C5.4a, C5.4b, C5.4c | no | done | https://github.com/DataTalksClub/community-base/pull/346; released as v0.5.18 via #353, wheel installation verified; final consumer receipt https://github.com/DataTalksClub/community-base/pull/353#issuecomment-5912426124. Converter and site adoption remain separate. |
@@ -217,7 +217,7 @@ issues that can start now.
 | `C7.12e` | community-base | Resolve course instructors through the installed events app | C7.12a, C7.12c | no | done | https://github.com/DataTalksClub/community-base/pull/374 |
 | `C7.12f` | community-base | Support installed instructor hosts without a kind field | C7.12a, C7.12c | no | done | https://github.com/DataTalksClub/community-base/pull/380 |
 | `C7.12h` | community-base | Give converted wiki/docs one package owner | C7.9c, C7.8 | no | done | https://github.com/DataTalksClub/community-base/pull/386 |
-| `C7.12i` | community-base | Preserve DTC article metadata and fenced raw code during conversion | C7.12 | no | in-progress | https://github.com/DataTalksClub/community-base/issues/406 |
+| `C7.12i` | community-base | Preserve DTC article metadata and fenced raw code during conversion | C7.12 | no | done | https://github.com/DataTalksClub/community-base/pull/407 |
 | `A7.2a` | AI-Shipping-Labs/website | Register the AISL site kinds and markdown extensions | C7.12a | no | done | https://github.com/AI-Shipping-Labs/website/issues/1771 — merged as 9f0fc899; on-call fix 80fb8448 (colon-syntax MARKDOWN_EXTENSIONS). Deploy Dev 35577963604 green. Public wiki/ is the package wiki kind; member-gated _wiki/ is site-owned member_wiki in topics. |
 | `A7.2b` | AI-Shipping-Labs/website | Move the three core parsers onto the toolkit | A7.2a, C7.12b, C7.12c, C7.12e, C7.12f, C7.12g, C7.12h | no | in-progress | https://github.com/AI-Shipping-Labs/website/issues/1851 |
 | `A7.2c` | AI-Shipping-Labs/website | Move the five family parsers onto the toolkit | A7.2b | no | todo |  |
