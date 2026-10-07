@@ -1,4 +1,4 @@
-{% load static %}
+{% load static tz %}
 {% comment %}
 The shared project submission form (C5.2n), ported from CMP's "Submission details".
 Included by the package project page and embedded by host sites inside their own reader or
@@ -133,7 +133,8 @@ through `project_form.extra_fields_template`.
 
     <div class="cb-form-status" data-project-status="{% if project_form.has_submission %}saved{% else %}not-saved{% endif %}">
       {% if project_form.has_submission %}
-        <p>Last saved at: <time datetime="{{ project_form.submission.submitted_at|date:'c' }}">{{ project_form.submission.submitted_at }}</time></p>
+        {# The package has no request-scoped user timezone; render the saved-at time explicitly in UTC so the visible text carries a timezone (community-base#412). #}
+        <p>Last saved at: <time datetime="{{ project_form.submission.submitted_at|date:'c' }}">{% timezone 'UTC' %}{{ project_form.submission.submitted_at|date:'N j, Y, P (e)' }}{% endtimezone %}</time></p>
       {% else %}
         <p>Status: Not saved yet</p>
       {% endif %}
