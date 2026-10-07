@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.26
+## 0.5.28
 
 - #412: render the shared project submission status time explicitly in UTC
   (`N j, Y, P (e)` inside `{% timezone 'UTC' %}`); the machine `datetime` attribute is unchanged.
