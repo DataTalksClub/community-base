@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- #412: render the shared project submission status time explicitly in UTC
+  (`N j, Y, P (e)` inside `{% timezone 'UTC' %}`); the machine `datetime` attribute is unchanged.
+  DataTalksClub's accessibility registry flagged the naive visible saved-at time on the learner
+  project surface (`date/time text has no explicit timezone`).
 - C5.2q (#396): preserve valid project repository URLs through 500 characters in the shared model and form;
   reject 501 characters without truncation. The form derives capacity from model metadata.
   Existing URL validation, host restrictions, access, lifecycle, controls and layout remain.

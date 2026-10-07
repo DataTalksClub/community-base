@@ -6,6 +6,7 @@ extension point are in ``test_project_submission_flow.py``.
 """
 
 import pytest
+from django.template.loader import render_to_string
 from django.test import RequestFactory
 
 from community_base.coursework.models import ProjectSubmission
@@ -16,6 +17,7 @@ from community_base.coursework.project_submission_flow import (
 )
 from tests.coursework.project_form_support import (
     COMMIT,
+    Elements,
     field_names,
     learner,
     post_request,
@@ -244,3 +246,21 @@ def test_time_spent_must_be_a_number_of_hours_at_least_zero(hours, valid):
         assert outcome.submission.time_spent == float(hours)
     else:
         assert list(outcome.form.errors) == ["time_spent"]
+
+
+def test_saved_status_time_carries_an_explicit_timezone():
+    """The visible saved-at text names a timezone; the machine datetime stays ISO (#412)."""
+    cohort = coursework_cohort()
+    project = make_project(cohort)
+    user, enrollment = learner(cohort)
+
+    process_project_submission(post_request(user, valid_data()), project, enrollment)
+
+    html = render_to_string(
+        "coursework/_project_submission_form.html",
+        {"project_form": build_project_submission_form(project, user=user, enrollment=enrollment)},
+        request=RequestFactory().get("/"),
+    )
+    time_element = Elements(html).find("time")[0]
+    assert "T" in time_element["datetime"]
+    assert "UTC" in html
