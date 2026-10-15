@@ -77,6 +77,18 @@ def _safe_error(source, error):
     )[:1000]
 
 
+SKIPPED_LINK_WARNING_LIMIT = 20
+
+
+def skipped_link_warnings(paths, *, limit=SKIPPED_LINK_WARNING_LIMIT):
+    """Bounded ``SyncLog.warnings`` entries for symlinks the checkout skipped."""
+    paths = tuple(paths)
+    warnings = [f"Ignored symlink outside content: {path}" for path in paths[:limit]]
+    if len(paths) > limit:
+        warnings.append(f"Ignored {len(paths) - limit} more symlinks outside content")
+    return warnings
+
+
 def sync_content_source(source, *, repo_dir=None, batch_id=None, force=False):
     source = ContentSource.objects.get(pk=source.pk)
     if not source.is_enabled and not force:
@@ -158,6 +170,7 @@ def sync_content_source(source, *, repo_dir=None, batch_id=None, force=False):
             log.items_deleted = counts["deleted"]
             log.items_detail = details
             log.errors = errors
+            log.warnings = skipped_link_warnings(checkout.skipped_links)
             log.status = SyncStatus.PARTIAL if errors else SyncStatus.SUCCESS
             log.finished_at = timezone.now()
             log.save()

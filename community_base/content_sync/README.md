@@ -49,6 +49,17 @@ The checkout is a read-only manifest snapshot. Read files through `checkout.read
 delete to the supplied source. A parser failure produces a partial sync and does not prevent other
 registered content types from running.
 
+Symlinks fail closed: a disk checkout (`ImmutableCheckout`) and a GitHub tarball
+(`checkout_repository`) both refuse a repository that holds a symlink, with one exemption. A
+symlink, to a file or a directory, inside a top-level dot-directory (the first path segment starts
+with `.`, as in `.claude/skills`, `.agents/x`, `.github/y`) is agent or editor tooling that no
+parser reads. It is skipped: never followed, never copied, absent from `files()` and the manifest,
+not counted toward `max_files`, and listed on `checkout.skipped_links`. The sync records each one
+in `SyncLog.warnings` as `Ignored symlink outside content: <path>`, capped at 20 entries plus a
+count. The exemption covers only the first segment: `faq/.hidden/link`, a top-level `link`, and a
+top-level dot-named link itself (`.claude -> .agents`) still fail the sync. Regular files inside
+dot-directories are snapshotted as usual. Hard links, devices and FIFOs refuse everywhere.
+
 ## Content format and kind registry
 
 `FORMAT.md` in this directory is the normative content format, version 1 (decision D23): the

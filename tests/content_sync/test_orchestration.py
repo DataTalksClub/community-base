@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,6 +9,7 @@ from community_base.content_sync.models import ContentSource, SyncStatus
 from community_base.content_sync.orchestration import (
     UpsertResult,
     release_source_lock,
+    skipped_link_warnings,
     sync_content_source,
 )
 from community_base.content_sync.parsers import SourceItem, register_parser
@@ -89,6 +91,45 @@ def test_disk_sync_is_idempotent_and_soft_deletes_missing(tmp_path, source):
     ]
 
 
+def test_disk_sync_skips_dot_directory_links_with_bounded_warnings(tmp_path, source):
+    register_parser("fixture", FixtureParser())
+    (tmp_path / "first.json").write_text('{"title": "First"}')
+    (tmp_path / ".agents" / "skills").mkdir(parents=True)
+    (tmp_path / ".claude").mkdir()
+    os.symlink("../.agents/skills", tmp_path / ".claude" / "skills")
+
+    log = sync_content_source(source, repo_dir=tmp_path)
+
+    log.refresh_from_db()
+    assert log.status == SyncStatus.SUCCESS
+    assert log.items_created == 1
+    assert log.warnings == ["Ignored symlink outside content: .claude/skills"]
+
+
+def test_disk_sync_refuses_content_symlink(tmp_path, source):
+    register_parser("fixture", FixtureParser())
+    (tmp_path / "first.json").write_text('{"title": "First"}')
+    os.symlink("first.json", tmp_path / "second.json")
+
+    log = sync_content_source(source, repo_dir=tmp_path)
+
+    assert log.status == SyncStatus.FAILED
+    assert log.errors == [{"error": "Symlink is not allowed: second.json"}]
+    assert not FixtureContent.objects.exists()
+
+
+def test_skipped_link_warnings_are_capped_with_a_count():
+    paths = [f".claude/link{index:02}" for index in range(23)]
+
+    warnings = skipped_link_warnings(paths)
+
+    assert len(warnings) == 21
+    assert warnings[0] == "Ignored symlink outside content: .claude/link00"
+    assert warnings[19] == "Ignored symlink outside content: .claude/link19"
+    assert warnings[20] == "Ignored 3 more symlinks outside content"
+    assert skipped_link_warnings(()) == []
+
+
 def test_parser_failure_is_observable_as_partial(tmp_path, source):
     class BrokenParser(FixtureParser):
         def discover(self, checkout, source):
@@ -141,6 +182,7 @@ def test_force_downloads_matching_remote_commit(source):
 
     class Checkout:
         commit_sha = "a" * 40
+        skipped_links = ()
 
         def __enter__(self):
             return self

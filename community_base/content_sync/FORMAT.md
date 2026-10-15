@@ -63,6 +63,12 @@ strict_references: true
 Unknown top-level keys in `content.yaml` are an error. Files outside every collection path are
 ignored, not errors.
 
+Package ruling, symlinks: a content repository holds no symlinks, and a sync over one that does
+fails. The single exemption is a symlink inside a top-level dot-directory (`.claude/skills`,
+`.github/x`): it is tooling, not content, so the checkout skips it without following it and the
+sync records a warning. A symlink anywhere else, including one in a nested dot-directory such as
+`faq/.hidden/`, is never content and never skipped; it fails the sync (see the README).
+
 Package ruling: `theme_pairs` is a property of the repository and of nothing smaller. The design
 document put it in this table but left open what happens to one asset referenced from two
 collections. There is no such case: a reference never leaves its repository (section 3.6), so every

@@ -1,4 +1,11 @@
-"""Immutable, no-symlink snapshots for untrusted content repositories."""
+"""Immutable, no-symlink snapshots for untrusted content repositories.
+
+Symlinks fail closed, with one exemption: a link *inside* a top-level
+dot-directory (``.claude/skills``, ``.github/x``) is agent or editor tooling
+that no parser reads. Such a link is skipped, never followed, never copied and
+never counted toward ``max_files``; its path is recorded on
+``ImmutableCheckout.skipped_links``. Every other link still raises.
+"""
 
 import hashlib
 import os
@@ -12,6 +19,17 @@ class CheckoutError(RuntimeError):
     pass
 
 
+def is_skippable_link_path(relative_path):
+    """Return whether a symlink at ``relative_path`` is skipped rather than refused.
+
+    Only the first path segment counts: ``.claude/skills`` is skipped, while
+    ``faq/.hidden/link``, a top-level ``link`` and a top-level dot-named link
+    itself (``.claude``) are refused.
+    """
+    parts = PurePosixPath(str(relative_path)).parts
+    return len(parts) >= 2 and parts[0].startswith(".") and parts[0] not in {".", ".."}
+
+
 class ImmutableCheckout:
     def __init__(self, root, *, commit_sha="", max_files=1000):
         self.source_root = Path(os.path.abspath(os.fspath(root)))
@@ -20,6 +38,7 @@ class ImmutableCheckout:
         self._temporary = None
         self.root = None
         self._manifest = {}
+        self.skipped_links = ()
 
     def __enter__(self):
         try:
@@ -38,6 +57,7 @@ class ImmutableCheckout:
 
     def _snapshot_directory(self, source_root):
         count = 0
+        skipped = []
         for current, directories, files in os.walk(source_root, followlinks=False):
             current_path = Path(current)
             relative_directory = current_path.relative_to(source_root)
@@ -46,7 +66,11 @@ class ImmutableCheckout:
                 path = current_path / name
                 mode = path.lstat().st_mode
                 if stat.S_ISLNK(mode):
-                    raise CheckoutError(f"Symlink is not allowed: {path.relative_to(source_root)}")
+                    relative_link = path.relative_to(source_root).as_posix()
+                    if is_skippable_link_path(relative_link):
+                        skipped.append(relative_link)
+                        continue
+                    raise CheckoutError(f"Symlink is not allowed: {relative_link}")
                 if name == ".git":
                     continue
                 if not stat.S_ISDIR(mode):
@@ -62,6 +86,9 @@ class ImmutableCheckout:
                 relative_path = source_path.relative_to(source_root)
                 mode = source_path.lstat().st_mode
                 if stat.S_ISLNK(mode):
+                    if is_skippable_link_path(relative_path.as_posix()):
+                        skipped.append(relative_path.as_posix())
+                        continue
                     raise CheckoutError(f"Symlink is not allowed: {relative_path}")
                 if not stat.S_ISREG(mode):
                     raise CheckoutError(f"Non-regular file is not allowed: {relative_path}")
@@ -85,6 +112,7 @@ class ImmutableCheckout:
                 target.chmod(0o444)
                 key = PurePosixPath(relative_path.as_posix())
                 self._manifest[key.as_posix()] = hashlib.sha256(payload).hexdigest()
+        self.skipped_links = tuple(sorted(skipped))
         for directory in sorted(self.root.rglob("*"), reverse=True):
             if directory.is_dir():
                 directory.chmod(0o555)

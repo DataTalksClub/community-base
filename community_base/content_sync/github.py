@@ -12,7 +12,11 @@ from pathlib import Path, PurePosixPath
 import jwt
 import requests
 
-from community_base.content_sync.checkout import CheckoutError, ImmutableCheckout
+from community_base.content_sync.checkout import (
+    CheckoutError,
+    ImmutableCheckout,
+    is_skippable_link_path,
+)
 from community_base.kernel import conf
 
 REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -152,7 +156,7 @@ def checkout_repository(source, *, client=None, commit_sha=None):
             archive,
             private=source.is_private,
         )
-        _extract_archive(
+        archive_skipped = _extract_archive(
             archive,
             extracted,
             max_files=source.max_files,
@@ -161,11 +165,19 @@ def checkout_repository(source, *, client=None, commit_sha=None):
         checkout = stack.enter_context(
             ImmutableCheckout(extracted, commit_sha=commit_sha, max_files=source.max_files)
         )
+        checkout.skipped_links = tuple(sorted({*archive_skipped, *checkout.skipped_links}))
         yield checkout
 
 
 def _extract_archive(archive_path, destination, *, max_files, max_bytes):
+    """Extract a GitHub tarball and return the skipped symlink paths.
+
+    Symlink members follow the ``ImmutableCheckout`` rule: inside a top-level
+    dot-directory they are skipped (never written), elsewhere they refuse.
+    Hard links and every other special member refuse everywhere.
+    """
     file_count = 0
+    skipped = []
     extracted_bytes = 0
     try:
         archive = tarfile.open(archive_path, mode="r:gz")
@@ -192,6 +204,9 @@ def _extract_archive(archive_path, destination, *, max_files, max_bytes):
             if member.isdir():
                 target.mkdir(parents=True, exist_ok=True)
                 continue
+            if member.issym() and is_skippable_link_path(PurePosixPath(*relative_parts)):
+                skipped.append(PurePosixPath(*relative_parts).as_posix())
+                continue
             if not member.isfile():
                 raise CheckoutError("GitHub archive contains a link or special file")
             file_count += 1
@@ -207,3 +222,4 @@ def _extract_archive(archive_path, destination, *, max_files, max_bytes):
             with target.open("wb") as output:
                 while chunk := stream.read(64 * 1024):
                     output.write(chunk)
+    return tuple(skipped)

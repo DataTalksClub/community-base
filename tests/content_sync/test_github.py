@@ -7,7 +7,12 @@ import requests
 from django.test import override_settings
 
 from community_base.content_sync.checkout import CheckoutError
-from community_base.content_sync.github import GitHubClient, GitHubClientError, checkout_repository
+from community_base.content_sync.github import (
+    GitHubClient,
+    GitHubClientError,
+    _extract_archive,
+    checkout_repository,
+)
 
 SHA = "a" * 40
 
@@ -52,7 +57,18 @@ def archive_bytes(entries):
                 archive.addfile(info, io.BytesIO(body))
             elif kind == "link":
                 info.type = tarfile.SYMTYPE
-                info.linkname = "elsewhere"
+                info.linkname = body.decode() if body else "elsewhere"
+                archive.addfile(info)
+            elif kind == "hardlink":
+                info.type = tarfile.LNKTYPE
+                info.linkname = f"owner-repo-sha/{body.decode()}"
+                archive.addfile(info)
+            elif kind in {"fifo", "chr", "blk"}:
+                info.type = {
+                    "fifo": tarfile.FIFOTYPE,
+                    "chr": tarfile.CHRTYPE,
+                    "blk": tarfile.BLKTYPE,
+                }[kind]
                 archive.addfile(info)
     return payload.getvalue()
 
@@ -138,3 +154,76 @@ def test_repository_name_must_be_owner_and_name():
 
     with pytest.raises(GitHubClientError, match="repository name"):
         client.resolve_commit("https://github.com/owner/repo")
+
+
+@override_settings(COMMUNITY_BASE={})
+def test_checkout_skips_archive_symlinks_inside_top_level_dot_directories():
+    body = archive_bytes(
+        [
+            ("faq/item.md", b"hello", "file"),
+            (".agents/skills/skill.md", b"skill", "file"),
+            (".claude/skills", b"../.agents/skills", "link"),
+            (".claude/x.md", b"../faq/item.md", "link"),
+            (".github/workflows/ci.yml", b"on: push", "file"),
+        ]
+    )
+    session = Session([Response(json_data={"sha": SHA}), Response(body=body)])
+    source = SimpleNamespace(repo_name="owner/repo", is_private=False, max_files=3)
+
+    with checkout_repository(source, client=GitHubClient(session=session)) as checkout:
+        assert {path.as_posix() for path in checkout.files()} == {
+            "faq/item.md",
+            ".agents/skills/skill.md",
+            ".github/workflows/ci.yml",
+        }
+        assert checkout.skipped_links == (".claude/skills", ".claude/x.md")
+        with pytest.raises(CheckoutError):
+            checkout.read_bytes(".claude/skills/skill.md")
+
+
+@pytest.mark.parametrize("name", ["images/x.png", "link", "faq/.hidden/link", ".claude"])
+def test_extract_archive_still_refuses_symlinks_outside_dot_directories(tmp_path, name):
+    archive = tmp_path / "source.tar.gz"
+    archive.write_bytes(archive_bytes([(name, b"../../etc/passwd", "link")]))
+    destination = tmp_path / "out"
+    destination.mkdir()
+
+    with pytest.raises(CheckoutError, match="link or special"):
+        _extract_archive(archive, destination, max_files=10, max_bytes=1000)
+    assert not any(path.is_symlink() for path in destination.rglob("*"))
+
+
+@pytest.mark.parametrize("kind", ["hardlink", "fifo", "chr", "blk"])
+@pytest.mark.parametrize("name", [".claude/entry", "faq/entry", "entry"])
+def test_extract_archive_refuses_hard_links_and_special_members_everywhere(tmp_path, kind, name):
+    archive = tmp_path / "source.tar.gz"
+    archive.write_bytes(
+        archive_bytes([("faq/item.md", b"hello", "file"), (name, b"faq/item.md", kind)])
+    )
+    destination = tmp_path / "out"
+    destination.mkdir()
+
+    with pytest.raises(CheckoutError, match="link or special"):
+        _extract_archive(archive, destination, max_files=10, max_bytes=1000)
+
+
+def test_extract_archive_writes_nothing_for_skipped_links(tmp_path):
+    archive = tmp_path / "source.tar.gz"
+    archive.write_bytes(
+        archive_bytes(
+            [
+                ("README.md", b"readme", "file"),
+                (".claude/skills", b"/etc", "link"),
+                (".vscode/z", b"../../../outside", "link"),
+            ]
+        )
+    )
+    destination = tmp_path / "out"
+    destination.mkdir()
+
+    skipped = _extract_archive(archive, destination, max_files=1, max_bytes=1000)
+
+    assert skipped == (".claude/skills", ".vscode/z")
+    extracted = sorted(path.relative_to(destination).as_posix() for path in destination.rglob("*"))
+    assert extracted == ["README.md"]
+    assert not (tmp_path / "outside").exists()
