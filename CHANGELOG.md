@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.29
+
+- DataTalksClub/website#462: content sync no longer refuses a repository that tracks agent or
+  editor tooling symlinks such as `.claude/skills -> ../.agents/skills`. A symlink, to a file or a
+  directory, inside a top-level dot-directory (first path segment starts with `.`) is skipped by
+  both checkout paths, `ImmutableCheckout` (disk) and `_extract_archive` (GitHub tarball): it is
+  never followed or written, is absent from `files()` and the manifest, does not count toward
+  `max_files`, and is listed on the new `checkout.skipped_links`. `sync_content_source` records
+  each skipped path in `SyncLog.warnings` as `Ignored symlink outside content: <path>`, capped at
+  20 entries plus a count, and the sync still succeeds. Every other symlink still fails the sync:
+  a non-dot top level, a nested dot-directory (`faq/.hidden/link`), or a top-level dot-named link
+  itself. Hard links, devices and FIFOs refuse everywhere, and regular files in dot-directories
+  are snapshotted as before. No migrations.
+
 ## 0.5.28
 
 - #412: render the shared project submission status time explicitly in UTC
