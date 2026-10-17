@@ -1,0 +1,47 @@
+{% extends "community_base/public/base.html" %}
+{% block title %}Authorize device{% endblock %}
+{% block meta_description %}Approve a CLI device login.{% endblock %}
+{% block page_head_metadata %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<main class="cb-page">
+  <header class="cb-page-header"><h1 class="cb-page-title">Authorize device</h1></header>
+  <p class="cb-card-meta">A CLI asked to sign in as you. Enter the code it shows, or follow the link it printed.</p>
+  {% if error %}<p class="cb-alert" role="alert">{{ error }}</p>{% endif %}
+  {% if result == "approved" %}
+    <p class="cb-alert" role="status">Sign-in approved. Return to the terminal; the CLI finishes on its next poll.</p>
+  {% elif result == "denied" %}
+    <p class="cb-alert" role="status">Nothing was authorized. The code is now dead.</p>
+  {% elif facts %}
+    <div class="cb-card">
+      <h2>Authorize this machine?</h2>
+      <dl>
+        <dt>Machine</dt><dd>{{ facts.label }} (reported by the machine, not verified)</dd>
+        <dt>Requested from</dt><dd>{{ facts.request_ip }}</dd>
+        <dt>Started</dt><dd>{{ facts.created_at }}</dd>
+        <dt>Expires</dt><dd>{{ facts.expires_at }}</dd>
+      </dl>
+      <p class="cb-card-meta">Approving gives this machine a credential that acts as you until revoked.</p>
+      <form class="cb-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="user_code" value="{{ code }}">
+        <input type="hidden" name="action" value="decide">
+        {% if not is_admin %}
+          <p class="cb-alert" role="alert">Only admins can approve a device login.</p>
+        {% else %}
+          <p>
+            <button class="cb-button cb-button-primary" type="submit" name="decision" value="approve">Authorize</button>
+            <button class="cb-button" type="submit" name="decision" value="deny">Deny</button>
+          </p>
+        {% endif %}
+      </form>
+    </div>
+  {% else %}
+    <form class="cb-form" method="post">
+      {% csrf_token %}
+      <div class="cb-field"><label for="device-user-code">Code</label>
+      <input id="device-user-code" name="user_code" value="{{ code }}" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX"></div>
+      <p><button class="cb-button cb-button-primary" type="submit" name="action" value="lookup">Continue</button></p>
+    </form>
+  {% endif %}
+</main>
+{% endblock %}

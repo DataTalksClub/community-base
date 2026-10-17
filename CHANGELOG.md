@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.30
+
+- New shared app `community_base.device_login`: admin-only CLI device login (RFC 8628-shaped).
+  `POST /api/auth/device/` starts a short-lived grant and returns the user code plus the
+  verification URL; `POST /api/auth/device/token` polls to approval, denial or expiry;
+  `GET /device/` is the session verification page (anonymous users go through `LOGIN_URL`,
+  so Google sign-in works as today) backed by `pending`/`approve` JSON endpoints. Only
+  admins approve (default `is_staff or is_superuser`, overridable via
+  `DEVICE_LOGIN_ADMIN_CHECK`); normal users get an `admin_only` refusal and no token is
+  minted. Grants are single use with hashed codes at rest, poll pacing, per-IP budgets
+  and a shared attempt budget. The default minter issues a staff `community_base.api` key;
+  sites mint their own operator credential through `DEVICE_LOGIN_TOKEN_MINTER`. Ships the
+  shared CLI loop (`client.device_login`) and atomic 0600 credential writes
+  (`storage.save_private_json`). Appends `cb_device_login.0001_initial`. Device login is
+  the preferred operator sign-in; existing admin tokens keep working.
+
 ## 0.5.29
 
 - DataTalksClub/website#462: content sync no longer refuses a repository that tracks agent or

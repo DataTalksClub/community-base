@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "community_base.knowledge_base",
     "community_base.api",
     "community_base.config",
+    "community_base.device_login",
     "community_base.jobs",
     "community_base.mail",
     "community_base.studio",

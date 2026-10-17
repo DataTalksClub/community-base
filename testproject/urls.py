@@ -8,6 +8,7 @@ from community_base.notifications.urls import api_urlpatterns as notifications_a
 
 urlpatterns = [
     path("accounts/", include("community_base.accounts.urls")),
+    path("", include("community_base.device_login.urls")),
     path("questionnaires/", include("community_base.questionnaires.urls")),
     path("onboarding/", include("community_base.onboarding.urls")),
     path("", include("community_base.notifications.urls")),
