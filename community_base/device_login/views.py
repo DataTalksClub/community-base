@@ -1,8 +1,8 @@
 """Anonymous device endpoints plus the session approval surface.
 
-Wire (RFC 8628-shaped, flat `{"error": code}` errors):
+Wire (RFC 8628-shaped, flat `{"error": code}` errors, all slashless):
 
-- POST /api/auth/device/ -> start, anonymous
+- POST /api/auth/device -> start, anonymous
 - POST /api/auth/device/token -> poll, anonymous, device_code is the credential
 - GET /api/auth/device/pending?user_code= -> session facts for the review page
 - POST /api/auth/device/approve -> session decision, admin only

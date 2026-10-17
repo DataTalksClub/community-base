@@ -35,7 +35,7 @@ def plain_user(db):
 
 def start_grant(client, label="agent@box", ip="10.0.0.1"):
     response = client.post(
-        "/api/auth/device/",
+        "/api/auth/device",
         data=json.dumps({"label": label}),
         content_type="application/json",
         REMOTE_ADDR=ip,
@@ -91,7 +91,7 @@ def test_start_returns_offer_and_stores_hashes_only(db):
         "interval",
     }
     assert offer["device_code"].startswith("cbdl_")
-    assert offer["verification_uri"].endswith("/device/")
+    assert offer["verification_uri"].endswith("/device")
     assert offer["verification_uri_complete"].endswith(f"?code={offer['user_code']}")
     grant = DeviceGrant.objects.get()
     assert offer["device_code"] not in grant.device_code_hash
@@ -193,7 +193,7 @@ def test_non_admin_page_shows_refusal(db, plain_user):
     offer = start_grant(Client())
     browser = Client()
     browser.force_login(plain_user)
-    response = browser.post("/device/", {"action": "lookup", "user_code": offer["user_code"]})
+    response = browser.post("/device", {"action": "lookup", "user_code": offer["user_code"]})
     assert response.status_code == 200
     assert b"Only admins can approve" in response.content
 
@@ -269,14 +269,14 @@ def test_start_rate_limit(db):
     client = Client()
     for index in range(rate_limit.START_LIMIT):
         response = client.post(
-            "/api/auth/device/",
+            "/api/auth/device",
             data=json.dumps({}),
             content_type="application/json",
             REMOTE_ADDR="10.9.9.9",
         )
         assert response.status_code == 200, index
     limited = client.post(
-        "/api/auth/device/",
+        "/api/auth/device",
         data=json.dumps({}),
         content_type="application/json",
         REMOTE_ADDR="10.9.9.9",
@@ -286,7 +286,7 @@ def test_start_rate_limit(db):
 
 
 def test_device_page_requires_login(db):
-    response = Client().get("/device/")
+    response = Client().get("/device")
     assert response.status_code == 302
     assert "next=" in response["Location"]
 
@@ -295,11 +295,11 @@ def test_device_page_full_flow(db, admin_user):
     offer = start_grant(Client())
     browser = Client()
     browser.force_login(admin_user)
-    lookup = browser.post("/device/", {"action": "lookup", "user_code": offer["user_code"]})
+    lookup = browser.post("/device", {"action": "lookup", "user_code": offer["user_code"]})
     assert lookup.status_code == 200
     assert b"Authorize this machine?" in lookup.content
     decide = browser.post(
-        "/device/",
+        "/device",
         {"action": "decide", "user_code": offer["user_code"], "decision": "approve"},
     )
     assert b"Sign-in approved" in decide.content

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.31
+
+- Device login routes are slashless (`/device`, `/api/auth/device`, `/token`,
+  `/pending`, `/approve`): consuming sites strip trailing slashes, and a 301
+  would turn the CLI POST into a GET. No migrations.
+
 ## 0.5.30
 
 - New shared app `community_base.device_login`: admin-only CLI device login (RFC 8628-shaped).

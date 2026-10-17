@@ -8,8 +8,10 @@ tokens by hand. Existing admin tokens keep working; device login is the preferre
 ## Install
 
 1. Add `"community_base.device_login"` to `INSTALLED_APPS` after `community_base.api`.
-2. Mount the URLs at the site root so `/device/` and `/api/auth/device/*` resolve:
-   `path("", include("community_base.device_login.urls"))`.
+2. Mount the URLs at the site root so `/device` and `/api/auth/device*` resolve:
+   `path("", include("community_base.device_login.urls"))`. All device routes are
+   slashless on purpose: consuming sites strip trailing slashes, and a 301 would
+   turn the CLI POST into a GET.
 3. Run `uv run python manage.py migrate`.
 4. Optional `COMMUNITY_BASE` keys (see `community_base/kernel/conf.py` for defaults):
    `DEVICE_LOGIN_TTL_SECONDS` (600), `DEVICE_LOGIN_POLL_INTERVAL` (5),
@@ -21,7 +23,7 @@ tokens by hand. Existing admin tokens keep working; device login is the preferre
 
 ## Wire
 
-- `POST /api/auth/device/` with optional `{"label": "user@host"}` starts a grant and
+- `POST /api/auth/device` with optional `{"label": "user@host"}` starts a grant and
   returns `device_code`, `user_code` (`XXXX-XXXX`), `verification_uri`,
   `verification_uri_complete`, `expires_in` (600), `interval` (5).
 - `POST /api/auth/device/token` with `device_code` (and optionally the RFC 8628
@@ -29,7 +31,7 @@ tokens by hand. Existing admin tokens keep working; device login is the preferre
   polling too fast, `access_denied` once on denial, `expired_token` for
   expired/consumed/unknown grants, and the minted credential exactly once on
   approval. The grant is single use.
-- `GET /device/` is the verification page. A signed-in user enters the code,
+- `GET /device` is the verification page. A signed-in user enters the code,
   reviews the machine label, request IP and times, then authorizes or denies.
   Anonymous users are sent to `LOGIN_URL` with `next=` so Google sign-in works
   as today.

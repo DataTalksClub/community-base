@@ -33,7 +33,7 @@ def device_login(
     http = session or requests.Session()
     say = printer or print
     try:
-        response = http.post(f"{base}/api/auth/device/", json={"label": label}, timeout=30)
+        response = http.post(f"{base}/api/auth/device", json={"label": label}, timeout=30)
     except requests.RequestException as error:
         raise DeviceLoginError("invalid_request", f"Cannot reach {base}: {error}") from error
     if response.status_code != 200:
@@ -72,7 +72,7 @@ def device_login(
         time.sleep(wait)
         try:
             poll = http.post(
-                f"{base}/api/auth/device/token",
+                f"{base}/api/auth/devicetoken",
                 json={
                     "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
                     "device_code": device_code,
