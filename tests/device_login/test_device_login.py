@@ -391,3 +391,79 @@ def test_storage_writes_private_file(tmp_path):
     assert read_private_json(target) == {"token": "secret"}
     assert stat.S_IMODE(os.stat(target).st_mode) == 0o600
     assert stat.S_IMODE(os.stat(target.parent).st_mode) == 0o700
+
+
+def test_is_same_network():
+    from community_base.device_login.views import is_same_network
+
+    assert is_same_network("10.0.0.1", "10.0.0.1") is True
+    assert is_same_network("10.0.0.1", "192.168.1.1") is False
+    assert is_same_network("2001:db8:abcd:12::1", "2001:db8:abcd:12::99") is True
+    assert is_same_network("2001:db8:abcd:12::1", "2001:db8:abcd:13::1") is False
+    assert is_same_network("::ffff:10.0.0.1", "10.0.0.1") is True
+    assert is_same_network("invalid", "10.0.0.1") is None
+    assert is_same_network("", "10.0.0.1") is None
+    assert is_same_network(None, "10.0.0.1") is None
+
+
+def test_pending_same_network_flag(db, admin_user):
+    offer = start_grant(Client(), ip="10.0.0.1")
+    browser = Client()
+    browser.force_login(admin_user)
+
+    # Different network:
+    resp_diff = browser.get(
+        "/api/auth/device/pending",
+        {"user_code": offer["user_code"]},
+        REMOTE_ADDR="192.168.1.50",
+    )
+    assert resp_diff.status_code == 200
+    assert resp_diff.json()["same_network"] is False
+
+    # Same network:
+    resp_same = browser.get(
+        "/api/auth/device/pending",
+        {"user_code": offer["user_code"]},
+        REMOTE_ADDR="10.0.0.1",
+    )
+    assert resp_same.status_code == 200
+    assert resp_same.json()["same_network"] is True
+
+
+def test_device_page_same_network_warning(db, admin_user):
+    offer = start_grant(Client(), ip="10.0.0.1")
+    browser = Client()
+    browser.force_login(admin_user)
+
+    # Different network renders warning and disabled Authorize button:
+    diff_page = browser.post(
+        "/device",
+        {"action": "lookup", "user_code": offer["user_code"]},
+        REMOTE_ADDR="192.168.1.50",
+    )
+    assert diff_page.status_code == 200
+    assert b"dk-device-page" in diff_page.content
+    assert b"This request came from a different network." in diff_page.content
+    assert b'id="ack"' in diff_page.content
+    assert b'id="approve" disabled aria-describedby="net-warning"' in diff_page.content
+
+    # Same network does not render warning:
+    same_page = browser.post(
+        "/device",
+        {"action": "lookup", "user_code": offer["user_code"]},
+        REMOTE_ADDR="10.0.0.1",
+    )
+    assert same_page.status_code == 200
+    assert b"dk-device-page" in same_page.content
+    assert b"This request came from a different network." not in same_page.content
+    assert b'id="ack"' not in same_page.content
+    assert b'id="approve">Authorize</button>' in same_page.content
+
+
+def test_device_page_formats_code(db, admin_user):
+    browser = Client()
+    browser.force_login(admin_user)
+    resp = browser.get("/device?code=bcdfghjk")
+    assert resp.status_code == 200
+    assert b'value="BCDF-GHJK"' in resp.content
+

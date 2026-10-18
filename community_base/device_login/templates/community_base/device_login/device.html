@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="dk-auth-page">
+<div class="dk-auth-page dk-device-page">
   <header class="dk-auth-page__bar">
     <a class="dk-auth-page__brand" href="/">Community Base</a>
     {% if request.user.is_authenticated %}
@@ -75,13 +75,23 @@
               </div>
             </div>
           {% else %}
+            {% if facts.same_network is False %}
+              <div class="dk-callout dk-callout--warning" id="net-warning">
+                <svg class="dk-callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 20h16a2 2 0 0 0 1.73-2"/><path d="M12 9v4M12 17h.01"/></svg>
+                <div class="dk-callout__body">
+                  <span class="dk-callout__title">This request came from a different network.</span>
+                  <span>Only continue if you started this login yourself on that machine.</span>
+                  <label class="dk-check"><input type="checkbox" id="ack" name="ack"> I started this login on that machine</label>
+                </div>
+              </div>
+            {% endif %}
             <form method="post" id="decision-form">
               {% csrf_token %}
               <input type="hidden" name="user_code" value="{{ code }}">
               <input type="hidden" name="action" value="decide">
               <div class="dk-auth-card__actions">
                 <button class="dk-button dk-button--secondary dk-button--lg" type="submit" name="decision" value="deny" id="deny">Deny</button>
-                <button class="dk-button dk-button--primary dk-button--lg" type="submit" name="decision" value="approve" id="approve">Authorize</button>
+                <button class="dk-button dk-button--primary dk-button--lg" type="submit" name="decision" value="approve" id="approve"{% if facts.same_network is False %} disabled aria-describedby="net-warning"{% endif %}>Authorize</button>
               </div>
             </form>
           {% endif %}
@@ -127,13 +137,15 @@
 
 {% block extra_js %}
 <script type="module">
-  import { bindCodeInput, describeUserCodeError } from "{% static 'community_base/device_login/device-code.js' %}";
+  import { bindCodeInput, describeUserCodeError, formatUserCode } from "{% static 'community_base/device_login/device-code.js' %}";
 
   var title = document.getElementById("card-title");
   var input = document.getElementById("device-user-code");
   var continueBtn = document.getElementById("continue");
   var errorEl = document.getElementById("code-error");
   var decisionForm = document.getElementById("decision-form");
+  var ack = document.getElementById("ack");
+  var approveBtn = document.getElementById("approve");
 
   if (title && (!input || input.value)) {
     title.focus();
@@ -142,6 +154,9 @@
   }
 
   if (input) {
+    if (input.value) {
+      input.value = formatUserCode(input.value);
+    }
     bindCodeInput(input);
     input.addEventListener("dk-code-change", function(e) {
       var res = e.detail;
@@ -164,10 +179,15 @@
     });
   }
 
+  if (ack && approveBtn) {
+    ack.addEventListener("change", function(e) {
+      approveBtn.disabled = !e.target.checked;
+    });
+  }
+
   if (decisionForm) {
     decisionForm.addEventListener("submit", function(e) {
       var submitter = e.submitter;
-      var approveBtn = document.getElementById("approve");
       var denyBtn = document.getElementById("deny");
       if (submitter && (submitter === approveBtn || submitter === denyBtn)) {
         var hidden = document.createElement("input");

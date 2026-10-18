@@ -15,6 +15,7 @@ on the poll wire (`expired_token`), except a denial is reported once as
 
 from __future__ import annotations
 
+import ipaddress
 import json
 
 from django.conf import settings as django_settings
@@ -61,6 +62,26 @@ def _read_json_object(request) -> dict:
 
 def _client_ip(request) -> str:
     return (request.META.get("REMOTE_ADDR") or "")[:64]
+
+
+def is_same_network(ip_a: str | None, ip_b: str | None) -> bool | None:
+    if not ip_a or not ip_b:
+        return None
+    try:
+        a = ipaddress.ip_address(ip_a.strip())
+        b = ipaddress.ip_address(ip_b.strip())
+    except ValueError:
+        return None
+    if isinstance(a, ipaddress.IPv6Address) and a.ipv4_mapped:
+        a = a.ipv4_mapped
+    if isinstance(b, ipaddress.IPv6Address) and b.ipv4_mapped:
+        b = b.ipv4_mapped
+    if a.version != b.version:
+        return False
+    if a.version == 4:
+        return a == b
+    net_a = ipaddress.ip_network(f"{a}/64", strict=False)
+    return b in net_a
 
 
 def _consume(grant: DeviceGrant) -> None:
@@ -222,6 +243,7 @@ def device_pending(request):
             "created_at": grant.created_at.isoformat(),
             "expires_at": grant.expires_at.isoformat(),
             "server_now": timezone.now().isoformat(),
+            "same_network": is_same_network(_client_ip(request), grant.request_ip),
         }
     )
 
@@ -269,7 +291,8 @@ def device_page(request):
     if request.method == "POST":
         action = request.POST.get("action", "lookup")
         code = request.POST.get("user_code", "")
-        context["code"] = code
+        compact = normalize_user_code(code)
+        context["code"] = format_user_code(compact) if compact else code
         if not is_valid_user_code(code):
             context["error"] = "Enter the 8-character code shown by the CLI."
             return render(request, "community_base/device_login/device.html", context)
@@ -279,7 +302,7 @@ def device_page(request):
             return render(request, "community_base/device_login/device.html", context)
         if action == "decide":
             if not is_device_admin(request.user):
-                context["facts"] = _facts(grant)
+                context["facts"] = _facts(grant, request)
                 context["error"] = "Only admins can approve a device login."
                 return render(request, "community_base/device_login/device.html", context)
             approve = request.POST.get("decision") == "approve"
@@ -289,10 +312,11 @@ def device_page(request):
             grant.save(update_fields=["status", "approved_by", "decided_at"])
             context["result"] = "approved" if approve else "denied"
             return render(request, "community_base/device_login/device.html", context)
-        context["facts"] = _facts(grant)
+        context["facts"] = _facts(grant, request)
         return render(request, "community_base/device_login/device.html", context)
     code = request.GET.get("code", "")
-    context["code"] = code
+    compact = normalize_user_code(code)
+    context["code"] = format_user_code(compact) if compact else code
     if code:
         if not is_valid_user_code(code):
             context["error"] = "Enter the 8-character code shown by the CLI."
@@ -301,15 +325,17 @@ def device_page(request):
             if grant is None or grant.is_expired or grant.status != DeviceGrantStatus.PENDING:
                 context["error"] = "That code is not waiting for confirmation."
             else:
-                context["facts"] = _facts(grant)
+                context["facts"] = _facts(grant, request)
     return render(request, "community_base/device_login/device.html", context)
 
 
-def _facts(grant: DeviceGrant) -> dict:
+def _facts(grant: DeviceGrant, request=None) -> dict:
+    client_ip = _client_ip(request) if request else ""
     return {
         "label": grant.label,
         "request_ip": grant.request_ip,
         "created_at": grant.created_at,
         "expires_at": grant.expires_at,
         "now": timezone.now(),
+        "same_network": is_same_network(client_ip, grant.request_ip),
     }
