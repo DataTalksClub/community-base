@@ -1,47 +1,185 @@
 {% extends "community_base/public/base.html" %}
-{% block title %}Authorize device{% endblock %}
+{% load static %}
+
+{% block title %}
+  {% if result == "approved" %}Device authorized · Community Base
+  {% elif result == "denied" %}Request denied · Community Base
+  {% elif facts %}Authorize this machine? · Community Base
+  {% else %}Authorize a device · Community Base{% endif %}
+{% endblock %}
+
 {% block meta_description %}Approve a CLI device login.{% endblock %}
-{% block page_head_metadata %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block page_head_metadata %}
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<script>
+  (function() {
+    try {
+      var stored = localStorage.getItem("dakit-theme");
+      var theme = stored === "dark" || stored === "light" ? stored : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.dataset.theme = theme;
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="{% static 'community_base/device_login/dakit.css' %}">
+{% endblock %}
+
 {% block content %}
-<main class="cb-page">
-  <header class="cb-page-header"><h1 class="cb-page-title">Authorize device</h1></header>
-  <p class="cb-card-meta">A CLI asked to sign in as you. Enter the code it shows, or follow the link it printed.</p>
-  {% if error %}<p class="cb-alert" role="alert">{{ error }}</p>{% endif %}
-  {% if result == "approved" %}
-    <p class="cb-alert" role="status">Sign-in approved. Return to the terminal; the CLI finishes on its next poll.</p>
-  {% elif result == "denied" %}
-    <p class="cb-alert" role="status">Nothing was authorized. The code is now dead.</p>
-  {% elif facts %}
-    <div class="cb-card">
-      <h2>Authorize this machine?</h2>
-      <dl>
-        <dt>Machine</dt><dd>{{ facts.label }} (reported by the machine, not verified)</dd>
-        <dt>Requested from</dt><dd>{{ facts.request_ip }}</dd>
-        <dt>Started</dt><dd>{{ facts.created_at }}</dd>
-        <dt>Expires</dt><dd>{{ facts.expires_at }}</dd>
-      </dl>
-      <p class="cb-card-meta">Approving gives this machine a credential that acts as you until revoked.</p>
-      <form class="cb-form" method="post">
-        {% csrf_token %}
-        <input type="hidden" name="user_code" value="{{ code }}">
-        <input type="hidden" name="action" value="decide">
-        {% if not is_admin %}
-          <p class="cb-alert" role="alert">Only admins can approve a device login.</p>
-        {% else %}
-          <p>
-            <button class="cb-button cb-button-primary" type="submit" name="decision" value="approve">Authorize</button>
-            <button class="cb-button" type="submit" name="decision" value="deny">Deny</button>
-          </p>
+<div class="dk-auth-page">
+  <header class="dk-auth-page__bar">
+    <a class="dk-auth-page__brand" href="/">Community Base</a>
+    {% if request.user.is_authenticated %}
+      <p class="dk-auth-page__identity" role="status">
+        {{ request.user.email|default:request.user.get_username }} · <a href="/accounts/logout/?next=/device{% if code %}?code={{ code }}{% endif %}">Switch account</a>
+      </p>
+    {% endif %}
+  </header>
+  <main class="dk-auth-page__main">
+    <section class="dk-auth-card" id="card" aria-labelledby="card-title">
+      {% if result == "approved" %}
+        <div class="dk-auth-card__head" role="status">
+          <h1 class="dk-auth-card__title" id="card-title" tabindex="-1">
+            <svg class="dk-auth-card__icon--success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            Device authorized
+          </h1>
+          <p class="dk-auth-card__lede">Sign-in approved. Return to your terminal; the CLI finishes on its next poll.</p>
+        </div>
+      {% elif result == "denied" %}
+        <div class="dk-auth-card__head" role="status">
+          <h1 class="dk-auth-card__title" id="card-title" tabindex="-1">Request denied</h1>
+          <p class="dk-auth-card__lede">Nothing was authorized. The code is now dead.</p>
+        </div>
+      {% elif facts %}
+        <div class="dk-auth-card__head">
+          <h1 class="dk-auth-card__title" id="card-title" tabindex="-1">Authorize this machine?</h1>
+          <p class="dk-auth-card__lede">It will be able to act as <strong>{{ request.user.email|default:request.user.get_username }}</strong> until you sign it out.</p>
+        </div>
+        <div class="dk-auth-card__body">
+          <dl class="dk-dl">
+            <dt>Code</dt>
+            <dd class="dk-mono">{{ code }}</dd>
+            <dt>Machine</dt>
+            <dd><span class="dk-mono">{{ facts.label }}</span> <span class="dk-dl__note">reported by the machine</span></dd>
+            <dt>Requested from</dt>
+            <dd class="dk-mono">{{ facts.request_ip }}</dd>
+            <dt>Started</dt>
+            <dd class="dk-mono">{{ facts.created_at|date:"H:i" }}</dd>
+            <dt>Expires</dt>
+            <dd class="dk-mono">{{ facts.expires_at|date:"H:i" }}</dd>
+          </dl>
+          {% if not is_admin %}
+            <div class="dk-callout dk-callout--danger" role="alert">
+              <div class="dk-callout__body">
+                <span>Only admins can approve a device login.</span>
+              </div>
+            </div>
+          {% else %}
+            <form method="post" id="decision-form">
+              {% csrf_token %}
+              <input type="hidden" name="user_code" value="{{ code }}">
+              <input type="hidden" name="action" value="decide">
+              <div class="dk-auth-card__actions">
+                <button class="dk-button dk-button--secondary dk-button--lg" type="submit" name="decision" value="deny" id="deny">Deny</button>
+                <button class="dk-button dk-button--primary dk-button--lg" type="submit" name="decision" value="approve" id="approve">Authorize</button>
+              </div>
+            </form>
+          {% endif %}
+        </div>
+        <div class="dk-auth-card__foot">
+          <span>Didn't start this? Deny it. Nothing is shared.</span>
+        </div>
+      {% else %}
+        <div class="dk-auth-card__head">
+          <h1 class="dk-auth-card__title" id="card-title" tabindex="-1">Authorize a device</h1>
+          <p class="dk-auth-card__lede">A CLI asked to sign in as you. Enter the code shown in your terminal.</p>
+        </div>
+        {% if error %}
+          <div class="dk-callout dk-callout--danger" role="alert">
+            <div class="dk-callout__body">
+              <span>{{ error }}</span>
+            </div>
+          </div>
         {% endif %}
-      </form>
-    </div>
-  {% else %}
-    <form class="cb-form" method="post">
-      {% csrf_token %}
-      <div class="cb-field"><label for="device-user-code">Code</label>
-      <input id="device-user-code" name="user_code" value="{{ code }}" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX"></div>
-      <p><button class="cb-button cb-button-primary" type="submit" name="action" value="lookup">Continue</button></p>
-    </form>
-  {% endif %}
-</main>
+        <form class="dk-auth-card__body" method="post" id="enter-form">
+          {% csrf_token %}
+          <div>
+            <label class="dk-label" for="device-user-code">Device code</label>
+            <input class="dk-input dk-code-input" id="device-user-code" name="user_code"
+              value="{{ code }}" autocomplete="off" autocapitalize="characters"
+              spellcheck="false" inputmode="text" enterkeyhint="go"
+              placeholder="XXXX-XXXX"
+              {% if error %}aria-invalid="true" aria-describedby="code-error"{% endif %}>
+            {% if code and not error %}
+              <p class="dk-hint" id="code-hint">Check that this matches your terminal exactly.</p>
+            {% endif %}
+            <p class="dk-field-error" id="code-error" role="alert" {% if not error %}hidden{% endif %}>{{ error }}</p>
+          </div>
+          <div class="dk-auth-card__actions">
+            <button class="dk-button dk-button--primary dk-button--lg" type="submit" name="action" value="lookup" id="continue">Continue</button>
+          </div>
+        </form>
+      {% endif %}
+    </section>
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module">
+  import { bindCodeInput, describeUserCodeError } from "{% static 'community_base/device_login/device-code.js' %}";
+
+  var title = document.getElementById("card-title");
+  var input = document.getElementById("device-user-code");
+  var continueBtn = document.getElementById("continue");
+  var errorEl = document.getElementById("code-error");
+  var decisionForm = document.getElementById("decision-form");
+
+  if (title && (!input || input.value)) {
+    title.focus();
+  } else if (input && !input.value) {
+    input.focus();
+  }
+
+  if (input) {
+    bindCodeInput(input);
+    input.addEventListener("dk-code-change", function(e) {
+      var res = e.detail;
+      if (continueBtn) {
+        continueBtn.disabled = !res.ok;
+      }
+      if (res.error === "too_long" || res.error === "invalid_char") {
+        if (errorEl) {
+          errorEl.textContent = describeUserCodeError(res);
+          errorEl.hidden = false;
+        }
+        input.setAttribute("aria-invalid", "true");
+      } else if (res.ok) {
+        if (errorEl) {
+          errorEl.textContent = "";
+          errorEl.hidden = true;
+        }
+        input.removeAttribute("aria-invalid");
+      }
+    });
+  }
+
+  if (decisionForm) {
+    decisionForm.addEventListener("submit", function(e) {
+      var submitter = e.submitter;
+      var approveBtn = document.getElementById("approve");
+      var denyBtn = document.getElementById("deny");
+      if (submitter && (submitter === approveBtn || submitter === denyBtn)) {
+        var hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "decision";
+        hidden.value = submitter.value;
+        this.appendChild(hidden);
+        if (approveBtn) approveBtn.disabled = true;
+        if (denyBtn) denyBtn.disabled = true;
+        submitter.textContent = submitter.value === "approve" ? "Authorizing…" : "Denying…";
+      }
+    });
+  }
+</script>
 {% endblock %}
