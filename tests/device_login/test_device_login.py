@@ -70,14 +70,31 @@ def test_user_code_format_and_normalization():
     assert len(seen) > 1
     for code in seen:
         assert re.fullmatch(
-            r"[BCDFGHJKLMNPQRSTVWXZ23456789]{4}-[BCDFGHJKLMNPQRSTVWXZ23456789]{4}",
+            r"[BCDFGHJKMNPQRSTWXZ23456789]{4}-[BCDFGHJKMNPQRSTWXZ23456789]{4}",
             code,
         )
         assert "A" not in code and "E" not in code and "U" not in code
+        assert "L" not in code and "V" not in code
+        assert "0" not in code and "1" not in code and "O" not in code and "I" not in code
     assert codes.normalize_user_code("abcd-efgh") is None
     assert codes.normalize_user_code("  bcdf-ghj k  ") == "BCDFGHJK"
     assert codes.normalize_user_code("BCDF-GHJKLMNP") is None
     assert codes.normalize_user_code("") is None
+    assert codes.normalize_user_code(None) is None
+    # Never truncate overlong codes even if extra chars are invalid or vowels
+    assert codes.normalize_user_code("BCDF-GHJKA") is None
+    assert codes.normalize_user_code("BCDF-GHJK-AAA") is None
+    # Dakit excluded characters (ambiguous characters L, V, 0, 1)
+    assert codes.normalize_user_code("BCDF-GHJL") is None
+    assert codes.normalize_user_code("BCDF-GHJV") is None
+    assert codes.normalize_user_code("BCDF-GHJ0") is None
+    assert codes.normalize_user_code("BCDF-GHJ1") is None
+    # Separator variants per dakit spec (unicode dashes, dots, underscores)
+    assert codes.normalize_user_code("bcdf–ghjk") == "BCDFGHJK"
+    assert codes.normalize_user_code("bcdf—ghjk") == "BCDFGHJK"
+    assert codes.normalize_user_code("bcdf−ghjk") == "BCDFGHJK"
+    assert codes.normalize_user_code("bcdf.ghjk") == "BCDFGHJK"
+    assert codes.normalize_user_code("bcdf_ghjk") == "BCDFGHJK"
 
 
 def test_start_returns_offer_and_stores_hashes_only(db):
@@ -331,8 +348,8 @@ def test_client_loop_happy_path():
     offer = {
         "device_code": "cbdl_x",
         "user_code": "BCDF-GHJK",
-        "verification_uri": "https://example.com/device/",
-        "verification_uri_complete": "https://example.com/device/?code=BCDF-GHJK",
+        "verification_uri": "https://example.com/device",
+        "verification_uri_complete": "https://example.com/device?code=BCDF-GHJK",
         "expires_in": 600,
         "interval": 0.01,
     }
@@ -353,15 +370,20 @@ def test_client_loop_happy_path():
     )
     assert credential == {"token": "cb_staff_secret"}
     assert any("BCDF-GHJK" in line for line in printed)
-    assert any("https://example.com/device/?code=BCDF-GHJK" in line for line in printed)
+    assert any("https://example.com/device?code=BCDF-GHJK" in line for line in printed)
     assert not any("cbdl_x" in line for line in printed)
+    assert [url for url, _ in session.posts] == [
+        "https://example.com/api/auth/device",
+        "https://example.com/api/auth/device/token",
+        "https://example.com/api/auth/device/token",
+    ]
 
 
 def test_client_loop_denied_and_expired():
     offer = {
         "device_code": "cbdl_x",
         "user_code": "BCDF-GHJK",
-        "verification_uri": "https://example.com/device/",
+        "verification_uri": "https://example.com/device",
         "expires_in": 600,
         "interval": 0.01,
     }
@@ -383,6 +405,40 @@ def test_client_loop_denied_and_expired():
             ),
         )
     assert expired.value.code == "expired_token"
+
+
+def test_client_loop_timeout(monkeypatch):
+    import time
+
+    clock = [100.0]
+
+    def fake_monotonic():
+        clock[0] += 50.0
+        return clock[0]
+
+    monkeypatch.setattr(time, "monotonic", fake_monotonic)
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+
+    offer = {
+        "device_code": "cbdl_x",
+        "user_code": "BCDF-GHJK",
+        "verification_uri": "https://example.com/device",
+        "expires_in": 1,
+        "interval": 0.01,
+    }
+    with pytest.raises(DeviceLoginError) as exc_info:
+        device_login(
+            "https://example.com",
+            timeout=1,
+            printer=lambda line: None,
+            session=FakeSession(
+                [
+                    FakeResponse(200, offer),
+                    FakeResponse(400, {"error": "authorization_pending"}),
+                ]
+            ),
+        )
+    assert exc_info.value.code == "timeout"
 
 
 def test_storage_writes_private_file(tmp_path):
@@ -466,3 +522,39 @@ def test_device_page_formats_code(db, admin_user):
     resp = browser.get("/device?code=bcdfghjk")
     assert resp.status_code == 200
     assert b'value="BCDF-GHJK"' in resp.content
+
+
+def test_device_page_invalid_code_handling(db, admin_user):
+    browser = Client()
+    browser.force_login(admin_user)
+
+    # Submitting an invalid user code format renders field error:
+    resp = browser.post("/device", {"action": "lookup", "user_code": "invalid-code"})
+    assert resp.status_code == 200
+    assert b"Enter the 8-character code shown by the CLI." in resp.content
+
+    # Submitting an unknown but validly-formatted code renders not-waiting error:
+    resp_unknown = browser.post("/device", {"action": "lookup", "user_code": "BCDF-GHJ9"})
+    assert resp_unknown.status_code == 200
+    assert b"That code is not waiting for confirmation." in resp_unknown.content
+
+    # GET with invalid code format in query param:
+    resp_get_invalid = browser.get("/device?code=invalid")
+    assert resp_get_invalid.status_code == 200
+    assert b"Enter the 8-character code shown by the CLI." in resp_get_invalid.content
+
+    # GET with unknown code in query param:
+    resp_get_unknown = browser.get("/device?code=BCDF-GHJ9")
+    assert resp_get_unknown.status_code == 200
+    assert b"That code is not waiting for confirmation." in resp_get_unknown.content
+
+    # API endpoints reject invalid user codes with 404:
+    assert browser.get("/api/auth/device/pending", {"user_code": "invalid"}).status_code == 404
+    assert (
+        browser.post(
+            "/api/auth/device/approve",
+            data=json.dumps({"user_code": "invalid", "approve": True}),
+            content_type="application/json",
+        ).status_code
+        == 404
+    )

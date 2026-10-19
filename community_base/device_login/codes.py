@@ -9,12 +9,16 @@ and the device code is returned once to the polling CLI.
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 
-ALPHABET = "BCDFGHJKLMNPQRSTVWXZ23456789"
+ALPHABET = "BCDFGHJKMNPQRSTWXZ23456789"  # no vowels, no L/V, no 0/1 (canonical dakit spec)
 CODE_LENGTH = 8
 DEVICE_CODE_PREFIX = "cbdl_"
 LABEL_MAX_LENGTH = 80
+
+# Separators ignored when parsing user codes (spaces, hyphens/dashes, dots, underscores).
+SEPARATORS_RE = re.compile(r"[\s\-‐-―−._]")
 
 
 def generate_user_code() -> str:
@@ -29,12 +33,12 @@ def normalize_user_code(value: str | None) -> str | None:
     """Compact to the 8-symbol form, or None when invalid. Never truncates."""
     if not value:
         return None
-    compact = "".join(ch for ch in value.upper() if ch in ALPHABET)
-    if len(compact) != CODE_LENGTH:
+    cleaned = SEPARATORS_RE.sub("", value).upper()
+    if len(cleaned) != CODE_LENGTH:
         return None
-    if any(ch not in ALPHABET for ch in compact):
+    if any(ch not in ALPHABET for ch in cleaned):
         return None
-    return compact
+    return cleaned
 
 
 def format_user_code(compact: str) -> str:

@@ -47,7 +47,9 @@ reports `access_denied` instead of minting.
 
 ## Limits
 
-Short-lived grants (10 minutes), 5-second poll pacing enforced server-side,
+8-symbol `XXXX-XXXX` codes from the canonical dakit alphabet (vowel-free,
+no ambiguous 0/1 or L/V; rejection sampling, never truncated), short-lived
+grants (10 minutes), 5-second poll pacing enforced server-side,
 10 starts per 10 minutes and 240 polls per 10 minutes per IP, a shared
 5-lookup/decision budget per grant (the 6th kills it), and SHA-256 hashes only
 at rest (no plaintext codes in the database).

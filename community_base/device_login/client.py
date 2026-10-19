@@ -72,7 +72,7 @@ def device_login(
         time.sleep(wait)
         try:
             poll = http.post(
-                f"{base}/api/auth/devicetoken",
+                f"{base}/api/auth/device/token",
                 json={
                     "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
                     "device_code": device_code,
