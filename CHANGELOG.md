@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.33
+
+- Remove duplicate `role="status"` from the device login identity banner to resolve
+  strict ARIA live-region resolution in Playwright and screen readers. No migrations.
+
 ## 0.5.32
 
 - Shared admin device login hardening and CLI integration:
