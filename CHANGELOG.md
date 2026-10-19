@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.32
+
+- Shared admin device login hardening and CLI integration:
+  canonical dakit fonts and styling, same-network warning, dakit code normalization,
+  and CLI polling fix (`/api/auth/device/token`). Export `default_label` and
+  `save_private_json` / `read_private_json` for site CLIs. No migrations.
+
 ## 0.5.31
 
 - Device login routes are slashless (`/device`, `/api/auth/device`, `/token`,

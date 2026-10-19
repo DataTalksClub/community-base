@@ -448,6 +448,20 @@ def test_storage_writes_private_file(tmp_path):
     assert stat.S_IMODE(os.stat(target).st_mode) == 0o600
     assert stat.S_IMODE(os.stat(target.parent).st_mode) == 0o700
 
+    os.chmod(target, 0o644)
+    with pytest.raises(PermissionError):
+        read_private_json(target)
+    assert read_private_json(target, enforce_mode=False) == {"token": "secret"}
+
+
+def test_default_label():
+    from community_base.device_login.client import default_label
+
+    label = default_label()
+    assert isinstance(label, str)
+    assert len(label) > 0
+
+
 
 def test_is_same_network():
     from community_base.device_login.views import is_same_network

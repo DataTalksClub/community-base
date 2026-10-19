@@ -20,21 +20,40 @@ class DeviceLoginError(RuntimeError):
         self.code = code
 
 
+def default_label(fallback: str = "CLI") -> str:
+    try:
+        import getpass
+
+        user = getpass.getuser()
+    except Exception:
+        user = ""
+    try:
+        import socket
+
+        host = socket.gethostname().split(".")[0]
+    except Exception:
+        host = ""
+    label = f"{user}@{host}".strip("@")
+    return label[:80] or fallback
+
+
 def device_login(
     base_url: str,
     *,
-    label: str = "CLI",
+    label: str | None = None,
     timeout: float = 600,
     printer: Callable[[str], None] | None = None,
     opener: Callable[[str], None] | None = None,
     session: requests.Session | None = None,
+    client: object | None = None,
 ) -> dict:
     base = base_url.rstrip("/")
-    http = session or requests.Session()
+    http = client or session or requests.Session()
     say = printer or print
+    device_label = label or default_label()
     try:
-        response = http.post(f"{base}/api/auth/device", json={"label": label}, timeout=30)
-    except requests.RequestException as error:
+        response = http.post(f"{base}/api/auth/device", json={"label": device_label}, timeout=30)
+    except Exception as error:
         raise DeviceLoginError("invalid_request", f"Cannot reach {base}: {error}") from error
     if response.status_code != 200:
         raise DeviceLoginError("invalid_response", f"Login start failed: {response.text[:200]}")
@@ -79,7 +98,7 @@ def device_login(
                 },
                 timeout=30,
             )
-        except requests.RequestException:
+        except Exception:
             continue
         if poll.status_code == 200:
             try:

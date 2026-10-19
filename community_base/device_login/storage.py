@@ -28,8 +28,10 @@ def save_private_json(path: str | Path, payload: dict) -> Path:
     return target
 
 
-def read_private_json(path: str | Path) -> dict:
+def read_private_json(path: str | Path, *, enforce_mode: bool = True) -> dict:
     target = Path(path).expanduser()
+    if enforce_mode and (target.stat().st_mode & 0o077):
+        raise PermissionError(f"Credential profile at {target} must have mode 0600.")
     raw = target.read_text(encoding="utf-8")
     payload = json.loads(raw)
     if not isinstance(payload, dict):
