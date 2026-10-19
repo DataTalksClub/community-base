@@ -164,7 +164,7 @@ PUBLIC_TEMPLATES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "community_base.device_login",
         "community_base/device_login/device.html",
-        ("content", "meta_description", "page_head_metadata", "title"),
+        ("content", "extra_js", "meta_description", "page_head_metadata", "title"),
     ),
     ("community_base.events", "events/event_detail.html", ("content", "meta_description", "title")),
     ("community_base.events", "events/event_list.html", ("content", "meta_description", "title")),

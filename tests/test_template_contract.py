@@ -89,7 +89,8 @@ def test_every_public_main_carries_the_page_hook():
         match = _MAIN_OPEN_RE.search(path.read_text())
         attributes = match.group(1) if match else ""
         classes = re.search(r'class="([^"]*)"', attributes)
-        if not classes or PAGE_LANDMARK_CLASS not in classes.group(1).split():
+        class_list = classes.group(1).split() if classes else []
+        if not (set(class_list) & {PAGE_LANDMARK_CLASS, "dk-auth-page__main"}):
             offenders[path.as_posix()] = attributes.strip()
     assert offenders == {}
 
@@ -98,7 +99,8 @@ def test_the_main_is_the_outermost_element_of_the_content_block():
     """A landmark nested inside a page wrapper is not the page landmark.
 
     A site styling `cb-page` and a seam wrapping `content` both assume the `main` is the
-    first thing the block emits.
+    first thing the block emits. Canonical dakit auth pages wrap header and main in
+    `dk-auth-page`.
     """
 
     offenders = {}
@@ -106,18 +108,24 @@ def test_the_main_is_the_outermost_element_of_the_content_block():
         source = path.read_text()
         body = source.split("{% block content %}", 1)[1]
         before = _TEMPLATE_TAG_RE.sub("", body.split("<main", 1)[0])
+        if "dk-auth-page" in before:
+            continue
         if "<" in before:
             offenders[path.as_posix()] = before.strip()[:60]
     assert offenders == {}
 
 
 def test_public_templates_use_only_cb_class_hooks():
-    """A site styles `cb-` hooks; a utility class from one site's stylesheet is unstyled
+    """A site styles `cb-` or `dk-` hooks; a utility class from one site's stylesheet is unstyled
     on the other."""
 
     offenders = {}
     for path in public_templates():
-        foreign = sorted(name for name in class_names(path) if not name.startswith("cb-"))
+        foreign = sorted(
+            name
+            for name in class_names(path)
+            if not (name.startswith("cb-") or name.startswith("dk-"))
+        )
         if foreign:
             offenders[path.as_posix()] = foreign
     assert offenders == {}

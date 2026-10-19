@@ -332,7 +332,7 @@ def test_a_template_the_site_has_shadowed_is_not_the_package_problem(tmp_path, s
     extra_js_fillers = [
         template_name for _, template_name, blocks in PUBLIC_TEMPLATES if "extra_js" in blocks
     ]
-    assert len(extra_js_fillers) == 3
+    assert len(extra_js_fillers) == 4
 
     base_without_extra_js = CONFORMING_BASE.replace(
         "{% block extra_js %}{% endblock %}", "<!-- no script slot -->"

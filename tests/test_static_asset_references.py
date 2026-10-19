@@ -20,6 +20,8 @@ PACKAGE_ROOT = Path(__file__).resolve().parent.parent / "community_base"
 
 # Both spellings WhiteNoise and the source-map convention accept.
 _REFERENCE = re.compile(r"(?:sourceMappingURL|sourceURL)\s*=\s*(?P<target>[^\s*'\"]+)")
+# CSS url() references resolved during manifest collectstatic.
+_CSS_URL = re.compile(r"""url\(\s*['"]?(?P<target>[^'")]+?)['"]?\s*\)""")
 
 
 def _static_files() -> list[Path]:
@@ -42,8 +44,10 @@ def test_the_package_ships_at_least_one_static_file():
 @pytest.mark.parametrize("path", _static_files(), ids=lambda p: p.name)
 def test_shipped_static_file_references_only_shipped_files(path: Path):
     text = path.read_text(encoding="utf-8", errors="ignore")
-    for match in _REFERENCE.finditer(text):
-        target = match.group("target").strip()
+    targets = [m.group("target").strip() for m in _REFERENCE.finditer(text)]
+    if path.suffix == ".css":
+        targets.extend(m.group("target").strip() for m in _CSS_URL.finditer(text))
+    for target in targets:
         if target.startswith(("data:", "http://", "https://", "//")):
             continue
         resolved = (path.parent / target).resolve()

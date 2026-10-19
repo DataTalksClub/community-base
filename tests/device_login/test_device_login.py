@@ -466,4 +466,3 @@ def test_device_page_formats_code(db, admin_user):
     resp = browser.get("/device?code=bcdfghjk")
     assert resp.status_code == 200
     assert b'value="BCDF-GHJK"' in resp.content
-
