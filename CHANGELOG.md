@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.34
+
+- #415 / C1.2c: preserve singleton Reply-To and CC/BCC recipient lists on the native
+  Relay mail request. Multiple Reply-To addresses fail safely before HTTP because
+  Relay currently accepts one address. SES delivery behavior is unchanged. No migrations.
+
 ## 0.5.33
 
 - Remove duplicate `role="status"` from the device login identity banner to resolve

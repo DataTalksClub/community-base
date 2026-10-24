@@ -13,6 +13,13 @@ does not mean delivery. Callback transitions are monotonic and callback event ID
 `POST /api/transactional/send`; connection failures retry, an uncertain acknowledgement becomes
 `ambiguous`, and Relay suppression is terminal.
 
+Relay forwards the validated `extra` recipient options: `cc` and `bcc` remain address lists,
+and a singleton `reply_to` list becomes Relay's native `reply_to` address string. Absent or empty
+options add no fields. Relay currently supports one Reply-To address; a longer list raises the
+sanitized, nonretryable `RelayMailError("unsupported_relay_reply_to_count")` before any HTTP
+request. It never truncates the list. The SES-only `configuration_set` and unrelated stored
+options are not forwarded, and cannot override the native request envelope.
+
 Both backends use the same template key as the mail purpose, without translation. A key is 1 to
 128 ASCII characters: it starts with a letter or digit, then contains only letters, digits,
 periods, underscores or hyphens. This admits existing purposes such as
