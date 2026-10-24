@@ -11,6 +11,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from community_base.kernel.conf import get
 from community_base.kernel.context import is_safe_external_context_id
+from community_base.mail.relay_options import recipient_options
 from community_base.mail.template_keys import TEMPLATE_KEY_PATTERN as TEMPLATE_KEY_PATTERN
 
 DEFAULT_TIMEOUT_SECONDS = 15
@@ -114,6 +115,7 @@ class RelayMailClient:
         if delivery.sender_id:
             # Relay's existing API calls the approved sender identifier `from_email`.
             payload["from_email"] = delivery.sender_id
+        payload.update(recipient_options(delivery.transport_options))
         document = self._request(
             "POST",
             "/api/transactional/send",

@@ -305,6 +305,38 @@ Verification
 - FakeRelay send reaches `provider_accepted` and reordered callbacks converge on `delivered`.
 - Real Relay checks are listed under `Not run here, needs: R1.3, R1.4`.
 
+## C1.2c Preserve Reply-To and copy recipients through Relay mail transport
+
+Repository: community-base. Depends on: C1.2a, C1.2b. Freeze required: no.
+
+Goal: preserve validated durable recipient options on the native Relay wire for AISL adoption.
+
+Read first
+- `community_base/mail/service.py`, `community_base/mail/relay.py`,
+  `community_base/mail/backends/relay.py`, `community_base/mail/backends/ses_local.py`.
+- `docs/03-playbooks.md` P15 and P16; tracker issue `community-base#415`.
+
+Steps
+1. Capture the actual transport request and demonstrate the omitted-field regression.
+2. Explicitly map singleton Reply-To to a scalar and CC/BCC to address lists.
+3. Omit absent/empty options and SES-only or unsupported fields; never merge the whole object.
+4. Reject multiple Reply-To values safely before HTTP; retain normal Relay and SES behavior.
+5. Document the contract and run package gates plus both consumer validations.
+6. Complete package review and immutable release before a consumer pin changes.
+
+Verification
+- `timeout 900 uv run pytest tests/mail` and the all-extras package suite -> pass.
+- Quality gates and `timeout 900 uv run python scripts/plan.py check` -> pass.
+- Record AISHL and DTC changed-package consumer results separately through P16.
+
+Done when
+- [ ] Captured native recipient options match the documented contract and errors are safe.
+- [ ] Package checks, both consumer validations, reviewed PR and immutable release are recorded.
+
+Docs
+- `community_base/mail/README.md`, `docs/plan/phase-1.md`, `docs/plan/STATUS.md`.
+- `CHANGELOG.md` and version metadata during the approved P15 release.
+
 ## C1.3 ses_local backend (transitional, for AISL)
 
 Repository: community-base. Depends on: C1.2a.
