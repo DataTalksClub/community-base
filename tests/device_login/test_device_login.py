@@ -462,7 +462,6 @@ def test_default_label():
     assert len(label) > 0
 
 
-
 def test_is_same_network():
     from community_base.device_login.views import is_same_network
 

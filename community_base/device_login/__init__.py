@@ -1,5 +1,5 @@
 """Shared admin device login (RFC 8628-shaped)."""
- 
+
 from community_base.device_login.client import (
     DeviceLoginError,
     default_label,
