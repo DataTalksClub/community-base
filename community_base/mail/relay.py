@@ -137,6 +137,7 @@ class RelayMailClient:
             or not isinstance(version, int)
             or isinstance(version, bool)
             or version < 1
+            or version != delivery.template_version
             or not isinstance(replay, bool)
             or message.get("idempotency_key") != delivery.idempotency_key
             or message.get("template_key") != delivery.template_key
@@ -201,13 +202,12 @@ class RelayMailClient:
         document = self._request(
             "POST", f"/api/transactional/templates/{key}/preview", payload, expected={200}
         )
-        rendered = document.get("rendered")
-        if not isinstance(rendered, dict) or any(
-            not isinstance(rendered.get(field), str)
+        if any(
+            not isinstance(document.get(field), str)
             for field in ("subject", "html_body", "text_body")
         ):
             raise RelayMailError("malformed_preview_response")
-        return rendered
+        return document
 
     def test_send_template(
         self,

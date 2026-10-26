@@ -114,6 +114,7 @@ DTC side, how to keep that allowance if it still needs it.
 | `MAIL_SEND_RECORDER` | dotted path, callable or `None` | `None` |
 | `MAIL_TEMPLATE_DIR` | path or `None` | `None` |
 | `MAIL_TEMPLATE_OVERRIDE_LOADER` | dotted path, callable or `None` | `None` |
+| `MAIL_TEMPLATE_VERSION_RESOLVER` | dotted path, callable or `None` | `None` |
 | `MAIL_UNSUBSCRIBE_URL_BUILDER` | dotted path, callable or `None` | `None` |
 | `MAIL_VERIFY_EMAIL_URL_BUILDER` | dotted path, callable or `None` | `None` |
 | `MARKDOWN_EXTENSIONS` | list of dotted paths appended to the package markdown extension list | `[]` |

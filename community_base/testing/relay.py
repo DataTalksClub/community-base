@@ -254,11 +254,9 @@ class FakeRelay:
             return FakeResponse(
                 200,
                 {
-                    "rendered": {
-                        "subject": f"Hello {name}",
-                        "html_body": f"<p>Hello {name}</p>",
-                        "text_body": f"Hello {name}",
-                    }
+                    "subject": f"Hello {name}",
+                    "html_body": f"<p>Hello {name}</p>",
+                    "text_body": f"Hello {name}",
                 },
             )
         if method == "POST" and action == "test-send":
