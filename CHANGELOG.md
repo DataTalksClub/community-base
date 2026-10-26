@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.35
+
+- Relay mail: immutable template version selection via `MAIL_TEMPLATE_VERSION_RESOLVER`
+  (default version 1 unchanged; recorded version replays without re-resolving), real
+  post-acceptance send recording via `MAIL_SEND_RECORDER` (truthful previewed subject
+  and bodies; recorder failure rolls back the accepted projection), and preview
+  parsing matching the deployed top-level Relay document. No migrations.
+
 ## 0.5.34
 
 - #415 / C1.2c: preserve singleton Reply-To and CC/BCC recipient lists on the native
