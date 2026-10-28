@@ -17,9 +17,7 @@ from community_base.knowledge_base.page_import import (
 )
 from community_base.knowledge_base.page_repository import RepositoryView, repository_view
 from community_base.knowledge_base.page_values import (
-    RECORD_KEYS,
     checksum_of,
-    page_fields,
     record_of,
 )
 from community_base.knowledge_base.routes import PERSON_KIND
@@ -106,12 +104,10 @@ def register_parsers() -> None:
 
 
 __all__ = [
-    "RECORD_KEYS",
     "DocsParser",
     "KnowledgeBaseParseError",
     "PersonParser",
     "WikiParser",
-    "page_fields",
     "register_parsers",
     "repository_view",
 ]

@@ -62,10 +62,6 @@ def _nav_key(page: KnowledgeBasePage) -> tuple[int, str, str]:
     return page.nav_order, page.title.casefold(), page.slug
 
 
-def _raise_hierarchy_error(code: str, page: KnowledgeBasePage) -> ImproperlyConfigured:
-    return ImproperlyConfigured(f"Knowledge base hierarchy {code}: {page.slug}")
-
-
 def published_pages(section: str) -> QuerySet[KnowledgeBasePage]:
     """The published rows of one section, in the model's canonical order."""
 
