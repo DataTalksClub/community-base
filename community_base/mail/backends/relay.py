@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from django.db import transaction
 
 from community_base.jobs.runner import PermanentJobError, RetryableJobError
-from community_base.kernel.conf import get
-from community_base.kernel.hooks import resolve
+from community_base.kernel.hooks import configured_callable
 from community_base.mail.models import EmailDelivery
 from community_base.mail.relay import RelayMailClient, RelayMailError, configured_client
 
@@ -34,7 +33,7 @@ class RelayRenderedEmail:
 
 def deliver(delivery: EmailDelivery, context) -> None:
     client = configured_client()
-    recorder = _hook("MAIL_SEND_RECORDER")
+    recorder = configured_callable("MAIL_SEND_RECORDER")
     try:
         rendered = (
             _preview_for_recorder(client, delivery, context) if recorder is not None else None
@@ -89,8 +88,3 @@ def _preview_for_recorder(
         html_body=preview["html_body"],
         text_body=preview["text_body"],
     )
-
-
-def _hook(name: str):
-    value = get(name)
-    return resolve(value) if isinstance(value, str) else value

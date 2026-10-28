@@ -13,15 +13,7 @@ from urllib.parse import urlsplit
 
 from django.core.exceptions import ImproperlyConfigured
 
-from community_base.kernel.conf import get
-from community_base.kernel.hooks import resolve
-
-
-def _callback(setting):
-    configured = get(setting)
-    if configured is None:
-        return None
-    return resolve(configured) if isinstance(configured, str) else configured
+from community_base.kernel.hooks import configured_callable
 
 
 def _safe_certificate_url(value: object) -> str:
@@ -53,7 +45,7 @@ def generate_certificate_artifact(enrollment, certificate=None) -> str:
     needs to change once that question is answered.
     """
 
-    callback = _callback("COURSEWORK_CERTIFICATE_GENERATOR")
+    callback = configured_callable("COURSEWORK_CERTIFICATE_GENERATOR")
     if callback is None:
         raise ImproperlyConfigured(
             "COURSEWORK_CERTIFICATE_GENERATOR is not configured; cannot generate a certificate "
