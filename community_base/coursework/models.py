@@ -671,9 +671,8 @@ class ProjectCriteriaAssignment(models.Model):
 def criteria_for_project(project):
     """Return the ordered rubric for one project.
 
-    Module cohorts are strict: only explicit ProjectCriteriaAssignment rows
-    are accepted. Legacy cohorts retain a narrow compatibility adapter for
-    fixtures and rows created before the backfill.
+    Explicit ProjectCriteriaAssignment rows win; a project without any falls
+    back to the criteria recorded on its cohort.
     """
 
     if not getattr(project, "pk", None):
@@ -686,9 +685,6 @@ def criteria_for_project(project):
         "project_assignments__id",
     )
     if assigned.exists():
-        return assigned
-
-    if getattr(project.cohort, "curriculum_format", "legacy") != "legacy":
         return assigned
 
     return ReviewCriteria.objects.filter(
