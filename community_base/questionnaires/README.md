@@ -101,9 +101,7 @@ single persona keeps all its questions in its own delta block. Prompts,
 signals, descriptions and choice labels are copied into the result without
 escaping or validation; package constructors validate only when used;
 callers provide trusted, member-safe content. The renderer has no Django,
-provider, configuration or database access. The old private import
-`_render_persona_catalog` remains an alias for existing callers, but new
-integrations should use the public name.
+provider, configuration or database access.
 
 Install the optional provider dependencies only on sites that enable AI onboarding:
 
