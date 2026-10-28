@@ -7,6 +7,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from community_base.kernel.access import level_label
+from community_base.kernel.responses import no_store
 from community_base.voting.models import Poll, PollOption, PollVote
 from community_base.voting.services import (
     PollClosed,
@@ -20,12 +21,6 @@ from community_base.voting.services import (
     propose,
 )
 from community_base.voting.services import toggle_vote as toggle_vote_service
-
-
-def _private(response):
-    response["Cache-Control"] = "private, no-store, max-age=0"
-    response["Pragma"] = "no-cache"
-    return response
 
 
 def _json_body(request):
@@ -49,7 +44,7 @@ def poll_list(request):
         }
         for poll in available_polls(request.user)
     )
-    return _private(render(request, "voting/poll_list.html", {"polls": rows}))
+    return no_store(render(request, "voting/poll_list.html", {"polls": rows}))
 
 
 @require_GET
@@ -57,7 +52,7 @@ def poll_list(request):
 def poll_detail(request, poll_id):
     poll = get_object_or_404(Poll, pk=poll_id)
     if not can_view_poll(poll, request.user):
-        return _private(
+        return no_store(
             render(
                 request,
                 "voting/poll_detail.html",
@@ -84,13 +79,13 @@ def poll_detail(request, poll_id):
         "votes_remaining": max(poll.max_votes_per_user - user_vote_count, 0),
         "allow_proposals": poll.allow_proposals and not is_closed,
     }
-    return _private(render(request, "voting/poll_detail.html", context))
+    return no_store(render(request, "voting/poll_detail.html", context))
 
 
 @require_POST
 def vote_toggle(request, poll_id):
     if not request.user.is_authenticated:
-        return _private(JsonResponse({"error": "Authentication required"}, status=401))
+        return no_store(JsonResponse({"error": "Authentication required"}, status=401))
     poll = get_object_or_404(Poll, pk=poll_id)
     try:
         option_id = _json_body(request).get("option_id")
@@ -98,12 +93,12 @@ def vote_toggle(request, poll_id):
             raise VotingError("option_id is required")
         transition = toggle_vote_service(poll=poll, option_id=option_id, user=request.user)
     except (PollOption.DoesNotExist, ValidationError):
-        return _private(JsonResponse({"error": "Option not found"}, status=404))
+        return no_store(JsonResponse({"error": "Option not found"}, status=404))
     except (PollClosed, VotingAccessDenied) as error:
-        return _private(JsonResponse({"error": str(error)}, status=403))
+        return no_store(JsonResponse({"error": str(error)}, status=403))
     except (VoteLimitReached, VotingError) as error:
-        return _private(JsonResponse({"error": str(error)}, status=400))
-    return _private(
+        return no_store(JsonResponse({"error": str(error)}, status=400))
+    return no_store(
         JsonResponse(
             {
                 "status": "success",
@@ -119,7 +114,7 @@ def vote_toggle(request, poll_id):
 @require_POST
 def propose_option(request, poll_id):
     if not request.user.is_authenticated:
-        return _private(JsonResponse({"error": "Authentication required"}, status=401))
+        return no_store(JsonResponse({"error": "Authentication required"}, status=401))
     poll = get_object_or_404(Poll, pk=poll_id)
     try:
         body = _json_body(request)
@@ -130,10 +125,10 @@ def propose_option(request, poll_id):
             description=body.get("description", ""),
         )
     except (PollClosed, VotingAccessDenied) as error:
-        return _private(JsonResponse({"error": str(error)}, status=403))
+        return no_store(JsonResponse({"error": str(error)}, status=403))
     except VotingError as error:
-        return _private(JsonResponse({"error": str(error)}, status=400))
-    return _private(
+        return no_store(JsonResponse({"error": str(error)}, status=400))
+    return no_store(
         JsonResponse(
             {
                 "status": "success",

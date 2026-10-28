@@ -15,11 +15,11 @@ from community_base.community.access import (
 from community_base.community.calendly import process_webhook, verify_signature, webhook_max_bytes
 from community_base.community.models import BookedCall, CallHost, SlackAccessGrant
 from community_base.kernel import conf
+from community_base.kernel.responses import no_store
 
 
 def _private(response):
-    response["Cache-Control"] = "private, no-store, max-age=0"
-    response["Pragma"] = "no-cache"
+    no_store(response)
     response["Referrer-Policy"] = "no-referrer"
     response["X-Robots-Tag"] = "noindex, nofollow, noarchive"
     return response

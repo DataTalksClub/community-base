@@ -32,6 +32,7 @@ from community_base.accounts.tokens import (
     load_verification_token,
     password_reset_token_matches,
 )
+from community_base.kernel.responses import no_store
 from community_base.mail import send as send_mail
 
 AUTH_BACKEND = f"{ModelBackend.__module__}.{ModelBackend.__name__}"
@@ -39,8 +40,7 @@ INVALID_LOGIN = "Invalid email or password"
 
 
 def _private(response):
-    response["Cache-Control"] = "private, no-store, max-age=0"
-    response["Pragma"] = "no-cache"
+    no_store(response)
     response["Referrer-Policy"] = "no-referrer"
     return response
 
