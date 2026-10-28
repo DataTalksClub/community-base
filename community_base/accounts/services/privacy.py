@@ -26,7 +26,7 @@ def _plain(value):
     return str(value)
 
 
-def _optional_model(label, name):
+def optional_model(label, name):
     try:
         return apps.get_model(label, name)
     except LookupError:
@@ -64,33 +64,33 @@ def build_user_data_export(user):
     profile = getattr(user, "member_profile", None)
     if profile is not None:
         export["member_profile"] = model_to_dict(profile, exclude=("user",))
-    social = _optional_model("socialaccount", "SocialAccount")
+    social = optional_model("socialaccount", "SocialAccount")
     if social is not None:
         export["social_accounts"] = list(
             social.objects.filter(user=user).values("provider", "uid", "date_joined", "last_login")
         )
-    api_key = _optional_model("cb_api", "APIKey")
+    api_key = optional_model("cb_api", "APIKey")
     if api_key is not None:
         export["api_keys"] = list(
             api_key.objects.filter(user=user).values(
                 "id", "name", "scopes", "kind", "created_at", "last_used_at", "revoked_at"
             )
         )
-    note = _optional_model("cb_studio", "MemberNote")
+    note = optional_model("cb_studio", "MemberNote")
     if note is not None:
         export["member_notes"] = list(
             note.objects.filter(member=user).values(
                 "visibility", "kind", "body", "tags", "created_at", "updated_at"
             )
         )
-    delivery = _optional_model("cb_mail", "EmailDelivery")
+    delivery = optional_model("cb_mail", "EmailDelivery")
     if delivery is not None:
         export["mail_deliveries"] = list(
             delivery.objects.filter(recipient_user=user).values(
                 "id", "purpose", "category", "state", "reason_code", "created_at", "updated_at"
             )
         )
-    notification = _optional_model("notifications", "Notification")
+    notification = optional_model("notifications", "Notification")
     if notification is not None:
         export["notifications"] = list(
             notification.objects.filter(user=user).values(
@@ -106,14 +106,14 @@ def build_user_data_export(user):
                 "created_at",
             )
         )
-    preference = _optional_model("notifications", "NotificationPreference")
+    preference = optional_model("notifications", "NotificationPreference")
     if preference is not None:
         export["notification_preferences"] = list(
             preference.objects.filter(user=user).values(
                 "source_key", "enabled", "created_at", "updated_at"
             )
         )
-    comment = _optional_model("comments", "Comment")
+    comment = optional_model("comments", "Comment")
     if comment is not None:
         export["comments"] = list(
             comment.objects.filter(user=user).values(
@@ -128,17 +128,17 @@ def build_user_data_export(user):
                 "updated_at",
             )
         )
-    vote = _optional_model("comments", "CommentVote")
+    vote = optional_model("comments", "CommentVote")
     if vote is not None:
         export["comment_votes"] = list(
             vote.objects.filter(user=user).values("comment_id", "created_at")
         )
-    poll_vote = _optional_model("voting", "PollVote")
+    poll_vote = optional_model("voting", "PollVote")
     if poll_vote is not None:
         export["poll_votes"] = list(
             poll_vote.objects.filter(user=user).values("id", "poll_id", "option_id", "created_at")
         )
-    proposal = _optional_model("voting", "PollOption")
+    proposal = optional_model("voting", "PollOption")
     if proposal is not None:
         export["poll_proposals"] = list(
             proposal.objects.filter(proposed_by=user).values(
@@ -246,7 +246,7 @@ def delete_account_for_privacy(user):
                     raise TypeError("ACCOUNT_BEFORE_DELETE_HOOK must return a dictionary or None")
                 summary.update({str(key): int(value) for key, value in extra.items()})
         summary["sessions"] = _delete_sessions(user_id)
-        delivery = _optional_model("cb_mail", "EmailDelivery")
+        delivery = optional_model("cb_mail", "EmailDelivery")
         if delivery is not None:
             deliveries = delivery.objects.filter(recipient_user=locked)
             summary["mail_deliveries"] = deliveries.count()
