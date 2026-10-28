@@ -44,8 +44,3 @@ def get_tags(user) -> list[str]:
 
 def set_tags(user, tags) -> None:
     accessor().set(user, normalize_tags(tags))
-
-
-def users_with_tag(users, tag):
-    normalized = normalize_tag(tag)
-    return [user for user in users if normalized in get_tags(user)]

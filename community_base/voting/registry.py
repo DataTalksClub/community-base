@@ -69,9 +69,5 @@ def voting_target_for(poll):
     )
 
 
-def registered_voting_targets():
-    return tuple(_targets[key] for key in sorted(_targets))
-
-
 def _clear():
     _targets.clear()
