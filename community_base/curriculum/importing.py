@@ -43,7 +43,6 @@ from community_base.curriculum.source import (
 ACTION_CREATED = "created"
 ACTION_UPDATED = "updated"
 ACTION_UNCHANGED = "unchanged"
-_NO_COMMIT = ""
 __all__ = ("apply_curriculum_graph", "delete_stale", "file_checksum", "provenance", "write_values")
 
 

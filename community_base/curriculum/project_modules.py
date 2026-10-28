@@ -121,10 +121,3 @@ def _validate_module_path(reference):
 
 def _error(reference, message):
     return CurriculumParseError(f"{reference.source_path}:{reference.pointer}: [3.8] {message}")
-
-
-def _clear_project_module_reader():
-    """Reset the registration only for isolated registry tests."""
-
-    global _reader
-    _reader = None
