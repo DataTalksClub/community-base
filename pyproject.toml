@@ -24,11 +24,10 @@ dependencies = [
 django_q = ["django-q2>=1.9,<2", "croniter>=6,<7"]
 ses_local = ["boto3>=1.42,<2"]
 ai = ["anthropic>=0.105", "pydantic>=2.11,<3"]
-zoom = []
 s3 = ["boto3>=1.42,<2"]
 
 [dependency-groups]
-dev = ["pytest>=8.4,<10", "pytest-django>=4.11,<5", "ruff>=0.12,<1", "psycopg[binary]>=3.2,<4"]
+dev = ["pytest>=8.4,<10", "pytest-django>=4.11,<5", "ruff>=0.12,<1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["community_base"]
