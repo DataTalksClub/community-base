@@ -31,12 +31,17 @@ def _mail_delivery() -> EmailDelivery:
 
 
 def test_jobs_and_mail_clients_share_one_relay_http_client_base():
+    from community_base.jobs import relay as jobs_relay
+    from community_base.mail import relay as mail_relay
+
     assert issubclass(RelayClient, RelayClientBase)
     assert issubclass(RelayMailClient, RelayClientBase)
     assert RelayClient.__init__ is RelayClientBase.__init__
     assert RelayMailClient.__init__ is RelayClientBase.__init__
     assert RelayClient._request is RelayClientBase._request
     assert RelayMailClient._request is RelayClientBase._request
+    assert jobs_relay.RequestsTransport is RequestsTransport
+    assert mail_relay.RequestsTransport is RequestsTransport
 
 
 def test_base_requires_subclass_timeout_classification_hook():

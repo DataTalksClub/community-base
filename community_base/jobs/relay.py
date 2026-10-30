@@ -7,7 +7,20 @@ from django.core.exceptions import ImproperlyConfigured
 
 from community_base.kernel.conf import get
 from community_base.kernel.context import is_safe_external_context_id
-from community_base.kernel.relay import RelayClientBase, Transport, _absolute_http_url
+from community_base.kernel.relay import (
+    DEFAULT_TIMEOUT_SECONDS as DEFAULT_TIMEOUT_SECONDS,
+)
+from community_base.kernel.relay import (
+    RETRYABLE_HTTP_STATUSES as RETRYABLE_HTTP_STATUSES,
+)
+from community_base.kernel.relay import (
+    RelayClientBase,
+    Transport,
+    _absolute_http_url,
+)
+from community_base.kernel.relay import (
+    RequestsTransport as RequestsTransport,
+)
 
 TASK_STATUSES = frozenset({"queued", "running", "retrying", "succeeded", "failed", "cancelled"})
 
