@@ -2,17 +2,13 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Protocol
-from urllib.parse import urlsplit
 
-import requests
 from django.core.exceptions import ImproperlyConfigured
 
 from community_base.kernel.conf import get
 from community_base.kernel.context import is_safe_external_context_id
+from community_base.kernel.relay import RelayClientBase, Transport, _absolute_http_url
 
-DEFAULT_TIMEOUT_SECONDS = 15
-RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429})
 TASK_STATUSES = frozenset({"queued", "running", "retrying", "succeeded", "failed", "cancelled"})
 
 
@@ -22,10 +18,6 @@ class RelayError(RuntimeError):
         self.retryable = retryable
         self.status = status
         super().__init__(code)
-
-
-class Transport(Protocol):
-    def request(self, method: str, url: str, **kwargs): ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,33 +33,11 @@ class RelaySchedule:
     last_success_at: str | None
 
 
-class RequestsTransport:
-    def __init__(self):
-        self.session = requests.Session()
+class RelayClient(RelayClientBase):
+    error_class = RelayError
 
-    def request(self, method: str, url: str, **kwargs):
-        return self.session.request(method, url, **kwargs)
-
-
-class RelayClient:
-    def __init__(
-        self,
-        base_url: str,
-        api_key: str,
-        *,
-        transport: Transport | None = None,
-        timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
-    ):
-        self.base_url = _absolute_http_url(base_url, "RELAY_BASE_URL").rstrip("/")
-        if not isinstance(api_key, str) or not api_key:
-            raise ImproperlyConfigured("RELAY_API_KEY must be configured")
-        if not isinstance(timeout_seconds, int) or isinstance(timeout_seconds, bool):
-            raise ImproperlyConfigured("Relay timeout must be an integer")
-        if not 1 <= timeout_seconds <= 60:
-            raise ImproperlyConfigured("Relay timeout must be between 1 and 60 seconds")
-        self.api_key = api_key
-        self.transport = transport or RequestsTransport()
-        self.timeout_seconds = timeout_seconds
+    def _timeout_error(self) -> RelayError:
+        return RelayError("relay_unavailable", retryable=True)
 
     def submit_webhook(self, intent) -> dict:
         site_key = get("SITE_KEY")
@@ -156,46 +126,6 @@ class RelayClient:
             raise RelayError("relay_not_ready", retryable=True)
         return document
 
-    def _request(
-        self,
-        method: str,
-        path: str,
-        payload: dict | None = None,
-        *,
-        expected: set[int],
-    ) -> dict:
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-        }
-        if payload is not None:
-            headers["Content-Type"] = "application/json"
-        try:
-            response = self.transport.request(
-                method,
-                f"{self.base_url}{path}",
-                headers=headers,
-                json=payload,
-                timeout=self.timeout_seconds,
-            )
-        except (requests.Timeout, requests.ConnectionError) as error:
-            raise RelayError("relay_unavailable", retryable=True) from error
-        except requests.RequestException as error:
-            raise RelayError("relay_transport_error", retryable=True) from error
-        status = getattr(response, "status_code", None)
-        if status not in expected:
-            retryable = status in RETRYABLE_HTTP_STATUSES or (
-                isinstance(status, int) and status >= 500
-            )
-            raise RelayError("relay_http_error", retryable=retryable, status=status)
-        try:
-            document = response.json()
-        except (TypeError, ValueError) as error:
-            raise RelayError("malformed_relay_response") from error
-        if not isinstance(document, dict):
-            raise RelayError("malformed_relay_response")
-        return document
-
 
 def configured_client(*, transport: Transport | None = None) -> RelayClient:
     return RelayClient(get("RELAY_BASE_URL"), get("RELAY_API_KEY"), transport=transport)
@@ -239,20 +169,3 @@ def _validate_task_transition(document: dict, task_id: str, statuses: set[str]) 
     if document.get("id") != task_id or document.get("status") not in statuses:
         raise RelayError("malformed_task_response")
     return document
-
-
-def _absolute_http_url(value, setting_name: str) -> str:
-    if not isinstance(value, str):
-        raise ImproperlyConfigured(f"{setting_name} must be an absolute HTTP URL")
-    parsed = urlsplit(value)
-    if (
-        parsed.scheme not in {"http", "https"}
-        or not parsed.netloc
-        or parsed.username
-        or parsed.password
-        or parsed.path not in {"", "/"}
-        or parsed.query
-        or parsed.fragment
-    ):
-        raise ImproperlyConfigured(f"{setting_name} must be an absolute HTTP URL")
-    return value

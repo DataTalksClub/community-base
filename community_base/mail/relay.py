@@ -3,19 +3,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
-from urllib.parse import urlsplit
-
-import requests
-from django.core.exceptions import ImproperlyConfigured
 
 from community_base.kernel.conf import get
 from community_base.kernel.context import is_safe_external_context_id
+from community_base.kernel.relay import RelayClientBase, Transport
 from community_base.mail.relay_options import recipient_options
 from community_base.mail.template_keys import TEMPLATE_KEY_PATTERN as TEMPLATE_KEY_PATTERN
 
-DEFAULT_TIMEOUT_SECONDS = 15
-RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429})
 MESSAGE_STATUSES = frozenset(
     {
         "queued",
@@ -51,18 +45,6 @@ class RelayMailError(RuntimeError):
         super().__init__(code)
 
 
-class Transport(Protocol):
-    def request(self, method: str, url: str, **kwargs): ...
-
-
-class RequestsTransport:
-    def __init__(self):
-        self.session = requests.Session()
-
-    def request(self, method: str, url: str, **kwargs):
-        return self.session.request(method, url, **kwargs)
-
-
 @dataclass(frozen=True, slots=True)
 class RelaySendResult:
     message_id: str
@@ -82,25 +64,12 @@ class RelayMessage:
     updated_at: str
 
 
-class RelayMailClient:
-    def __init__(
-        self,
-        base_url: str,
-        api_key: str,
-        *,
-        transport: Transport | None = None,
-        timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
-    ):
-        self.base_url = _absolute_http_url(base_url).rstrip("/")
-        if not isinstance(api_key, str) or not api_key:
-            raise ImproperlyConfigured("RELAY_API_KEY must be configured")
-        if not isinstance(timeout_seconds, int) or isinstance(timeout_seconds, bool):
-            raise ImproperlyConfigured("Relay timeout must be an integer")
-        if not 1 <= timeout_seconds <= 60:
-            raise ImproperlyConfigured("Relay timeout must be between 1 and 60 seconds")
-        self.api_key = api_key
-        self.transport = transport or RequestsTransport()
-        self.timeout_seconds = timeout_seconds
+class RelayMailClient(RelayClientBase):
+    error_class = RelayMailError
+
+    def _timeout_error(self) -> RelayMailError:
+        # A POST timeout can happen after Relay accepted the request. Never auto-resend it.
+        return RelayMailError("relay_ack_unknown", ambiguous=True)
 
     def send(self, delivery, *, context=None) -> RelaySendResult:
         payload = {
@@ -121,7 +90,7 @@ class RelayMailClient:
             "/api/transactional/send",
             payload,
             expected={200, 202},
-            suppression_statuses={409},
+            error_response=_suppression_error,
         )
         message = document.get("message")
         if not isinstance(message, dict):
@@ -226,67 +195,20 @@ class RelayMailClient:
         )
         return _parse_send_result(document, key, version or 1)
 
-    def _request(
-        self,
-        method: str,
-        path: str,
-        payload: dict | None = None,
-        *,
-        expected: set[int],
-        suppression_statuses: set[int] = frozenset(),
-        params: dict[str, str] | None = None,
-    ) -> dict:
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-        }
-        if payload is not None:
-            headers["Content-Type"] = "application/json"
-        try:
-            response = self.transport.request(
-                method,
-                f"{self.base_url}{path}",
-                headers=headers,
-                json=payload,
-                params=params,
-                timeout=self.timeout_seconds,
-            )
-        except requests.Timeout as error:
-            # A POST timeout can happen after Relay accepted the request. Never auto-resend it.
-            raise RelayMailError("relay_ack_unknown", ambiguous=True) from error
-        except requests.ConnectionError as error:
-            raise RelayMailError("relay_unavailable", retryable=True) from error
-        except requests.RequestException as error:
-            raise RelayMailError("relay_transport_error", retryable=True) from error
-        status = getattr(response, "status_code", None)
-        document = _json_object(response)
-        if status in suppression_statuses and _is_suppression(document):
-            raise RelayMailError(
-                "relay_suppressed",
-                suppressed=True,
-                reason_code=_suppression_reason(document),
-                status=status,
-            )
-        if status not in expected:
-            retryable = status in RETRYABLE_HTTP_STATUSES or (
-                isinstance(status, int) and status >= 500
-            )
-            raise RelayMailError("relay_http_error", retryable=retryable, status=status)
-        if document is None:
-            raise RelayMailError("malformed_relay_response")
-        return document
-
 
 def configured_client(*, transport: Transport | None = None) -> RelayMailClient:
     return RelayMailClient(get("RELAY_BASE_URL"), get("RELAY_API_KEY"), transport=transport)
 
 
-def _json_object(response) -> dict | None:
-    try:
-        document = response.json()
-    except (AttributeError, TypeError, ValueError):
-        return None
-    return document if isinstance(document, dict) else None
+def _suppression_error(status: int | None, document: dict | None) -> RelayMailError | None:
+    if status == 409 and _is_suppression(document):
+        return RelayMailError(
+            "relay_suppressed",
+            suppressed=True,
+            reason_code=_suppression_reason(document),
+            status=status,
+        )
+    return None
 
 
 def _is_suppression(document: dict | None) -> bool:
@@ -308,23 +230,6 @@ def _suppression_reason(document: dict) -> str:
     if isinstance(reason, str) and re.fullmatch(r"[a-z][a-z0-9_.:-]{0,127}", reason):
         return reason
     return "relay_suppressed"
-
-
-def _absolute_http_url(value: object) -> str:
-    if not isinstance(value, str):
-        raise ImproperlyConfigured("RELAY_BASE_URL must be an absolute HTTP URL")
-    parsed = urlsplit(value)
-    if (
-        parsed.scheme not in {"http", "https"}
-        or not parsed.netloc
-        or parsed.username
-        or parsed.password
-        or parsed.path not in {"", "/"}
-        or parsed.query
-        or parsed.fragment
-    ):
-        raise ImproperlyConfigured("RELAY_BASE_URL must be an absolute HTTP URL")
-    return value
 
 
 def _parse_send_result(document: dict, template_key: str, fallback_version: int) -> RelaySendResult:
