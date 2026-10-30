@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 from django.utils import timezone
 
+from community_base.coursework.hooks import hooks as coursework_hooks
+from community_base.coursework.random_names import ensure_display_name
 from community_base.curriculum.enrollment_services import _is_authenticated
 from community_base.curriculum.enrollment_services import (
     active_course_enrollment_count as active_course_enrollment_count,
@@ -49,17 +51,25 @@ def is_enrolled(user, cohort: Cohort) -> bool:
 
 
 def ensure_enrollment(user, cohort: Cohort, source: str = SOURCE_MANUAL):
-    """Create an active enrollment unless one exists. Returns (enrollment, created)."""
+    """Create an active enrollment unless one exists. Returns (enrollment, created).
+
+    Donor parity: newly created enrollments get a generated display name.
+    """
 
     if not _is_authenticated(user):
         return None, False
     existing = get_active_enrollment(user, cohort)
     if existing is not None:
         return existing, False
-    return (
-        Enrollment.objects.create(user=user, cohort=cohort, source=source),
-        True,
+    enrollment = Enrollment(user=user, cohort=cohort, source=source)
+    ensure_display_name(enrollment)
+    enrollment.save()
+    coursework_hooks.enrollment_preferences_updated(
+        enrollment=enrollment,
+        field="created",
+        value=True,
     )
+    return enrollment, True
 
 
 def unenroll(user, cohort: Cohort) -> bool:

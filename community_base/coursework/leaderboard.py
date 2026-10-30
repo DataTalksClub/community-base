@@ -24,7 +24,6 @@ from community_base.coursework.models import (
     Submission,
     SubmissionReviewState,
 )
-from community_base.coursework.random_names import ensure_display_name
 from community_base.curriculum.models import Enrollment
 
 logger = logging.getLogger(__name__)
@@ -297,32 +296,6 @@ def set_enrollment_preference(cohort, user, field, value):
             value=enabled,
         )
     return enrollment, enabled, changed
-
-
-def ensure_enrollment(cohort, user, *, source="manual"):
-    """Return the user's active enrollment, creating it when missing.
-
-    Donor parity: enrollments created through coursework get a generated
-    display name. The active-only uniqueness constraint means a previously
-    unenrolled user simply gets a fresh active row (open question 7).
-    """
-
-    enrollment = (
-        Enrollment.objects.filter(cohort=cohort, user=user, unenrolled_at__isnull=True)
-        .order_by("id")
-        .first()
-    )
-    if enrollment is not None:
-        return enrollment, False
-    enrollment = Enrollment(cohort=cohort, user=user, source=source)
-    ensure_display_name(enrollment)
-    enrollment.save()
-    coursework_hooks.enrollment_preferences_updated(
-        enrollment=enrollment,
-        field="created",
-        value=True,
-    )
-    return enrollment, True
 
 
 def file_leaderboard_complaint(enrollment, reporter, *, issue_type, description):

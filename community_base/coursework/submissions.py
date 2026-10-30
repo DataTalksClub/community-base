@@ -24,10 +24,11 @@ from community_base.coursework.homework_reveal import (
     results_revealed,
 )
 from community_base.coursework.hooks import hooks as coursework_hooks
-from community_base.coursework.leaderboard import ensure_enrollment, update_leaderboard
+from community_base.coursework.leaderboard import update_leaderboard
 from community_base.coursework.models import Answer, HomeworkState, Submission
 from community_base.coursework.question_order import ordered_questions
 from community_base.coursework.scoring import update_score
+from community_base.curriculum.services import ensure_enrollment
 
 CLOSED_HOMEWORK_REASON = "closed"
 REVEALED_HOMEWORK_REASON = "already_submitted"
@@ -141,7 +142,7 @@ def submit_homework(
 ) -> Submission | None:
     """Submit through the existing scoring and hook path; return None when rejected."""
 
-    enrollment, _created = ensure_enrollment(homework.cohort, user)
+    enrollment, _created = ensure_enrollment(user, homework.cohort)
 
     reason = _rejection_reason(homework, user)
     if reason is not None:
