@@ -17,12 +17,16 @@ dependencies = [
     "markdown>=3.10,<4",
     "nh3>=0.3,<1",
     "pyyaml>=6,<7",
+    # Kept in core dependencies alongside the ses_local extra because
+    # DataTalksClub/website installs community-base without extras and its
+    # core/mail_templates.py imports frontmatter without declaring
+    # python-frontmatter in its own pyproject.toml.
     "python-frontmatter>=1.1,<2",
 ]
 
 [project.optional-dependencies]
 django_q = ["django-q2>=1.9,<2", "croniter>=6,<7"]
-ses_local = ["boto3>=1.42,<2"]
+ses_local = ["boto3>=1.42,<2", "python-frontmatter>=1.1,<2"]
 ai = ["anthropic>=0.105", "pydantic>=2.11,<3"]
 s3 = ["boto3>=1.42,<2"]
 

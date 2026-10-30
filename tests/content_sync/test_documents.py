@@ -7,7 +7,7 @@ import pytest
 
 from community_base.content_sync.check import check_repository
 from community_base.content_sync.checkout import ImmutableCheckout
-from community_base.content_sync.documents import read_repository
+from community_base.content_sync.documents import parse_front_matter, read_repository
 from community_base.content_sync.kinds.base import applied_defaults, default_value, resolve_level
 from community_base.content_sync.kinds.course import UNIT
 from community_base.content_sync.resolution import resolve_repository
@@ -509,3 +509,14 @@ def test_an_empty_collection_root_is_not_a_missing_directory(tmp_path):
 
     assert result.ok
     assert result.documents == ()
+
+
+def test_parse_front_matter_extracts_metadata_and_body():
+    data, body, body_line, problems = parse_front_matter(
+        '---\nsubject: "Welcome"\nfooter_note: "Note"\n---\n\nHello world!\n'
+    )
+
+    assert problems == []
+    assert data == {"subject": "Welcome", "footer_note": "Note"}
+    assert body == "\nHello world!\n"
+    assert body_line == 4

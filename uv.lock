@@ -327,6 +327,7 @@ s3 = [
 ]
 ses-local = [
     { name = "boto3" },
+    { name = "python-frontmatter" },
 ]
 
 [package.dev-dependencies]
@@ -352,6 +353,7 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'ai'", specifier = ">=2.11,<3" },
     { name = "pyjwt", specifier = ">=2.14,<3" },
     { name = "python-frontmatter", specifier = ">=1.1,<2" },
+    { name = "python-frontmatter", marker = "extra == 'ses-local'", specifier = ">=1.1,<2" },
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "requests", specifier = ">=2.32,<3" },
 ]

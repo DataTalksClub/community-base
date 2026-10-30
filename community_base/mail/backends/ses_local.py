@@ -7,7 +7,6 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
 
-import frontmatter
 import markdown
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
@@ -17,6 +16,7 @@ from markdown.extensions import Extension
 from markdown.treeprocessors import Treeprocessor
 
 from community_base.config import get as get_config
+from community_base.content_sync.documents import parse_front_matter
 from community_base.jobs.runner import PermanentJobError, RetryableJobError
 from community_base.kernel.conf import get
 from community_base.kernel.hooks import configured_callable
@@ -266,11 +266,13 @@ def _load_template_source(template_key: str) -> tuple[str, str, str]:
     path = Path(root) / f"{template_key}.md"
     if not path.is_file():
         raise PermanentJobError("mail_template_not_found")
-    post = frontmatter.load(path)
+    metadata, body, _, problems = parse_front_matter(path.read_text(encoding="utf-8"))
+    if problems:
+        raise PermanentJobError("invalid_mail_template_front_matter")
     return (
-        str(post.metadata.get("subject", template_key)),
-        post.content,
-        str(post.metadata.get("footer_note", "")),
+        str(metadata.get("subject", template_key)),
+        body.strip(),
+        str(metadata.get("footer_note", "")),
     )
 
 
