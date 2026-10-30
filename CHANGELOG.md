@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Trim `community_base.curriculum.rendering` to `render_annotated_markdown`,
+  `ANNOTATED_CODE_BLOCK_TEMPLATE`, and `ANNOTATED_CODE_BLOCK_HEADING`, removing the
+  re-exports of `community_base.content_sync.rendering` (`inject_heading_ids`,
+  `plain_text`, `render_document`, `render_markdown`, `sanitize_rendered_html`,
+  `strip_leading_title_h1`) after moving AI Shipping Labs onto
+  `community_base.content_sync.rendering` (`t1832u`, intake `539c865f`). No
+  migrations.
 - Remove uncalled public helpers and compatibility shims (`t1832u`, intake `76b1c14d`):
   `community_base.events.registration.unregister_from_series`,
   `community_base.knowledge_base.hierarchy.sibling_navigation`, the shadowed

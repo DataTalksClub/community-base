@@ -13,7 +13,8 @@ import re
 
 import pytest
 
-from community_base.curriculum.rendering import render_annotated_markdown, render_markdown
+from community_base.content_sync.rendering import render_markdown
+from community_base.curriculum.rendering import render_annotated_markdown
 
 # (markdown, html the renderer produced before C7.8 and must still produce)
 UNCHANGED = [

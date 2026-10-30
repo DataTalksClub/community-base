@@ -10,7 +10,7 @@ ownership scope of ``delete_missing``.
 import pytest
 
 from community_base.content_sync.models import ContentSource
-from community_base.curriculum.rendering import strip_leading_title_h1
+from community_base.content_sync.rendering import strip_leading_title_h1
 from community_base.knowledge_base import hierarchy, sync
 from community_base.knowledge_base.models import (
     BODY_HTML_MARKDOWN,
