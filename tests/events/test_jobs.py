@@ -161,6 +161,51 @@ def test_reminder_for_cancelled_event_is_skipped_without_a_delivery():
     assert not EmailDelivery.objects.filter(purpose="events.reminder").exists()
 
 
+def test_permanent_reminder_send_failure_marks_reminder_failed_and_dead_letters_job(settings):
+    registration()
+    jobs.plan_reminders_handler(None, {})
+    reminder = EventReminder.objects.get(interval="24h")
+    intent = JobIntent.objects.get(handler="events.send_reminder")
+    configured = dict(settings.COMMUNITY_BASE)
+    configured["MAIL_PREFERENCE_RESOLVER"] = lambda **_kwargs: "INVALID DECISION!"
+    settings.COMMUNITY_BASE = configured
+
+    assert run_intent(intent.pk) == "dead"
+
+    intent.refresh_from_db()
+    reminder.refresh_from_db()
+    assert intent.status == JobIntent.Status.DEAD
+    assert intent.last_error == "mail_error"
+    assert reminder.status == EventReminder.Status.FAILED
+    assert reminder.reason == "mail_error"
+    assert reminder.completed_at is not None
+    assert reminder.delivery is None
+    assert not EmailDelivery.objects.filter(purpose="events.reminder").exists()
+
+    with pytest.raises(PermanentJobError, match="mail_error"):
+        jobs.send_reminder_handler(None, {"reminder_id": str(reminder.pk)})
+
+
+def test_stale_claimed_reminder_marks_reminder_failed():
+    item = registration()
+    jobs.plan_reminders_handler(None, {})
+    claimed = EventReminder.objects.get(interval="24h")
+    unclaimed = EventReminder.objects.get(interval="20m")
+    unregister_from_event(item.event, item.user)
+
+    with pytest.raises(PermanentJobError, match="event_reminder_stale"):
+        jobs.send_reminder_handler(None, {"reminder_id": str(claimed.pk)})
+    with pytest.raises(PermanentJobError, match="event_reminder_stale"):
+        jobs.send_reminder_handler(None, {"reminder_id": str(unclaimed.pk)})
+
+    claimed.refresh_from_db()
+    unclaimed.refresh_from_db()
+    assert claimed.status == EventReminder.Status.FAILED
+    assert claimed.reason == "event_reminder_stale"
+    assert claimed.completed_at is not None
+    assert unclaimed.status == EventReminder.Status.PENDING
+
+
 def test_zoom_create_job_persists_result_once(monkeypatch):
     item = event(required_level=0)
     calls = []

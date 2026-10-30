@@ -17,6 +17,7 @@ from community_base.events.registration import (
 from community_base.events.reminders import (
     claim_due_reminders,
     complete_reminder,
+    fail_reminder,
     plan_event_reminders,
 )
 from community_base.mail import send
@@ -123,6 +124,26 @@ def test_completed_reminder_delivery_must_match_registration_owner():
 
     with pytest.raises(ValidationError, match="does not own"):
         complete_reminder(payload.reminder_id, wrong)
+
+
+def test_fail_reminder_transitions_claimed_reminder_and_validates_reason():
+    member = user()
+    occurrence = event()
+    register_for_event(occurrence, member)
+    reminders = plan_event_reminders(occurrence)
+    unclaimed = next(item for item in reminders if item.interval == "20m")
+    payload = claim_due_reminders()[0]
+
+    with pytest.raises(ValidationError, match="Only claimed reminders"):
+        fail_reminder(unclaimed.pk, reason="mail_error")
+    with pytest.raises(ValidationError, match="safe code"):
+        fail_reminder(payload.reminder_id, reason=" unsafe reason ")
+
+    failed = fail_reminder(payload.reminder_id, reason="mail_conflict")
+
+    assert failed.status == EventReminder.Status.FAILED
+    assert failed.reason == "mail_conflict"
+    assert failed.completed_at is not None
 
 
 def test_feedback_requires_the_owner_after_the_event_and_updates_in_place():
