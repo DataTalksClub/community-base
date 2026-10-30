@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Remove uncalled public helpers and compatibility shims (`t1832u`, intake `76b1c14d`):
+  `community_base.events.registration.unregister_from_series`,
+  `community_base.knowledge_base.hierarchy.sibling_navigation`, the shadowed
+  `studio/base.html` template shell (`community_base/studio/base.html` remains the
+  shared Studio shell), and `CohortGraph.curriculum_format` together with
+  `FORMAT_LEGACY` and `FORMAT_MODULES` in `community_base.curriculum.source`. No
+  migrations.
+
 ## 0.5.35
 
 - Relay mail: immutable template version selection via `MAIL_TEMPLATE_VERSION_RESOLVER`

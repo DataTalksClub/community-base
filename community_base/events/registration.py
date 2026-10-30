@@ -173,19 +173,6 @@ def register_for_series(series, user):
 
 
 @transaction.atomic
-def unregister_from_series(series, user):
-    _require_member(user)
-    series = EventSeries.objects.select_for_update().get(pk=series.pk)
-    deleted, _details = SeriesRegistration.objects.filter(series=series, user=user).delete()
-    SeriesOccurrenceOptOut.objects.filter(series=series, user=user).delete()
-    cancelled = 0
-    for event in _eligible_occurrences(series):
-        _registration, changed = unregister_from_event(event, user)
-        cancelled += int(changed)
-    return bool(deleted), cancelled
-
-
-@transaction.atomic
 def enroll_series_registrants_in_event(event):
     event = Event.objects.select_for_update().select_related("event_series").get(pk=event.pk)
     if event.event_series is None or not event.is_upcoming:

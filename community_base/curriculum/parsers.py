@@ -50,7 +50,6 @@ from community_base.content_sync.documents import (
 from community_base.content_sync.kinds.base import resolve_level
 from community_base.curriculum.project_modules import resolve_project_modules
 from community_base.curriculum.source import (
-    FORMAT_MODULES,
     MODE_COHORT,
     MODE_SELF_PACED,
     CohortGraph,
@@ -236,7 +235,6 @@ def _cohort_graphs(
             slug=SELF_PACED_SLUG,
             title=f"{course_title} (self-paced)",
             mode=MODE_SELF_PACED,
-            curriculum_format=FORMAT_MODULES,
             source_path=None,
             module_refs=None,
         ),
@@ -272,7 +270,6 @@ def _cohort_graph(
         slug=identifier,
         title=values.get("title") or f"{course_title} {identifier}",
         mode=DELIVERY_MODES.get(delivery, MODE_COHORT),
-        curriculum_format=FORMAT_MODULES,
         start_date=start_date,
         end_date=end_date,
         registration_url=values.get("registration_url") or "",

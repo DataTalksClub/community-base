@@ -189,21 +189,3 @@ def sequential_navigation(
     previous = items[index - 1].page if index else None
     following = items[index + 1].page if index + 1 < len(items) else None
     return previous, following
-
-
-def sibling_navigation(
-    page: KnowledgeBasePage,
-) -> tuple[KnowledgeBasePage | None, KnowledgeBasePage | None]:
-    """Adjacent siblings in sibling order: (previous, next)."""
-
-    siblings = list(
-        published_pages(page.section)
-        .filter(parent_id=page.parent_id)
-        .order_by("nav_order", Lower("title"), "slug")
-    )
-    for index, sibling in enumerate(siblings):
-        if sibling.pk == page.pk:
-            previous = siblings[index - 1] if index else None
-            following = siblings[index + 1] if index + 1 < len(siblings) else None
-            return previous, following
-    return None, None

@@ -17,8 +17,6 @@ if TYPE_CHECKING:
 
 MODE_COHORT = "cohort"
 MODE_SELF_PACED = "self_paced"
-FORMAT_LEGACY = "legacy"
-FORMAT_MODULES = "modules"
 
 ACCESS_NAMES = {
     "open": 0,
@@ -96,7 +94,6 @@ class CohortGraph:
     slug: str
     title: str
     mode: str = MODE_COHORT
-    curriculum_format: str = FORMAT_LEGACY
     start_date: date | None = None
     end_date: date | None = None
     registration_url: str = ""

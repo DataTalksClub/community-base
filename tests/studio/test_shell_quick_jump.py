@@ -86,10 +86,3 @@ def test_a_site_can_remove_the_overlay_and_the_sidebar_search_box_still_renders(
 
     assert "studio-quick-jump" not in html
     assert SIDEBAR_SEARCH_BOX in html
-
-
-def test_the_compatibility_template_carries_the_overlay_too():
-    html = render_to_string("studio/base.html", {"request": shell_request()})
-
-    assert 'id="studio-quick-jump"' in html
-    assert SIDEBAR_SEARCH_BOX in html
