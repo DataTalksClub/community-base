@@ -485,7 +485,9 @@ assertions can inspect prior workflow blobs, matching the native DTC Django chec
    (`scripts/community_base_link.py` / `make core-link`), and runs that site's real Django check
    and test commands, in a disposable checkout that is discarded when the job ends. Each job runs
    the site suite twice in the same checkout: once against the site's own pinned package release
-   (the baseline) and once against the in-progress package.
+   (the baseline) and once against the in-progress package. The `AI-Shipping-Labs/website` job
+   fans its suite across 4 deterministic shards (`TEST_SHARD_COUNT=4` / `TEST_SHARD_INDEX`) so
+   each baseline-and-linked pair completes well within the job timeout.
 4. Verify: both jobs in the run are green. The verdict is the failure-set comparison, not either
    suite alone: a job fails only when the linked run has failures the baseline run does not
    (`comm -13` of the normalized `FAIL:`/`ERROR:` sets), after subtracting the Gate B seal
