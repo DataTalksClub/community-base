@@ -41,3 +41,21 @@ def test_only_the_dtc_donor_checkout_fetches_full_history():
 
     aisl_job = text.split("ai-shipping-labs:", 1)[1]
     assert "fetch-depth" not in aisl_job
+
+
+def test_the_aisl_job_shards_the_suite_while_keeping_baseline_verdict_semantics():
+    text = WORKFLOW.read_text()
+
+    aisl_job = text.split("ai-shipping-labs:", 1)[1]
+    assert (
+        'name: "AI-Shipping-Labs/website: real test suite against this package '
+        '(shard ${{ matrix.shard }}/${{ strategy.job-total }})"'
+    ) in aisl_job
+    assert "fail-fast: false" in aisl_job
+    assert "shard: [1, 2, 3, 4]" in aisl_job
+    assert 'TEST_SHARD_COUNT: "4"' in aisl_job
+    assert "TEST_SHARD_INDEX: ${{ matrix.shard }}" in aisl_job
+    assert (
+        'comm -13 "$GITHUB_WORKSPACE/baseline-failures.txt" "$GITHUB_WORKSPACE/linked-failures.txt"'
+        in aisl_job
+    )

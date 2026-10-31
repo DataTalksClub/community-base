@@ -72,7 +72,10 @@ CI_REQUIRED_CHECKS: tuple[str, ...] = ("test",)
 PLAN_REQUIRED_CHECKS: tuple[str, ...] = ("plan",)
 CROSS_REPO_REQUIRED_CHECKS: tuple[str, ...] = (
     "DataTalksClub/website: real test suite against this package",
-    "AI-Shipping-Labs/website: real test suite against this package",
+    "AI-Shipping-Labs/website: real test suite against this package (shard 1/4)",
+    "AI-Shipping-Labs/website: real test suite against this package (shard 2/4)",
+    "AI-Shipping-Labs/website: real test suite against this package (shard 3/4)",
+    "AI-Shipping-Labs/website: real test suite against this package (shard 4/4)",
 )
 PR_REQUIRED_CHECKS: tuple[str, ...] = (
     *CI_REQUIRED_CHECKS,

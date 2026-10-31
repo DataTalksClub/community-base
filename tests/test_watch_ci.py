@@ -98,3 +98,36 @@ def test_empty_rollup_keeps_watching_until_hang():
 
     assert verdict.result == watch_ci.HANG
     assert verdict.exit_code == 2
+
+
+def test_cross_repo_required_checks_cover_all_four_aisl_shards():
+    assert watch_ci.CROSS_REPO_REQUIRED_CHECKS == (
+        "DataTalksClub/website: real test suite against this package",
+        "AI-Shipping-Labs/website: real test suite against this package (shard 1/4)",
+        "AI-Shipping-Labs/website: real test suite against this package (shard 2/4)",
+        "AI-Shipping-Labs/website: real test suite against this package (shard 3/4)",
+        "AI-Shipping-Labs/website: real test suite against this package (shard 4/4)",
+    )
+
+
+def test_failed_aisl_shard_is_not_green():
+    checks = all_required_success()
+    shard_name = "AI-Shipping-Labs/website: real test suite against this package (shard 3/4)"
+    shard_index = REQUIRED.index(shard_name)
+    checks[shard_index] = job(
+        shard_name,
+        conclusion="failure",
+        url="https://github.com/DataTalksClub/community-base/actions/runs/41148923743",
+    )
+    gh = FakeGh(
+        views=[pr_payload(checks)],
+        log_failed=(
+            "The in-progress package introduces failures the site does not have on its own pin:\n"
+            "FAIL: test_example\n"
+        ),
+    )
+    verdict = make_watcher(gh).watch()
+
+    assert verdict.result == watch_ci.FAILED
+    assert verdict.exit_code == 1
+    assert shard_name in verdict.failing_jobs

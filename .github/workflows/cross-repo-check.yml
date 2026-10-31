@@ -144,11 +144,23 @@ jobs:
         run: uv run python scripts/community_base_link.py unlink
 
   ai-shipping-labs:
-    name: "AI-Shipping-Labs/website: real test suite against this package"
+    name: "AI-Shipping-Labs/website: real test suite against this package (shard ${{ matrix.shard }}/${{ strategy.job-total }})"
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Fan the ~19k-test AISL suite across 4 deterministic shards using the
+    # site runner's built-in TEST_SHARD_COUNT / TEST_SHARD_INDEX partitioning
+    # (website/test_runner.py, SHA-256(test id) % N). Running the full suite
+    # twice sequentially in a single runner takes ~50-61 minutes and hits the
+    # 60-minute job timeout; sharding keeps each baseline+linked pair to ~15m
+    # while comparing the exact same test subset in both passes.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     env:
       SECRET_KEY: "cross-repo-check-only-not-a-real-secret"
+      TEST_SHARD_COUNT: "4"
+      TEST_SHARD_INDEX: ${{ matrix.shard }}
     steps:
       - name: Check out community-base (the change under test)
         uses: actions/checkout@v4
