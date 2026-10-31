@@ -67,9 +67,10 @@ exists for a future one). Set `visibility` from Studio (`events_studio_series_ed
 
 ## Configuration and hooks
 
-Configure `SITE_URL`, `ACCESS_POLICY` and `EVENT_URL_STYLE` for every site. Set
-`EVENT_PRIVACY_NOTICE_VERSION` and `EVENT_NEWSLETTER_CONSENT_VERSION` to the versions shown by the
-site registration form. Set `EVENT_ORGANIZER_EMAIL` and `EVENT_ORGANIZER_NAME` for calendar output.
+Configure `SITE_URL`, `ACCESS_POLICY` and `EVENT_URL_STYLE` in `COMMUNITY_BASE` for every site. Set
+`EVENT_PRIVACY_NOTICE_VERSION` and `EVENT_NEWSLETTER_CONSENT_VERSION` in `COMMUNITY_BASE` to the
+versions shown by the site registration form. Set `EVENT_ORGANIZER_EMAIL` and `EVENT_ORGANIZER_NAME`
+in `community_base.config` for calendar output.
 
 Set `ZOOM_ENABLED` only after providing the account ID, client ID and client secret. The Zoom
 client accepts HTTPS endpoints and a timeout from 1 to 60 seconds. It never stores an OAuth token
