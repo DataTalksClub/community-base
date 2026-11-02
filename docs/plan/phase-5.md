@@ -1773,6 +1773,50 @@ Docs
 - `docs/02-architecture.md` model list, if the accepted plan-preparation change has not already
   landed it.
 
+## C5.2s Retire the deprecated cohort rubric fallback
+
+Repository: community-base. Depends on: A5.2, D5.2. Freeze required: no.
+Related: D43.
+
+Goal: after both sites' course cutovers, verify that no project resolves its rubric through the
+cohort fallback in `criteria_for_project`, then remove the fallback and retire the deprecated
+`ReviewCriteria.cohort` provenance field and the matching `ProjectCriteriaAssignment.clean()`
+cohort check in one new migration with a documented rollback. Until then the fallback stands
+(D43): imported cohort-scoped criteria keep resolving, consumers materialize explicit
+`ProjectCriteriaAssignment` rows as they import, and no existing migration is edited.
+
+Read first
+- `docs/01-decisions.md` D43 and the donor inventory recorded on Hub intake fdacff25: the DTC
+  CMP importers and the shared-platform importer write cohort-scoped criteria with zero
+  `ProjectCriteriaAssignment` rows, and the recorded DTC rehearsal databases had 35 of 59
+  projects relying on the fallback.
+- `community_base/coursework/models.py`: `ReviewCriteria.cohort`, `criteria_for_project` and
+  `ProjectCriteriaAssignment.clean`.
+- `C5.2o` as the structural precedent for a post-adoption retirement issue.
+
+Steps
+1. Re-run the donor inventory against both adopted sites and count the projects whose rubric
+   resolves through the cohort branch; the count must be zero before any schema change.
+2. Remove the cohort fallback from `criteria_for_project`, drop the deprecated
+   `ReviewCriteria.cohort` field and the cohort check in `ProjectCriteriaAssignment.clean`,
+   in one new migration with a documented rollback.
+3. Update the coursework README and the model docstrings; no reader of `ReviewCriteria.cohort`
+   remains.
+
+Verification
+- Donor inventory output for both sites showing zero fallback-reliant projects.
+- `uv run python testproject/manage.py makemigrations --check --dry-run` after the change ->
+  no changes detected.
+- Fresh-applicable migration gate from `docs/04-quality-gates.md` section 2 passes.
+
+Done when
+- [ ] Zero projects rely on the cohort fallback in both adopted sites.
+- [ ] The fallback, the deprecated field and the cohort check are gone, and the new migration
+      applies from empty and rolls back while empty.
+
+Docs
+- `community_base/coursework/README.md`, `CHANGELOG.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.
