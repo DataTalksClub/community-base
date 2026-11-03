@@ -17,6 +17,11 @@
   `FORMAT_LEGACY` and `FORMAT_MODULES` in `community_base.curriculum.source`. No
   migrations.
 
+## 0.5.36
+
+- C3.2b: restore shared questionnaire service helpers and add configurable LLM, provider identity
+  and runtime onboarding settings seams. No migrations.
+
 ## 0.5.35
 
 - Relay mail: immutable template version selection via `MAIL_TEMPLATE_VERSION_RESOLVER`

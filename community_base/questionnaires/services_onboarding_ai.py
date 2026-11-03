@@ -23,8 +23,12 @@ from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.utils import timezone
 
-from community_base.kernel import conf
-from community_base.questionnaires.ai_backend import CancellationToken, LLMError, LLMTimeoutError
+from community_base.questionnaires.ai_backend import (
+    CancellationToken,
+    LLMError,
+    LLMTimeoutError,
+    provider_identity,
+)
 from community_base.questionnaires.models import (
     Answer,
     OnboardingConversation,
@@ -201,10 +205,8 @@ def _bounded_iter(iterator, deadline, cancellation):
 
 
 def _safe_provider_identity():
-    return (
-        "anthropic",
-        str(conf.get("AI_MODEL") or "")[:120],
-    )
+    provider, model = provider_identity()
+    return str(provider or "")[:32], str(model or "")[:120]
 
 
 def build_persona_catalog():

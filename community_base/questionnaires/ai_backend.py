@@ -2,9 +2,13 @@ import logging
 import threading
 from dataclasses import dataclass
 
+from django.utils.module_loading import import_string
+
 from community_base.kernel import conf
 
 logger = logging.getLogger(__name__)
+STREAM_TEXT_DELTA = "text_delta"
+STREAM_DONE = "done"
 
 
 class LLMError(Exception):
@@ -61,10 +65,32 @@ class StreamEvent:
 
     @property
     def is_done(self):
-        return self.kind == "done"
+        return self.kind == STREAM_DONE
+
+
+def _configured_backend():
+    target = conf.get("AI_BACKEND")
+    if not target:
+        return None
+    if isinstance(target, str):
+        return import_string(target)
+    return target
+
+
+def provider_identity():
+    """Return bounded provider metadata from the configured backend."""
+    backend = _configured_backend()
+    if backend is not None:
+        if hasattr(backend, "provider_identity"):
+            return backend.provider_identity()
+        return "", ""
+    return "anthropic", str(conf.get("AI_MODEL") or "")[:120]
 
 
 def is_enabled():
+    backend = _configured_backend()
+    if backend is not None:
+        return bool(backend.is_enabled())
     return bool(conf.get("AI_ONBOARDING") and str(conf.get("AI_API_KEY")).strip())
 
 
@@ -132,6 +158,20 @@ def complete(
     max_retries=None,
     cancellation=None,
 ):
+    backend = _configured_backend()
+    if backend is not None:
+        return backend.complete(
+            messages,
+            model=model,
+            system=system,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            tools=tools,
+            tool_choice=tool_choice,
+            timeout_seconds=timeout_seconds,
+            max_retries=max_retries,
+            cancellation=cancellation,
+        )
     client, key = _client(
         timeout_seconds=timeout_seconds,
         max_retries=max_retries,
@@ -159,6 +199,13 @@ def complete(
 
 
 def stream(messages, **kwargs):
+    backend = _configured_backend()
+    if backend is not None:
+        return backend.stream(messages, **kwargs)
+    return _default_stream(messages, **kwargs)
+
+
+def _default_stream(messages, **kwargs):
     client, key = _client(
         timeout_seconds=kwargs.pop("timeout_seconds", None),
         max_retries=kwargs.pop("max_retries", None),
@@ -173,9 +220,10 @@ def stream(messages, **kwargs):
     try:
         with client.messages.stream(**request) as result_stream:
             for text in result_stream.text_stream:
-                yield StreamEvent(kind="text_delta", text=text)
+                yield StreamEvent(kind=STREAM_TEXT_DELTA, text=text)
             yield StreamEvent(
-                kind="done", result=_parse_response(result_stream.get_final_message())
+                kind=STREAM_DONE,
+                result=_parse_response(result_stream.get_final_message()),
             )
     except LLMError:
         raise

@@ -7,6 +7,7 @@ DEFAULTS = {
     "ACCOUNT_MERGE_HOOK": None,
     "ACCOUNT_PRIVACY_EXPORT_HOOK": None,
     "ACCOUNT_UNVERIFIED_TTL_DAYS": 7,
+    "AI_BACKEND": None,
     "AI_ONBOARDING": False,
     "AI_API_KEY": "",
     "AI_BASE_URL": "https://api.anthropic.com",

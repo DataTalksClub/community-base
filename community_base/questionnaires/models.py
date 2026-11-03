@@ -38,6 +38,7 @@ class Questionnaire(TimestampedModel):
 
     class Meta:
         ordering = ("-created_at",)
+        app_label = "questionnaires"
 
     def __str__(self):
         return self.title
@@ -80,6 +81,7 @@ class Persona(TimestampedModel):
 
     class Meta:
         ordering = ("order", "name")
+        app_label = "questionnaires"
 
     def __str__(self):
         return self.display_label
@@ -108,6 +110,7 @@ class Question(TimestampedModel):
 
     class Meta:
         ordering = ("order", "id")
+        app_label = "questionnaires"
 
     def __str__(self):
         return self.prompt[:80]
@@ -125,6 +128,7 @@ class QuestionOption(TimestampedModel):
 
     class Meta:
         ordering = ("order", "id")
+        app_label = "questionnaires"
 
     def __str__(self):
         return self.label
@@ -152,6 +156,7 @@ class Response(TimestampedModel):
 
     class Meta:
         ordering = ("-created_at",)
+        app_label = "questionnaires"
         constraints = (
             models.UniqueConstraint(
                 fields=("questionnaire", "respondent"),
@@ -231,6 +236,7 @@ class ResponseQuestion(TimestampedModel):
 
     class Meta:
         ordering = ("order", "id")
+        app_label = "questionnaires"
 
     def __str__(self):
         return self.prompt[:80]
@@ -257,6 +263,7 @@ class ResponseQuestionOption(TimestampedModel):
 
     class Meta:
         ordering = ("order", "id")
+        app_label = "questionnaires"
 
     def __str__(self):
         return self.label
@@ -278,6 +285,7 @@ class Answer(TimestampedModel):
                 name="unique_answer_per_question_per_response",
             ),
         )
+        app_label = "questionnaires"
 
     def __str__(self):
         return f"Answer to {self.question_id} in response {self.response_id}"
@@ -311,6 +319,7 @@ class AnswerOptionText(TimestampedModel):
                 fields=("answer", "selected_option"), name="unique_text_per_answer_option"
             ),
         )
+        app_label = "questionnaires"
 
     def __str__(self):
         return f"Text for option {self.selected_option_id} on answer {self.answer_id}"
@@ -323,6 +332,9 @@ class OnboardingConversation(TimestampedModel):
     transcript = models.JSONField(default=list, blank=True)
     persona_signal = models.CharField(max_length=20, blank=True, default="")
     turn_version = models.PositiveBigIntegerField(default=0, db_default=0)
+
+    class Meta:
+        app_label = "questionnaires"
 
     def __str__(self):
         return f"AI onboarding conversation for response {self.response_id}"
@@ -405,6 +417,7 @@ class OnboardingTurnAttempt(TimestampedModel):
                 fields=("status", "lease_expires_at"), name="questionnai_status_1aef50_idx"
             ),
         )
+        app_label = "questionnaires"
 
     def __str__(self):
         return f"Onboarding turn {self.request_id} ({self.status})"

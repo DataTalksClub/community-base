@@ -19,8 +19,11 @@ _SINGLE_CHOICE = "single_choice"
 
 
 def _clamped_int(name, default, minimum, maximum):
+    raw = conf.get(name)
+    if callable(raw):
+        raw = raw()
     try:
-        value = int(conf.get(name))
+        value = int(raw)
     except (TypeError, ValueError):
         value = default
     return max(minimum, min(maximum, value))
