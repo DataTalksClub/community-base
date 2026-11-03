@@ -90,7 +90,7 @@ issues that can start now.
 | `C3.1e` | community-base | Studio account operations and documentation | C3.1d | no | done | https://github.com/DataTalksClub/community-base/pull/74 |
 | `C3.2` | community-base | Questionnaires | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/77 |
 | `C3.2a` | community-base | Expose pure persona catalog rendering API | C3.2 | no | done | https://github.com/DataTalksClub/community-base/pull/317 |
-| `C3.2b` | community-base | Complete questionnaire service and runtime hooks | C3.2a | no | in-progress |  |
+| `C3.2b` | community-base | Complete questionnaire service and runtime hooks | C3.2a | no | in-progress | https://github.com/DataTalksClub/community-base/pull/420 |
 | `C3.3` | community-base | Onboarding flows | C3.1e, C3.2 | no | done | https://github.com/DataTalksClub/community-base/pull/80 |
 | `C3.4` | community-base | Community (Slack) | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/83 |
 | `C3.5a` | community-base | Notifications | C3.1e | no | done | https://github.com/DataTalksClub/community-base/pull/87 |
