@@ -8,8 +8,8 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from community_base.coursework.certificates import issue_certificate as issue_shared_certificate
 from community_base.curriculum.models import (
-    Certificate,
     Cohort,
     Course,
     CourseInstructor,
@@ -438,9 +438,9 @@ def enrollment_delete(request, enrollment_id):
 @require_POST
 def certificate_issue(request, enrollment_id):
     enrollment = get_object_or_404(Enrollment, pk=enrollment_id)
-    certificate, created = Certificate.objects.get_or_create(enrollment=enrollment)
-    certificate.url = request.POST.get("url", "").strip()
-    certificate.save(update_fields=["url"])
+    certificate, issued = issue_shared_certificate(
+        enrollment, url=request.POST.get("url", "").strip()
+    )
     _audit(request, "curriculum.certificate.issued", enrollment)
-    messages.success(request, "Certificate issued." if created else "Certificate updated.")
+    messages.success(request, "Certificate issued." if issued else "Certificate updated.")
     return redirect("curriculum_studio_cohort_detail", cohort_id=enrollment.cohort_id)

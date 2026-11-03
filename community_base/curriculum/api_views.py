@@ -13,6 +13,7 @@ from community_base.api import route
 from community_base.api.errors import APIError
 from community_base.api.registry import json_response
 from community_base.api.safety import read_json_object
+from community_base.coursework.certificates import issue_certificate as issue_shared_certificate
 from community_base.curriculum.models import (
     Certificate,
     Cohort,
@@ -227,9 +228,7 @@ def issue_certificate(request, slug):
             _url_validator(url)
         except Exception as error:
             raise APIError(422, "invalid_url", "Certificate url must be http(s).") from error
-    certificate, _created = Certificate.objects.get_or_create(enrollment=enrollment)
-    certificate.url = url
-    certificate.save(update_fields=["url"])
+    certificate, _issued = issue_shared_certificate(enrollment, url=url)
     return json_response(
         {
             "id": str(certificate.pk),
