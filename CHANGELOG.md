@@ -20,7 +20,8 @@
 ## 0.5.36
 
 - C3.2b: restore shared questionnaire service helpers and add configurable LLM, provider identity
-  and runtime onboarding settings seams. No migrations.
+  and runtime onboarding settings seams. Preserve legacy onboarding prompt/option aliases when
+  rerouting draft responses. No migrations.
 
 ## 0.5.35
 
