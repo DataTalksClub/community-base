@@ -22,28 +22,35 @@ class LLMTimeoutError(LLMError):
 class CancellationToken:
     def __init__(self):
         self._cancelled = threading.Event()
+        self._lock = threading.Lock()
         self._callbacks = []
 
     @property
     def cancelled(self):
         return self._cancelled.is_set()
 
+    def wait(self, timeout=None):
+        return self._cancelled.wait(timeout)
+
     def register(self, callback):
-        if self.cancelled:
-            callback()
-        else:
-            self._callbacks.append(callback)
+        with self._lock:
+            if not self._cancelled.is_set():
+                self._callbacks.append(callback)
+                return
+        callback()
 
     def cancel(self):
-        if self.cancelled:
-            return
-        self._cancelled.set()
-        for callback in reversed(self._callbacks):
+        with self._lock:
+            if self._cancelled.is_set():
+                return
+            self._cancelled.set()
+            callbacks = list(reversed(self._callbacks))
+            self._callbacks.clear()
+        for callback in callbacks:
             try:
                 callback()
             except Exception:  # noqa: BLE001
                 logger.exception("AI provider cleanup failed")
-        self._callbacks.clear()
 
 
 @dataclass
