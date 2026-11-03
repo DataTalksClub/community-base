@@ -9,6 +9,13 @@ keeps an explicit ``curriculum.Certificate`` row, mirrors the url onto the legac
 notification point as the ``certificate_issued`` hook. No revocation or hash logic: no donor
 precedent.
 
+Call sites: ``coursework/studio_views.py::certificate_issue``,
+``curriculum/api_views.py::issue_certificate`` and
+``curriculum/studio_views.py::certificate_issue`` all issue through
+``issue_certificate`` here, so every path creates/updates the ``Certificate`` row, mirrors the
+url onto ``Enrollment.certificate_url`` (the column the learner view reads), and fires the
+``certificate_issued`` hook exactly when the row is created or its url changes.
+
 ``certificate_eligibility`` and ``request_certificate`` are new (C5.2h): the package has never had
 automatic issuance or an eligibility check of its own -- both existed only in the AISL donor
 (``check_certificate_eligibility``, ``issue_certificates_for_course`` in
