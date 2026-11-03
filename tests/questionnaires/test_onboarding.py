@@ -1,6 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
 
+from community_base.questionnaires import onboarding
 from community_base.questionnaires.models import (
     Answer,
     AnswerOptionText,
@@ -121,3 +122,14 @@ def test_completion_is_derived_from_submitted_response(onboarding_state):
     response.mark_submitted()
 
     assert has_completed_onboarding(response.respondent) is True
+
+
+def test_onboarding_limits_resolve_callable_site_overrides(settings):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "AI_ONBOARDING_DEADLINE_SECONDS": lambda: 17,
+        "AI_ONBOARDING_MAX_ATTEMPTS": lambda: 3,
+    }
+
+    assert onboarding.onboarding_ai_deadline_seconds() == 17
+    assert onboarding.onboarding_ai_max_attempts() == 3

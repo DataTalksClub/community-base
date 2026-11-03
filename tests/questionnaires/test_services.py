@@ -5,6 +5,7 @@ from django.template.loader import render_to_string
 from community_base.questionnaires.models import (
     Answer,
     AnswerOptionText,
+    Persona,
     Question,
     Questionnaire,
     QuestionOption,
@@ -12,9 +13,17 @@ from community_base.questionnaires.models import (
 )
 from community_base.questionnaires.services import (
     AnswerSaveError,
+    _field_name,
+    _option_text_field_name,
     build_response_form_rows,
     build_response_questions,
+    field_name,
     find_unanswered_required,
+    has_any_answer,
+    option_text_field_name,
+    persona_map_by_questionnaire,
+    posted_stale_question_fields,
+    resolve_persona_for_questionnaire,
     save_response_answers,
 )
 
@@ -182,3 +191,74 @@ def test_required_answers_are_derived_by_type(response):
     save_response_answers(response, PostData({f"question_{text.pk}": "done"}))
 
     assert find_unanswered_required(response) == []
+
+
+def test_persona_helpers_return_first_active_persona(response):
+    questionnaire = response.questionnaire
+    later = Persona.objects.create(
+        name="Later",
+        archetype="Later persona",
+        slug="later",
+        order=2,
+        default_questionnaire=questionnaire,
+    )
+    first = Persona.objects.create(
+        name="First",
+        archetype="First persona",
+        slug="first",
+        order=1,
+        default_questionnaire=questionnaire,
+    )
+    Persona.objects.create(
+        name="Inactive",
+        archetype="Inactive persona",
+        slug="inactive",
+        order=0,
+        default_questionnaire=questionnaire,
+        is_active=False,
+    )
+
+    assert resolve_persona_for_questionnaire(questionnaire) == first
+    assert persona_map_by_questionnaire()[questionnaire.pk] == first
+    assert (
+        resolve_persona_for_questionnaire(
+            questionnaire, personas_by_questionnaire={questionnaire.pk: later}
+        )
+        == later
+    )
+    assert resolve_persona_for_questionnaire(None) is None
+
+
+def test_has_any_answer_requires_a_nonempty_value(response):
+    text = question_for(response, "text")
+    Answer.objects.create(response=response, question=text, text_value="   ")
+    assert has_any_answer(response) is False
+
+    Answer.objects.all().delete()
+    scale = question_for(response, "scale")
+    Answer.objects.create(response=response, question=scale, number_value=0)
+    assert has_any_answer(response) is True
+
+    Answer.objects.all().delete()
+    choice = question_for(response, "choice")
+    answer = Answer.objects.create(response=response, question=choice)
+    answer.selected_options.add(choice.options.first())
+    assert has_any_answer(response) is True
+
+
+def test_stale_question_fields_and_field_name_aliases(response):
+    current = question_for(response, "choice")
+    option = current.options.first()
+    assert _field_name(current) == field_name(current)
+    assert _option_text_field_name(current, option) == option_text_field_name(current, option)
+    assert (
+        posted_stale_question_fields(
+            response,
+            {field_name(current): "answer", option_text_field_name(current, option): "text"},
+        )
+        is False
+    )
+    assert posted_stale_question_fields(response, {"question_999999": "stale"}) is True
+    assert (
+        posted_stale_question_fields(response, {"question_999999_option_1_text": "stale"}) is True
+    )

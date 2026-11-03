@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.13"
 
 [[package]]
@@ -298,7 +298,7 @@ wheels = [
 
 [[package]]
 name = "community-base"
-version = "0.5.35"
+version = "0.5.36"
 source = { editable = "." }
 dependencies = [
     { name = "apispec" },
