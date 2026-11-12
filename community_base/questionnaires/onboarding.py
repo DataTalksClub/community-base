@@ -16,10 +16,10 @@ _TEXT_TYPES = frozenset({"text", "long_text"})
 _NUMBER_TYPES = frozenset({"scale", "number"})
 _MULTIPLE_CHOICE = "multiple_choice"
 _SINGLE_CHOICE = "single_choice"
-
 _PROMPT_ALIASES = {
-    "What is the one concrete outcome you want by the end of the next "
-    "6 to 8 weeks?": "What would you like to have achieved 6 to 8 weeks from now?",
+    "What is the one concrete outcome you want by the end of the next 6 to 8 weeks?": (
+        "What would you like to have achieved 6 to 8 weeks from now?"
+    ),
     "Which best describes that outcome?": "Which path best fits that goal?",
     "How many hours per week can you realistically commit, consistently?": (
         "How many hours per week can you realistically commit?"
@@ -41,7 +41,6 @@ _PROMPT_ALIASES = {
         "What would you like us to help with while preparing your plan?"
     ),
 }
-
 _OPTION_ALIASES = {
     "Ship new project": "Ship a new project",
     "Improve/finish existing": "Improve or finish an existing project",
@@ -73,9 +72,25 @@ _OPTION_ALIASES = {
 }
 
 
+def _canonical_prompt(prompt):
+    return _PROMPT_ALIASES.get(prompt, prompt)
+
+
+def _canonical_option_label(label):
+    return _OPTION_ALIASES.get(label, label)
+
+
+def _store_snapshot(snapshot, prompt, saved):
+    snapshot.setdefault(prompt, saved)
+    snapshot.setdefault(_canonical_prompt(prompt), saved)
+
+
 def _clamped_int(name, default, minimum, maximum):
+    raw = conf.get(name)
+    if callable(raw):
+        raw = raw()
     try:
-        value = int(conf.get(name))
+        value = int(raw)
     except (TypeError, ValueError):
         value = default
     return max(minimum, min(maximum, value))
@@ -163,15 +178,18 @@ def _snapshot_answers_by_prompt(response):
             if not labels:
                 continue
             option_texts = {
-                item.selected_option.label: item.text_value
+                _canonical_option_label(item.selected_option.label): item.text_value
                 for item in answer.option_texts.select_related("selected_option")
             }
-            saved = {
-                "type": rq.question_type,
-                "labels": labels,
-                "option_texts": option_texts,
-            }
-            _store_snapshot(snapshot, rq.prompt, saved)
+            _store_snapshot(
+                snapshot,
+                rq.prompt,
+                {
+                    "type": rq.question_type,
+                    "labels": labels,
+                    "option_texts": option_texts,
+                },
+            )
         elif answer.text_value:
             _store_snapshot(
                 snapshot,
@@ -191,19 +209,6 @@ def _snapshot_answers_by_prompt(response):
                 },
             )
     return snapshot
-
-
-def _canonical_prompt(prompt):
-    return _PROMPT_ALIASES.get(prompt, prompt)
-
-
-def _canonical_option_label(label):
-    return _OPTION_ALIASES.get(label, label)
-
-
-def _store_snapshot(snapshot, prompt, saved):
-    snapshot.setdefault(prompt, saved)
-    snapshot.setdefault(_canonical_prompt(prompt), saved)
 
 
 def _restore_answers_by_prompt(response, snapshot):

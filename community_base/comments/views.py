@@ -11,12 +11,7 @@ from community_base.comments.services import (
     create_comment,
     toggle_comment_vote,
 )
-
-
-def _private(response):
-    response["Cache-Control"] = "private, no-store, max-age=0"
-    response["Pragma"] = "no-cache"
-    return response
+from community_base.kernel.responses import no_store
 
 
 def _display_name(user):
@@ -46,12 +41,12 @@ def comments_endpoint(request, content_id):
         return list_comments(request, content_id)
     if request.method == "POST":
         return create_comment_view(request, content_id)
-    return _private(JsonResponse({"error": "Method not allowed"}, status=405))
+    return no_store(JsonResponse({"error": "Method not allowed"}, status=405))
 
 
 def list_comments(request, content_id):
     if not can_read_thread(content_id, request.user):
-        return _private(JsonResponse({"error": "Not found"}, status=404))
+        return no_store(JsonResponse({"error": "Not found"}, status=404))
     visible_replies = Comment.objects.filter(
         moderation_state=Comment.ModerationState.VISIBLE
     ).select_related("user")
@@ -73,7 +68,7 @@ def list_comments(request, content_id):
                 "comment_id", flat=True
             )
         )
-    return _private(
+    return no_store(
         JsonResponse(
             {
                 "comments": [
@@ -100,12 +95,12 @@ def list_comments(request, content_id):
 
 def create_comment_view(request, content_id):
     if not request.user.is_authenticated:
-        return _private(JsonResponse({"error": "Authentication required"}, status=401))
+        return no_store(JsonResponse({"error": "Authentication required"}, status=401))
     if not can_write_thread(content_id, request.user):
-        return _private(JsonResponse({"error": "Not allowed"}, status=403))
+        return no_store(JsonResponse({"error": "Not allowed"}, status=403))
     data = _json_body(request)
     if data is None:
-        return _private(JsonResponse({"error": "Invalid JSON"}, status=400))
+        return no_store(JsonResponse({"error": "Invalid JSON"}, status=400))
     try:
         comment = create_comment(
             content_id=content_id,
@@ -114,8 +109,8 @@ def create_comment_view(request, content_id):
         )
     except ValueError as error:
         code = "body_too_long" if "too long" in str(error) else "body_required"
-        return _private(JsonResponse({"error": code}, status=400))
-    return _private(
+        return no_store(JsonResponse({"error": code}, status=400))
+    return no_store(
         JsonResponse(
             {
                 "id": comment.pk,
@@ -134,17 +129,17 @@ def create_comment_view(request, content_id):
 @require_POST
 def reply_to_comment(request, comment_id):
     if not request.user.is_authenticated:
-        return _private(JsonResponse({"error": "Authentication required"}, status=401))
+        return no_store(JsonResponse({"error": "Authentication required"}, status=401))
     parent = Comment.objects.filter(pk=comment_id).first()
     if parent is None:
-        return _private(JsonResponse({"error": "Comment not found"}, status=404))
+        return no_store(JsonResponse({"error": "Comment not found"}, status=404))
     if parent.parent_id:
-        return _private(JsonResponse({"error": "Cannot reply to a reply"}, status=400))
+        return no_store(JsonResponse({"error": "Cannot reply to a reply"}, status=400))
     if not can_write_thread(parent.content_id, request.user):
-        return _private(JsonResponse({"error": "Not allowed"}, status=403))
+        return no_store(JsonResponse({"error": "Not allowed"}, status=403))
     data = _json_body(request)
     if data is None:
-        return _private(JsonResponse({"error": "Invalid JSON"}, status=400))
+        return no_store(JsonResponse({"error": "Invalid JSON"}, status=400))
     try:
         reply = create_comment(
             content_id=parent.content_id,
@@ -154,20 +149,20 @@ def reply_to_comment(request, comment_id):
         )
     except ValueError as error:
         code = "body_too_long" if "too long" in str(error) else "body_required"
-        return _private(JsonResponse({"error": code}, status=400))
-    return _private(JsonResponse(_reply_data(reply), status=201))
+        return no_store(JsonResponse({"error": code}, status=400))
+    return no_store(JsonResponse(_reply_data(reply), status=201))
 
 
 @require_POST
 def toggle_vote(request, comment_id):
     if not request.user.is_authenticated:
-        return _private(JsonResponse({"error": "Authentication required"}, status=401))
+        return no_store(JsonResponse({"error": "Authentication required"}, status=401))
     comment = Comment.objects.filter(pk=comment_id).first()
     if comment is None:
-        return _private(JsonResponse({"error": "Comment not found"}, status=404))
+        return no_store(JsonResponse({"error": "Comment not found"}, status=404))
     if comment.parent_id:
-        return _private(JsonResponse({"error": "Cannot vote on a reply"}, status=400))
+        return no_store(JsonResponse({"error": "Cannot vote on a reply"}, status=400))
     if not can_write_thread(comment.content_id, request.user):
-        return _private(JsonResponse({"error": "Not allowed"}, status=403))
+        return no_store(JsonResponse({"error": "Not allowed"}, status=403))
     voted, count = toggle_comment_vote(comment=comment, user=request.user)
-    return _private(JsonResponse({"voted": voted, "vote_count": count}))
+    return no_store(JsonResponse({"voted": voted, "vote_count": count}))

@@ -807,11 +807,9 @@ def _load_yaml(
     return _parse_yaml(text, require_mapping=require_mapping)
 
 
-def _load_document(repository: Repository, rel: str) -> tuple[Any, str, int, list[Problem]]:
-    try:
-        text = repository.read_text(rel)
-    except UnicodeDecodeError:
-        return None, "", 0, [Problem(WHOLE_FILE, "3.2", "must be UTF-8")]
+def parse_front_matter(text: str) -> tuple[Any, str, int, list[Problem]]:
+    """Parse YAML front matter and markdown body from a UTF-8 document string."""
+
     if "\r\n" in text:
         return None, "", 0, [Problem(WHOLE_FILE, "3.2", "must use LF line endings")]
     lines = text.split("\n")
@@ -844,6 +842,14 @@ def _load_document(repository: Repository, rel: str) -> tuple[Any, str, int, lis
         return None, "", 0, [Problem(WHOLE_FILE, "3.2", "front matter must be a mapping")]
     body = "\n".join(lines[closing + 1 :])
     return data, body, closing + 1, []
+
+
+def _load_document(repository: Repository, rel: str) -> tuple[Any, str, int, list[Problem]]:
+    try:
+        text = repository.read_text(rel)
+    except UnicodeDecodeError:
+        return None, "", 0, [Problem(WHOLE_FILE, "3.2", "must be UTF-8")]
+    return parse_front_matter(text)
 
 
 def one_line(error: Exception) -> str:

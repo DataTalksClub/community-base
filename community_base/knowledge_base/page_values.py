@@ -8,8 +8,6 @@ from community_base.knowledge_base.models import STATUS_PUBLISHED
 from community_base.knowledge_base.page_adaptation import PageWrite
 from community_base.knowledge_base.routes import default_public_path
 
-RECORD_KEYS = ("values", "headings", "references", "assets")
-
 
 def page_write(document: ResolvedDocument, section: str, commit_sha: str) -> PageWrite:
     values = document.values
@@ -71,20 +69,3 @@ def checksum_of(document: ResolvedDocument) -> str:
     }
     rendered = json.dumps(payload, sort_keys=True, default=str, ensure_ascii=False)
     return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
-
-
-def page_fields(document: ResolvedDocument, commit_sha: str) -> dict:
-    """Compatibility import for callers of the former mapping helper."""
-
-    write = page_write(document, document.kind, commit_sha)
-    fields = write.storage_fields()
-    fields.pop("section")
-    fields.pop("parent_slug")
-    fields.pop("parent_path")
-    return fields
-
-
-def page_identity(write: PageWrite) -> tuple:
-    """The immutable document and provenance identity of a projected page."""
-
-    return write.identity

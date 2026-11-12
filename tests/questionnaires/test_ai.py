@@ -1,6 +1,6 @@
 import builtins
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -66,6 +66,47 @@ def test_disabled_backend_does_not_import_anthropic(settings):
 
     with patch("builtins.__import__", side_effect=guarded_import):
         assert ai_backend.is_enabled() is False
+
+
+def test_configured_backend_receives_calls_and_provider_identity(settings):
+    messages = [{"role": "user", "content": "Hi"}]
+    backend = Mock()
+    backend.is_enabled.return_value = True
+    backend.provider_identity.return_value = ("zai", "model-v1")
+    backend.complete.return_value = ai_backend.LLMResult(text="Hello")
+    backend.stream.return_value = iter([ai_backend.StreamEvent(kind="done")])
+    settings.COMMUNITY_BASE = {**settings.COMMUNITY_BASE, "AI_BACKEND": backend}
+
+    assert ai_backend.is_enabled() is True
+    assert ai_backend.provider_identity() == ("zai", "model-v1")
+    assert ai_backend.complete(messages).text == "Hello"
+    events = list(ai_backend.stream(messages, timeout_seconds=4))
+
+    assert events[0].is_done is True
+    backend.complete.assert_called_once()
+    backend.stream.assert_called_once_with(messages, timeout_seconds=4)
+
+
+def test_configured_backend_dotted_path_is_resolved(settings):
+    backend = Mock()
+    backend.is_enabled.return_value = True
+    settings.COMMUNITY_BASE = {**settings.COMMUNITY_BASE, "AI_BACKEND": "fake.backend"}
+
+    with patch(
+        "community_base.questionnaires.ai_backend.import_string", return_value=backend
+    ) as import_string:
+        assert ai_backend.is_enabled() is True
+
+    import_string.assert_called_once_with("fake.backend")
+
+
+def test_configured_backend_without_identity_does_not_claim_anthropic(settings):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "AI_BACKEND": SimpleNamespace(),
+    }
+
+    assert ai_backend.provider_identity() == ("", "")
 
 
 def test_missing_extra_has_actionable_error(settings):

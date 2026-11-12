@@ -56,7 +56,6 @@ def send(
         "purpose": purpose,
         "category": category_value,
         "template_key": purpose,
-        "template_version": 1,
         "recipient_email": to,
         "recipient_user_id": getattr(user, "pk", None),
         "context_hash": context_hash,
@@ -71,6 +70,7 @@ def send(
             raise MailConflict("idempotency key conflicts with an existing mail delivery")
         return existing
 
+    immutable["template_version"] = _template_version(purpose)
     resolver = get("MAIL_PREFERENCE_RESOLVER")
     resolver = resolve(resolver) if isinstance(resolver, str) else resolver
     decision = resolver(
@@ -187,3 +187,14 @@ def _preference_decision(decision) -> tuple[bool, str]:
     if isinstance(decision, str) and re.fullmatch(r"[a-z][a-z0-9_.:-]{0,127}", decision):
         return False, decision
     raise MailError("mail preference resolver returned an invalid decision")
+
+
+def _template_version(template_key: str) -> int:
+    resolver = get("MAIL_TEMPLATE_VERSION_RESOLVER")
+    if resolver is None:
+        return 1
+    resolver = resolve(resolver) if isinstance(resolver, str) else resolver
+    version = resolver(template_key)
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise MailError("mail template version resolver returned an invalid version")
+    return version

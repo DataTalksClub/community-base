@@ -13,6 +13,7 @@ from django.test import override_settings
 
 from community_base.content_sync.checkout import ImmutableCheckout
 from community_base.content_sync.orchestration import sync_content_source
+from community_base.content_sync.rendering import render_markdown
 from community_base.curriculum.code_annotations import (
     AnnotatedCodeBlock,
     CodeAnnotation,
@@ -23,7 +24,7 @@ from community_base.curriculum.code_annotations import (
 )
 from community_base.curriculum.models import Course, Module, Unit
 from community_base.curriculum.parsers import parse_course_repository
-from community_base.curriculum.rendering import render_annotated_markdown, render_markdown
+from community_base.curriculum.rendering import render_annotated_markdown
 from community_base.curriculum.source import CurriculumParseError
 from tests.curriculum.utils import AISL_CONTENT, DTC_REPO, make_source
 

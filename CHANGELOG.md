@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+
+- Trim `community_base.curriculum.rendering` to `render_annotated_markdown`,
+  `ANNOTATED_CODE_BLOCK_TEMPLATE`, and `ANNOTATED_CODE_BLOCK_HEADING`, removing the
+  re-exports of `community_base.content_sync.rendering` (`inject_heading_ids`,
+  `plain_text`, `render_document`, `render_markdown`, `sanitize_rendered_html`,
+  `strip_leading_title_h1`) after moving AI Shipping Labs onto
+  `community_base.content_sync.rendering` (`t1832u`, intake `539c865f`). No
+  migrations.
+- Remove uncalled public helpers and compatibility shims (`t1832u`, intake `76b1c14d`):
+  `community_base.events.registration.unregister_from_series`,
+  `community_base.knowledge_base.hierarchy.sibling_navigation`, the shadowed
+  `studio/base.html` template shell (`community_base/studio/base.html` remains the
+  shared Studio shell), and `CohortGraph.curriculum_format` together with
+  `FORMAT_LEGACY` and `FORMAT_MODULES` in `community_base.curriculum.source`. No
+  migrations.
+
+## 0.5.36
+
+- C3.2b: restore shared questionnaire service helpers and add configurable LLM, provider identity
+  and runtime onboarding settings seams. Preserve legacy onboarding prompt/option aliases when
+  rerouting draft responses. No migrations.
+
+## 0.5.35
+
+- Relay mail: immutable template version selection via `MAIL_TEMPLATE_VERSION_RESOLVER`
+  (default version 1 unchanged; recorded version replays without re-resolving), real
+  post-acceptance send recording via `MAIL_SEND_RECORDER` (truthful previewed subject
+  and bodies; recorder failure rolls back the accepted projection), and preview
+  parsing matching the deployed top-level Relay document. No migrations.
+
 ## 0.5.34
 
 - #415 / C1.2c: preserve singleton Reply-To and CC/BCC recipient lists on the native

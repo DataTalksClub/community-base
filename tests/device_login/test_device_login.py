@@ -441,6 +441,7 @@ def test_client_loop_timeout(monkeypatch):
     assert exc_info.value.code == "timeout"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX modes; Windows ACLs have portable storage tests")
 def test_storage_writes_private_file(tmp_path):
     target = tmp_path / "sub" / "credentials.json"
     save_private_json(target, {"token": "secret"})

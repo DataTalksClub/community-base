@@ -372,8 +372,20 @@ def test_the_app_modules_re_export_the_shared_renderer():
 
     assert knowledge_base_rendering.render_markdown is render_markdown
     assert knowledge_base_rendering.sanitize_rendered_html is sanitize_rendered_html
-    assert curriculum_rendering.render_markdown is render_markdown
-    assert curriculum_rendering.sanitize_rendered_html is sanitize_rendered_html
+    assert curriculum_rendering.__all__ == [
+        "ANNOTATED_CODE_BLOCK_HEADING",
+        "ANNOTATED_CODE_BLOCK_TEMPLATE",
+        "render_annotated_markdown",
+    ]
+    for removed in (
+        "inject_heading_ids",
+        "plain_text",
+        "render_document",
+        "render_markdown",
+        "sanitize_rendered_html",
+        "strip_leading_title_h1",
+    ):
+        assert not hasattr(curriculum_rendering, removed)
 
 
 # --- the validator's fixtures, rendered ---------------------------------------

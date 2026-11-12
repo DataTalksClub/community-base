@@ -372,15 +372,12 @@ _INTERNAL_PERSONA_NAMES = ("Alex", "Priya", "Sam", "Taylor")
 _LEADING_ARTICLE_RE = re.compile(r"\ban?\s+your archetype\b", re.IGNORECASE)
 
 
-_shared_spine_prompts = catalog_rendering.shared_spine_prompts
-_format_question = catalog_rendering.format_question
 render_persona_catalog = catalog_rendering.render_persona_catalog
-_render_persona_catalog = render_persona_catalog
 
 
 def _build_system_prompt(persona_catalog):
     """Assemble the full system prompt: base guidance + archetype context."""
-    catalog = _render_persona_catalog(persona_catalog)
+    catalog = render_persona_catalog(persona_catalog)
     if not catalog:
         return SYSTEM_PROMPT
     return f"{SYSTEM_PROMPT}\n\n{catalog}"

@@ -12,7 +12,6 @@ from community_base.coursework.enrollment_flags import set_learning_in_public_di
 from community_base.coursework.leaderboard import (
     completed_project_submissions_prefetch,
     current_student_leaderboard_enrollment,
-    ensure_enrollment,
     file_leaderboard_complaint,
     get_leaderboard_data,
     leaderboard_context,
@@ -37,6 +36,7 @@ from community_base.coursework.scoring import (
     score_homework_submissions,
 )
 from community_base.curriculum.models import Enrollment
+from community_base.curriculum.services import ensure_enrollment
 from tests.coursework.test_models import coursework_cohort, homework, question
 
 pytestmark = pytest.mark.django_db
@@ -231,11 +231,11 @@ def test_ensure_enrollment_generates_display_name():
     cohort = coursework_cohort()
     user = User.objects.create_user(email="fresh@example.com")
 
-    enrollment, created = ensure_enrollment(cohort, user)
+    enrollment, created = ensure_enrollment(user, cohort)
 
     assert created is True
     assert enrollment.display_name
-    again, created_again = ensure_enrollment(cohort, user)
+    again, created_again = ensure_enrollment(user, cohort)
     assert again.id == enrollment.id
     assert created_again is False
 

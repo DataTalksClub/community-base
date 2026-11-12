@@ -15,6 +15,9 @@ from django.core.validators import RegexValidator
 
 SHA1_PATTERN = r"^[0-9a-f]{40}$"
 SHA256_PATTERN = r"^[0-9a-f]{64}$"
+# Unanchored bodies for database check constraints.
+SHA1_BODY = SHA1_PATTERN.strip("^$")
+SHA256_BODY = SHA256_PATTERN.strip("^$")
 SOURCE_VERSION_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
 REPOSITORY_COMPONENT_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
 REPOSITORY_BRANCH_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$"
@@ -62,7 +65,9 @@ __all__ = [
     "MAX_SOURCE_PATH_CHARS",
     "REPOSITORY_BRANCH_PATTERN",
     "REPOSITORY_COMPONENT_PATTERN",
+    "SHA1_BODY",
     "SHA1_PATTERN",
+    "SHA256_BODY",
     "SHA256_PATTERN",
     "SOURCE_STABLE_ID_PATTERN",
     "SOURCE_VERSION_PATTERN",

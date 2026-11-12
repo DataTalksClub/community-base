@@ -1,6 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
 
+from community_base.questionnaires import onboarding
 from community_base.questionnaires.models import (
     Answer,
     AnswerOptionText,
@@ -100,6 +101,41 @@ def test_reroute_preserves_shared_answers_and_drops_persona_delta(onboarding_sta
     assert not response.answers.filter(question__prompt="Focused only").exists()
 
 
+def test_reroute_matches_legacy_prompt_and_option_labels(onboarding_state):
+    _generic, focused, _persona, response = onboarding_state
+    old_prompt = "Which best describes that outcome?"
+    new_prompt = "Which path best fits that goal?"
+    old_label = "Improve/finish existing"
+    new_label = "Improve or finish an existing project"
+
+    old_question = response.response_questions.get(prompt="Shared path")
+    old_question.prompt = old_prompt
+    old_question.save(update_fields=["prompt", "updated_at"])
+    old_option = old_question.options.get(label="Other")
+    old_option.label = old_label
+    old_option.save(update_fields=["label", "updated_at"])
+    answer = Answer.objects.create(response=response, question=old_question)
+    answer.selected_options.add(old_option)
+    AnswerOptionText.objects.create(
+        answer=answer,
+        selected_option=old_option,
+        text_value="Ship with a pair",
+    )
+
+    target_question = focused.questions.get(prompt="Shared path")
+    target_question.prompt = new_prompt
+    target_question.save(update_fields=["prompt", "updated_at"])
+    target_option = target_question.options.get(label="Other")
+    target_option.label = new_label
+    target_option.save(update_fields=["label", "updated_at"])
+
+    reroute_onboarding_response(response, focused)
+
+    restored = response.answers.get(question__prompt=new_prompt)
+    assert list(restored.selected_options.values_list("label", flat=True)) == [new_label]
+    assert restored.display_value == f"{new_label}: Ship with a pair"
+
+
 def test_flatten_response_answers_keeps_unanswered_questions(onboarding_state):
     _generic, _focused, _persona, response = onboarding_state
     question = response.response_questions.get(prompt="Shared goal")
@@ -121,3 +157,14 @@ def test_completion_is_derived_from_submitted_response(onboarding_state):
     response.mark_submitted()
 
     assert has_completed_onboarding(response.respondent) is True
+
+
+def test_onboarding_limits_resolve_callable_site_overrides(settings):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "AI_ONBOARDING_DEADLINE_SECONDS": lambda: 17,
+        "AI_ONBOARDING_MAX_ATTEMPTS": lambda: 3,
+    }
+
+    assert onboarding.onboarding_ai_deadline_seconds() == 17
+    assert onboarding.onboarding_ai_max_attempts() == 3

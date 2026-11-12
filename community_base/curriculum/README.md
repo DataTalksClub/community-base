@@ -342,9 +342,10 @@ numbered lines with the language kept on `<code class="language-...">` for a sit
 highlight client-side. A site that wants server-side highlighting registers `codehilite` through
 `COMMUNITY_BASE["MARKDOWN_EXTENSIONS"]`.
 
-`rendering.render_markdown`, `sanitize_rendered_html` and `strip_leading_title_h1` are imports of
-`community_base.content_sync.rendering`, the one renderer and the one sanitizer (issue C7.8). The
-import paths here are unchanged. Two things changed for a unit body: headings carry the ids of
+Markdown rendering, `sanitize_rendered_html` and `strip_leading_title_h1` live in
+`community_base.content_sync.rendering`, the one renderer and the one sanitizer (issue C7.8);
+`curriculum.rendering` keeps only `render_annotated_markdown` and its template constants. Two things
+changed for a unit body: headings carry the ids of
 `FORMAT.md` section 4.1, and the allowlist is the shared one, which keeps `<figure>`, `<details>`
 and `<del>` that the narrower curriculum allowlist used to drop, and drops an `img src` that is
 neither site-absolute nor an absolute `http(s)` URL.

@@ -5,8 +5,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 
 from community_base.events.models import Event
-from community_base.kernel.conf import get
-from community_base.kernel.hooks import resolve
+from community_base.kernel.hooks import configured_callable
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,13 +19,6 @@ class RecordingResult:
     recording_url: str = ""
     recording_embed_url: str = ""
     recording_s3_url: str = ""
-
-
-def _callback(setting):
-    configured = get(setting)
-    if configured is None:
-        return None
-    return resolve(configured) if isinstance(configured, str) else configured
 
 
 def _safe_url(value, *, allow_query=False):
@@ -48,7 +40,7 @@ def _safe_url(value, *, allow_query=False):
 
 
 def generate_banner(event):
-    callback = _callback("EVENT_BANNER_GENERATOR")
+    callback = configured_callable("EVENT_BANNER_GENERATOR")
     if callback is None:
         return None
     value = callback(event)
@@ -56,7 +48,7 @@ def generate_banner(event):
 
 
 def resolve_writeup(event):
-    callback = _callback("EVENT_WRITEUP_RESOLVER")
+    callback = configured_callable("EVENT_WRITEUP_RESOLVER")
     if callback is None:
         return None
     value = callback(event)
@@ -71,7 +63,7 @@ def resolve_writeup(event):
 
 
 def process_recording(event, reference):
-    callback = _callback("EVENT_RECORDING_PROCESSOR")
+    callback = configured_callable("EVENT_RECORDING_PROCESSOR")
     if callback is None:
         raise ImproperlyConfigured("Event recording processor is not configured.")
     value = callback(event, str(reference))
@@ -97,7 +89,7 @@ def process_recording(event, reference):
                 "updated_at",
             )
         )
-        ready = _callback("EVENT_RECORDING_READY_HOOK")
+        ready = configured_callable("EVENT_RECORDING_READY_HOOK")
         if ready is not None:
             transaction.on_commit(lambda: ready(event))
     return event, result

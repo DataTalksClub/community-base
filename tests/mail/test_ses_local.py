@@ -392,3 +392,23 @@ def test_ses_runtime_keys_are_declared():
     assert definition("AWS_ACCESS_KEY_ID").secret is True
     assert definition("AWS_SECRET_ACCESS_KEY").secret is True
     assert definition("SES_FROM_EMAIL").is_email is True
+
+
+def test_load_template_source_uses_content_sync_documents_without_frontmatter(
+    ses_settings, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "frontmatter", None)
+    subject, body, footer_note = ses_local._load_template_source("password_reset")
+    assert subject == "Reset your password"
+    assert "You requested a password reset" in body
+    assert footer_note == ""
+
+
+def test_load_template_source_rejects_invalid_front_matter(settings, tmp_path):
+    settings.COMMUNITY_BASE = {
+        **settings.COMMUNITY_BASE,
+        "MAIL_TEMPLATE_DIR": tmp_path,
+    }
+    (tmp_path / "broken_template.md").write_text("not front matter\n")
+    with pytest.raises(PermanentJobError, match="invalid_mail_template_front_matter"):
+        ses_local._load_template_source("broken_template")

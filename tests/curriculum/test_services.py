@@ -43,6 +43,7 @@ class TestEnrollment:
 
         enrollment, created = ensure_enrollment(user, cohort)
         assert created is True
+        assert enrollment.display_name
 
         again, created_again = ensure_enrollment(user, cohort)
         assert created_again is False

@@ -1,6 +1,9 @@
+import re
+
 from community_base.questionnaires.models import (
     Answer,
     AnswerOptionText,
+    Persona,
     ResponseQuestion,
     ResponseQuestionOption,
 )
@@ -8,6 +11,35 @@ from community_base.questionnaires.models import (
 TEXT_TYPES = frozenset({"text", "long_text"})
 NUMBER_TYPES = frozenset({"scale", "number"})
 CHOICE_TYPES = frozenset({"single_choice", "multiple_choice"})
+_TEXT_TYPES = TEXT_TYPES
+_NUMBER_TYPES = NUMBER_TYPES
+_CHOICE_TYPES = CHOICE_TYPES
+_QUESTION_FIELD_RE = re.compile(r"^question_(\d+)(?:_option_\d+_text)?$")
+
+
+def resolve_persona_for_questionnaire(questionnaire, *, personas_by_questionnaire=None):
+    """Return the first active persona assigned to ``questionnaire``, if any."""
+    if questionnaire is None:
+        return None
+    if personas_by_questionnaire is not None:
+        return personas_by_questionnaire.get(questionnaire.pk)
+    return (
+        Persona.objects.filter(default_questionnaire=questionnaire, is_active=True)
+        .order_by("order", "name")
+        .first()
+    )
+
+
+def persona_map_by_questionnaire():
+    """Return ``questionnaire_id -> first active Persona`` for bulk callers."""
+    mapping = {}
+    personas = Persona.objects.filter(
+        is_active=True,
+        default_questionnaire_id__isnull=False,
+    ).order_by("order", "name")
+    for persona in personas:
+        mapping.setdefault(persona.default_questionnaire_id, persona)
+    return mapping
 
 
 def build_response_questions(response):
@@ -49,6 +81,10 @@ def field_name(question):
 
 def option_text_field_name(question, option):
     return f"question_{question.pk}_option_{option.pk}_text"
+
+
+_field_name = field_name
+_option_text_field_name = option_text_field_name
 
 
 class AnswerSaveError(Exception):
@@ -221,3 +257,26 @@ def find_unanswered_required(response):
         elif question.question_type in CHOICE_TYPES and not answer.selected_options.exists():
             missing.append(question)
     return missing
+
+
+def has_any_answer(response):
+    """Return whether the response has any non-empty answer."""
+    answers = response.answers.prefetch_related("selected_options")
+    for answer in answers:
+        if answer.text_value and answer.text_value.strip():
+            return True
+        if answer.number_value is not None:
+            return True
+        if answer.selected_options.all():
+            return True
+    return False
+
+
+def posted_stale_question_fields(response, post_data):
+    """Return whether POST data references a question outside this response."""
+    current_ids = set(response.response_questions.values_list("pk", flat=True))
+    for key in post_data:
+        match = _QUESTION_FIELD_RE.match(key)
+        if match and int(match.group(1)) not in current_ids:
+            return True
+    return False

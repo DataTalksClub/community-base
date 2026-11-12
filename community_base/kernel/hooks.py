@@ -14,6 +14,13 @@ def resolve(dotted_path: str):
     return import_string(dotted_path)
 
 
+def configured_callable(name: str):
+    """The callable configured under ``COMMUNITY_BASE[name]``, or ``None``."""
+
+    target = get(name)
+    return resolve(target) if isinstance(target, str) else target
+
+
 @dataclass(frozen=True)
 class Hook:
     """Descriptor resolving a callable configured through ``COMMUNITY_BASE``."""

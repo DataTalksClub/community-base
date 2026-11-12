@@ -1,11 +1,11 @@
 from dataclasses import asdict, dataclass, field
 
-from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
 from community_base.accounts.models import EmailAlias, EmailChangeRequest, MemberProfile
 from community_base.accounts.services.email_resolution import normalize_email
+from community_base.accounts.services.privacy import optional_model
 from community_base.kernel.conf import get
 from community_base.kernel.hooks import resolve
 
@@ -32,15 +32,8 @@ class MergePlan:
         return asdict(self)
 
 
-def _model(label, name):
-    try:
-        return apps.get_model(label, name)
-    except LookupError:
-        return None
-
-
 def _move_queryset(plan, label, name, field_name, secondary, canonical):
-    model = _model(label, name)
+    model = optional_model(label, name)
     if model is None:
         return
     count = model.objects.filter(**{field_name: secondary}).update(**{field_name: canonical})
@@ -49,7 +42,7 @@ def _move_queryset(plan, label, name, field_name, secondary, canonical):
 
 
 def _revoke_and_move_api_keys(plan, secondary, canonical):
-    model = _model("cb_api", "APIKey")
+    model = optional_model("cb_api", "APIKey")
     if model is None:
         return
     queryset = model.objects.filter(user=secondary)
@@ -98,7 +91,7 @@ def _merge_profile(plan, canonical, secondary):
 
 
 def _merge_email_addresses(plan, canonical, secondary):
-    model = _model("account", "EmailAddress")
+    model = optional_model("account", "EmailAddress")
     if model is None:
         return
     canonical_emails = {

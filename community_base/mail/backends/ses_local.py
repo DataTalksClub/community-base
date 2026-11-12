@@ -7,7 +7,6 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
 
-import frontmatter
 import markdown
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
@@ -17,9 +16,10 @@ from markdown.extensions import Extension
 from markdown.treeprocessors import Treeprocessor
 
 from community_base.config import get as get_config
+from community_base.content_sync.documents import parse_front_matter
 from community_base.jobs.runner import PermanentJobError, RetryableJobError
 from community_base.kernel.conf import get
-from community_base.kernel.hooks import resolve
+from community_base.kernel.hooks import configured_callable
 from community_base.mail.models import EmailDelivery
 from community_base.mail.template_keys import TEMPLATE_KEY_PATTERN as TEMPLATE_KEY_PATTERN
 
@@ -252,7 +252,7 @@ def _plain_text(
 def _load_template_source(template_key: str) -> tuple[str, str, str]:
     if not TEMPLATE_KEY_PATTERN.fullmatch(template_key):
         raise PermanentJobError("invalid_mail_template_key")
-    loader = _hook("MAIL_TEMPLATE_OVERRIDE_LOADER")
+    loader = configured_callable("MAIL_TEMPLATE_OVERRIDE_LOADER")
     override = loader(template_key) if loader else None
     if override is not None:
         if not isinstance(override, (tuple, list)) or len(override) not in {2, 3}:
@@ -266,11 +266,13 @@ def _load_template_source(template_key: str) -> tuple[str, str, str]:
     path = Path(root) / f"{template_key}.md"
     if not path.is_file():
         raise PermanentJobError("mail_template_not_found")
-    post = frontmatter.load(path)
+    metadata, body, _, problems = parse_front_matter(path.read_text(encoding="utf-8"))
+    if problems:
+        raise PermanentJobError("invalid_mail_template_front_matter")
     return (
-        str(post.metadata.get("subject", template_key)),
-        post.content,
-        str(post.metadata.get("footer_note", "")),
+        str(metadata.get("subject", template_key)),
+        body.strip(),
+        str(metadata.get("footer_note", "")),
     )
 
 
@@ -383,7 +385,7 @@ def _update_failure(delivery: EmailDelivery, state: str, reason: str) -> None:
 
 
 def _record(delivery: EmailDelivery, rendered: RenderedEmail, result: SESResult) -> None:
-    recorder = _hook("MAIL_SEND_RECORDER")
+    recorder = configured_callable("MAIL_SEND_RECORDER")
     if recorder:
         recorder(delivery, rendered, result)
 
@@ -393,7 +395,7 @@ def _unsubscribe_url(delivery: EmailDelivery) -> str | None:
 
 
 def _optional_url(hook_name: str, delivery: EmailDelivery) -> str | None:
-    builder = _hook(hook_name)
+    builder = configured_callable(hook_name)
     if not builder:
         return None
     value = builder(delivery)
@@ -402,11 +404,6 @@ def _optional_url(hook_name: str, delivery: EmailDelivery) -> str | None:
     if not isinstance(value, str) or urlparse(value).scheme not in {"http", "https"}:
         raise PermanentJobError("invalid_mail_action_url")
     return value
-
-
-def _hook(name: str):
-    value = get(name)
-    return resolve(value) if isinstance(value, str) else value
 
 
 def _display_name(delivery: EmailDelivery) -> str:

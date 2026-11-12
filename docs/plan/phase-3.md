@@ -202,6 +202,42 @@ Done when
 Docs
 - `community_base/questionnaires/README.md`, `docs/plan/phase-3.md`, `docs/plan/STATUS.md`.
 
+## C3.2b Complete questionnaire service and runtime hooks
+
+Repository: community-base. Depends on: C3.2a. Freeze required: no.
+
+Goal
+- Provide the shared questionnaire service helpers and AI/configuration seams needed for AISL to
+  replace its fork while keeping site-owned provider, settings, notification and audit behavior.
+
+Read first
+- `community_base/questionnaires/services.py`, `ai_backend.py`, `onboarding.py` and
+  `services_onboarding_ai.py`.
+- AISL `questionnaires/services.py`, `integrations/services/llm/` and `website/settings.py`.
+
+Steps
+1. Add the missing persona lookup, answered-state and stale-post helpers to the shared service
+   module, retaining its field-name aliases.
+2. Add an optional provider backend hook and resolve provider identity through that hook. Keep the
+   built-in provider behavior as the default and allow callable onboarding configuration values.
+3. Add focused tests for the new helpers, backend hook and callable configuration values.
+4. Document the shared helper and hook contracts.
+
+Verification
+- `uv run pytest tests/questionnaires tests/test_boundaries.py` passes with the AI extra installed.
+- Package lint, format, Django checks and migration checks pass; no schema changes are generated.
+- P16 cross-repo CI passes for both AISL and DTC against the in-progress package.
+
+Done when
+- [ ] Shared helpers cover the current AISL service contracts, including stale question IDs.
+- [ ] Sites can supply an LLM backend and dynamic provider/model identity without changing the
+  package default provider.
+- [ ] Package and both consumer checks pass, with no migration changes.
+- [ ] The package release is available before AISL pins and adopts it.
+
+Docs
+- `community_base/questionnaires/README.md`, `docs/plan/phase-3.md`, `docs/plan/STATUS.md`.
+
 ## C3.3 Onboarding flows
 
 Repository: community-base. Depends on: C3.1e, C3.2.

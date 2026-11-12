@@ -2,7 +2,7 @@ import uuid
 from datetime import timedelta
 
 import requests
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -24,14 +24,17 @@ from community_base.events.models import (
 )
 from community_base.events.registration import expire_pending_registrations
 from community_base.events.reminders import (
+    REASON_PATTERN,
     claim_due_reminders,
     complete_reminder,
+    fail_reminder,
     plan_event_reminders,
 )
 from community_base.jobs.dispatch import dispatch_after_commit
 from community_base.jobs.registry import JobContext, JobPayload, register_handler, schedule
 from community_base.jobs.runner import PermanentJobError, RetryableJobError
 from community_base.mail import send
+from community_base.mail.service import MailConflict, MailError
 
 
 def _uuid(value, code):
@@ -108,50 +111,94 @@ def plan_reminders_handler(context: JobContext, payload: JobPayload):
             )
 
 
+def _reminder_failure_reason(error: Exception) -> str:
+    if (
+        isinstance(error, PermanentJobError)
+        and REASON_PATTERN.fullmatch(error.code)
+        and error.code[0].isalpha()
+    ):
+        return error.code
+    if isinstance(error, MailConflict):
+        return "mail_conflict"
+    if isinstance(error, MailError):
+        return "mail_error"
+    if isinstance(error, ImproperlyConfigured):
+        return "mail_not_configured"
+    if isinstance(error, ValidationError):
+        return "invalid_reminder_delivery"
+    return "event_reminder_send_failed"
+
+
 @register_handler("events.send_reminder")
 def send_reminder_handler(context: JobContext, payload: JobPayload):
     del context
     reminder_id = _uuid(payload.get("reminder_id"), "invalid_event_reminder_payload")
-    with transaction.atomic():
-        reminder = (
-            EventReminder.objects.select_for_update()
-            .select_related("registration__event", "registration__user")
-            .filter(pk=reminder_id)
-            .first()
-        )
-        if reminder is None:
-            raise PermanentJobError("event_reminder_not_found")
-        if reminder.status in {EventReminder.Status.SENT, EventReminder.Status.SKIPPED}:
-            return
-        registration = reminder.registration
-        if (
-            reminder.status != EventReminder.Status.CLAIMED
-            or registration.version != reminder.registration_version
-            or registration.status != EventRegistration.Status.CONFIRMED
-        ):
-            raise PermanentJobError("event_reminder_stale")
-        if registration.event.status != "upcoming":
-            reminder.status = EventReminder.Status.SKIPPED
-            reminder.reason = "event_inactive"
-            reminder.completed_at = timezone.now()
-            reminder.save(update_fields=("status", "reason", "completed_at", "updated_at"))
-            return
-        delivery = send(
-            "events.reminder",
-            registration.normalized_email,
-            {
-                "registration_id": str(registration.pk),
-                "registration_version": registration.version,
-                "event_id": registration.event_id,
-                "event_title": registration.event.title,
-                "interval": reminder.interval,
-            },
-            f"events.reminder:{reminder.pk}",
-            category="events",
-            user=registration.user,
-            related=reminder,
-        )
-        complete_reminder(reminder.pk, delivery)
+    claimed = False
+    try:
+        with transaction.atomic():
+            reminder = (
+                EventReminder.objects.select_for_update()
+                .select_related("registration__event", "registration__user")
+                .filter(pk=reminder_id)
+                .first()
+            )
+            if reminder is None:
+                raise PermanentJobError("event_reminder_not_found")
+            if reminder.status in {EventReminder.Status.SENT, EventReminder.Status.SKIPPED}:
+                return
+            if reminder.status == EventReminder.Status.FAILED:
+                reason = (
+                    reminder.reason
+                    if reminder.reason
+                    and REASON_PATTERN.fullmatch(reminder.reason)
+                    and reminder.reason[0].isalpha()
+                    else "event_reminder_failed"
+                )
+                raise PermanentJobError(reason)
+            if reminder.status != EventReminder.Status.CLAIMED:
+                raise PermanentJobError("event_reminder_stale")
+            claimed = True
+            registration = reminder.registration
+            if (
+                registration.version != reminder.registration_version
+                or registration.status != EventRegistration.Status.CONFIRMED
+            ):
+                raise PermanentJobError("event_reminder_stale")
+            if registration.event.status != "upcoming":
+                reminder.status = EventReminder.Status.SKIPPED
+                reminder.reason = "event_inactive"
+                reminder.completed_at = timezone.now()
+                reminder.save(update_fields=("status", "reason", "completed_at", "updated_at"))
+                return
+            delivery = send(
+                "events.reminder",
+                registration.normalized_email,
+                {
+                    "registration_id": str(registration.pk),
+                    "registration_version": registration.version,
+                    "event_id": registration.event_id,
+                    "event_title": registration.event.title,
+                    "interval": reminder.interval,
+                },
+                f"events.reminder:{reminder.pk}",
+                category="events",
+                user=registration.user,
+                related=reminder,
+            )
+            complete_reminder(reminder.pk, delivery)
+    except (
+        PermanentJobError,
+        MailError,
+        ImproperlyConfigured,
+        ValidationError,
+    ) as error:
+        if not claimed:
+            raise
+        reason = _reminder_failure_reason(error)
+        fail_reminder(reminder_id, reason=reason)
+        if isinstance(error, PermanentJobError) and error.code == reason:
+            raise
+        raise PermanentJobError(reason) from error
 
 
 @register_handler("events.notify_cancellation")

@@ -62,10 +62,6 @@ def _nav_key(page: KnowledgeBasePage) -> tuple[int, str, str]:
     return page.nav_order, page.title.casefold(), page.slug
 
 
-def _raise_hierarchy_error(code: str, page: KnowledgeBasePage) -> ImproperlyConfigured:
-    return ImproperlyConfigured(f"Knowledge base hierarchy {code}: {page.slug}")
-
-
 def published_pages(section: str) -> QuerySet[KnowledgeBasePage]:
     """The published rows of one section, in the model's canonical order."""
 
@@ -193,21 +189,3 @@ def sequential_navigation(
     previous = items[index - 1].page if index else None
     following = items[index + 1].page if index + 1 < len(items) else None
     return previous, following
-
-
-def sibling_navigation(
-    page: KnowledgeBasePage,
-) -> tuple[KnowledgeBasePage | None, KnowledgeBasePage | None]:
-    """Adjacent siblings in sibling order: (previous, next)."""
-
-    siblings = list(
-        published_pages(page.section)
-        .filter(parent_id=page.parent_id)
-        .order_by("nav_order", Lower("title"), "slug")
-    )
-    for index, sibling in enumerate(siblings):
-        if sibling.pk == page.pk:
-            previous = siblings[index - 1] if index else None
-            following = siblings[index + 1] if index + 1 < len(siblings) else None
-            return previous, following
-    return None, None

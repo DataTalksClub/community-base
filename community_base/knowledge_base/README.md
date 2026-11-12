@@ -234,9 +234,9 @@ sanitizer on every save.
   title, then slug. Index it by `by_pk`; `by_slug` is a convenience for a
   section whose slugs are unique and holds only one page of a repeated
   slug. Also `wiki_pages()` (flat, A-Z by title), `children_of`,
-  `breadcrumbs`, `sequential_navigation`, `sibling_navigation`,
-  `published_pages`. A published page under a draft parent renders as a
-  top-level page; a parent cycle raises `ImproperlyConfigured`.
+  `breadcrumbs`, `sequential_navigation`, `published_pages`. A published page
+  under a draft parent renders as a top-level page; a parent cycle raises
+  `ImproperlyConfigured`.
 - `search`: `search_pages(query, section=None, limit=100)` (terms ANDed,
   case-insensitive, over title, summary and plain-text body),
   `search_corpus(section=None)`, `corpus_stamp()` for cache keys. Search is

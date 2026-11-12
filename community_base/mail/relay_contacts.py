@@ -7,7 +7,7 @@ from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.validators import validate_email, validate_slug
 
 from community_base.kernel.conf import get
-from community_base.mail.relay import (
+from community_base.kernel.relay import (
     DEFAULT_TIMEOUT_SECONDS,
     RETRYABLE_HTTP_STATUSES,
     RequestsTransport,

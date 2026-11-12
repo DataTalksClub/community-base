@@ -114,7 +114,17 @@ Hooks:
   suppresses globally unsubscribed users, permanent bounces and categories explicitly set false;
   users without shared preference fields remain allowed for composability.
 - `MAIL_SEND_RECORDER`: optional callable `(delivery, rendered, result)` for transitional audit
-  integration.
+  integration. The Relay backend previews the same published version and context before sending,
+  then calls the recorder in the database transaction that marks the delivery provider-accepted.
+  `rendered.subject` is therefore the subject Relay rendered for that immutable version. A recorder
+  failure rolls back both its database writes and the delivery transition; the retry uses Relay's
+  idempotency key and does not create a second provider message.
+- `MAIL_TEMPLATE_VERSION_RESOLVER`: optional callable `(template_key) -> positive int`. The
+  selected version is persisted when the durable delivery is created. With no resolver, version
+  `1` remains the default. A queued worker retry and an exact `send()` replay use the version already
+  stored on that delivery, even after a release changes or temporarily breaks the resolver. Other
+  immutable input changes still conflict. A new logical send uses a new idempotency key and resolves
+  the current version policy.
 - `MAIL_TEMPLATE_OVERRIDE_LOADER`: optional callable `(template_key) -> (subject, body) | None`.
   Transitional sites may return `(subject, body, footer_note)` to preserve their existing footer.
 - `MAIL_UNSUBSCRIBE_URL_BUILDER`: optional callable `(delivery) -> str | None` used only by the

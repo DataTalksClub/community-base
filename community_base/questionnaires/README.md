@@ -54,6 +54,12 @@ Questionnaire and persona content is site-owned. Seed each site's questionnaires
 in a site migration or an idempotent site command. The package doesn't install AISL's named
 personas or onboarding copy.
 
+The service module also exposes `resolve_persona_for_questionnaire`,
+`persona_map_by_questionnaire`, `has_any_answer` and `posted_stale_question_fields`. The last helper
+rejects posted question IDs that are no longer present in a response after its question set is
+rerouted. `field_name` and `option_text_field_name` are the public form-name builders; the underscored
+names remain aliases for existing site callers.
+
 ## Studio operations
 
 Staff can author questionnaire metadata, questions, options and personas. JSON endpoints reorder
@@ -101,9 +107,7 @@ single persona keeps all its questions in its own delta block. Prompts,
 signals, descriptions and choice labels are copied into the result without
 escaping or validation; package constructors validate only when used;
 callers provide trusted, member-safe content. The renderer has no Django,
-provider, configuration or database access. The old private import
-`_render_persona_catalog` remains an alias for existing callers, but new
-integrations should use the public name.
+provider, configuration or database access.
 
 Install the optional provider dependencies only on sites that enable AI onboarding:
 
@@ -118,6 +122,10 @@ Configure these keys inside `COMMUNITY_BASE`.
 - `AI_BASE_URL`: selects the Anthropic-compatible API origin. It defaults to
   `"https://api.anthropic.com"`.
 - `AI_MODEL`: selects the provider model. It defaults to `"claude-sonnet-4-5"`.
+- `AI_BACKEND`: optional dotted path to a module or backend object implementing `is_enabled()`,
+  `complete(...)` and `stream(...)`. Its optional `provider_identity()` returns the provider and
+  model recorded on a turn. Without that method, the recorded identity is empty. When unset, the
+  package uses its built-in Anthropic backend.
 - `AI_MAX_RETRIES`: controls provider client retries. It defaults to `2`.
 - `AI_ONBOARDING_DEADLINE_SECONDS`: sets the whole-turn deadline. It defaults to `25`.
 - `AI_ONBOARDING_MAX_ATTEMPTS`: limits application-level turn attempts. It defaults to `2`.
@@ -129,6 +137,8 @@ Configure these keys inside `COMMUNITY_BASE`.
 
 The package imports the Anthropic client only when it makes a configured provider call. Base
 installations can import and mount questionnaire routes without `anthropic` or Pydantic.
+The deadline and attempt settings may be zero-argument callables so a site can resolve its own
+runtime settings at call time.
 
 Each `OnboardingConversation` stores the canonical transcript and a monotonic turn version.
 `OnboardingTurnAttempt` provides request idempotency, a single-processing-turn constraint, leases,

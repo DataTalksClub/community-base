@@ -21,6 +21,7 @@ from community_base.events.routing import event_url
 from community_base.events.services import can_register_for_event
 from community_base.events.tokens import RegistrationTokenError
 from community_base.kernel.conf import get
+from community_base.kernel.responses import no_store
 
 PUBLIC_STATUSES = ("upcoming", "completed")
 # A cancelled event keeps its own detail page so guests with the link see the
@@ -30,8 +31,7 @@ DETAIL_STATUSES = (*PUBLIC_STATUSES, "cancelled")
 
 
 def _private(response):
-    response["Cache-Control"] = "private, no-store, max-age=0"
-    response["Pragma"] = "no-cache"
+    no_store(response)
     response["Referrer-Policy"] = "no-referrer"
     patch_vary_headers(response, ("Cookie",))
     return response

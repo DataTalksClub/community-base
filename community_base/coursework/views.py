@@ -43,6 +43,7 @@ from community_base.coursework.models import (
 )
 from community_base.coursework.project_form_fields import CLOSED_MESSAGE
 from community_base.curriculum.models import Cohort, Enrollment
+from community_base.curriculum.services import ensure_enrollment
 
 CRITERIA_ANSWER_PREFIX = "criteria_"
 PROJECT_OUTCOME_MESSAGES = {
@@ -170,7 +171,7 @@ def project_view(request, course_slug: str, cohort_identifier: str, project_slug
     if request.user.is_authenticated:
         # Donor parity: unlike the homework page, an authenticated GET
         # get-or-creates the enrollment.
-        enrollment, _created = leaderboard.ensure_enrollment(cohort, request.user)
+        enrollment, _created = ensure_enrollment(request.user, cohort)
 
     if request.method == "POST":
         outcome = project_submission_flow.process_project_submission(request, project, enrollment)

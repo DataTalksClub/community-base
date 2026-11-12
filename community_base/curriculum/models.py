@@ -25,8 +25,8 @@ from community_base.curriculum.enrollment_sources import (
 from community_base.curriculum.enrollment_sources import SOURCE_MANUAL as SOURCE_MANUAL
 from community_base.curriculum.rendering import render_annotated_markdown
 from community_base.curriculum.validators import (
-    SHA1_PATTERN,
-    SHA256_PATTERN,
+    SHA1_BODY,
+    SHA256_BODY,
     repository_branch_validator,
     repository_component_validator,
     sha1_validator,
@@ -48,10 +48,6 @@ BODY_HTML_SOURCE_CHOICES = (
     (BODY_HTML_MARKDOWN, "Rendered from the markdown body"),
     (BODY_HTML_SITE, "Supplied by the parser"),
 )
-
-# App-neutral home; re-exported here for compatibility with existing imports.
-_SHA1_BODY = SHA1_PATTERN.strip("^$")
-_SHA256_BODY = SHA256_PATTERN.strip("^$")
 
 STATUS_CHOICES = (
     ("draft", "Draft"),
@@ -706,12 +702,12 @@ class CurriculumImportRun(models.Model):
                 name="cb_curriculum_import_identity_uq",
             ),
             models.CheckConstraint(
-                condition=Q(commit_sha__regex=_SHA1_BODY),
+                condition=Q(commit_sha__regex=SHA1_BODY),
                 name="cb_curriculum_import_commit_ck",
             ),
             models.CheckConstraint(
                 condition=Q(manifest_checksum__isnull=True)
-                | Q(manifest_checksum__regex=_SHA256_BODY),
+                | Q(manifest_checksum__regex=SHA256_BODY),
                 name="cb_curriculum_import_manifest_ck",
             ),
             models.CheckConstraint(

@@ -3,8 +3,7 @@
 Moved out of ``community_base.curriculum.models`` so apps like the
 knowledge base can carry provenance on sites that do not install the
 curriculum app: this module defines no concrete models, so importing it
-never requires an app registry entry. ``curriculum.models`` re-exports
-the mixin and constraint for compatibility with existing imports.
+never requires an app registry entry.
 """
 
 from django.core.exceptions import ValidationError
@@ -12,16 +11,13 @@ from django.db import models
 from django.db.models import Q
 
 from community_base.curriculum.validators import (
-    SHA1_PATTERN,
-    SHA256_PATTERN,
+    SHA1_BODY,
+    SHA256_BODY,
     sha1_validator,
     sha256_validator,
     source_path_validator,
     validate_source_path,
 )
-
-_SHA1_BODY = SHA1_PATTERN.strip("^$")
-_SHA256_BODY = SHA256_PATTERN.strip("^$")
 
 
 def provenance_constraint(*, name: str, identity_fields: tuple[str, ...] = ("source_content_id",)):
@@ -30,8 +26,8 @@ def provenance_constraint(*, name: str, identity_fields: tuple[str, ...] = ("sou
     fields = (*identity_fields, "source_path", "source_commit_sha", "source_checksum")
     absent = Q(**{f"{field}__isnull": True for field in fields})
     present = Q(**{f"{field}__isnull": False for field in fields})
-    present &= Q(source_commit_sha__regex=_SHA1_BODY)
-    present &= Q(source_checksum__regex=_SHA256_BODY)
+    present &= Q(source_commit_sha__regex=SHA1_BODY)
+    present &= Q(source_checksum__regex=SHA256_BODY)
     return models.CheckConstraint(condition=absent | present, name=name)
 
 

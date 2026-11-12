@@ -6,6 +6,8 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from community_base.config.models import Setting
+from community_base.config.registry import definitions
 from community_base.events.models import (
     VISIBILITY_HIDDEN,
     Event,
@@ -180,6 +182,50 @@ def test_anonymous_registration_and_verification_pages_are_private(client):
     assert verified.status_code == 200
     assert "no-store" in verified["Cache-Control"]
     assert row.status == EventRegistration.Status.CONFIRMED
+
+
+def test_event_kernel_settings_are_not_in_config_registry_and_honour_community_base(
+    client, settings
+):
+    event_group_keys = [item.key for item in definitions() if item.group == "events"]
+    assert event_group_keys == ["EVENT_ORGANIZER_EMAIL", "EVENT_ORGANIZER_NAME"]
+
+    Setting.objects.create(key="EVENT_URL_STYLE", value="slug", value_type="str", source="studio")
+    Setting.objects.create(
+        key="EVENT_PRIVACY_NOTICE_VERSION", value="db-privacy", value_type="str", source="studio"
+    )
+    Setting.objects.create(
+        key="EVENT_NEWSLETTER_CONSENT_VERSION",
+        value="db-newsletter",
+        value_type="str",
+        source="studio",
+    )
+    item = event()
+
+    with override_settings(
+        COMMUNITY_BASE=configured(
+            settings,
+            EVENT_URL_STYLE="public_id",
+            EVENT_PRIVACY_NOTICE_VERSION="2026-10",
+            EVENT_NEWSLETTER_CONSENT_VERSION="2026-11",
+        )
+    ):
+        assert event_url(item) == "/events/17/portable-event/"
+        response = client.post(
+            reverse("event_register", kwargs={"public_id": item.public_id, "slug": item.slug}),
+            {
+                "email": "consent@example.com",
+                "display_name": "Consent Guest",
+                "privacy_acknowledged": "on",
+                "newsletter_consent": "on",
+            },
+        )
+
+    row = EventRegistration.objects.get(event=item, normalized_email="consent@example.com")
+    assert response.status_code == 200
+    assert row.privacy_notice_version == "2026-10"
+    assert row.newsletter_consent is True
+    assert row.newsletter_consent_version == "2026-11"
 
 
 def test_invalid_anonymous_registration_response_is_private(client):

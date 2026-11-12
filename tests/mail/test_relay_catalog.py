@@ -51,7 +51,7 @@ def test_catalog_preview_and_allowlisted_test_send(catalog):
     ("method", "response"),
     [
         ("templates", FakeResponse(200, {"templates": "bad"})),
-        ("preview", FakeResponse(200, {"rendered": {"subject": "incomplete"}})),
+        ("preview", FakeResponse(200, {"subject": "incomplete"})),
         ("publish", FakeResponse(201, {"version": {"version": 0}})),
     ],
 )

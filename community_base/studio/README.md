@@ -255,10 +255,9 @@ adapter before enabling tag edits on a user model without that attribute.
 
 ## Templates
 
-Shared Studio pages extend `community_base/studio/base.html`. The compatibility template
-`studio/base.html` extends the same shell. The shell exposes `title`, `content`, `extra_head`,
-`extra_js`, `header_actions`, `body_start` and `studio_icon_script`, plus the AISL compatibility
-blocks `studio_title`, `studio_content` and `extra_scripts`.
+Shared Studio pages extend `community_base/studio/base.html`. The shell exposes `title`,
+`content`, `extra_head`, `extra_js`, `header_actions`, `body_start` and `studio_icon_script`, plus
+the AISL compatibility blocks `studio_title`, `studio_content` and `extra_scripts`.
 
 `body_start` ships empty and `studio_icon_script` ships exactly the one script tag described
 below, so a site that overrides neither renders what it rendered before they existed.

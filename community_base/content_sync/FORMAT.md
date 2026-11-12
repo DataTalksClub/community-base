@@ -784,9 +784,9 @@ process exits 1 when any error was reported, and 0 when only warnings were.
 ## 4.2 Where rendering lives and who owns what
 
 - `community_base/content_sync/rendering.py` owns `render_document`, `inject_heading_ids`,
-  `sanitize_rendered_html` and `plain_text`. `curriculum/rendering.py` and
-  `knowledge_base/rendering.py` become thin imports of it. This is issue C7.8; C7.7 ships the rule,
-  not the module.
+  `sanitize_rendered_html` and `plain_text`. `knowledge_base/rendering.py` is a thin import of it,
+  and `curriculum/rendering.py` layers `render_annotated_markdown` on top of its `render_markdown`.
+  This is issue C7.8; C7.7 ships the rule, not the module.
   Its `html_policy.py` module owns the one allowlist and image-source admission rules; the public
   rendering imports remain unchanged.
 - Rendering runs in the sync job through the parser toolkit, never in a model `save()`. The page

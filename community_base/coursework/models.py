@@ -570,7 +570,10 @@ class ReviewCriteria(models.Model):
     ``cohort`` is retained as nullable, deprecated provenance for rows created
     by the legacy cohort-wide rubric. New integrations must use
     :class:`ProjectCriteriaAssignment`; this field is not the operational
-    ownership boundary and may be empty for newly defined criteria.
+    ownership boundary and may be empty for newly defined criteria. The field
+    and the cohort-wide fallback in ``criteria_for_project`` are transitional
+    under decision D43; C5.2s retires them once course adoption completes on
+    both sites.
     """
 
     cohort = models.ForeignKey(
@@ -671,9 +674,11 @@ class ProjectCriteriaAssignment(models.Model):
 def criteria_for_project(project):
     """Return the ordered rubric for one project.
 
-    Module cohorts are strict: only explicit ProjectCriteriaAssignment rows
-    are accepted. Legacy cohorts retain a narrow compatibility adapter for
-    fixtures and rows created before the backfill.
+    Explicit ProjectCriteriaAssignment rows win; a project without any falls
+    back to the criteria recorded on its cohort. The fallback is transitional
+    under decision D43: consumers materialize explicit assignments during
+    adoption, and C5.2s removes the fallback and the deprecated cohort
+    provenance afterwards.
     """
 
     if not getattr(project, "pk", None):
@@ -686,9 +691,6 @@ def criteria_for_project(project):
         "project_assignments__id",
     )
     if assigned.exists():
-        return assigned
-
-    if getattr(project.cohort, "curriculum_format", "legacy") != "legacy":
         return assigned
 
     return ReviewCriteria.objects.filter(
