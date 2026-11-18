@@ -1,4 +1,4 @@
-from django.apps import AppConfig
+from django.apps import AppConfig, apps
 
 from community_base.kernel.conf import get
 
@@ -40,6 +40,15 @@ class CourseworkConfig(AppConfig):
         # other import of pooling.py is a lazy, function-local import to break an import cycle
         # with review.py/projects.py -- see those modules for why).
         from community_base.coursework import pooling, reminders  # noqa: F401
+
+        if apps.is_installed("community_base.content_sync"):
+            from community_base.content_sync.parsers import register_parser
+            from community_base.coursework.content_sync_parsers import (
+                CONTENT_TYPE,
+                ReviewCriteriaParser,
+            )
+
+            register_parser(CONTENT_TYPE, ReviewCriteriaParser())
 
         if member_api_enabled():
             from community_base.coursework import api_views  # noqa: F401

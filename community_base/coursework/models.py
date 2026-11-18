@@ -456,6 +456,13 @@ class Project(models.Model):
     def get_review_criteria(self):
         return self.criteria_for_project()
 
+    @property
+    def criteria_set(self):
+        try:
+            return self.criteria_set_assignment.criteria_set
+        except ProjectCriteriaSetAssignment.DoesNotExist:
+            return None
+
 
 class SubmissionReviewState(Enum):
     AWAITING_ASSIGNMENT = "AW"
@@ -669,6 +676,64 @@ class ProjectCriteriaAssignment(models.Model):
     @property
     def review_criteria(self):
         return self.criteria
+
+
+class ReviewCriteriaSet(SourceProvenanceMixin, models.Model):
+    """A standalone reusable peer-review criteria set, synced via git/YAML or Studio."""
+
+    STATUS_DRAFT = "draft"
+    STATUS_PUBLISHED = "published"
+    STATUS_CHOICES = (
+        (STATUS_DRAFT, "Draft"),
+        (STATUS_PUBLISHED, "Published"),
+    )
+
+    source_id = models.UUIDField(null=True, blank=True, db_index=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    criteria = models.JSONField(default=list)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PUBLISHED)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("slug",)
+        constraints = [
+            provenance_constraint(name="cb_coursework_reviewcriteriaset_provenance"),
+        ]
+
+    def __str__(self):
+        return self.title or self.slug
+
+    def clean(self):
+        super().clean()
+        from community_base.coursework.project_criteria import CriteriaError, require_criteria
+
+        try:
+            self.criteria = require_criteria(self.criteria, self.slug or "review_criteria")
+        except CriteriaError as error:
+            raise ValidationError({"criteria": str(error)}) from None
+
+
+class ProjectCriteriaSetAssignment(models.Model):
+    """Binds a project to its required standalone :class:`ReviewCriteriaSet`."""
+
+    project = models.OneToOneField(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="criteria_set_assignment",
+    )
+    criteria_set = models.ForeignKey(
+        ReviewCriteriaSet,
+        on_delete=models.PROTECT,
+        related_name="project_assignments",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.project} -> {self.criteria_set}"
 
 
 def criteria_for_project(project):

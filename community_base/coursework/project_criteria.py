@@ -1,13 +1,23 @@
-"""Structured project evaluation criteria authored as YAML in course.yaml."""
+"""Structured project evaluation criteria authored as YAML.
+
+Supports both standalone reusable criteria sets (synced via git/YAML) and
+per-project required criteria references.
+"""
 
 import re
+from collections.abc import Iterable, Mapping
 
 CRITERION_TYPES = ("scale", "checklist")
+CRITERIA_REF_PREFIX = "review_criteria:"
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
 class CriteriaError(ValueError):
     """Invalid authored criteria; sync layers convert it to their sync error."""
+
+
+class MissingProjectCriteriaError(CriteriaError):
+    """Raised when a project has no review criteria set referenced or assigned."""
 
 
 def parse_criteria(raw, where: str) -> list[dict]:
@@ -181,3 +191,168 @@ def settle_completion(reviews, criteria: list[dict]) -> list:
                 elif hasattr(review, "state"):
                     review.state = "TR"
     return reviews
+
+
+def require_criteria(raw, where: str) -> list[dict]:
+    """Validate a non-empty criteria list; raise CriteriaError when empty or missing."""
+    criteria = parse_criteria(raw, where)
+    if not criteria:
+        raise CriteriaError(f"{where}: criteria set must define at least one criterion")
+    return criteria
+
+
+def parse_criteria_set(raw, where: str, *, default_slug: str = "") -> dict:
+    """Validate and normalize one standalone reusable review criteria set."""
+    if not isinstance(raw, Mapping):
+        raise CriteriaError(f"{where}: criteria set must be a mapping")
+    slug = raw.get("slug") or default_slug
+    if not isinstance(slug, str) or not _ID_RE.match(slug):
+        raise CriteriaError(f"{where}: criteria set slug {slug!r} must be a lowercase slug")
+    title = raw.get("title")
+    if not isinstance(title, str) or not title.strip():
+        raise CriteriaError(f"{where}: criteria set {slug!r} requires a title")
+    criteria = require_criteria(raw.get("criteria"), where)
+    parsed = {
+        "slug": slug,
+        "title": title.strip(),
+        "description": str(raw.get("description") or "").strip(),
+        "criteria": criteria,
+    }
+    if "content_id" in raw and raw["content_id"] is not None:
+        parsed["content_id"] = str(raw["content_id"]).strip()
+    return parsed
+
+
+def normalize_criteria_ref(ref: str) -> str:
+    """Normalize a project's criteria reference (strips ``review_criteria:`` prefix)."""
+    cleaned = ref.strip()
+    if cleaned.startswith(CRITERIA_REF_PREFIX):
+        return cleaned[len(CRITERIA_REF_PREFIX) :]
+    return cleaned
+
+
+def resolve_project_criteria(
+    ref: str | None,
+    criteria_sets: Mapping[str, list[dict] | Mapping],
+    *,
+    where: str,
+) -> list[dict]:
+    """Resolve a project's required criteria set reference against available criteria sets."""
+    if not isinstance(ref, str) or not ref.strip():
+        raise MissingProjectCriteriaError(f"{where}: project must reference a review criteria set")
+    key = normalize_criteria_ref(ref)
+    if key not in criteria_sets:
+        raise MissingProjectCriteriaError(f"{where}: unknown review criteria set {ref!r}")
+    entry = criteria_sets[key]
+    criteria = entry["criteria"] if isinstance(entry, Mapping) and "criteria" in entry else entry
+    if not criteria:
+        raise CriteriaError(f"{where}: review criteria set {key!r} has no criteria")
+    return list(criteria)
+
+
+def _extract_project_ref(project) -> tuple[str, str | None]:
+    if isinstance(project, Mapping):
+        name = str(project.get("slug") or project.get("id") or project.get("title") or "<project>")
+        ref = (
+            project.get("criteria") or project.get("review_criteria") or project.get("criteria_set")
+        )
+        return name, ref
+    name = str(
+        getattr(project, "slug", None)
+        or getattr(project, "id", None)
+        or getattr(project, "title", None)
+        or "<project>"
+    )
+    ref = (
+        getattr(project, "criteria", None)
+        or getattr(project, "review_criteria", None)
+        or getattr(project, "criteria_set", None)
+    )
+    return name, ref
+
+
+def validate_project_criteria_references(
+    projects: Iterable,
+    criteria_sets: Mapping[str, list[dict] | Mapping],
+    *,
+    where: str = "projects",
+) -> dict[str, list[dict]]:
+    """Ensure every project references an existing criteria set (shared or distinct)."""
+    resolved: dict[str, list[dict]] = {}
+    for project in projects:
+        name, ref = _extract_project_ref(project)
+        resolved[name] = resolve_project_criteria(ref, criteria_sets, where=f"{where}:{name}")
+    return resolved
+
+
+def project_evaluation_criteria(project) -> list[dict]:
+    """Return a project's structured criteria list from its assigned set or inline attribute."""
+    if project is None:
+        return []
+    inline = getattr(project, "evaluation_criteria", None)
+    if inline:
+        return list(inline)
+    try:
+        assignment = project.criteria_set_assignment
+    except Exception:
+        assignment = None
+    if assignment is not None:
+        criteria_set = getattr(assignment, "criteria_set", None)
+        if criteria_set is not None and getattr(criteria_set, "criteria", None):
+            return list(criteria_set.criteria)
+    return []
+
+
+def require_project_criteria(project) -> list[dict]:
+    """Return a project's structured criteria list, or raise MissingProjectCriteriaError."""
+    criteria = project_evaluation_criteria(project)
+    if not criteria:
+        raise MissingProjectCriteriaError(
+            f"Project {project!r} has no review criteria set assigned."
+        )
+    return criteria
+
+
+def get_project_criteria_set(project):
+    """Return the ReviewCriteriaSet assigned to ``project``, or None."""
+    from community_base.coursework.models import ProjectCriteriaSetAssignment
+
+    if project is None or not getattr(project, "pk", None):
+        return None
+    assignment = (
+        ProjectCriteriaSetAssignment.objects.filter(project_id=project.pk)
+        .select_related("criteria_set")
+        .first()
+    )
+    return assignment.criteria_set if assignment is not None else None
+
+
+def assign_project_criteria_set(project, criteria_set_or_ref):
+    """Bind ``project`` to a standalone ``ReviewCriteriaSet`` (by instance or slug).
+
+    Raises MissingProjectCriteriaError when the reference is missing/blank or
+    no matching ReviewCriteriaSet exists.
+    """
+    from community_base.coursework.models import (
+        ProjectCriteriaSetAssignment,
+        ReviewCriteriaSet,
+    )
+
+    if isinstance(criteria_set_or_ref, ReviewCriteriaSet):
+        criteria_set = criteria_set_or_ref
+    elif isinstance(criteria_set_or_ref, str) and criteria_set_or_ref.strip():
+        slug = normalize_criteria_ref(criteria_set_or_ref)
+        criteria_set = ReviewCriteriaSet.objects.filter(slug=slug).first()
+        if criteria_set is None:
+            raise MissingProjectCriteriaError(
+                f"Project {project!r}: unknown review criteria set {criteria_set_or_ref!r}."
+            )
+    else:
+        raise MissingProjectCriteriaError(
+            f"Project {project!r}: project must reference a review criteria set."
+        )
+    assignment, _created = ProjectCriteriaSetAssignment.objects.update_or_create(
+        project=project,
+        defaults={"criteria_set": criteria_set},
+    )
+    return assignment
