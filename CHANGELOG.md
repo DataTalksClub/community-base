@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.5.37
+
+- Extract peer-review, YAML criteria, commit lookup, and staff API from AISL (#422):
+  `project_criteria`, `project_results`, `peer_review_form`, `peer_pseudonym`,
+  `project_state`, `project_phase`, `github_commit`, `staff_api_views`,
+  `set_project_state` / `close_peer_review` management commands, and
+  `coursework.review_assigned` email dispatch. No migrations.
+
 - Trim `community_base.curriculum.rendering` to `render_annotated_markdown`,
   `ANNOTATED_CODE_BLOCK_TEMPLATE`, and `ANNOTATED_CODE_BLOCK_HEADING`, removing the
   re-exports of `community_base.content_sync.rendering` (`inject_heading_ids`,
