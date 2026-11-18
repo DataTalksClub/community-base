@@ -8,6 +8,20 @@
   <a href="{% url 'coursework_studio_cohort_leaderboard' homework.cohort_id %}">Cohort leaderboard</a>
 </p>
 <p>Due {{ homework.due_date|default:"no due date" }} · state {{ homework.get_state_display }}</p>
+<form method="post" action="{% url 'coursework_studio_homework_set_state' homework.pk %}">{% csrf_token %}
+  <label>State
+    <select name="state">
+    {% for state in states %}<option value="{{ state.value }}"{% if state.value == homework.state %} selected{% endif %}>{{ state.name|lower }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit">Set state</button>
+</form>
+{% if homework.state == "OP" %}
+<form method="post" action="{% url 'coursework_studio_homework_set_state' homework.pk %}">{% csrf_token %}
+  <input type="hidden" name="state" value="CL">
+  <button type="submit">Close homework</button>
+</form>
+{% endif %}
 <form method="post" action="{% url 'coursework_studio_homework_rescore' homework.pk %}">{% csrf_token %}
   <label><input type="checkbox" name="force" value="1"> force (already-scored homework)</label>
   <button type="submit">Rescore submissions</button>

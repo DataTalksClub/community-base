@@ -6,6 +6,9 @@
 - ``POST /api/v1/courses/<slug>/peer-reviews/assignments`` -- create round-robin
   peer review assignments (moves eligible dated projects to ``Peer reviewing``,
   sends ``coursework.review_assigned`` emails, and is idempotent).
+- ``GET``/``POST /api/v1/courses/<slug>/cohorts/<cohort>/homeworks/<homework>/state`` and
+  ``POST .../close`` -- read, set or close a homework's state (``homework_state``), CMP's
+  token-authenticated homework ``PATCH`` with ``state`` carried onto scoped bearer routes.
 """
 
 from django.db.models import Count, Q
@@ -14,7 +17,15 @@ from community_base.api import route
 from community_base.api.errors import APIError
 from community_base.api.registry import json_response
 from community_base.api.safety import read_json_object
+from community_base.coursework.homework_state import (
+    VALID_HOMEWORK_STATES,
+    InvalidHomeworkState,
+    close_homework,
+    set_homework_state,
+)
 from community_base.coursework.models import (
+    Homework,
+    HomeworkState,
     PeerReview,
     PeerReviewState,
     Project,
@@ -245,3 +256,130 @@ def course_peer_review_assignments(request, slug):
             "projects": [_serialize_project(p) for p in projects],
         }
     )
+
+
+# --- homework state (intake 52159dbe) ---------------------------------------
+
+HOMEWORK_PATH = (
+    "courses/<slug:course_slug>/cohorts/<slug:cohort_slug>/homeworks/<slug:homework_slug>"
+)
+STATE_SCHEMA = {"type": "string", "enum": list(VALID_HOMEWORK_STATES)}
+HOMEWORK_STATE_SCHEMA = {
+    "type": "object",
+    "required": ["id", "slug", "course_slug", "cohort_slug", "state", "state_name"],
+    "properties": {
+        "id": {"type": "integer"},
+        "slug": {"type": "string"},
+        "course_slug": {"type": "string"},
+        "cohort_slug": {"type": "string"},
+        "state": STATE_SCHEMA,
+        "state_name": {"type": "string", "enum": ["closed", "open", "scored"]},
+    },
+}
+READ_RESPONSE_SCHEMA = {
+    "type": "object",
+    "required": ["homework"],
+    "properties": {"homework": HOMEWORK_STATE_SCHEMA},
+}
+CHANGE_RESPONSE_SCHEMA = {
+    "type": "object",
+    "required": ["homework", "previous_state", "changed"],
+    "properties": {
+        "homework": HOMEWORK_STATE_SCHEMA,
+        "previous_state": STATE_SCHEMA,
+        "changed": {"type": "boolean"},
+    },
+}
+SET_STATE_REQUEST_SCHEMA = {
+    "type": "object",
+    "required": ["state"],
+    "properties": {
+        "state": {
+            "type": "string",
+            "description": "A state code (CL, OP, SC) or name (closed, open, scored).",
+        }
+    },
+}
+
+
+def _homework(course_slug, cohort_slug, homework_slug) -> Homework:
+    homework = (
+        Homework.objects.select_related("cohort__course")
+        .filter(
+            cohort__course__slug=course_slug,
+            cohort__slug=cohort_slug,
+            slug=homework_slug,
+        )
+        .first()
+    )
+    if homework is None:
+        raise APIError(404, "unknown_homework", "Homework was not found.")
+    return homework
+
+
+def serialize_homework_state(homework: Homework) -> dict:
+    return {
+        "id": homework.pk,
+        "slug": homework.slug,
+        "course_slug": homework.cohort.course.slug,
+        "cohort_slug": homework.cohort.slug,
+        "state": homework.state,
+        "state_name": HomeworkState(homework.state).name.lower(),
+    }
+
+
+def _change_response(change) -> dict:
+    return {
+        "homework": serialize_homework_state(change.homework),
+        "previous_state": change.previous_state,
+        "changed": change.changed,
+    }
+
+
+@route(
+    "GET",
+    f"{HOMEWORK_PATH}/state",
+    "coursework.read",
+    "Read a homework's state",
+    READ_RESPONSE_SCHEMA,
+)
+def get_homework_state(request, course_slug, cohort_slug, homework_slug):
+    homework = _homework(course_slug, cohort_slug, homework_slug)
+    return json_response({"homework": serialize_homework_state(homework)})
+
+
+@route(
+    "POST",
+    f"{HOMEWORK_PATH}/state",
+    "coursework.write",
+    "Set a homework's state (CMP homework state PATCH parity)",
+    CHANGE_RESPONSE_SCHEMA,
+    request=SET_STATE_REQUEST_SCHEMA,
+)
+def post_homework_state(request, course_slug, cohort_slug, homework_slug):
+    homework = _homework(course_slug, cohort_slug, homework_slug)
+    data = read_json_object(request)
+    if "state" not in data:
+        raise APIError(400, "missing_field", "Provide 'state'.", details={"field": "state"})
+    try:
+        change = set_homework_state(homework, data["state"])
+    except InvalidHomeworkState as error:
+        raise APIError(
+            400,
+            "invalid_homework_state",
+            f"Invalid state. Must be one of: {list(VALID_HOMEWORK_STATES)}",
+            details={"valid_states": list(VALID_HOMEWORK_STATES)},
+        ) from error
+    return json_response(_change_response(change))
+
+
+@route(
+    "POST",
+    f"{HOMEWORK_PATH}/close",
+    "coursework.write",
+    "Close a homework to new submissions",
+    CHANGE_RESPONSE_SCHEMA,
+)
+def post_homework_close(request, course_slug, cohort_slug, homework_slug):
+    homework = _homework(course_slug, cohort_slug, homework_slug)
+    return json_response(_change_response(close_homework(homework)))

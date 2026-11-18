@@ -6,6 +6,7 @@ HOMEWORK_ROUTES = (
     "coursework_studio_homework_detail",
     "coursework_studio_homework_edit",
     "coursework_studio_homework_rescore",
+    "coursework_studio_homework_set_state",
     "coursework_studio_question_create",
     "coursework_studio_question_edit",
     "coursework_studio_question_delete",

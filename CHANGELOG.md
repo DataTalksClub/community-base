@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Homework state change with CMP parity (intake `52159dbe`): `community_base.coursework.homework_state`
+  (`set_homework_state`, `close_homework`, `parse_homework_state`, `InvalidHomeworkState`), staff
+  bearer routes `GET`/`POST courses/<course>/cohorts/<cohort>/homeworks/<homework>/state` and
+  `POST .../close` (scopes `coursework.read`/`coursework.write`, in `staff_api_views` beside the
+  peer-review routes), and the Studio action `coursework_studio_homework_set_state`
+  with a state select and Close button on the homework detail page. No migrations.
+
 ## 0.5.37
 
 - Extract peer-review, YAML criteria, commit lookup, and staff API from AISL (#422):

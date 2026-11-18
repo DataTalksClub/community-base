@@ -132,6 +132,24 @@ def homework_rescore(request, homework_id):
 
 
 @staff_required
+@require_POST
+def homework_set_state(request, homework_id):
+    homework = get_object_or_404(Homework, pk=homework_id)
+    previous_state = homework.state
+    result = studio_ops.set_homework_state(homework, request.POST.get("state", ""))
+    if result.ok and homework.state != previous_state:
+        _audit(
+            request,
+            "coursework.homework.state_changed",
+            homework,
+            previous_state=previous_state,
+            state=homework.state,
+        )
+    _result_message(request, result, "Homework state updated.")
+    return redirect("coursework_studio_homework_detail", homework_id=homework.pk)
+
+
+@staff_required
 def question_create(request, homework_id):
     homework = get_object_or_404(Homework, pk=homework_id)
     form = QuestionForm(request.POST or None)

@@ -412,6 +412,352 @@
         "summary": "Toggle one leaderboard display preference for the signed-in learner"
       }
     },
+    "/api/v1/courses/{course_slug}/cohorts/{cohort_slug}/homeworks/{homework_slug}/close": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "course_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "homework_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "homework": {
+                      "properties": {
+                        "cohort_slug": {
+                          "type": "string"
+                        },
+                        "course_slug": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "integer"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "enum": [
+                            "CL",
+                            "OP",
+                            "SC"
+                          ],
+                          "type": "string"
+                        },
+                        "state_name": {
+                          "enum": [
+                            "closed",
+                            "open",
+                            "scored"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "slug",
+                        "course_slug",
+                        "cohort_slug",
+                        "state",
+                        "state_name"
+                      ],
+                      "type": "object"
+                    },
+                    "previous_state": {
+                      "enum": [
+                        "CL",
+                        "OP",
+                        "SC"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "homework",
+                    "previous_state",
+                    "changed"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Close a homework to new submissions",
+        "x-required-scope": "coursework.write"
+      }
+    },
+    "/api/v1/courses/{course_slug}/cohorts/{cohort_slug}/homeworks/{homework_slug}/state": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "course_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "homework_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "homework": {
+                      "properties": {
+                        "cohort_slug": {
+                          "type": "string"
+                        },
+                        "course_slug": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "integer"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "enum": [
+                            "CL",
+                            "OP",
+                            "SC"
+                          ],
+                          "type": "string"
+                        },
+                        "state_name": {
+                          "enum": [
+                            "closed",
+                            "open",
+                            "scored"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "slug",
+                        "course_slug",
+                        "cohort_slug",
+                        "state",
+                        "state_name"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "homework"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Read a homework's state",
+        "x-required-scope": "coursework.read"
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "course_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "homework_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "state": {
+                    "description": "A state code (CL, OP, SC) or name (closed, open, scored).",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "state"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "homework": {
+                      "properties": {
+                        "cohort_slug": {
+                          "type": "string"
+                        },
+                        "course_slug": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "integer"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "enum": [
+                            "CL",
+                            "OP",
+                            "SC"
+                          ],
+                          "type": "string"
+                        },
+                        "state_name": {
+                          "enum": [
+                            "closed",
+                            "open",
+                            "scored"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "slug",
+                        "course_slug",
+                        "cohort_slug",
+                        "state",
+                        "state_name"
+                      ],
+                      "type": "object"
+                    },
+                    "previous_state": {
+                      "enum": [
+                        "CL",
+                        "OP",
+                        "SC"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "homework",
+                    "previous_state",
+                    "changed"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Set a homework's state (CMP homework state PATCH parity)",
+        "x-required-scope": "coursework.write"
+      }
+    },
     "/api/v1/courses/{course_slug}/cohorts/{cohort_slug}/leaderboard": {
       "get": {
         "parameters": [
