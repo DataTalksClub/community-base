@@ -205,6 +205,18 @@ def test_resolve_and_validate_project_criteria_references():
     with pytest.raises(MissingProjectCriteriaError, match="unknown review criteria set"):
         resolve_project_criteria("missing-rubric", sets, where="project-1")
 
+    # Object-style project definitions with `criteria` / `criteria_set` attributes also resolve.
+    obj_resolved = validate_project_criteria_references(
+        [
+            SimpleNamespace(slug="obj-1", criteria="rubric-a"),
+            SimpleNamespace(slug="obj-2", criteria_set="review_criteria:rubric-b"),
+        ],
+        sets,
+        where="course",
+    )
+    assert obj_resolved["obj-1"] == rubric_a["criteria"]
+    assert obj_resolved["obj-2"] == rubric_b["criteria"]
+
 
 @pytest.mark.django_db
 def test_reusable_criteria_sets_for_projects_in_same_course():
@@ -271,4 +283,10 @@ def test_reusable_criteria_sets_for_projects_in_same_course():
     review.criteria_scores = {"problem-statement": 2}
     assert review_points(review) == 2
 
+    assert ProjectCriteriaSetAssignment.objects.count() == 3
+
+    # Reassigning a project updates its single assignment rather than creating a duplicate.
+    assign_project_criteria_set(project_one, rubric_b)
+    assert get_project_criteria_set(project_one) == rubric_b
+    assert len(require_project_criteria(project_one)) == 2
     assert ProjectCriteriaSetAssignment.objects.count() == 3

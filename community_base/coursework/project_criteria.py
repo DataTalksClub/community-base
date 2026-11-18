@@ -355,4 +355,6 @@ def assign_project_criteria_set(project, criteria_set_or_ref):
         project=project,
         defaults={"criteria_set": criteria_set},
     )
+    if hasattr(project, "_state"):
+        project._state.fields_cache["criteria_set_assignment"] = assignment
     return assignment
