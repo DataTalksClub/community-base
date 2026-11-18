@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.38
 
 - Homework state change with CMP parity (intake `52159dbe`): `community_base.coursework.homework_state`
   (`set_homework_state`, `close_homework`, `parse_homework_state`, `InvalidHomeworkState`), staff
@@ -8,6 +8,9 @@
   `POST .../close` (scopes `coursework.read`/`coursework.write`, in `staff_api_views` beside the
   peer-review routes), and the Studio action `coursework_studio_homework_set_state`
   with a state select and Close button on the homework detail page. No migrations.
+- Reusable standalone review criteria sets and per-project references (#425): `review_criteria`
+  content-sync kind, `ReviewCriteriaSet` and `ProjectCriteriaSetAssignment` models (migration
+  `cb_coursework.0008`), criteria-set resolution helpers in `coursework.project_criteria`.
 
 ## 0.5.37
 
