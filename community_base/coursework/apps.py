@@ -44,6 +44,7 @@ class CourseworkConfig(AppConfig):
         if member_api_enabled():
             from community_base.coursework import api_views  # noqa: F401
         if studio_surface_enabled():
+            from community_base.coursework import staff_api_views  # noqa: F401
             from community_base.coursework.studio_registration import register_studio
 
             register_studio()

@@ -843,6 +843,152 @@
         "x-required-scope": "curriculum.write"
       }
     },
+    "/api/v1/courses/{slug}/peer-reviews": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "course": {
+                      "type": "string"
+                    },
+                    "course_id": {
+                      "type": "integer"
+                    },
+                    "course_title": {
+                      "type": "string"
+                    },
+                    "projects": {
+                      "items": {
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "course_id",
+                    "course",
+                    "course_title",
+                    "projects"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Read peer-review state, counts, and deadlines for a course",
+        "x-required-scope": "coursework.read"
+      }
+    },
+    "/api/v1/courses/{slug}/peer-reviews/assignments": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "cohort": {
+                    "type": "string"
+                  },
+                  "project": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "batched": {
+                      "type": "integer"
+                    },
+                    "course": {
+                      "type": "string"
+                    },
+                    "course_id": {
+                      "type": "integer"
+                    },
+                    "projects": {
+                      "items": {
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "reviews_assigned": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "course_id",
+                    "course",
+                    "batched",
+                    "reviews_assigned",
+                    "projects"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "$ref": "#/components/responses/APIError"
+          },
+          "403": {
+            "$ref": "#/components/responses/APIError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create round-robin peer review assignments for a course (idempotent)",
+        "x-required-scope": "coursework.write"
+      }
+    },
     "/api/v1/event-hosts": {
       "get": {
         "responses": {

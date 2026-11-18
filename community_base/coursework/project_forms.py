@@ -26,6 +26,13 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from community_base.coursework.github_commit import (
+    GitHubCommitError,
+    GitHubUnavailable,
+)
+from community_base.coursework.github_commit import (
+    resolve_commit as resolve_github_commit,
+)
 from community_base.coursework.models import ProjectSubmission
 from community_base.coursework.project_form_fields import (
     CERTIFICATE_NAME_HELP,
@@ -122,6 +129,8 @@ class ProjectSubmissionForm(forms.Form):
         certificate_name_field: bool | None = None,
         action_url: str = "",
         now=None,
+        resolve_commit: bool = False,
+        auth_headers=None,
         **kwargs,
     ):
         self.project = project
@@ -129,6 +138,11 @@ class ProjectSubmissionForm(forms.Form):
         self.enrollment = enrollment
         self.user = user
         self.action_url = action_url
+        self.resolve_commit = resolve_commit
+        self.auth_headers = auth_headers
+        self.resolved_commit: str | None = None
+        self.commit_notice: str = ""
+        self.clear_commit: bool = False
         self.is_authenticated = bool(user is not None and user.is_authenticated)
         self.accepting_submissions = project_accepts_submissions(project, now)
         self.editable = self.is_authenticated and submission_editable(project, submission, now)
@@ -137,6 +151,8 @@ class ProjectSubmissionForm(forms.Form):
         kwargs.setdefault("initial", self._initial_from(submission, enrollment))
         super().__init__(data, **kwargs)
         self._apply_project_toggles(certificate_name_field)
+        if submission is not None and submission.github_link and "github_link" in self.fields:
+            self.fields["github_link"].widget.attrs["title"] = submission.github_link
         if not self.editable:
             for field in self.fields.values():
                 field.disabled = True
@@ -150,8 +166,10 @@ class ProjectSubmissionForm(forms.Form):
                 "learning_in_public_links": list(submission.learning_in_public_links or []),
                 "time_spent": submission.time_spent,
             }
+        name = ""
         if enrollment is not None:
-            initial["certificate_name"] = enrollment.certificate_name or enrollment.display_name
+            name = enrollment.certificate_name or enrollment.display_name
+        initial["certificate_name"] = name or _account_full_name(self.user)
         return initial
 
     def _apply_project_toggles(self, certificate_name_field: bool) -> None:
@@ -239,6 +257,22 @@ class ProjectSubmissionForm(forms.Form):
         cleaned_data = super().clean()
         if not self.editable:
             raise ValidationError(CLOSED_MESSAGE, code="closed")
+        link = (cleaned_data or {}).get("github_link")
+        if not self.resolve_commit or not link or self.errors.get("github_link"):
+            return cleaned_data
+        existing = self.submission
+        link_changed = existing is not None and _normalize_link(
+            existing.github_link
+        ) != _normalize_link(link)
+        if existing is not None and existing.commit_id and not link_changed:
+            return cleaned_data
+        try:
+            self.resolved_commit = resolve_github_commit(link, auth_headers=self.auth_headers)
+        except GitHubUnavailable as exc:
+            self.clear_commit = link_changed
+            self.commit_notice = exc.message
+        except GitHubCommitError as exc:
+            self.add_error("github_link", exc.message)
         return cleaned_data
 
     # Saving.
@@ -257,18 +291,29 @@ class ProjectSubmissionForm(forms.Form):
             raise ValueError("Saving a project submission needs the learner's enrollment.")
         data = self.cleaned_data
         existing = self.submission
+        commit_id = data.get("commit_id", "")
+
+        def _before_save(submission: ProjectSubmission) -> None:
+            if self.resolved_commit:
+                submission.commit_id = self.resolved_commit
+            elif self.clear_commit:
+                submission.commit_id = ""
+            elif existing is not None and "commit_id" not in self.fields and existing.commit_id:
+                submission.commit_id = existing.commit_id
+            self.apply_extra_fields(submission)
+
         with transaction.atomic():
             submission, created = submit_project(
                 self.project,
                 self.enrollment,
                 github_link=data["github_link"],
-                commit_id=data.get("commit_id", ""),
+                commit_id=commit_id,
                 learning_in_public_links=data.get("learning_in_public_links") or [],
                 time_spent=data.get("time_spent"),
                 # The shared form does not show these; keep what is stored (C5.2n).
                 problems_comments=existing.problems_comments if existing else "",
                 faq_contribution_url=(existing.faq_contribution_url or "") if existing else "",
-                before_save=self.apply_extra_fields,
+                before_save=_before_save,
             )
             certificate_name = data.get("certificate_name", "")
             if certificate_name and certificate_name != self.enrollment.certificate_name:
@@ -285,3 +330,37 @@ class ProjectSubmissionForm(forms.Form):
             return
         for field, messages in error.message_dict.items():
             self.add_error(field if field in self.fields else None, messages)
+
+
+def _normalize_link(url: str) -> str:
+    return (url or "").strip().rstrip("/").lower()
+
+
+def _account_full_name(user) -> str:
+    """First and last name from the account; empty when neither is set."""
+    if user is None:
+        return ""
+    first = (getattr(user, "first_name", "") or "").strip()
+    last = (getattr(user, "last_name", "") or "").strip()
+    return f"{first} {last}".strip()
+
+
+def update_commit_action(form, submission, *, auth_headers=None) -> tuple[bool, str]:
+    """Pin the commit of the link typed in ``form`` onto ``submission``."""
+    form.is_valid()
+    if "github_link" in form.errors:
+        return False, ""
+    link = (form.cleaned_data.get("github_link") or "").strip()
+    if not link:
+        form.add_error("github_link", "Enter the link to your GitHub repository.")
+        return False, ""
+    try:
+        sha = resolve_github_commit(link, auth_headers=auth_headers)
+    except GitHubCommitError as exc:
+        form.add_error("github_link", exc.message)
+        return False, exc.message
+    with transaction.atomic():
+        submission.github_link = link
+        submission.commit_id = sha
+        submission.save(update_fields=["github_link", "commit_id"])
+    return True, ""

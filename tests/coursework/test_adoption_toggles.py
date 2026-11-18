@@ -194,11 +194,11 @@ def boot_surfaces(mode: str) -> str:
 
 
 def test_surfaces_register_by_default():
-    assert boot_surfaces("default") == "studio=1 api=3"
+    assert boot_surfaces("default") == "studio=1 api=5"
 
 
 def test_surfaces_register_when_enabled_explicitly():
-    assert boot_surfaces("on") == "studio=1 api=3"
+    assert boot_surfaces("on") == "studio=1 api=5"
 
 
 def test_site_can_install_coursework_without_studio_or_member_api():
