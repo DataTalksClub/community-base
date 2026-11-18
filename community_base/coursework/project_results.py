@@ -8,6 +8,7 @@ from community_base.coursework.project_criteria import (
     is_review_complete,
     max_points,
     points_label,
+    project_evaluation_criteria,
 )
 
 
@@ -89,11 +90,12 @@ def _review_project(review):
 def review_points(review) -> int | None:
     """Total points of ONE review for its project's criteria, else None."""
     project = _review_project(review)
-    if project is None or not getattr(project, "evaluation_criteria", None):
+    criteria = project_evaluation_criteria(project)
+    if not criteria:
         return None
     if not is_review_complete(review):
         return None
-    return review_total(project.evaluation_criteria, review.criteria_scores or {})
+    return review_total(criteria, review.criteria_scores or {})
 
 
 def default_criterion_score(criterion: dict) -> int:

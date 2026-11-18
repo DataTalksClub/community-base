@@ -17,7 +17,15 @@ package kind.
 
 from __future__ import annotations
 
-from community_base.content_sync.kinds import article, course, data, docs, person, wiki
+from community_base.content_sync.kinds import (
+    article,
+    course,
+    data,
+    docs,
+    person,
+    review_criteria,
+    wiki,
+)
 from community_base.content_sync.kinds.base import (
     ASSET_SUFFIXES,
     CORE_KEYS,
@@ -58,6 +66,7 @@ PACKAGE_KINDS = (
     data.SPEC,
     docs.SPEC,
     person.SPEC,
+    review_criteria.SPEC,
     wiki.SPEC,
 )
 

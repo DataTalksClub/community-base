@@ -39,8 +39,16 @@ def site_kind(name="workshop", **overrides):
     return KindSpec(**defaults)
 
 
-def test_package_registers_the_six_kinds():
-    assert PACKAGE_KIND_NAMES == ("article", "course", "data", "docs", "person", "wiki")
+def test_package_registers_the_package_kinds():
+    assert PACKAGE_KIND_NAMES == (
+        "article",
+        "course",
+        "data",
+        "docs",
+        "person",
+        "review_criteria",
+        "wiki",
+    )
     assert [name for name, _ in kinds()] == sorted(PACKAGE_KIND_NAMES)
 
 

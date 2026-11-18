@@ -90,9 +90,11 @@ def check_repository(path: str | Path, *, kind_modules: Iterable[str] = ()) -> l
 
     result = read_repository(path, kind_modules=kind_modules)
     diagnostics = [*result.diagnostics, *resolve_repository(result).diagnostics]
+    from community_base.content_sync.kinds.review_criteria import review_criteria_diagnostics
     from community_base.curriculum.source_validation import course_source_diagnostics
 
     diagnostics.extend(course_source_diagnostics(result))
+    diagnostics.extend(review_criteria_diagnostics(result))
     for item in result.documents:
         if item.is_document:
             _check_dialect(item, heading_ids(item.body), diagnostics)
