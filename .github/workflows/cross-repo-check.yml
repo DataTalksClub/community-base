@@ -158,7 +158,11 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     env:
+      DEBUG: "0"
       SECRET_KEY: "cross-repo-check-only-not-a-real-secret"
+      ALLOWED_HOSTS: "localhost"
+      RELAY_BASE_URL: "https://relay.datatalks.club"
+      RELAY_API_KEY: "ci-dummy-relay-api-key"
       TEST_SHARD_COUNT: "4"
       TEST_SHARD_INDEX: ${{ matrix.shard }}
     steps:
@@ -192,6 +196,15 @@ jobs:
         working-directory: ai-shipping-labs
         run: make css-build
 
+      - name: Collect static files and run migrations
+        # AISL's own CI runs collectstatic (required when DEBUG=0 for
+        # CompressedManifestStaticFilesStorage in template checks) and migrate
+        # (creates cb_config_setting) before `manage.py check`.
+        working-directory: ai-shipping-labs
+        run: |
+          make collectstatic
+          uv run python manage.py migrate
+
       - name: System checks against the pinned baseline
         working-directory: ai-shipping-labs
         run: uv run python manage.py check
@@ -211,6 +224,7 @@ jobs:
           echo "Baseline failures: $(wc -l < "$GITHUB_WORKSPACE/baseline-failures.txt")"
 
       - name: Link the in-progress package (AISL playbook P1, `make core-link`)
+        id: link_package
         working-directory: ai-shipping-labs
         run: make core-link
 
@@ -244,6 +258,6 @@ jobs:
           echo "No new failures beyond the site's pinned baseline."
 
       - name: Restore the pinned dependency
-        if: always()
+        if: always() && steps.link_package.outcome == 'success'
         working-directory: ai-shipping-labs
         run: make core-unlink
