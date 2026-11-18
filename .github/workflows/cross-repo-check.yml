@@ -158,9 +158,8 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     env:
-      DEBUG: "0"
+      DEBUG: "1"
       SECRET_KEY: "cross-repo-check-only-not-a-real-secret"
-      ALLOWED_HOSTS: "localhost"
       RELAY_BASE_URL: "https://relay.datatalks.club"
       RELAY_API_KEY: "ci-dummy-relay-api-key"
       TEST_SHARD_COUNT: "4"
@@ -196,14 +195,10 @@ jobs:
         working-directory: ai-shipping-labs
         run: make css-build
 
-      - name: Collect static files and run migrations
-        # AISL's own CI runs collectstatic (required when DEBUG=0 for
-        # CompressedManifestStaticFilesStorage in template checks) and migrate
-        # (creates cb_config_setting) before `manage.py check`.
+      - name: Run migrations
+        # Creates cb_config_setting before `manage.py check` reads settings.
         working-directory: ai-shipping-labs
-        run: |
-          make collectstatic
-          uv run python manage.py migrate
+        run: uv run python manage.py migrate
 
       - name: System checks against the pinned baseline
         working-directory: ai-shipping-labs

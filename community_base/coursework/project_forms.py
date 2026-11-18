@@ -151,8 +151,12 @@ class ProjectSubmissionForm(forms.Form):
         kwargs.setdefault("initial", self._initial_from(submission, enrollment))
         super().__init__(data, **kwargs)
         self._apply_project_toggles(certificate_name_field)
-        if submission is not None and submission.github_link and "github_link" in self.fields:
-            self.fields["github_link"].widget.attrs["title"] = submission.github_link
+        github_link = (
+            getattr(submission, "github_link", None)
+            or getattr(submission, "project_url", None)
+        )
+        if github_link and "github_link" in self.fields:
+            self.fields["github_link"].widget.attrs["title"] = github_link
         if not self.editable:
             for field in self.fields.values():
                 field.disabled = True
