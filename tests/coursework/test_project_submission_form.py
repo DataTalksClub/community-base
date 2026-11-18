@@ -288,3 +288,28 @@ def test_project_submission_form_accepts_project_url_without_github_link():
 
     form = _AdapterForm(project=project, submission=submission, enrollment=enrollment, user=user)
     assert form.fields["github_link"].widget.attrs["title"] == "https://github.com/example/repo"
+
+
+def test_subclass_resolve_commit_before_super_init_is_preserved():
+    """Subclasses setting resolve_commit before super().__init__() keep it."""
+    from community_base.coursework.project_forms import ProjectSubmissionForm
+
+    class _AdapterForm(ProjectSubmissionForm):
+        def __init__(self, *args, resolve_commit=False, **kwargs):
+            self.resolve_commit = resolve_commit
+            super().__init__(*args, **kwargs)
+
+    cohort = coursework_cohort()
+    project = make_project(cohort)
+    user, enrollment = learner(cohort)
+
+    form = _AdapterForm(
+        data=valid_data(),
+        project=project,
+        enrollment=enrollment,
+        user=user,
+        resolve_commit=True,
+    )
+    assert form.resolve_commit is True
+    assert form.is_valid()
+    assert form.resolved_commit is None
