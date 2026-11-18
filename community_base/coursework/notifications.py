@@ -16,6 +16,7 @@ Every purpose uses ``mail.send``'s own idempotency key, the same durable-outbox 
 ``reminders.py`` already relies on -- no parallel send mechanism.
 """
 
+import logging
 from collections import defaultdict
 
 from django.db import transaction
@@ -23,6 +24,8 @@ from django.db import transaction
 from community_base.coursework.hooks import hooks
 from community_base.coursework.models import PeerReview, PeerReviewBatch, ProjectSubmission
 from community_base.mail import send
+
+logger = logging.getLogger(__name__)
 
 REVIEW_ASSIGNED_PURPOSE = "coursework.review_assigned"
 POOL_READY_PURPOSE = "coursework.pool_ready"
@@ -61,25 +64,37 @@ def send_review_assigned_notifications(reviews: list[PeerReview]) -> int:
     for reviewer_id, reviewer_reviews in by_reviewer.items():
         first = reviewer_reviews[0]
         reviewer_submission = first.reviewer
+        recipient_email = (getattr(reviewer_submission.student, "email", "") or "").strip()
+        if not recipient_email:
+            continue
         project = first.submission_under_evaluation.project
         due_at = _review_due_at(first)
         # Deterministic across the group regardless of dict ordering: sorted by id.
         sorted_ids = sorted(review.id for review in reviewer_reviews)
         group_key = "-".join(str(review_id) for review_id in sorted_ids)
-        with transaction.atomic():
-            send(
+        # Broad catch: email delivery for one reviewer must not abort batch assignment or peers.
+        try:
+            with transaction.atomic():
+                send(
+                    REVIEW_ASSIGNED_PURPOSE,
+                    recipient_email,
+                    {
+                        **_project_context(project),
+                        "review_count": len(reviewer_reviews),
+                        "due_date": due_at.isoformat() if due_at else None,
+                        "review_list_url": _review_link(project, None),
+                    },
+                    f"{REVIEW_ASSIGNED_PURPOSE}:{reviewer_id}:{group_key}",
+                    category="coursework",
+                    user=reviewer_submission.student,
+                )
+            sent += 1
+        except Exception:
+            logger.exception(
+                "Failed to send %s email for reviewer submission %s",
                 REVIEW_ASSIGNED_PURPOSE,
-                reviewer_submission.student.email,
-                {
-                    **_project_context(project),
-                    "review_count": len(reviewer_reviews),
-                    "due_date": due_at.isoformat() if due_at else None,
-                },
-                f"{REVIEW_ASSIGNED_PURPOSE}:{reviewer_id}:{group_key}",
-                category="coursework",
-                user=reviewer_submission.student,
+                reviewer_id,
             )
-        sent += 1
     return sent
 
 

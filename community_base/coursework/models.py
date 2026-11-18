@@ -419,6 +419,7 @@ class Project(models.Model):
     # collapse to the same thing for a pooled course -- a project-level field is simply the
     # finer-grained of the equivalent options.
     pooled_review_window_days = models.PositiveIntegerField(default=7)
+    evaluation_criteria = models.JSONField(default=list, blank=True)
 
     class Meta:
         constraints = [
@@ -758,6 +759,7 @@ class PeerReview(models.Model):
         ProjectSubmission, related_name="reviewers", on_delete=models.CASCADE
     )
     note_to_peer = models.TextField()
+    criteria_scores = models.JSONField(default=dict, blank=True)
     learning_in_public_links = models.JSONField(blank=True, null=True)
     time_spent_reviewing = models.FloatField(blank=True, null=True)
     problems_comments = models.TextField(blank=True)
