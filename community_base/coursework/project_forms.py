@@ -138,11 +138,16 @@ class ProjectSubmissionForm(forms.Form):
         self.enrollment = enrollment
         self.user = user
         self.action_url = action_url
-        self.resolve_commit = resolve_commit
+        self.resolve_commit_in_base = bool(resolve_commit)
+        if not hasattr(self, "resolve_commit"):
+            self.resolve_commit = self.resolve_commit_in_base
         self.auth_headers = auth_headers
-        self.resolved_commit: str | None = None
-        self.commit_notice: str = ""
-        self.clear_commit: bool = False
+        if not hasattr(self, "resolved_commit"):
+            self.resolved_commit: str | None = None
+        if not hasattr(self, "commit_notice"):
+            self.commit_notice: str = ""
+        if not hasattr(self, "clear_commit"):
+            self.clear_commit: bool = False
         self.is_authenticated = bool(user is not None and user.is_authenticated)
         self.accepting_submissions = project_accepts_submissions(project, now)
         self.editable = self.is_authenticated and submission_editable(project, submission, now)
@@ -151,8 +156,11 @@ class ProjectSubmissionForm(forms.Form):
         kwargs.setdefault("initial", self._initial_from(submission, enrollment))
         super().__init__(data, **kwargs)
         self._apply_project_toggles(certificate_name_field)
-        if submission is not None and submission.github_link and "github_link" in self.fields:
-            self.fields["github_link"].widget.attrs["title"] = submission.github_link
+        github_link = getattr(submission, "github_link", None) or getattr(
+            submission, "project_url", None
+        )
+        if github_link and "github_link" in self.fields:
+            self.fields["github_link"].widget.attrs["title"] = github_link
         if not self.editable:
             for field in self.fields.values():
                 field.disabled = True
@@ -258,12 +266,17 @@ class ProjectSubmissionForm(forms.Form):
         if not self.editable:
             raise ValidationError(CLOSED_MESSAGE, code="closed")
         link = (cleaned_data or {}).get("github_link")
-        if not self.resolve_commit or not link or self.errors.get("github_link"):
+        if not self.resolve_commit_in_base or not link or self.errors.get("github_link"):
             return cleaned_data
         existing = self.submission
-        link_changed = existing is not None and _normalize_link(
-            existing.github_link
-        ) != _normalize_link(link)
+        existing_link = (
+            getattr(existing, "github_link", None) or getattr(existing, "project_url", "")
+            if existing is not None
+            else ""
+        )
+        link_changed = existing is not None and _normalize_link(existing_link) != _normalize_link(
+            link
+        )
         if existing is not None and existing.commit_id and not link_changed:
             return cleaned_data
         try:
