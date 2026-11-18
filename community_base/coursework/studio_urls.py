@@ -25,6 +25,11 @@ urlpatterns = [
         name="coursework_studio_homework_rescore",
     ),
     path(
+        "homework/<int:homework_id>/state/",
+        studio_views.homework_set_state,
+        name="coursework_studio_homework_set_state",
+    ),
+    path(
         "homework/<int:homework_id>/questions/create/",
         studio_views.question_create,
         name="coursework_studio_question_create",

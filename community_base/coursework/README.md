@@ -213,10 +213,44 @@ class FaqProjectSubmissionForm(ProjectSubmissionForm):
 | `COURSEWORK_STUDIO_ENABLED` | `True` | No coursework Studio section is registered. The Studio views import `community_base.accounts`, so a site that owns its own user app and Studio turns this off. |
 | `COURSEWORK_MEMBER_API_ENABLED` | `True` | `api_views` is not imported, so the leaderboard, certificate-request and enrollment-preference member routes are not registered. |
 
-The job handlers (`pooling`, `reminders`) always register. A site that keeps its own learner
+The job handlers (`pooling`, `reminders`) always register. The scoped staff bearer routes in
+`staff_api_views` (peer review and homework state change, below) register with the Studio
+surface. A site that keeps its own learner
 routes and Studio (AISL) sets both keys to `False` and calls the package services directly. The
 gate does not key on `community_base.accounts` being installed, because DTC does not install it and
 keeps both surfaces. These are startup settings read once in `ready()`, not runtime config keys.
+
+## Homework state change
+
+`homework_state` is the one service both sites call to close a homework or set its state, with
+CMP parity: CMP changes state through its homework `PATCH` (`state` one of `CL`, `OP`, `SC`) and
+Django admin, applies the value as is, and has no transition table or side effect. The package
+does the same.
+
+| Call | Effect |
+|---|---|
+| `set_homework_state(homework, state)` | Sets `state` under a row lock and saves only that column. Returns `HomeworkStateChange` (`previous_state`, `state`, `changed`). |
+| `close_homework(homework)` | `set_homework_state(homework, HomeworkState.CLOSED)`. |
+| `parse_homework_state(value)` | Accepts the enum, a code (`CL`) or a name (`closed`), case-insensitive; anything else raises `InvalidHomeworkState`. |
+
+Scoring is unchanged: `score_homework_submissions` refuses a `CLOSED` homework and marks a scored
+one `SCORED`, so reopening (`OP`) is the step before scoring a closed homework.
+
+Surfaces over the service:
+
+| Surface | Route | Auth |
+|---|---|---|
+| Read state | `GET /api/v1/courses/<course>/cohorts/<cohort>/homeworks/<homework>/state` | Bearer, `coursework.read` |
+| Set state | `POST .../homeworks/<homework>/state` with `{"state": "CL"}` or `{"state": "closed"}` | Bearer, `coursework.write` |
+| Close | `POST .../homeworks/<homework>/close` | Bearer, `coursework.write` |
+| Studio | `POST coursework_studio_homework_set_state` (`state` form field), a state select and a Close button on the homework detail page | Staff session |
+
+The API answers with `{"homework": {...}, "previous_state", "changed"}`; a repeated close is a
+`200` with `changed: false`. An unknown state is a `400` `invalid_homework_state` listing
+`valid_states`, the CMP error code. The routes live in `staff_api_views` and register with
+`COURSEWORK_STUDIO_ENABLED`, like the peer-review staff routes. A site that keeps its own Studio
+and API (AISL) exposes the action by calling `close_homework`/`set_homework_state` from its own
+view or endpoint.
 
 ## Automation guard
 

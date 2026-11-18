@@ -12,6 +12,12 @@ from dataclasses import dataclass
 
 from django.db import transaction
 
+from community_base.coursework.homework_state import (
+    InvalidHomeworkState,
+)
+from community_base.coursework.homework_state import (
+    set_homework_state as _set_homework_state,
+)
 from community_base.coursework.leaderboard import (
     resolve_leaderboard_complaint as _resolve_leaderboard_complaint,
 )
@@ -58,6 +64,19 @@ def rescore_homework(homework, *, force: bool = True) -> StudioActionResult:
         ok=status is HomeworkScoringStatus.OK,
         message=message,
     )
+
+
+def set_homework_state(homework, state) -> StudioActionResult:
+    """Close, reopen or mark a homework scored (``homework_state.set_homework_state``)."""
+
+    try:
+        change = _set_homework_state(homework, state)
+    except InvalidHomeworkState as error:
+        return StudioActionResult(ok=False, message=str(error))
+    label = change.homework.get_state_display().lower()
+    if not change.changed:
+        return StudioActionResult(ok=True, message=f"{homework.title} is already {label}.")
+    return StudioActionResult(ok=True, message=f"{homework.title} is now {label}.")
 
 
 def assign_project_reviews(project) -> StudioActionResult:
