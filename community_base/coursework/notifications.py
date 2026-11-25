@@ -33,23 +33,33 @@ REVIEW_RECEIVED_PURPOSE = "coursework.review_received"
 REVIEW_WINDOW_EXPIRED_PURPOSE = "coursework.review_window_expired"
 
 
+def _project_cohort(project):
+    # Package projects own ``cohort``; a site project may name the same FK ``course``.
+    return getattr(project, "cohort", None) or project.course
+
+
 def _project_context(project) -> dict:
+    cohort = _project_cohort(project)
     return {
-        "course_slug": project.cohort.course.slug,
-        "cohort_slug": project.cohort.slug,
+        "course_slug": cohort.course.slug,
+        "cohort_slug": cohort.slug,
         "project_slug": project.slug,
         "project_title": project.title,
     }
 
 
 def _review_due_at(review: PeerReview):
-    if review.batch_id is not None:
+    if getattr(review, "batch_id", None) is not None:
         return review.batch.due_at
     return review.submission_under_evaluation.project.peer_review_due_date
 
 
 def send_review_assigned_notifications(reviews: list[PeerReview]) -> int:
     """One email per reviewer per assignment event, not one per review row.
+
+    Duck-typed so a site that assigns reviews with its own models can call it too: a review needs
+    ``id``, ``reviewer_id``, ``reviewer.student`` and ``submission_under_evaluation.project``; the
+    project needs ``slug``, ``title``, ``peer_review_due_date`` and ``cohort`` (or ``course``).
 
     ``reviews`` is the full list a single event created (a deadline-mode
     ``assign_peer_reviews_for_project`` call, or one pooled batch) -- grouping here means a

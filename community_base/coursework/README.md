@@ -313,6 +313,35 @@ skip it even when a date is stored. `reminders.py`'s existing `coursework.peer_r
 pooled reviews approaching their batch's `due_at` (`pooled_reviews_due_between`), reusing the same
 purpose and idempotency-key shape rather than a parallel "expiry approaching" job.
 
+`send_review_assigned_notifications` is duck-typed, so a site that assigns reviews with its own
+models can call it after its own assignment: a review needs `id`, `reviewer_id`,
+`reviewer.student` and `submission_under_evaluation.project`; the project needs `slug`, `title`,
+`peer_review_due_date` and `cohort` (or a cohort FK named `course`). A review without `batch_id`
+uses the project's review deadline.
+
+## Learner attempt flow
+
+`community_base/coursework/attempt_flow.py` is the learner's side of a project attempt, extracted
+from AI Shipping Labs. It is pure: the site passes its own submissions, reviews and URL builders
+and renders the results in its own design.
+
+| Helper | Returns |
+|---|---|
+| `attempt_nav_items(phase, has_submission=, assigned_reviews=, course_id=, submit_url=, review_url=, feedback_url=, page=, current_review_id=)` | Sidebar sub-steps: Submit, `Review N: <pseudonym>` per assigned review, then Feedback in the feedback phase; each with `done` and `current` |
+| `learner_attempt_phases(projects, submissions=, assigned=, received=, criteria_for=, now=, passing_score=)` | `{project.pk: AttemptPhase}` scored from the reviews the learner's submission received |
+| `phase_row(phase, submit_url=, reviews_url=, when=)` | Status label, tone, link, action and date of one attempt row |
+| `criteria_page_context(projects, criteria_for=, phases=)` | The rubric of the first attempt with criteria (`criteria_summary`) and the attempt the learner can still submit, or `None` |
+| `review_heading(review, course_id)` | "Evaluate <pseudonym>'s submission" and the submitter's `description` |
+
+Review autosave: `peer_review_form.autosave(review, criteria, data)` returns the JSON body
+(`{"saved": true}`, or `{"saved": false, "submitted": true}` once submitted) for a site route that
+the static `community_base/peer_review_autosave.js` posts to. The form opts in with
+`data-peer-review-autosave data-autosave-url="..."` and holds a `[data-save-status]` element.
+
+Stored criteria written outside `parse_criteria` (admin or raw JSON) may lack optional keys;
+`project_criteria.normalize_stored_criteria` fills them, and `evaluation_form` and
+`criteria_summary` apply it, so such a criterion renders instead of raising `KeyError`.
+
 ## Certificates
 
 The package has no automatic issuance and never did -- `certificates.issue_certificate` has always

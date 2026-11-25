@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from community_base.coursework.project_criteria import (
     is_review_complete,
+    normalize_stored_criteria,
     points_label,
     score_review,
 )
@@ -58,6 +59,7 @@ def evaluation_form(
 ) -> dict:
     """Rows numbered in authored order, plus the total."""
     selected = selected or {}
+    criteria = normalize_stored_criteria(criteria)
     rows = [
         _criterion_row(number, criterion, selected, missing, readonly)
         for number, criterion in enumerate(criteria, start=1)
@@ -122,3 +124,14 @@ def save_review(review, criteria: list[dict], data) -> tuple[dict, bool]:
             update_fields.append("submitted_at")
     review.save(update_fields=update_fields)
     return evaluation_form(criteria, scores), True
+
+
+def autosave(review, criteria: list[dict], data) -> dict:
+    """JSON body for a review autosave request (``peer_review_autosave.js``).
+
+    ``{"saved": True}`` when the draft was stored, ``{"saved": False, "submitted": True}`` once
+    the review is already submitted (the script then stops saving).
+    """
+    if save_draft(review, normalize_stored_criteria(criteria), data):
+        return {"saved": True}
+    return {"saved": False, "submitted": True}

@@ -73,11 +73,46 @@ def _parse_option(opt, cid: str, where: str) -> dict:
     return {"points": points, "text": text.strip()}
 
 
+def _stored_option(option) -> dict | None:
+    if not isinstance(option, dict):
+        return None
+    points = option.get("points")
+    if isinstance(points, bool) or not isinstance(points, int):
+        points = 0
+    return {**option, "points": points, "text": str(option.get("text") or "")}
+
+
+def _stored_criterion(criterion) -> dict | None:
+    if not isinstance(criterion, dict):
+        return None
+    cid = str(criterion.get("id") or "")
+    kind = criterion.get("type")
+    options = criterion.get("options")
+    options = options if isinstance(options, list) else []
+    return {
+        **criterion,
+        "id": cid,
+        "title": str(criterion.get("title") or cid),
+        "description": str(criterion.get("description") or ""),
+        "type": kind if kind in CRITERION_TYPES else "scale",
+        "options": [opt for opt in map(_stored_option, options) if opt is not None],
+    }
+
+
+def normalize_stored_criteria(criteria) -> list[dict]:
+    """Fill the keys stored criteria may lack (admin or raw JSON writes) so they render.
+
+    Output of ``parse_criteria`` passes through unchanged; non-mapping items are dropped.
+    """
+    items = criteria if isinstance(criteria, list | tuple) else []
+    return [c for c in map(_stored_criterion, items) if c is not None]
+
+
 def max_points(criterion: dict) -> int:
     points = [opt["points"] for opt in criterion["options"]]
     if criterion["type"] == "checklist":
         return sum(points)
-    return max(points)
+    return max(points, default=0)
 
 
 def split_criteria(criteria: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -114,7 +149,7 @@ def _summary_row(criterion: dict) -> dict:
 
 def criteria_summary(criteria: list[dict]) -> dict:
     """Template-ready rows (authored order) plus core and bonus totals."""
-    rows = [_summary_row(c) for c in criteria]
+    rows = [_summary_row(c) for c in normalize_stored_criteria(criteria)]
     core, bonus = split_criteria(rows)
     core_max = sum(r["max_points"] for r in core)
     bonus_max = sum(r["max_points"] for r in bonus)

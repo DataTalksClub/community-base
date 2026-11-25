@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.39
+
+- Learner attempt flow extracted from AI Shipping Labs: `coursework.attempt_flow`
+  (`attempt_nav_items`, `learner_attempt_phases`, `phase_row`, `criteria_page_context`,
+  `review_heading`), review autosave (`peer_review_form.autosave` + static
+  `community_base/peer_review_autosave.js`), and a duck-typed `send_review_assigned_notifications`
+  for sites that assign reviews with their own models. No migrations.
+- Stored review criteria lacking optional keys render instead of raising `KeyError`:
+  `project_criteria.normalize_stored_criteria`, applied by `evaluation_form` and `criteria_summary`.
+- Refresh cached project criteria assignment on reassignment (#426).
+
 ## 0.5.38
 
 - Homework state change with CMP parity (intake `52159dbe`): `community_base.coursework.homework_state`
