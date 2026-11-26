@@ -1233,3 +1233,72 @@ class UserWrappedStatistics(models.Model):
 
     def __str__(self):
         return f"{self.display_name} - Wrapped {self.wrapped.year}"
+
+
+class ProjectResultsNotification(models.Model):
+    """Auditable per-attempt batch record for staff-triggered project results emails."""
+
+    scope_hash = models.CharField(max_length=64, unique=True)
+    course_slug = models.CharField(max_length=200)
+    cohort_slug = models.CharField(max_length=200, blank=True, default="")
+    project_slug = models.CharField(max_length=200)
+    project_title = models.CharField(max_length=200, blank=True, default="")
+    related_object_type = models.CharField(max_length=128, blank=True, default="")
+    related_object_id = models.CharField(max_length=128, blank=True, default="")
+    triggered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="triggered_project_results_notifications",
+    )
+    eligible_count = models.PositiveIntegerField(default=0)
+    enqueued_count = models.PositiveIntegerField(default=0)
+    suppressed_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-created_at", "id")
+
+    def __str__(self):
+        return f"{self.course_slug}/{self.cohort_slug}/{self.project_slug}"
+
+
+class ProjectResultsNotificationRecipient(models.Model):
+    """Per-recipient delivery link for one project results notification job."""
+
+    notification = models.ForeignKey(
+        ProjectResultsNotification,
+        on_delete=models.CASCADE,
+        related_name="recipients",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="project_results_notification_recipients",
+    )
+    submission_id = models.CharField(max_length=128)
+    delivery = models.ForeignKey(
+        "cb_mail.EmailDelivery",
+        on_delete=models.PROTECT,
+        related_name="project_results_recipients",
+    )
+    retry_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("id",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("notification", "user"),
+                condition=models.Q(user__isnull=False),
+                name="cb_proj_results_notif_user_uq",
+            )
+        ]
+
+    def __str__(self):
+        return f"notification={self.notification_id} user={self.user_id}"

@@ -55,6 +55,29 @@ def default_review_url(project, review=None, **kwargs):
     return f"{str(get('SITE_URL') or '').rstrip('/')}{path}"
 
 
+def default_project_results_url(project, submission=None, user=None, **kwargs):
+    """Absolute URL of a project's results/evaluation page on package routes.
+
+    Returns ``None`` when the site does not mount ``community_base.coursework.urls``; such a site
+    sets ``COURSEWORK_PROJECT_RESULTS_URL_BUILDER`` to resolve its own routes.
+    """
+
+    del submission, user, kwargs
+    cohort = getattr(project, "cohort", None)
+    if cohort is None or getattr(cohort, "course", None) is None:
+        return None
+    route_kwargs = {
+        "course_slug": cohort.course.slug,
+        "cohort_identifier": cohort.slug,
+        "project_slug": project.slug,
+    }
+    try:
+        path = reverse("coursework_projects_eval", kwargs=route_kwargs)
+    except NoReverseMatch:
+        return None
+    return f"{str(get('SITE_URL') or '').rstrip('/')}{path}"
+
+
 class CourseworkHooks:
     peer_reviews_assigned = Hook("COURSEWORK_PEER_REVIEWS_ASSIGNED", discard_event)
     peer_reviews_assignment_failed = Hook(
@@ -80,6 +103,9 @@ class CourseworkHooks:
     registration_campaign_changed = Hook("COURSEWORK_REGISTRATION_CAMPAIGN_CHANGED", discard_event)
     certificate_issued = Hook("COURSEWORK_CERTIFICATE_ISSUED", discard_event)
     review_url_builder = Hook("COURSEWORK_REVIEW_URL_BUILDER", default_review_url)
+    project_results_url_builder = Hook(
+        "COURSEWORK_PROJECT_RESULTS_URL_BUILDER", default_project_results_url
+    )
     display_name_generator = Hook(
         "COURSEWORK_DISPLAY_NAME_GENERATOR", default_display_name_generator
     )

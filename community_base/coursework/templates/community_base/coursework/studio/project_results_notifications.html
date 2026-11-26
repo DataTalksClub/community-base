@@ -1,0 +1,75 @@
+{% extends "community_base/studio/base.html" %}
+{% block studio_title %}Results emails - {{ project.title }}{% endblock %}
+{% block content %}{% block studio_content %}
+<p><a href="{% url 'coursework_studio_project_detail' project.pk %}">Back to {{ project.title }}</a></p>
+<h1>Results emails: {{ project.title }}</h1>
+<p>Course: {{ preview.course_title }} ({{ preview.course_slug }}){% if preview.cohort_slug %} · Cohort: {{ preview.cohort_slug }}{% endif %} · Attempt: {{ preview.project_slug }}</p>
+
+<h2>Preview</h2>
+<ul>
+  <li>Eligible submitters: <strong>{{ preview.eligible_count }}</strong></li>
+  <li>Total submissions scanned: {{ preview.total_submissions }}</li>
+  <li>Excluded (duplicate learner): {{ preview.excluded_duplicate_count }}</li>
+  <li>Excluded (missing email): {{ preview.excluded_no_email_count }}</li>
+  <li>Results link target: {{ preview.results_url_sample|default:"Not configured" }}</li>
+</ul>
+
+{% if preview.can_send %}
+<form method="post" action="{% url 'coursework_studio_project_results_notifications_send' project.pk %}">
+  {% csrf_token %}
+  <button type="submit">Send results emails ({{ preview.eligible_count }})</button>
+</form>
+{% elif preview.blocked_reason %}
+<p>{{ preview.blocked_reason }}</p>
+{% endif %}
+
+{% if preview.status %}
+<h2>Delivery status</h2>
+<ul>
+  <li>Enqueued: {{ preview.status.enqueued_count }}</li>
+  <li>Accepted / delivered: {{ preview.status.accepted_or_delivered_count }}</li>
+  <li>Pending: {{ preview.status.pending_count }}</li>
+  <li>Retryable: {{ preview.status.retryable_count }}</li>
+  <li>Dead (failed): {{ preview.status.dead_count }}</li>
+  <li>Ambiguous: {{ preview.status.ambiguous_count }}</li>
+  <li>Suppressed: {{ preview.status.suppressed_count }}</li>
+  <li>Bounced / complained: {{ preview.status.bounced_or_complained_count }}</li>
+</ul>
+
+{% if preview.status.has_retryable_failures %}
+<form method="post" action="{% url 'coursework_studio_project_results_notifications_retry' project.pk %}">
+  {% csrf_token %}
+  <button type="submit">Retry failed deliveries ({{ preview.status.dead_count }})</button>
+</form>
+{% endif %}
+
+<table>
+  <thead>
+    <tr>
+      <th>Recipient</th>
+      <th>State</th>
+      <th>Reason</th>
+      <th>Job status</th>
+      <th>Attempts</th>
+      <th>Retries</th>
+      <th>Last error</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in preview.status.recipients %}
+    <tr>
+      <td>{{ row.masked_email }}</td>
+      <td>{{ row.state_label }}</td>
+      <td>{{ row.reason_code|default:"-" }}</td>
+      <td>{{ row.job_status|default:"-" }}</td>
+      <td>{{ row.job_attempts }}/{{ row.job_max_attempts }}</td>
+      <td>{{ row.retry_count }}</td>
+      <td>{{ row.last_error|default:"-" }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7">No recipient deliveries recorded.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}{% endblock %}

@@ -28,6 +28,12 @@ from community_base.coursework.models import (
     UserWrappedStatistics,
     WrappedStatistics,
 )
+from community_base.coursework.project_results_notifications import (
+    ProjectResultsNotificationError,
+    preview_project_results_notifications,
+    retry_failed_project_results_notifications,
+    send_project_results_notifications,
+)
 from community_base.coursework.registration import public_course_registration_count
 from community_base.coursework.review import (
     add_volunteer_peer_review,
@@ -232,8 +238,79 @@ def project_detail(request, project_id):
             ).select_related("reviewer__student", "submission_under_evaluation__student"),
             "submissions": project.submissions.select_related("student").order_by("id"),
             "criteria_form": CriteriaAssignmentForm(),
+            "results_preview": preview_project_results_notifications(project),
         },
     )
+
+
+@staff_required
+def project_results_notifications_preview(request, project_id):
+    project = get_object_or_404(Project.objects.select_related("cohort__course"), pk=project_id)
+    preview = preview_project_results_notifications(project)
+    return render(
+        request,
+        "community_base/coursework/studio/project_results_notifications.html",
+        {
+            "project": project,
+            "preview": preview,
+        },
+    )
+
+
+@staff_required
+@require_POST
+def project_results_notifications_send(request, project_id):
+    project = get_object_or_404(Project.objects.select_related("cohort__course"), pk=project_id)
+    try:
+        result = send_project_results_notifications(project, actor=request.user)
+    except ProjectResultsNotificationError as error:
+        messages.error(request, error.message)
+    else:
+        if result.created:
+            _audit(
+                request,
+                "coursework.project.results_emails_queued",
+                project,
+                eligible_count=result.status.eligible_count,
+                enqueued_count=result.status.enqueued_count,
+                suppressed_count=result.status.suppressed_count,
+            )
+            messages.success(
+                request,
+                f"Queued {result.status.enqueued_count} results email(s) "
+                f"({result.status.suppressed_count} suppressed).",
+            )
+        else:
+            messages.info(
+                request,
+                "Results emails were already queued for this project attempt.",
+            )
+    return redirect("coursework_studio_project_results_notifications", project_id=project.pk)
+
+
+@staff_required
+@require_POST
+def project_results_notifications_retry(request, project_id):
+    project = get_object_or_404(Project.objects.select_related("cohort__course"), pk=project_id)
+    try:
+        result = retry_failed_project_results_notifications(project, actor=request.user)
+    except ProjectResultsNotificationError as error:
+        messages.error(request, error.message)
+    else:
+        if result.retried_count > 0:
+            _audit(
+                request,
+                "coursework.project.results_emails_retried",
+                project,
+                retried_count=result.retried_count,
+            )
+            messages.success(
+                request,
+                f"Retried {result.retried_count} failed results email(s).",
+            )
+        else:
+            messages.info(request, "No dead deliveries to retry.")
+    return redirect("coursework_studio_project_results_notifications", project_id=project.pk)
 
 
 @staff_required
