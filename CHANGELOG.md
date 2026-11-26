@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.40
+
+- Attempt-scoped graduate certificate orchestration and private preview (#428): `community_base.coursework.attempt_certificates` (`evaluate_attempt_certificates`, `generate_missing_attempt_certificates`, `render_private_certificate_preview`, `ExistingCertificate`, `CompletionPolicyDecision`, `CertificateStatus`). No migrations.
+
 ## 0.5.39
 
 - Learner attempt flow extracted from AI Shipping Labs: `coursework.attempt_flow`
