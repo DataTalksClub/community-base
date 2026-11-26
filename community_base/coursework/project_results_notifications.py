@@ -253,9 +253,7 @@ def _build_status(notification: ProjectResultsNotification) -> ProjectResultsNot
     ambiguous_count = 0
     bounced_or_complained_count = 0
 
-    recipients = notification.recipients.select_related(
-        "delivery", "delivery__job", "user"
-    ).order_by("id")
+    recipients = notification.recipients.select_related("delivery", "delivery__job").order_by("id")
     for item in recipients:
         delivery = item.delivery
         state = delivery.state
@@ -302,9 +300,7 @@ def _build_status(notification: ProjectResultsNotification) -> ProjectResultsNot
             )
         )
 
-    actor_label = ""
-    if notification.triggered_by is not None:
-        actor_label = masked_email(getattr(notification.triggered_by, "email", "") or "")
+    actor_label = notification.triggered_by_label
 
     return ProjectResultsNotificationStatus(
         notification_id=notification.pk,
@@ -334,11 +330,7 @@ def get_project_results_notification_status(
     _course_slug, _course_title, _cohort_slug, _project_slug, _scope_key, scope_hash = (
         _project_scope(project)
     )
-    notification = (
-        ProjectResultsNotification.objects.select_related("triggered_by")
-        .filter(scope_hash=scope_hash)
-        .first()
-    )
+    notification = ProjectResultsNotification.objects.filter(scope_hash=scope_hash).first()
     if notification is None:
         return None
     return _build_status(notification)
@@ -351,11 +343,7 @@ def preview_project_results_notifications(project) -> ProjectResultsPreview:
     )
     allowed, blocked_code, blocked_reason = _project_state_gate(project)
     audience = _eligible_audience(project)
-    existing = (
-        ProjectResultsNotification.objects.select_related("triggered_by")
-        .filter(scope_hash=scope_hash)
-        .first()
-    )
+    existing = ProjectResultsNotification.objects.filter(scope_hash=scope_hash).first()
     status = _build_status(existing) if existing is not None else None
     already_sent = existing is not None
     if already_sent and not blocked_code:
@@ -413,6 +401,8 @@ def send_project_results_notifications(
     related_type = meta.label_lower if meta is not None else ""
     related_id = str(getattr(project, "pk", "") or "")
     actor_user = actor if getattr(actor, "pk", None) else None
+    actor_ref = str(actor_user.pk) if actor_user is not None else ""
+    actor_label = masked_email(getattr(actor_user, "email", "") or "") if actor_user else ""
 
     with transaction.atomic():
         existing = (
@@ -445,7 +435,8 @@ def send_project_results_notifications(
                     project_title=project.title,
                     related_object_type=related_type,
                     related_object_id=related_id,
-                    triggered_by=actor_user,
+                    triggered_by_ref=actor_ref,
+                    triggered_by_label=actor_label,
                     eligible_count=audience.eligible_count,
                 )
         except IntegrityError:
@@ -490,7 +481,7 @@ def send_project_results_notifications(
                 enqueued_count += 1
             ProjectResultsNotificationRecipient.objects.create(
                 notification=notification,
-                user=recipient.user,
+                recipient_user_id=str(recipient.user.pk),
                 submission_id=str(recipient.submission.pk),
                 delivery=delivery,
             )

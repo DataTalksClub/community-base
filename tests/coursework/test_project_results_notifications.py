@@ -167,7 +167,9 @@ def test_scoping_pass_fail_independence_and_no_leakage():
         assert "total_score" not in serialized
         assert "failed@example.com" not in serialized
         assert "passed@example.com" not in serialized
-    assert failed_user.pk in {r.user_id for r in ProjectResultsNotificationRecipient.objects.all()}
+    assert str(failed_user.pk) in {
+        r.recipient_user_id for r in ProjectResultsNotificationRecipient.objects.all()
+    }
 
 
 def test_state_gates_closing_alone_and_no_historical_replay():

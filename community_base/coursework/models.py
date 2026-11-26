@@ -1245,13 +1245,8 @@ class ProjectResultsNotification(models.Model):
     project_title = models.CharField(max_length=200, blank=True, default="")
     related_object_type = models.CharField(max_length=128, blank=True, default="")
     related_object_id = models.CharField(max_length=128, blank=True, default="")
-    triggered_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="triggered_project_results_notifications",
-    )
+    triggered_by_ref = models.CharField(max_length=128, blank=True, default="")
+    triggered_by_label = models.CharField(max_length=254, blank=True, default="")
     eligible_count = models.PositiveIntegerField(default=0)
     enqueued_count = models.PositiveIntegerField(default=0)
     suppressed_count = models.PositiveIntegerField(default=0)
@@ -1273,13 +1268,7 @@ class ProjectResultsNotificationRecipient(models.Model):
         on_delete=models.CASCADE,
         related_name="recipients",
     )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="project_results_notification_recipients",
-    )
+    recipient_user_id = models.CharField(max_length=128)
     submission_id = models.CharField(max_length=128)
     delivery = models.ForeignKey(
         "cb_mail.EmailDelivery",
@@ -1294,11 +1283,10 @@ class ProjectResultsNotificationRecipient(models.Model):
         ordering = ("id",)
         constraints = [
             models.UniqueConstraint(
-                fields=("notification", "user"),
-                condition=models.Q(user__isnull=False),
+                fields=("notification", "recipient_user_id"),
                 name="cb_proj_results_notif_user_uq",
             )
         ]
 
     def __str__(self):
-        return f"notification={self.notification_id} user={self.user_id}"
+        return f"notification={self.notification_id} user={self.recipient_user_id}"
