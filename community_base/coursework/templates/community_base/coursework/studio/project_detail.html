@@ -5,6 +5,11 @@
 <p>State {{ project.get_state_display }} · submissions due {{ project.submission_due_date|default:"no date" }} · reviews due {{ project.peer_review_due_date|default:"no date" }}</p>
 <form method="post" action="{% url 'coursework_studio_project_assign_reviews' project.pk %}">{% csrf_token %}<button type="submit">Assign peer reviews</button></form>
 <form method="post" action="{% url 'coursework_studio_project_score' project.pk %}">{% csrf_token %}<button type="submit">Score project</button></form>
+<p>
+  <a href="{% url 'coursework_studio_project_results_notifications' project.pk %}">
+    Results emails (eligible: {{ results_preview.eligible_count }}{% if results_preview.already_sent %}, sent{% endif %})
+  </a>
+</p>
 
 <h2>Criteria</h2>
 <ol>

@@ -61,6 +61,21 @@ urlpatterns = [
         name="coursework_studio_project_score",
     ),
     path(
+        "projects/<int:project_id>/results-email/",
+        studio_views.project_results_notifications_preview,
+        name="coursework_studio_project_results_notifications",
+    ),
+    path(
+        "projects/<int:project_id>/results-email/send/",
+        studio_views.project_results_notifications_send,
+        name="coursework_studio_project_results_notifications_send",
+    ),
+    path(
+        "projects/<int:project_id>/results-email/retry/",
+        studio_views.project_results_notifications_retry,
+        name="coursework_studio_project_results_notifications_retry",
+    ),
+    path(
         "projects/<int:project_id>/criteria/add/",
         studio_views.criteria_add,
         name="coursework_studio_criteria_add",

@@ -307,6 +307,16 @@ against `SITE_URL`, and returns `None` on a site that does not mount `coursework
 points the hook at its own routes.
 | `coursework.review_received` | A review is submitted (both modes) | Reviewee |
 | `coursework.review_window_expired` | A pooled review's batch expires it | Reviewer |
+| `coursework.project_results` | Staff explicitly triggers results emails for a completed dated attempt (`project_results_notifications`) | Unique eligible submitters |
+
+`project_results_notifications.py` provides read-only preview (`preview_project_results_notifications`),
+concurrency-safe explicit send (`send_project_results_notifications`), per-job and per-recipient
+status (`get_project_results_notification_status`), and idempotent retry for `dead` deliveries
+(`retry_failed_project_results_notifications`). Links come from
+`COURSEWORK_PROJECT_RESULTS_URL_BUILDER`, called as `builder(project=..., submission=..., user=...)`,
+defaulting to `coursework_projects_eval` against `SITE_URL` (or `None` when `coursework.urls` is not
+mounted). Closing peer review alone never sends mail, and existing completed attempts are never
+replayed automatically.
 
 A self-paced cohort has no deadlines, so the homework and project-submission deadline reminders
 skip it even when a date is stored. `reminders.py`'s existing `coursework.peer_review_deadline` scheduled reminder now also scans

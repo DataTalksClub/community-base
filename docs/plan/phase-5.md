@@ -1817,6 +1817,48 @@ Done when
 Docs
 - `community_base/coursework/README.md`, `CHANGELOG.md`.
 
+## C5.2t Staff-triggered project results email for exact attempt submitters
+
+Repository: community-base. Depends on: C5.2e, C5.2g. Freeze required: no.
+
+Goal: add a staff-triggered preview and explicit send (plus auditable per-job and per-recipient
+delivery state and failed-delivery retry) for emailing unique eligible submitters of one completed
+dated project attempt, using `community_base.mail.send()` (`coursework.project_results`) and a
+site-injectable `COURSEWORK_PROJECT_RESULTS_URL_BUILDER` hook, without historical replay or grade
+or recipient leakage.
+
+Read first
+- `community_base/coursework/notifications.py`, `hooks.py`, `studio_views.py`, `studio_urls.py`.
+- `community_base/mail/service.py` and `community_base/mail/models.py`.
+
+Steps
+1. Add `COURSEWORK_PROJECT_RESULTS_URL_BUILDER` to `community_base/kernel/conf.py` and
+   `community_base/coursework/hooks.py`.
+2. Add `ProjectResultsNotification` and `ProjectResultsNotificationRecipient` models in
+   `community_base/coursework/models.py` with an append-only migration.
+3. Add `community_base/coursework/project_results_notifications.py` with read-only preview,
+   concurrency-safe explicit send, auditable status reporting, and idempotent retry for dead
+   deliveries.
+4. Add staff-gated Studio preview, send, and retry views and templates in
+   `community_base/coursework/studio_views.py` and `studio_urls.py`.
+5. Add synthetic tests covering scoping, state gates, permissions, audience changes, idempotent
+   retry, concurrent/double-click protection, and no historical replay.
+
+Verification
+- `uv run pytest tests/coursework/test_project_results_notifications.py` -> all pass.
+- Quality gates in `docs/04-quality-gates.md` sections 1 and 2 pass.
+
+Done when
+- [ ] Preview returns exact eligible count without writing or sending.
+- [ ] Explicit send enforces `ProjectState.COMPLETED` on dated attempts and sends one email per
+      unique eligible submitter via `coursework.project_results`, with no grade or recipient leak.
+- [ ] Concurrent/double-click sends and retries are protected against duplicates, and per-job /
+      per-recipient delivery state is exposed in Studio.
+- [ ] Closing reviews alone or having existing completed attempts triggers zero sends.
+
+Docs
+- `community_base/coursework/README.md`, `docs/02-architecture.md`, `CHANGELOG.md`.
+
 ## C5.3 Release 0.6.0
 
 Repository: community-base. Depends on: C3.7, C4.3, C5.2e, C5.1e, C5.2h. Playbook P15.

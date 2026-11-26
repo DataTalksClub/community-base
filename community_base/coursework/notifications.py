@@ -31,6 +31,7 @@ REVIEW_ASSIGNED_PURPOSE = "coursework.review_assigned"
 POOL_READY_PURPOSE = "coursework.pool_ready"
 REVIEW_RECEIVED_PURPOSE = "coursework.review_received"
 REVIEW_WINDOW_EXPIRED_PURPOSE = "coursework.review_window_expired"
+PROJECT_RESULTS_PURPOSE = "coursework.project_results"
 
 
 def _project_cohort(project):
