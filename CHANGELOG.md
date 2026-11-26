@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.41
+
+- Staff-triggered project results email for exact attempt submitters (`C5.2t`, #427):
+  `community_base.coursework.project_results_notifications` (`preview_project_results_notifications`,
+  `send_project_results_notifications`, `get_project_results_notification_status`,
+  `retry_failed_project_results_notifications`), `PROJECT_RESULTS_PURPOSE = "coursework.project_results"`,
+  `COURSEWORK_PROJECT_RESULTS_URL_BUILDER` hook, `ProjectResultsNotification` and
+  `ProjectResultsNotificationRecipient` models (migration `cb_coursework.0009`), and Studio
+  preview, send, and retry views.
+
 ## 0.5.40
 
 - Attempt-scoped graduate certificate orchestration and private preview (#428): `community_base.coursework.attempt_certificates` (`evaluate_attempt_certificates`, `generate_missing_attempt_certificates`, `render_private_certificate_preview`, `ExistingCertificate`, `CompletionPolicyDecision`, `CertificateStatus`). No migrations.
